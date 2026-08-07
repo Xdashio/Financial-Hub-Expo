@@ -1,0 +1,14 @@
+node_modules/
+dist
+
+# Environment files (never commit secrets)
+.env
+.env.local
+
+!.env.example
+
+# Build artifacts
+*.tsbuildinfo
+
+# Supabase local state
+supabase/.temp/
