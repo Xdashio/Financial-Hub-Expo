@@ -2,6 +2,8 @@
 
 Phased from empty repo → MVP showcase → embeddable product with billing. Timeframes are intentionally left as relative (not calendar dates) since this is a slow, clean build with an unfunded team — sequence matters more than deadlines here.
 
+**Strategic context:** Financial HUB is a behavior-driven financial intelligence layer that structures income before spending, automates purpose-based allocations, protects savings, and helps individuals build long-term financial resilience across the financial institutions they already use. The roadmap reflects this positioning as infrastructure, not competition to existing financial institutions.
+
 ## Phase 0 — Foundation (current)
 - [x] Core concept defined (pockets, protected savings, 4 plan types, reallocation friction)
 - [x] Core screens designed (Onboarding → Result → Home ×2 → Detail → Reallocate → Insights → Profile)
