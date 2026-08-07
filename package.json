@@ -1,0 +1,19 @@
+{
+  "name": "financial-hub",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter mobile dev\"",
+    "dev:mobile": "pnpm --filter mobile dev",
+    "dev:api": "pnpm --filter api dev",
+    "build": "pnpm --filter mobile build && pnpm --filter api build && pnpm --filter shared build",
+    "lint": "pnpm --filter mobile lint && pnpm --filter api lint && pnpm --filter shared lint",
+    "typecheck": "pnpm --filter mobile typecheck && pnpm --filter api typecheck && pnpm --filter shared typecheck",
+    "test": "pnpm --filter mobile test && pnpm --filter api test && pnpm --filter shared test",
+    "clean": "pnpm --filter mobile clean && pnpm --filter api clean && pnpm --filter shared clean"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "packageManager": "pnpm@9.0.0"
+}

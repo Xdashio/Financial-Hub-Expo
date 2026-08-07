@@ -1,0 +1,5 @@
+node_modules
+.devin
+PROMPT_PACKS.md
+.env.local
+.env
