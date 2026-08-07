@@ -1,5 +1,76 @@
-node_modules
-.devin
-PROMPT_PACKS.md
-.env.local
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.turbo/
+
+# Environment files (never commit secrets)
 .env
+.env.local
+.env.*.local
+
+# Expo
+.expo/
+expo-env.d.ts
+web-build/
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+/ios
+/android
+
+# Metro
+.metro-health-check*
+
+# Debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+pnpm-debug.*
+
+# TypeScript
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+
+# Supabase local state
+supabase/.temp/
+
+# Logs
+logs/
+*.log
+
+# Devin
+.devin/
+
+# Misc
+PROMPT_PACKS.md
