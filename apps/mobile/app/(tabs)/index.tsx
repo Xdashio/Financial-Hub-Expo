@@ -1,0 +1,406 @@
+import { View, Text, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+import { colors, radius, spacing, typography, shadow } from '../../src/theme';
+import { Shield, RefreshCw, Lock } from 'lucide-react-native';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.paper,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  brandBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.xs,
+  },
+  brandMark: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  brandGlyph: {
+    width: 26,
+    height: 26,
+    borderRadius: radius.xs,
+    backgroundColor: colors.emeraldDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandWordmark: {
+    ...typography.heading,
+    fontWeight: '700',
+    color: colors.ink,
+    letterSpacing: -0.18,
+  },
+  avatar: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.sm,
+    backgroundColor: colors.goldTint,
+    color: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: typography.fontFamilyExtraBold,
+  },
+  balanceBlock: {
+    marginTop: spacing.xl,
+  },
+  balanceLabel: {
+    ...typography.caption,
+    fontWeight: '600',
+    color: colors.sage,
+    letterSpacing: 0.36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  balanceValue: {
+    ...typography.display,
+    fontWeight: '700',
+    color: colors.emeraldDeep,
+    marginTop: spacing.xs,
+    fontVariant: ['tabular-nums'],
+  },
+  balanceSub: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.sage,
+    marginTop: spacing.xs,
+  },
+  balanceSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.lineSoft,
+  },
+  balanceSecondaryLabel: {
+    ...typography.caption,
+    color: colors.sage,
+  },
+  balanceSecondaryValue: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.inkSoft,
+    fontVariant: ['tabular-nums'],
+  },
+  protectStrip: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.emeraldTint,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  protectStripText: {
+    ...typography.caption,
+    fontWeight: '500',
+    color: colors.emeraldDeep,
+  },
+  sectionLabel: {
+    ...typography.eyebrow,
+    marginTop: spacing.xxl,
+    marginBottom: spacing.md,
+  },
+  pocketCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadow.default,
+  },
+  pocketTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  pocketNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  pocketDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  pocketName: {
+    ...typography.heading,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  pocketAmount: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  pocketBarTrack: {
+    height: 6,
+    backgroundColor: colors.lineSoft,
+    borderRadius: radius.pill,
+    marginTop: spacing.md,
+    overflow: 'hidden',
+  },
+  pocketBarFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  pocketMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+  pocketMetaText: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.sage,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+  },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.lg,
+    backgroundColor: colors.emeraldTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  emptyTitle: {
+    ...typography.title,
+    fontWeight: '700',
+    color: colors.ink,
+  },
+  emptySub: {
+    ...typography.body,
+    color: colors.sage,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+  dailyPocketCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadow.default,
+  },
+  dailyPocketTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dailyPocketLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  dailyPocketRight: {
+    alignItems: 'flex-end',
+  },
+  dailyPocketRemaining: {
+    ...typography.heading,
+    fontWeight: '700',
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  dailyPocketCap: {
+    ...typography.caption,
+    color: colors.sage,
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  dailyPocketBarTrack: {
+    height: 6,
+    backgroundColor: colors.lineSoft,
+    borderRadius: radius.pill,
+    marginTop: spacing.md,
+    overflow: 'hidden',
+  },
+  dailyPocketBarFill: {
+    height: '100%',
+    borderRadius: radius.pill,
+  },
+  rolloverStrip: {
+    marginTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  rolloverLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  rolloverIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.xs,
+    backgroundColor: colors.goldTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rolloverTitle: {
+    ...typography.heading,
+    fontWeight: '600',
+    color: colors.ink,
+  },
+  rolloverSub: {
+    ...typography.caption,
+    fontSize: 11,
+    color: colors.sage,
+    marginTop: 1,
+  },
+  rolloverValue: {
+    ...typography.body,
+    fontWeight: '700',
+    color: colors.emeraldDeep,
+    fontVariant: ['tabular-nums'],
+  },
+});
+
+const POCKETS = [
+  { name: 'Fixed costs', color: colors.emerald, amount: '42,500', progress: 1, status: 'Settled' },
+  { name: 'Savings', color: colors.gold, amount: '15,000', progress: 0.3, status: 'Protected', locked: true },
+  { name: 'Food & groceries', color: colors.emerald, amount: '8,200', progress: 0.45, status: 'Daily cap' },
+  { name: 'Transport', color: colors.plum, amount: '5,400', progress: 0.6, status: 'Daily cap' },
+  { name: 'Personal & leisure', color: colors.clay, amount: '7,100', progress: 0.25, status: 'Daily cap' },
+];
+
+const DAILY_POCKETS = [
+  { name: 'Food & groceries', color: colors.emerald, remaining: 180, cap: 250, progress: 0.28 },
+  { name: 'Transport', color: colors.plum, remaining: 120, cap: 200, progress: 0.4 },
+  { name: 'Personal & leisure', color: colors.clay, remaining: 160, cap: 200, progress: 0.2 },
+];
+
+export default function HomeScreen() {
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <View style={styles.brandBar}>
+          <View style={styles.brandMark}>
+            <View style={styles.brandGlyph}>
+              <Text style={{ color: 'white', fontSize: 14, fontWeight: '700' }}>FH</Text>
+            </View>
+            <Text style={styles.brandWordmark}>Financial Hub</Text>
+          </View>
+          <Text style={styles.avatar}>JD</Text>
+        </View>
+
+        <View style={styles.balanceBlock}>
+          <Text style={styles.balanceLabel}>Safe to spend today</Text>
+          <Text style={styles.balanceValue}>KES 460</Text>
+          <Text style={styles.balanceSub}>Sum of daily caps</Text>
+        </View>
+
+        <View style={styles.balanceSecondary}>
+          <Text style={styles.balanceSecondaryLabel}>Total balance</Text>
+          <Text style={styles.balanceSecondaryValue}>KES 78,200</Text>
+        </View>
+
+        <View style={styles.protectStrip}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Shield size={14} color={colors.emeraldDeep} strokeWidth={2} style={{ marginRight: 4 }} />
+            <Text style={styles.protectStripText}>Savings protected — unspent daily amounts roll over</Text>
+          </View>
+        </View>
+
+        <View style={styles.rolloverStrip}>
+          <View style={styles.rolloverLeft}>
+            <View style={styles.rolloverIcon}>
+              <RefreshCw size={16} color={colors.gold} strokeWidth={2.5} />
+            </View>
+            <View>
+              <Text style={styles.rolloverTitle}>Today's rollover</Text>
+              <Text style={styles.rolloverSub}>Unspent amounts move to Savings at midnight</Text>
+            </View>
+          </View>
+          <Text style={styles.rolloverValue}>KES 140</Text>
+        </View>
+
+        <Text style={styles.sectionLabel}>Spendable pockets</Text>
+
+        {DAILY_POCKETS.map((pocket, i) => (
+          <View key={i} style={styles.dailyPocketCard}>
+            <View style={styles.dailyPocketTop}>
+              <View style={styles.dailyPocketLeft}>
+                <View style={[styles.pocketDot, { backgroundColor: pocket.color }]} />
+                <Text style={styles.pocketName}>{pocket.name}</Text>
+              </View>
+              <View style={styles.dailyPocketRight}>
+                <Text style={styles.dailyPocketRemaining}>{pocket.remaining} left</Text>
+                <Text style={styles.dailyPocketCap}>/ {pocket.cap} cap</Text>
+              </View>
+            </View>
+            <View style={styles.dailyPocketBarTrack}>
+              <View
+                style={[
+                  styles.dailyPocketBarFill,
+                  { backgroundColor: pocket.color, width: `${pocket.progress * 100}%` },
+                ]}
+              />
+            </View>
+          </View>
+        ))}
+
+        <Text style={styles.sectionLabel}>Fixed & Protected</Text>
+
+        {POCKETS.slice(0, 2).map((pocket, i) => (
+          <View key={i} style={styles.pocketCard}>
+            <View style={styles.pocketTop}>
+              <View style={styles.pocketNameRow}>
+                <View style={[styles.pocketDot, { backgroundColor: pocket.color }]} />
+                <Text style={styles.pocketName}>{pocket.name}</Text>
+                {pocket.locked && (
+                  <Lock size={12} color={colors.sage} strokeWidth={2.5} />
+                )}
+              </View>
+              <Text style={styles.pocketAmount}>KES {pocket.amount}</Text>
+            </View>
+            <View style={styles.pocketBarTrack}>
+              <View
+                style={[
+                  styles.pocketBarFill,
+                  { backgroundColor: pocket.color, width: `${pocket.progress * 100}%` },
+                ]}
+              />
+            </View>
+            <View style={styles.pocketMeta}>
+              <Text style={styles.pocketMetaText}>{pocket.status}</Text>
+              <Text style={styles.pocketMetaText}>{pocket.locked ? 'Locked' : 'Available'}</Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
