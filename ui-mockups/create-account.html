@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Account — Financial Hub Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="mockup-stage">
+  <div class="phone-wrap">
+    <a class="back-link" href="index.html">← All mockups</a>
+
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="statusbar"><span>9:41</span><span> &nbsp;    &nbsp;98%</span></div>
+      <div class="screen-body">
+        <div class="brandbar" style="justify-content:center; padding-top:36px;">
+          <div class="brandmark">
+            <div class="glyph"><img src="../assets/financial_hub_logo_transparent.png" alt="Financial Hub Logo"></div>
+            <span class="wordmark">Financial Hub</span>
+          </div>
+        </div>
+
+        <div style="text-align:center; margin-top:36px;">
+          <div class="eyebrow">Your money, in pockets</div>
+          <h1 class="h-display" style="margin-top:8px;">Create your account</h1>
+          <p class="subtext">Enter your phone number — we'll send a one-time code to verify you.</p>
+        </div>
+
+        <div class="field-block">
+          <div class="lab-title">Phone number</div>
+          <div class="amount-input-wrap" style="margin-top:8px; padding:16px;">
+            <span class="cur" style="font-size:15px;">+254</span>
+            <input type="tel" value="712 345 678" aria-label="Phone number" inputmode="tel" style="font-size:22px;">
+          </div>
+          <p style="font-family:'Inter'; font-size:11px; color:var(--sage); margin-top:8px;">Uses the device's number pad — no custom keypad needed.</p>
+        </div>
+
+        <div class="field-block">
+          <div class="lab-title">Full name</div>
+          <input class="text-input" type="text" value="Amina Mwangi" aria-label="Full name" autocomplete="name">
+        </div>
+
+        <div class="dev-otp-note">
+          <svg width="15" height="15" viewBox="0 0 24 24" class="icon"><path d="M9 3v2M15 3v2M5 7h14M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7"/><path d="M12 11v3M12 17h.01"/></svg>
+          <span><b>Dev build:</b> SMS OTP needs a paid provider, so in the showcase the code appears on screen / in the terminal. Phone OTP remains the real flow — only the delivery differs until funded.</span>
+        </div>
+      </div>
+      <div class="screen-footer">
+        <button class="btn-primary">Send one-time code
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        </button>
+        <div style="text-align:center; margin-top:10px; font-family:'Inter'; font-size:13px; color:var(--sage);">Already have an account? <button class="btn-ghost">Sign in</button></div>
+      </div>
+    </div>
+
+    <div class="screen-caption">
+      <div class="n">15 — Create account</div>
+      <div class="d"><span class="decision-tag">Settled decision</span>Phone OTP is the only auth flow. MVP dev builds surface the code on screen/terminal instead of SMS; production sends real SMS once funded. Device keypad — no custom keypad.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
