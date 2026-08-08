@@ -50,7 +50,7 @@ export default function BiometricEnableScreen() {
     if (isReady && !biometricAvailable) {
       const handleSkip = async () => {
         await checkHasPlan();
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise<void>((resolve) => setTimeout(resolve, 100));
         router.replace('/');
       };
       handleSkip();
@@ -91,7 +91,7 @@ export default function BiometricEnableScreen() {
     // send the user to onboarding or home as appropriate.
     // Ensure plan check completes before redirecting
     await checkHasPlan();
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
     router.replace('/');
   };
 
