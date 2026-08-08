@@ -73,6 +73,7 @@ interface OnboardingState {
   reset: () => void;
   goBack: () => void;
   goNext: () => void;
+  recoverState: () => Promise<void>;
 }
 
 const STEP_ORDER: OnboardingStep[] = ['income', 'habits', 'fixed', 'result'];
@@ -181,10 +182,21 @@ export const useOnboardingStore = create<OnboardingState>()(
       commitPlan: async () => {
         set({ isLoading: true, error: null });
         try {
-          const { input } = get();
+          const { input, fixedExpenses } = get();
           const fullInput = input as OnboardingInput;
           
-          const result = await onboardingApi.commit(fullInput);
+          // Include fixedExpenses in the commit data
+          const commitData = {
+            ...fullInput,
+            fixedExpenses: fixedExpenses.length > 0 ? fixedExpenses.map(expense => ({
+              name: expense.name,
+              amount: expense.amount,
+              dueDay: expense.dueDay,
+              category: expense.category as any, // Cast to satisfy type system
+            })) : undefined,
+          };
+          
+          const result = await onboardingApi.commit(commitData);
           set({ commitResult: result, isLoading: false });
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Failed to commit plan', isLoading: false });
@@ -220,6 +232,20 @@ export const useOnboardingStore = create<OnboardingState>()(
           }
           return state;
         }),
+
+      recoverState: async () => {
+        const { assignResult, commitResult, currentStep } = get();
+        
+        // If user has commitResult but is not on result screen, they may have been interrupted
+        if (commitResult && currentStep !== 'result') {
+          set({ currentStep: 'result' });
+        }
+        
+        // If user has assignResult but no commitResult, they may have been interrupted during preview
+        if (assignResult && !commitResult && currentStep !== 'result') {
+          set({ currentStep: 'result' });
+        }
+      },
     }),
     {
       name: 'onboarding-storage',
@@ -240,6 +266,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         input: state.input,
         fixedExpenses: state.fixedExpenses,
         assignResult: state.assignResult,
+        commitResult: state.commitResult,
       }),
     }
   )

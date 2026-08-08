@@ -114,17 +114,34 @@ export const useAuthStore = create<AuthState>()(
             set({ hasPlan: false, isCheckingPlan: false });
             return;
           }
-          const res = await fetch(`${API_BASE_URL}/pockets`, {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          });
-          if (!res.ok) {
-            // Treat any non-200 (e.g. 401, 500) as "no plan" — safe default
-            set({ hasPlan: false, isCheckingPlan: false });
-            return;
+          
+          // Add retry logic for database persistence delays
+          const maxRetries = 5;
+          const retryDelay = 200;
+          
+          for (let i = 0; i < maxRetries; i++) {
+            const res = await fetch(`${API_BASE_URL}/pockets`, {
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            
+            if (res.ok) {
+              const pockets: any[] = await res.json();
+              const hasPockets = Array.isArray(pockets) && pockets.length > 0;
+              
+              if (hasPockets) {
+                set({ hasPlan: true, isCheckingPlan: false });
+                return;
+              }
+            }
+            
+            // Only retry if not the last attempt
+            if (i < maxRetries - 1) {
+              await new Promise<void>((resolve) => setTimeout(resolve, retryDelay * (i + 1)));
+            }
           }
-          const pockets: any[] = await res.json();
-          const hasPockets = Array.isArray(pockets) && pockets.length > 0;
-          set({ hasPlan: hasPockets, isCheckingPlan: false });
+          
+          // All retries failed
+          set({ hasPlan: false, isCheckingPlan: false });
         } catch {
           // Network error — default to no plan so user isn't stuck
           set({ hasPlan: false, isCheckingPlan: false });
@@ -284,8 +301,20 @@ export const useAuthStore = create<AuthState>()(
           // Heal the local cache if it was missing/stale/for a different user.
           await storeUser(user);
           set({ user, isAuthenticated: true, session });
+          
           // Check for existing plan so returning users route correctly on cold start
           await get().checkHasPlan();
+          
+          // RECOVERY: If hasPlan is false but user has partial onboarding state,
+          // attempt to recover from database to prevent getting stuck
+          const hasPlan = get().hasPlan;
+          if (!hasPlan) {
+            // User is authenticated but hasPlan is false
+            // This could mean they completed onboarding but state wasn't updated
+            // Try to verify by checking the database one more time with longer delay
+            await new Promise<void>((resolve) => setTimeout(resolve, 500));
+            await get().checkHasPlan();
+          }
         } else {
           // No live session — don't trust a leftover local cache to grant
           // access with no real credentials behind it.
