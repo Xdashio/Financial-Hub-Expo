@@ -193,11 +193,13 @@ export default function ResultScreen() {
             loading={isCommitting}
             onPress={handleEnterPlan}
             rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+            accessibilityLabel="Enter my plan and create pockets"
+            accessibilityRole="button"
           >
             Enter my plan
           </Button>
           <View style={styles.adjustLink}>
-            <Button variant="ghost" onPress={handleAdjust}>
+            <Button variant="ghost" onPress={handleAdjust} accessibilityLabel="Go back and adjust onboarding answers" accessibilityRole="button">
               Adjust before I start
             </Button>
           </View>

@@ -70,16 +70,20 @@ export default function VerifyOtpScreen() {
         return;
       }
 
-      // OTP verified successfully — user is already authenticated.
-      // For signup mode we do NOT call signUp() again (that would fire
-      // another signInWithOtp, which hangs indefinitely).
-      if (mode === 'signup' || mode === 'signin' || mode === 'new-device') {
+      // OTP verified — checkHasPlan() was already called inside verifyOtp().
+      // For new sign-ups with biometrics available, show the biometric enable prompt first.
+      // In all other cases, let index.tsx handle routing (it now knows hasPlan state).
+      if (mode === 'signup') {
         const hasBiometric = await useAuthStore.getState().checkBiometricAvailability();
-        if (mode === 'signup' && hasBiometric) {
+        if (hasBiometric) {
           router.replace({ pathname: '/(auth)/biometric-enable', params: { fromSignup: 'true' } });
         } else {
-          router.replace('/(tabs)');
+          // No biometrics — go to index so it routes to onboarding or home correctly
+          router.replace('/');
         }
+      } else {
+        // signin or new-device: go to index, which routes based on hasPlan
+        router.replace('/');
       }
     } catch (err) {
       Alert.alert('Error', 'Verification failed. Please try again.');

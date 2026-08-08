@@ -5,6 +5,11 @@ import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from '@/config/supabase.config';
 
+// Base URL for API calls — mirrors the pattern in api.ts
+const API_BASE_URL = __DEV__
+  ? 'http://localhost:3000/api'
+  : 'https://api.financialhub.app/api';
+
 // expo-secure-store has no web implementation (it throws
 // "getValueWithKeyAsync is not a function" there), so on web we fall back to
 // localStorage. This is not secure storage — fine for local dev on the web
@@ -49,6 +54,10 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   session: any;
+  // Plan gate — true once the user has completed onboarding and has an active plan
+  hasPlan: boolean;
+  // True while we're checking the server for an active plan (avoids routing flicker)
+  isCheckingPlan: boolean;
   sendOtp: (phone: string) => Promise<void>;
   verifyOtp: (phone: string, code: string) => Promise<{ user: User | null; error?: string }>;
   signUp: (phone: string, fullName: string) => Promise<void>;
@@ -57,6 +66,7 @@ export interface AuthState {
   enableBiometrics: () => Promise<void>;
   disableBiometrics: () => Promise<void>;
   checkBiometricAvailability: () => Promise<boolean>;
+  checkHasPlan: () => Promise<void>;
   restoreSession: () => Promise<void>;
 }
 
@@ -91,6 +101,36 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       session: null,
+      hasPlan: false,
+      isCheckingPlan: false,
+
+      // Calls GET /api/pockets with the current session token.
+      // Sets hasPlan=true if the user already has at least one pocket (i.e. completed onboarding).
+      // Sets isCheckingPlan while the request is in flight so index.tsx can show a spinner
+      // instead of briefly flashing the wrong route.
+      checkHasPlan: async () => {
+        set({ isCheckingPlan: true });
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session?.access_token) {
+            set({ hasPlan: false, isCheckingPlan: false });
+            return;
+          }
+          const res = await fetch(`${API_BASE_URL}/pockets`, {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          if (!res.ok) {
+            // Treat any non-200 (e.g. 401, 500) as "no plan" — safe default
+            set({ hasPlan: false, isCheckingPlan: false });
+            return;
+          }
+          const pockets: any[] = await res.json();
+          set({ hasPlan: Array.isArray(pockets) && pockets.length > 0, isCheckingPlan: false });
+        } catch {
+          // Network error — default to no plan so user isn't stuck
+          set({ hasPlan: false, isCheckingPlan: false });
+        }
+      },
 
       sendOtp: async (phone: string) => {
         const { error } = await supabase.auth.signInWithOtp({
@@ -120,6 +160,8 @@ export const useAuthStore = create<AuthState>()(
           };
           await storeUser(user);
           set({ user, isAuthenticated: true, session: data.session });
+          // Check for existing plan so index.tsx routes to the right place
+          await get().checkHasPlan();
           return { user };
         }
         return { user: null, error: 'Verification failed' };
@@ -172,7 +214,7 @@ export const useAuthStore = create<AuthState>()(
       signOut: async () => {
         await supabase.auth.signOut();
         await clearStoredUser();
-        set({ user: null, isAuthenticated: false, session: null });
+        set({ user: null, isAuthenticated: false, session: null, hasPlan: false });
       },
 
       enableBiometrics: async () => {
@@ -212,6 +254,8 @@ export const useAuthStore = create<AuthState>()(
               isAuthenticated: true,
               session,
             });
+            // Check for existing plan so returning users route correctly on cold start
+            await get().checkHasPlan();
           }
         } else {
           const storedUser = await getStoredUser();
@@ -221,6 +265,8 @@ export const useAuthStore = create<AuthState>()(
               user: { ...storedUser, biometricEnabled },
               isAuthenticated: true,
             });
+            // No live session but stored user — still check plan with whatever token we have
+            await get().checkHasPlan();
           }
         }
       },
@@ -249,6 +295,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        hasPlan: state.hasPlan,
       }),
     }
   )

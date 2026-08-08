@@ -69,11 +69,10 @@ export default function BiometricEnableScreen() {
   };
 
   const handleContinue = () => {
-    if (fromSignup) {
-      router.replace('/(tabs)');
-    } else {
-      router.back();
-    }
+    // Always route through index so it can apply the plan gate correctly.
+    // index.tsx will read hasPlan from the store (set during verifyOtp) and
+    // send the user to onboarding or home as appropriate.
+    router.replace('/');
   };
 
   if (!biometricAvailable) {
