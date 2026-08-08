@@ -151,12 +151,7 @@ export default function VerifyOtpScreen() {
           </Text>
         </View>
 
-        <View style={styles.devNote}>
-          <Text style={styles.devNoteText}>
-            <Text style={styles.devNoteBold}>Dev build:</Text>{' '}
-            the code is shown in the terminal / console: <Text style={styles.codeDisplay}>{'------'}</Text>
-          </Text>
-        </View>
+        
 
         <Button
           fullWidth
