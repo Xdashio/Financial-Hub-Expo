@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, Pressable, Alert, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography, shadow } from '../../src/theme';
+import { useTheme, ThemeMode } from '@/theme/ThemeContext';
 import {
   Lock,
   Timer,
@@ -12,132 +13,33 @@ import {
   RefreshCw,
   List,
   LogOut,
+  Sun,
+  Monitor,
+  X,
+  LucideIcon,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/services/auth';
 import { profileApi } from '@/services/api';
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.paper,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  hero: {
-    alignItems: 'center',
-    paddingTop: spacing.xl,
-  },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.lg,
-    backgroundColor: colors.goldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  name: {
-    ...typography.title,
-    fontSize: 20,
-    color: colors.ink,
-    marginTop: spacing.md,
-  },
-  sub: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.xs,
-  },
-  planChipRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  planChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-  },
-  planChipText: {
-    ...typography.caption,
-    fontSize: 11,
-  },
-  planChipA: {
-    backgroundColor: colors.emeraldTint,
-  },
-  planChipTextA: {
-    color: colors.emeraldDeep,
-  },
-  settingsGroup: {
-    marginTop: spacing.xl,
-  },
-  groupLabel: {
-    ...typography.eyebrow,
-    marginBottom: spacing.md,
-  },
-  settingsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineSoft,
-  },
-  settingsIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.xs,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  settingsTitle: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  settingsDesc: {
-    ...typography.caption,
-    color: colors.sage,
-    marginTop: 1,
-  },
-  chevron: {
-    marginLeft: 'auto',
-    color: colors.sage,
-  },
-  signOutRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    marginTop: spacing.md,
-  },
-  signOutIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.xs,
-    backgroundColor: colors.clayTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  signOutTitle: {
-    ...typography.heading,
-    color: colors.clay,
-  },
-});
+interface SettingsItem {
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  trailing: string;
+  onPress?: () => void;
+}
+
+interface SettingsGroup {
+  label: string;
+  items: SettingsItem[];
+}
 
 export default function ProfileScreen() {
+  const { colors, mode, setMode } = useTheme();
   const router = useRouter();
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
+  const [showThemePicker, setShowThemePicker] = React.useState(false);
 
   const [plan, setPlan] = React.useState<any>(null);
   const [fixedExpenseCount, setFixedExpenseCount] = React.useState<number | null>(null);
@@ -161,7 +63,17 @@ export default function ProfileScreen() {
 
   const planLabel = plan?.type === 'daily' ? 'Daily Budget' : 'Structured Salaried';
 
-  const settingsGroups = [
+  const themeOptions = [
+    { id: 'light' as ThemeMode, label: 'Light', icon: Sun, desc: 'Always light mode' },
+    { id: 'dark' as ThemeMode, label: 'Dark', icon: Moon, desc: 'Always dark mode' },
+    { id: 'system' as ThemeMode, label: 'System', icon: Monitor, desc: 'Follow device setting' },
+  ];
+
+  const handleThemePress = () => {
+    setShowThemePicker(true);
+  };
+
+  const settingsGroups: SettingsGroup[] = [
     {
       label: 'Security',
       items: [
@@ -180,7 +92,7 @@ export default function ProfileScreen() {
       items: [
         { icon: User, title: 'Personal info', desc: 'Name, email, phone number', trailing: '' },
         { icon: Bell, title: 'Notifications', desc: 'Push and in-app alerts', trailing: 'On' },
-        { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: 'System' },
+        { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: mode.charAt(0).toUpperCase() + mode.slice(1), onPress: handleThemePress },
       ],
     },
     {
@@ -219,53 +131,103 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          <View style={styles.avatar}>
+    <SafeAreaView style={{ flex: 1 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+        <View style={{ alignItems: 'center', paddingTop: spacing.lg }}>
+          <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
             <User size={32} color={colors.gold} strokeWidth={2} />
           </View>
-          <Text style={styles.name}>{user?.fullName || '—'}</Text>
-          <Text style={styles.sub}>{user?.phone || user?.email || '—'}</Text>
-          <View style={styles.planChipRow}>
+          <Text style={{ ...typography.title, fontSize: 20, color: colors.ink, marginTop: spacing.md }}>{user?.fullName || '—'}</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs }}>{user?.phone || user?.email || '—'}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md }}>
             {isLoadingPlan ? (
               <ActivityIndicator size="small" color={colors.emeraldDeep} />
             ) : (
-              <View style={[styles.planChip, styles.planChipA]}>
-                <Text style={[styles.planChipText, styles.planChipTextA]}>{planLabel}</Text>
+              <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.emeraldTint }}>
+                <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldDeep }}>{planLabel}</Text>
               </View>
             )}
           </View>
         </View>
 
         {settingsGroups.map((group, gi) => (
-          <View key={gi} style={styles.settingsGroup}>
-            <Text style={styles.groupLabel}>{group.label}</Text>
+          <View key={gi} style={{ marginTop: spacing.xl }}>
+            <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>{group.label}</Text>
             {group.items.map((item, ii) => (
-              <View key={ii} style={styles.settingsRow}>
-                <View style={styles.settingsIcon}>
+              <Pressable 
+                key={ii} 
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}
+                onPress={item.onPress}
+                disabled={!item.onPress}
+              >
+                <View style={{ width: 34, height: 34, borderRadius: radius.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
                   <item.icon size={18} color={colors.ink} strokeWidth={2.5} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.settingsTitle}>{item.title}</Text>
-                  <Text style={styles.settingsDesc}>{item.desc}</Text>
+                  <Text style={{ ...typography.heading, color: colors.ink }}>{item.title}</Text>
+                  <Text style={{ ...typography.caption, color: colors.sage, marginTop: 1 }}>{item.desc}</Text>
                 </View>
                 {item.trailing ? (
                   <Text style={{ ...typography.caption, color: colors.sage }}>{item.trailing}</Text>
                 ) : null}
-                <Text style={styles.chevron}>›</Text>
-              </View>
+                {item.onPress ? <Text style={{ marginLeft: 'auto', color: colors.sage }}>›</Text> : null}
+              </Pressable>
             ))}
           </View>
         ))}
 
-        <Pressable style={styles.signOutRow} onPress={handleSignOut}>
-          <View style={styles.signOutIcon}>
+        <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md }} onPress={handleSignOut}>
+          <View style={{ width: 34, height: 34, borderRadius: radius.xs, backgroundColor: colors.clayTint, alignItems: 'center', justifyContent: 'center' }}>
             <LogOut size={18} color={colors.clay} strokeWidth={2.5} />
           </View>
-          <Text style={styles.signOutTitle}>Sign out</Text>
+          <Text style={{ ...typography.heading, color: colors.clay }}>Sign out</Text>
         </Pressable>
       </ScrollView>
+
+      <Modal
+        visible={showThemePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowThemePicker(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: spacing.xxl }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.line }}>
+                <Text style={{ ...typography.title, color: colors.ink }}>Appearance</Text>
+                <Pressable onPress={() => setShowThemePicker(false)} style={{ padding: spacing.sm }}>
+                  <X size={24} color={colors.ink} />
+                </Pressable>
+              </View>
+              <View style={{ padding: spacing.lg }}>
+                {themeOptions.map((option) => (
+                  <Pressable
+                    key={option.id}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: mode === option.id ? colors.emeraldTint : 'transparent' }}
+                    onPress={() => {
+                      setMode(option.id);
+                      setShowThemePicker(false);
+                    }}
+                  >
+                    <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
+                      <option.icon size={20} color={colors.ink} strokeWidth={2} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ ...typography.heading, color: colors.ink }}>{option.label}</Text>
+                      <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>{option.desc}</Text>
+                    </View>
+                    {mode === option.id && (
+                      <View style={{ width: 20, height: 20, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </View>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }

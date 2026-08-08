@@ -1,5 +1,7 @@
-import { View, TextInput, StyleSheet, Text } from 'react-native';
-import { colors, radius, spacing, typography, touchTarget } from '../../theme';
+import { View, TextInput, Text, Pressable } from 'react-native';
+import { useRef } from 'react';
+import { useTheme } from '../../theme/ThemeContext';
+import { radius, spacing, typography, touchTarget } from '../../theme';
 
 interface OtpInputProps {
   value: string;
@@ -22,8 +24,11 @@ export function OtpInput({
   error,
   accessibilityLabel = 'Enter the 6-digit verification code',
 }: OtpInputProps) {
+  const { colors } = useTheme();
+  const inputRef = useRef<TextInput>(null);
+  
   // For accessibility, we use a single hidden input that screen readers can interact with
-  // The visual cells are decorative and don't receive focus
+  // The visual cells are decorative and tappable to focus the hidden input
   
   const handleChange = (text: string) => {
     const numericText = text.replace(/\D/g, '').slice(0, OTP_LENGTH);
@@ -34,11 +39,27 @@ export function OtpInput({
     }
   };
 
+  const handleCellPress = () => {
+    if (!disabled && inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  const shouldShowError = error && value.length < OTP_LENGTH;
+
   return (
-    <View style={styles.container}>
+    <View style={{ gap: spacing.sm, alignItems: 'center', paddingHorizontal: spacing.lg }}>
       {/* Accessible single input for screen readers */}
       <TextInput
-        style={styles.hiddenInput}
+        ref={inputRef}
+        style={{
+          position: 'absolute',
+          width: 1,
+          height: 1,
+          opacity: 0,
+          top: 0,
+          left: 0,
+        }}
         value={value}
         onChangeText={handleChange}
         maxLength={OTP_LENGTH}
@@ -54,89 +75,50 @@ export function OtpInput({
       />
       
       {/* Visual cells for sighted users */}
-      <View style={styles.cellsContainer} pointerEvents="none" importantForAccessibility="no">
+      <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', width: '100%' }} importantForAccessibility="no">
         {Array.from({ length: OTP_LENGTH }, (_, i) => (
-          <View
+          <Pressable
             key={i}
-            style={[
-              styles.cell,
-              value.length > i && styles.cellFilled,
-              value.length === i && !disabled && styles.cellActive,
-              error && styles.cellError,
-            ]}
+            onPress={handleCellPress}
+            disabled={disabled}
+            accessibilityLabel={`Digit ${i + 1}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: value.length === i }}
+            style={{ flex: 1 }}
           >
-            <Text
-              style={[
-                styles.cellText,
-                value.length > i && styles.cellTextFilled,
-                value.length === i && !disabled && styles.cellTextActive,
-              ]}
+            <View
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingBottom: spacing.sm,
+                borderBottomWidth: 2,
+                borderBottomColor: value.length > i ? colors.emeraldDeep : error && shouldShowError ? colors.error : colors.line,
+                ...(value.length === i && !disabled && {
+                  borderBottomColor: colors.emeraldDeep,
+                  borderBottomWidth: 3,
+                }),
+                ...(disabled && {
+                  opacity: 0.5,
+                }),
+              }}
             >
-              {value[i] || '·'}
-            </Text>
-          </View>
+              <Text
+                style={{
+                  ...typography.display,
+                  fontSize: 32,
+                  color: value.length > i ? colors.ink : colors.sage,
+                  fontWeight: '600',
+                  lineHeight: 40,
+                }}
+              >
+                {value[i] || ''}
+              </Text>
+            </View>
+          </Pressable>
         ))}
       </View>
       
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {shouldShowError ? <Text style={{ ...typography.caption, color: colors.error, marginTop: spacing.sm }}>{error}</Text> : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    gap: spacing.sm,
-    alignItems: 'center',
-  },
-  hiddenInput: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-    outlineStyle: 'none',
-    outlineWidth: 0,
-    // This ensures the input is accessible but not visible
-  } as any,
-  cellsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cell: {
-    width: 52,
-    height: 56,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: touchTarget.minWidth,
-    minHeight: touchTarget.minHeight,
-  },
-  cellFilled: {
-    borderColor: colors.emeraldDeep,
-    backgroundColor: colors.emeraldTint,
-  },
-  cellActive: {
-    borderColor: colors.emeraldDeep,
-    borderWidth: 2,
-  },
-  cellError: {
-    borderColor: colors.error,
-  },
-  cellText: {
-    ...typography.display,
-    fontSize: 24,
-    color: colors.sage,
-  },
-  cellTextFilled: {
-    color: colors.emeraldDeep,
-  },
-  cellTextActive: {
-    color: colors.emeraldDeep,
-  },
-  errorText: {
-    ...typography.caption,
-    color: colors.error,
-  },
-});

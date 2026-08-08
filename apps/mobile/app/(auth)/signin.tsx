@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { showAlert } from '@/utils/alert';
 import { useAuthStore } from '@/services/auth';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
@@ -11,6 +12,7 @@ import React from 'react';
 
 export default function SignInScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { user, checkBiometricAvailability, sendOtp } = useAuthStore();
   const [phone, setPhone] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -70,13 +72,16 @@ export default function SignInScreen() {
     setIsLoading(true);
     try {
       const fullPhone = `+254${phone.replace(/\s/g, '')}`;
-      await sendOtp(fullPhone);
+      await sendOtp(fullPhone, { allowSignup: false });
       router.push({
         pathname: '/(auth)/verify-otp',
         params: { phone: fullPhone, mode: 'signin' },
       });
     } catch (error: any) {
       console.log('sendOtp error:', JSON.stringify(error, null, 2));
+      // auth.ts turns Supabase's "signups not allowed" error into a clear
+      // "no account found" message when allowSignup: false is used here —
+      // surface it as-is rather than the generic fallback.
       showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
@@ -98,17 +103,17 @@ export default function SignInScreen() {
 
   return (
     <ScreenContainer>
-      <SafeScrollView contentContainerStyle={styles.scrollContent}>
+      <SafeScrollView contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
         <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Your money, in pockets</Text>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtext}>Sign in to see what&apos;s safe to spend today.</Text>
+        <View style={{ alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xxl }}>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money, in pockets</Text>
+          <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>Welcome back</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md, textAlign: 'center', lineHeight: 22 }}>Sign in to see what&apos;s safe to spend today.</Text>
         </View>
 
         {showBiometric && user?.biometricEnabled && (
-          <View style={styles.biometricSection}>
+          <View style={{ marginBottom: spacing.xxl }}>
             <Button
               variant="secondary"
               fullWidth
@@ -126,15 +131,15 @@ export default function SignInScreen() {
               Continue with {biometricType === 'face' ? 'Face ID' : 'Fingerprint'}
             </Button>
             
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.dividerLine} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginVertical: spacing.lg }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.lineSoft }} />
+              <Text style={{ ...typography.caption, fontSize: 11.5, color: colors.sage }}>OR</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: colors.lineSoft }} />
             </View>
           </View>
         )}
 
-        <View style={styles.formGroup}>
+        <View style={{ gap: spacing.lg, marginBottom: spacing.xl }}>
           <Input
             label="Phone number"
             value={phone}
@@ -143,7 +148,7 @@ export default function SignInScreen() {
             keyboardType="phone-pad"
             textContentType="telephoneNumber"
             autoComplete="tel"
-            leftElement={<Text style={styles.prefix}>+254</Text>}
+            leftElement={<Text style={{ ...typography.body, fontSize: 15, color: colors.sage }}>+254</Text>}
             error={phoneError}
             accessible={true}
             accessibilityLabel="Phone number"
@@ -160,81 +165,13 @@ export default function SignInScreen() {
           Send one-time code
         </Button>
 
-        <View style={[styles.footer, { flexDirection: 'row', gap: 4 }]}>
-          <Text style={styles.footerText}>New here?</Text>
+        <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.xxl, alignItems: 'center', paddingBottom: spacing.xl }}>
+          <Text style={{ ...typography.body, color: colors.sage }}>New here?</Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-            <Text style={styles.link}>Create an account</Text>
+            <Text style={{ color: colors.emeraldDeep }}>Create an account</Text>
           </TouchableOpacity>
         </View>
       </SafeScrollView>
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xxl,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.sage,
-  },
-  title: {
-    ...typography.display,
-    color: colors.ink,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  biometricSection: {
-    marginBottom: spacing.xxl,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginVertical: spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.lineSoft,
-  },
-  dividerText: {
-    ...typography.caption,
-    fontSize: 11.5,
-    color: colors.sage,
-  },
-  formGroup: {
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  prefix: {
-    ...typography.body,
-    fontSize: 15,
-    color: colors.sage,
-  },
-  footer: {
-    marginTop: spacing.xxl,
-    alignItems: 'center',
-    paddingBottom: spacing.xl,
-  },
-  footerText: {
-    ...typography.body,
-    color: colors.sage,
-  },
-  link: {
-    color: colors.emeraldDeep,
-  },
-});

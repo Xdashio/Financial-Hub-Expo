@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Wallet, AlertCircle, Clock } from 'lucide-react-native';
@@ -30,6 +31,7 @@ const HABIT_OPTIONS = [
 
 export default function HabitsScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { setHabitsData, input } = useOnboardingStore();
   
   const [spendingHabit, setSpendingHabit] = React.useState<SpendingHabit>('tracker');
@@ -49,14 +51,14 @@ export default function HabitsScreen() {
         <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         <ProgressIndicator currentStep={2} totalSteps={4} />
 
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Step 2 of 4 — Spending habits</Text>
-          <Text style={styles.title}>When money runs low near month-end, what usually happens?</Text>
-          <Text style={styles.subtext}>There&apos;s no wrong answer — this helps us understand your rhythm, not judge it.</Text>
+        <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 2 of 4 — Spending habits</Text>
+          <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>When money runs low near month-end, what usually happens?</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>There&apos;s no wrong answer — this helps us understand your rhythm, not judge it.</Text>
         </View>
 
         <SectionTitle>Your pattern</SectionTitle>
-        <View style={styles.options}>
+        <View style={{ marginTop: spacing.md, marginBottom: spacing.xxl, gap: spacing.md }}>
           {HABIT_OPTIONS.map((option) => (
             <TouchableOption
               key={option.id}
@@ -66,22 +68,22 @@ export default function HabitsScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: spendingHabit === option.id }}
             >
-              <View style={styles.optionIcon}>
+              <View style={{ width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
                 <option.icon size={18} color={spendingHabit === option.id ? '#fff' : colors.ink} strokeWidth={2} />
               </View>
-              <View style={styles.optionText}>
+              <View style={{ flex: 1 }}>
                 <Text style={[
-                  styles.optionTitle,
-                  spendingHabit === option.id && styles.optionTitleSelected,
+                  { ...typography.heading, color: colors.ink },
+                  spendingHabit === option.id && { color: '#fff' },
                 ]}>{option.label}</Text>
                 <Text style={[
-                  styles.optionDesc,
-                  spendingHabit === option.id && styles.optionDescSelected,
+                  { ...typography.caption, fontSize: 12, color: colors.sage, marginTop: 2 },
+                  spendingHabit === option.id && { color: 'rgba(255,255,255,0.8)' },
                 ]}>{option.description}</Text>
               </View>
               {spendingHabit === option.id && (
-                <View style={styles.optionCheck}>
-                  <View style={styles.checkMark} />
+                <View style={{ width: 24, height: 24, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: 12, height: 12, borderWidth: 2, borderColor: '#fff', borderLeftWidth: 0, borderTopWidth: 0, transform: [{ rotate: '45deg' }] }} />
                 </View>
               )}
             </TouchableOption>
@@ -109,11 +111,12 @@ function TouchableOption({
   accessibilityRole,
   accessibilityState,
 }: any) {
+  const { colors } = useTheme();
   return (
     <TouchableOpacity
       style={[
-        styles.optionCard,
-        selected && styles.optionCardSelected,
+        { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: radius.lg },
+        selected && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
         { minHeight: touchTarget.minHeight * 2 },
       ]}
       onPress={onPress}
@@ -126,88 +129,3 @@ function TouchableOption({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.sage,
-  },
-  title: {
-    ...typography.display,
-    color: colors.ink,
-    marginTop: spacing.sm,
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.sm,
-    lineHeight: 22,
-  },
-  options: {
-    marginTop: spacing.md,
-    marginBottom: spacing.xxl,
-    gap: spacing.md,
-  },
-  optionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-  },
-  optionCardSelected: {
-    borderColor: colors.emeraldDeep,
-    backgroundColor: colors.emeraldDeep,
-  },
-  optionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.emeraldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionText: {
-    flex: 1,
-  },
-  optionTitle: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  optionTitleSelected: {
-    color: '#fff',
-  },
-  optionDesc: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.sage,
-    marginTop: 2,
-  },
-  optionDescSelected: {
-    color: 'rgba(255,255,255,0.8)',
-  },
-  optionCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.pill,
-    backgroundColor: colors.emeraldDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkMark: {
-    width: 12,
-    height: 12,
-    borderWidth: 2,
-    borderColor: '#fff',
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    transform: [{ rotate: '45deg' }],
-  },
-});

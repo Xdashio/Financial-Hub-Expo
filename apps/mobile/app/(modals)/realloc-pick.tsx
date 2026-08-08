@@ -1,23 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeftRight, Lock, ArrowRight } from 'lucide-react-native';
-import { colors, radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
+import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore, Pocket } from '@/services/home-store';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
 
-const POCKET_DOT_COLORS: Record<string, string> = {
-  food: colors.emerald,
-  transport: colors.plum,
-  leisure: colors.clay,
-  savings: colors.emeraldDeep,
-  fixed: colors.gold,
-};
-
-function dotColor(pocket: Pocket): string {
-  if (pocket.kind === 'savings') return POCKET_DOT_COLORS.savings;
-  if (pocket.kind === 'fixed') return POCKET_DOT_COLORS.fixed;
-  return POCKET_DOT_COLORS[pocket.category || 'food'] || POCKET_DOT_COLORS.food;
+function dotColor(pocket: Pocket, colors: any): string {
+  if (pocket.kind === 'savings') return colors.emeraldDeep;
+  if (pocket.kind === 'fixed') return colors.gold;
+  const categoryColors: Record<string, string> = {
+    food: colors.emerald,
+    transport: colors.plum,
+    leisure: colors.clay,
+  };
+  return categoryColors[pocket.category || 'food'] || colors.emerald;
 }
 
 function subtitle(pocket: Pocket): string {
@@ -35,6 +33,7 @@ function formatCurrency(amount: number) {
 export default function ReallocPickScreen() {
   const router = useRouter();
   const pockets = useHomeStore((s) => s.pockets);
+  const { colors } = useTheme();
 
   const [fromId, setFromId] = React.useState<string | null>(null);
   const [toId, setToId] = React.useState<string | null>(null);
@@ -66,14 +65,43 @@ export default function ReallocPickScreen() {
     });
   };
 
+  const styles = {
+    title: {
+      ...typography.title,
+      color: colors.ink,
+      marginTop: spacing.md,
+    },
+    subtext: {
+      ...typography.body,
+      color: colors.sage,
+      marginTop: spacing.xs,
+    },
+    swapDivider: {
+      alignItems: 'center' as const,
+      marginVertical: spacing.md,
+    },
+    swapCircle: {
+      width: 32,
+      height: 32,
+      borderRadius: radius.pill,
+      backgroundColor: colors.surface,
+      borderWidth: borderWidth,
+      borderColor: colors.line,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+    },
+  };
+
   return (
     <ScreenContainer>
       <BrandHeader onBack={() => router.canGoBack() && router.back()} />
       <SafeScrollView>
-        <Text style={styles.title}>Move money between pockets</Text>
-        <Text style={styles.subtext}>
-          Pick where it's coming from, then where it's going. Locked pockets can't be used as a source.
-        </Text>
+        <View style={{ marginTop: spacing.lg }}>
+          <Text style={styles.title}>Move money between pockets</Text>
+          <Text style={styles.subtext}>
+            Pick where it's coming from, then where it's going. Locked pockets can't be used as a source.
+          </Text>
+        </View>
 
         <SectionTitle>From</SectionTitle>
         {pockets.map((pocket) => (
@@ -83,6 +111,7 @@ export default function ReallocPickScreen() {
             selected={pocket.id === fromId}
             disabled={!!pocket.isTimeLocked}
             onPress={() => handleSelectFrom(pocket)}
+            colors={colors}
           />
         ))}
 
@@ -103,6 +132,7 @@ export default function ReallocPickScreen() {
               selected={pocket.id === toId}
               disabled={false}
               onPress={() => setToId(pocket.id)}
+              colors={colors}
             />
           ))
         )}
@@ -142,19 +172,62 @@ function PocketRow({
   selected,
   disabled,
   onPress,
+  colors,
 }: {
   pocket: Pocket;
   selected: boolean;
   disabled: boolean;
   onPress: () => void;
+  colors: any;
 }) {
+  const styles = {
+    pocketRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.md,
+      backgroundColor: colors.surface,
+      borderWidth: borderWidth,
+      borderColor: colors.line,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginTop: spacing.sm,
+    },
+    pocketRowSelected: {
+      borderWidth: borderWidthThick,
+      borderColor: colors.emeraldDeep,
+      backgroundColor: colors.emeraldTint,
+    },
+    pocketRowDisabled: {
+      opacity: 0.55,
+    },
+    dot: {
+      width: 10,
+      height: 10,
+      borderRadius: radius.pill,
+    },
+    pocketName: {
+      ...typography.heading,
+      color: colors.ink,
+    },
+    pocketSub: {
+      ...typography.caption,
+      color: colors.sage,
+      marginTop: 2,
+    },
+    pocketAmount: {
+      ...typography.body,
+      color: colors.ink,
+      fontVariant: ['tabular-nums'] as any,
+    },
+  };
+
   return (
     <TouchableOpacity
       activeOpacity={disabled ? 1 : 0.7}
       onPress={disabled ? undefined : onPress}
       style={[styles.pocketRow, selected && styles.pocketRowSelected, disabled && styles.pocketRowDisabled]}
     >
-      <View style={[styles.dot, { backgroundColor: dotColor(pocket) }]} />
+      <View style={[styles.dot, { backgroundColor: dotColor(pocket, colors) }]} />
       <View style={{ flex: 1 }}>
         <Text style={styles.pocketName}>{pocket.name}</Text>
         <Text style={styles.pocketSub}>{subtitle(pocket)}</Text>
@@ -164,68 +237,3 @@ function PocketRow({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  title: {
-    ...typography.title,
-    color: colors.ink,
-    marginTop: spacing.md,
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.xs,
-  },
-  pocketRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: borderWidth,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.sm,
-  },
-  pocketRowSelected: {
-    borderWidth: borderWidthThick,
-    borderColor: colors.emeraldDeep,
-    backgroundColor: colors.emeraldTint,
-  },
-  pocketRowDisabled: {
-    opacity: 0.55,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: radius.pill,
-  },
-  pocketName: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  pocketSub: {
-    ...typography.caption,
-    color: colors.sage,
-    marginTop: 2,
-  },
-  pocketAmount: {
-    ...typography.body,
-    color: colors.ink,
-    fontVariant: ['tabular-nums'],
-  },
-  swapDivider: {
-    alignItems: 'center',
-    marginVertical: spacing.md,
-  },
-  swapCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    borderWidth: borderWidth,
-    borderColor: colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

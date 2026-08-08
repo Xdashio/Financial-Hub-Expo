@@ -11,21 +11,10 @@ import 'react-native-url-polyfill/auto';
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeAuth } from '@/services/auth';
 import { ThemeProvider, useTheme } from '@/theme/ThemeContext';
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
 
 // Themed status bar + root background — separated out so it can call
 // useTheme() (which needs to be inside <ThemeProvider>).
@@ -53,7 +42,7 @@ function RootLayoutInner() {
 
   if (!isReady) {
     return (
-      <View style={[styles.loading, { backgroundColor: themeColors.paper }]}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: themeColors.paper }}>
         <ThemedStatusBar />
         <ActivityIndicator color={themeColors.emerald} />
       </View>
@@ -61,7 +50,7 @@ function RootLayoutInner() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: themeColors.paper }]}>
+    <View style={{ flex: 1, backgroundColor: themeColors.paper }}>
       <ThemedStatusBar />
 
       <Stack

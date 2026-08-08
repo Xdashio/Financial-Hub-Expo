@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, ViewStyle, TextStyle, TextInputProps, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
-import { colors, radius, spacing, typography, shadow, touchTarget, borderWidth, borderWidthThick } from '../theme';
+import { useTheme } from '../theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget, borderWidth, borderWidthThick } from '../theme';
 
 export interface ButtonProps extends Omit<React.ComponentPropsWithoutRef<typeof TouchableOpacity>, 'children' | 'style'> {
   children: React.ReactNode;
@@ -26,6 +27,8 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
+  const { colors } = useTheme();
+  
   // Buttons are tappable, high-intent surfaces — they get the crisper
   // 1.5px border treatment from the mockups, not the softer hairline used
   // for passive containers like Card. `radius.button` is the single radius
@@ -126,6 +129,8 @@ export function Input({
   gap = spacing.md,
   ...props
 }: InputProps) {
+  const { colors } = useTheme();
+  
   return (
     <View style={{ gap, ...style }}>
       {!!label && (
@@ -174,6 +179,8 @@ export interface CardProps extends React.ComponentPropsWithoutRef<typeof View> {
 }
 
 export function Card({ children, elevated = false, interactive = false, style, ...props }: CardProps) {
+  const { colors } = useTheme();
+  
   return (
     <View
       style={[
@@ -201,6 +208,8 @@ export function Card({ children, elevated = false, interactive = false, style, .
 
 export function ScreenContainer({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  
   return (
     <View style={[{ flex: 1, backgroundColor: colors.paper, paddingTop: insets.top }, style]}>
       {children}
@@ -226,16 +235,19 @@ export function SafeScrollView({ children, contentContainerStyle, ...props }: {
 }
 
 export function ProgressIndicator({ currentStep, totalSteps = 4 }: { currentStep: number; totalSteps?: number }) {
+  const { colors } = useTheme();
+  
   return (
-    <View style={styles.progressRow}>
+    <View style={{ flexDirection: 'row', gap: 4 }}>
       {Array.from({ length: totalSteps }, (_, i) => (
         <View
           key={i}
-          style={[
-            styles.progressSeg,
-            i < currentStep && styles.progressSegDone,
-            i === currentStep && styles.progressSegActive,
-          ]}
+          style={{
+            flex: 1,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: i < currentStep ? colors.emeraldDeep : colors.lineSoft,
+          }}
         />
       ))}
     </View>
@@ -243,11 +255,13 @@ export function ProgressIndicator({ currentStep, totalSteps = 4 }: { currentStep
 }
 
 export function BrandHeader({ onBack }: { onBack?: () => void }) {
+  const { colors } = useTheme();
+  
   return (
-    <View style={styles.brandBar}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: onBack ? 'space-between' : 'center', paddingTop: onBack ? spacing.sm : spacing.lg }}>
       {!!onBack && (
         <TouchableOpacity
-          style={styles.backButton}
+          style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
           onPress={onBack}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -255,70 +269,27 @@ export function BrandHeader({ onBack }: { onBack?: () => void }) {
           <ChevronLeft size={20} color={colors.ink} />
         </TouchableOpacity>
       )}
-      <View style={styles.brandMark}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <Image
           source={require('../../assets/financial_hub_logo_transparent.png')}
-          style={styles.brandLogo}
+          style={{ width: 26, height: 26 }}
           resizeMode="contain"
         />
-        <Text style={styles.brandWordmark}>Financial Hub</Text>
+        <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }}>
+          Financial Hub
+        </Text>
       </View>
-      {!!onBack && <View style={{ width: touchTarget.minWidth }} />}
+      {!!onBack && <View style={{ width: 36 }} />}
     </View>
-
   );
 }
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
+  const { colors } = useTheme();
+  
   return (
-    <Text style={[typography.eyebrow, { marginTop: spacing.xl, marginBottom: spacing.md }]}>{children}</Text>
+    <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>
+      {children}
+    </Text>
   );
 }
-
-const styles = StyleSheet.create({
-  progressRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginBottom: spacing.lg,
-  },
-  progressSeg: {
-    flex: 1,
-    height: 4,
-    backgroundColor: colors.lineSoft,
-    borderRadius: radius.pill,
-  },
-  progressSegDone: {
-    backgroundColor: colors.emeraldDeep,
-  },
-  progressSegActive: {
-    backgroundColor: colors.emeraldDeep,
-  },
-  brandBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  backButton: {
-    width: touchTarget.minWidth,
-    height: touchTarget.minHeight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandMark: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  brandLogo: {
-    width: 32,
-    height: 32,
-  },
-  brandWordmark: {
-    ...typography.heading,
-    color: colors.ink,
-    letterSpacing: -0.18,
-  },
-});

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowRight, Clock, AlertTriangle } from 'lucide-react-native';
-import { colors, radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
+import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore } from '@/services/home-store';
 import { reallocationsApi } from '@/services/api';
 import { showAlert } from '@/utils/alert';
@@ -36,6 +37,7 @@ export default function ReallocReviewScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<ReviewParams>();
   const pockets = useHomeStore((s) => s.pockets);
+  const { colors } = useTheme();
 
   const fromPocket = pockets.find((p) => p.id === params.fromId) || null;
   const toPocket = pockets.find((p) => p.id === params.toId) || null;
@@ -116,6 +118,124 @@ export default function ReallocReviewScreen() {
     }
   };
 
+  const styles = {
+    title: {
+      ...typography.title,
+      color: colors.ink,
+      marginTop: spacing.md,
+    },
+    subtext: {
+      ...typography.body,
+      color: colors.sage,
+      marginTop: spacing.md,
+    },
+    flowRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.md,
+      marginTop: spacing.lg,
+    },
+    flowPocket: {
+      flex: 1,
+      backgroundColor: colors.surface,
+      borderWidth: borderWidth,
+      borderColor: colors.line,
+      borderRadius: radius.md,
+      padding: spacing.md,
+    },
+    flowPocketTo: {
+      borderWidth: borderWidthThick,
+      borderColor: colors.emeraldDeep,
+      backgroundColor: colors.emeraldTint,
+    },
+    flowName: {
+      ...typography.heading,
+      color: colors.ink,
+    },
+    flowAmt: {
+      ...typography.body,
+      color: colors.sage,
+      marginTop: 2,
+      fontVariant: ['tabular-nums'] as any,
+    },
+    moveLabel: {
+      ...typography.caption,
+      color: colors.sage,
+    },
+    moveValue: {
+      ...typography.display,
+      color: colors.emeraldDeep,
+      marginTop: spacing.xs,
+      fontVariant: ['tabular-nums'] as any,
+    },
+    chipRow: {
+      flexDirection: 'row' as const,
+      flexWrap: 'wrap' as const,
+      gap: spacing.sm,
+    },
+    chip: {
+      paddingVertical: spacing.sm,
+      paddingHorizontal: spacing.md,
+      borderRadius: radius.pill,
+      borderWidth: borderWidth,
+      borderColor: colors.line,
+      backgroundColor: colors.surface,
+    },
+    chipSelected: {
+      borderWidth: borderWidthThick,
+      borderColor: colors.emeraldDeep,
+      backgroundColor: colors.emeraldTint,
+    },
+    chipText: {
+      ...typography.caption,
+      color: colors.ink,
+    },
+    chipTextSelected: {
+      color: colors.emeraldDeep,
+    },
+    noteCard: {
+      flexDirection: 'row' as const,
+      gap: spacing.sm,
+      backgroundColor: colors.plumTint,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginTop: spacing.lg,
+    },
+    warnCard: {
+      backgroundColor: colors.clayTint,
+    },
+    noteTitle: {
+      ...typography.heading,
+      color: colors.ink,
+    },
+    noteBody: {
+      ...typography.caption,
+      color: colors.inkSoft,
+      marginTop: 2,
+    },
+    reviewList: {
+      marginTop: spacing.xl,
+      backgroundColor: colors.surface,
+      borderWidth: borderWidth,
+      borderColor: colors.line,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    reviewRow: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+    },
+    reviewKey: {
+      ...typography.caption,
+      color: colors.sage,
+    },
+    reviewValue: {
+      ...typography.body,
+      color: colors.ink,
+    },
+  };
+
   if (!fromPocket || !toPocket) {
     return (
       <ScreenContainer>
@@ -131,7 +251,9 @@ export default function ReallocReviewScreen() {
     <ScreenContainer>
       <BrandHeader onBack={() => router.canGoBack() && router.back()} />
       <SafeScrollView>
-        <Text style={styles.title}>Review reallocation</Text>
+        <View style={{ marginTop: spacing.lg }}>
+          <Text style={styles.title}>Review reallocation</Text>
+        </View>
 
         <View style={styles.flowRow}>
           <View style={styles.flowPocket}>
@@ -189,10 +311,10 @@ export default function ReallocReviewScreen() {
         )}
 
         <View style={styles.reviewList}>
-          <ReviewRow label="From" value={fromPocket.name} />
-          <ReviewRow label="To" value={toPocket.name} />
-          <ReviewRow label="Amount" value={formatCurrency(amount)} />
-          <ReviewRow label="Reason" value={REASONS.find((r) => r.value === reason)?.label || 'Other'} />
+          <ReviewRow label="From" value={fromPocket.name} styles={styles} />
+          <ReviewRow label="To" value={toPocket.name} styles={styles} />
+          <ReviewRow label="Amount" value={formatCurrency(amount)} styles={styles} />
+          <ReviewRow label="Reason" value={REASONS.find((r) => r.value === reason)?.label || 'Other'} styles={styles} />
         </View>
 
         <View style={{ marginTop: spacing.xl }}>
@@ -205,7 +327,7 @@ export default function ReallocReviewScreen() {
   );
 }
 
-function ReviewRow({ label, value }: { label: string; value: string }) {
+function ReviewRow({ label, value, styles }: { label: string; value: string; styles: any }) {
   return (
     <View style={styles.reviewRow}>
       <Text style={styles.reviewKey}>{label}</Text>
@@ -213,120 +335,3 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  title: {
-    ...typography.title,
-    color: colors.ink,
-    marginTop: spacing.md,
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.md,
-  },
-  flowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  flowPocket: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderWidth: borderWidth,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: spacing.md,
-  },
-  flowPocketTo: {
-    borderWidth: borderWidthThick,
-    borderColor: colors.emeraldDeep,
-    backgroundColor: colors.emeraldTint,
-  },
-  flowName: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  flowAmt: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: 2,
-    fontVariant: ['tabular-nums'],
-  },
-  moveLabel: {
-    ...typography.caption,
-    color: colors.sage,
-  },
-  moveValue: {
-    ...typography.display,
-    color: colors.emeraldDeep,
-    marginTop: spacing.xs,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  chip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.pill,
-    borderWidth: borderWidth,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-  },
-  chipSelected: {
-    borderWidth: borderWidthThick,
-    borderColor: colors.emeraldDeep,
-    backgroundColor: colors.emeraldTint,
-  },
-  chipText: {
-    ...typography.caption,
-    color: colors.ink,
-  },
-  chipTextSelected: {
-    color: colors.emeraldDeep,
-  },
-  noteCard: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    backgroundColor: colors.plumTint,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.lg,
-  },
-  warnCard: {
-    backgroundColor: colors.clayTint,
-  },
-  noteTitle: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  noteBody: {
-    ...typography.caption,
-    color: colors.inkSoft,
-    marginTop: 2,
-  },
-  reviewList: {
-    marginTop: spacing.xl,
-    backgroundColor: colors.surface,
-    borderWidth: borderWidth,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  reviewKey: {
-    ...typography.caption,
-    color: colors.sage,
-  },
-  reviewValue: {
-    ...typography.body,
-    color: colors.ink,
-  },
-});
