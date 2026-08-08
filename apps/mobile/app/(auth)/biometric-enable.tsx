@@ -6,6 +6,7 @@ import { colors, radius, spacing, typography, shadow, touchTarget } from '@/them
 import { useAuthStore } from '@/services/auth';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle } from '@/components/ui';
 import { Fingerprint, ScanFace, Shield, ChevronLeft } from 'lucide-react-native';
+import React from 'react';
 
 type BiometricEnableParams = {
   fromSignup?: string;
@@ -85,14 +86,14 @@ export default function BiometricEnableScreen() {
 
   return (
     <ScreenContainer>
-      <SafeScrollView>
+      <SafeScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <View style={styles.successIcon}>
-{biometricType === 'face' ? (
-            <ScanFace size={28} color={colors.clay} strokeWidth={2.5} />
-          ) : (
-            <Fingerprint size={28} color={colors.clay} strokeWidth={2.5} />
-          )}
+            {biometricType === 'face' ? (
+              <ScanFace size={28} color={colors.clay} strokeWidth={2.5} />
+            ) : (
+              <Fingerprint size={28} color={colors.clay} strokeWidth={2.5} />
+            )}
           </View>
           <Text style={styles.eyebrow}>Almost there</Text>
           <Text style={styles.title}>Speed up future sign-ins</Text>
@@ -162,13 +163,14 @@ export default function BiometricEnableScreen() {
   );
 }
 
-import React from 'react';
-
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xxxl,
+  },
   header: {
     alignItems: 'center',
-    paddingTop: spacing.xxl,
-    marginBottom: spacing.xl,
+    paddingTop: spacing.xl,
+    marginBottom: spacing.xxxl,
   },
   successIcon: {
     width: 64,
@@ -193,7 +195,7 @@ const styles = StyleSheet.create({
   subtext: {
     ...typography.body,
     color: colors.sage,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -202,6 +204,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     marginTop: spacing.xl,
+    marginBottom: spacing.xl,
     paddingHorizontal: spacing.md,
   },
   bioIcon: {
@@ -256,7 +259,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.xl,
     backgroundColor: colors.emeraldTint,
     borderRadius: radius.md,
     paddingHorizontal: spacing.md,
@@ -281,7 +285,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   footer: {
-    marginTop: spacing.md,
+    marginTop: spacing.xxxl,
     alignItems: 'center',
+    paddingBottom: spacing.xl,
   },
 });
