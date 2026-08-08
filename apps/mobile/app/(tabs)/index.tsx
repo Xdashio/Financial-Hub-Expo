@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
 import { Shield, RefreshCw, Lock, ChevronLeft } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
@@ -35,10 +35,6 @@ const styles = StyleSheet.create({
   brandGlyph: {
     width: 26,
     height: 26,
-    borderRadius: radius.xs,
-    backgroundColor: colors.emeraldDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   brandWordmark: {
     ...typography.heading,
@@ -411,9 +407,11 @@ export default function HomeScreen() {
       >
         <View style={styles.brandBar}>
           <View style={styles.brandMark}>
-            <View style={styles.brandGlyph}>
-              <Text style={{ color: 'white', fontSize: 14, fontFamily: typography.fontFamily }}>FH</Text>
-            </View>
+            <Image
+              source={require('../../assets/financial_hub_logo_transparent.png')}
+              style={styles.brandGlyph}
+              resizeMode="contain"
+            />
             <Text style={styles.brandWordmark}>Financial Hub</Text>
           </View>
           <Text style={styles.avatar}>{initials}</Text>
