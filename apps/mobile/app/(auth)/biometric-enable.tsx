@@ -187,7 +187,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.display,
-    fontWeight: '800',
     color: colors.ink,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -220,7 +219,6 @@ const styles = StyleSheet.create({
   },
   bioTitle: {
     ...typography.heading,
-    fontWeight: '600',
     color: colors.ink,
   },
   bioDesc: {
@@ -268,7 +266,6 @@ const styles = StyleSheet.create({
   },
   protectText: {
     ...typography.caption,
-    fontWeight: '500',
     color: colors.emeraldDeep,
     flex: 1,
   },
@@ -281,7 +278,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bold: {
-    fontWeight: '700',
     color: colors.ink,
   },
   footer: {

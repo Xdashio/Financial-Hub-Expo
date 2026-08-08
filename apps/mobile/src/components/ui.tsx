@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, ViewStyle, TextStyle, TextInputProps, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChevronLeft } from 'lucide-react-native';
 import { colors, radius, spacing, typography, shadow, touchTarget, borderWidth, borderWidthThick } from '../theme';
 
@@ -26,14 +27,16 @@ export function Button({
   ...props
 }: ButtonProps) {
   // Buttons are tappable, high-intent surfaces — they get the crisper
-  // radius-sm + 1.5px border treatment from the mockups, not the softer
-  // radius-md hairline used for passive containers like Card.
+  // 1.5px border treatment from the mockups, not the softer hairline used
+  // for passive containers like Card. `radius.button` is the single radius
+  // token every Button variant/size uses, so buttons stay visually
+  // consistent everywhere they appear.
   const baseStyle: ViewStyle = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    borderRadius: radius.sm,
+    borderRadius: radius.button,
     borderWidth: borderWidthThick,
     minHeight: touchTarget.minHeight,
   };
@@ -65,10 +68,10 @@ export function Button({
   };
 
   const textStyles: Record<string, TextStyle> = {
-    primary: { color: '#fff', fontWeight: '600' },
-    secondary: { color: colors.ink, fontWeight: '600' },
-    ghost: { color: colors.emeraldDeep, fontWeight: '600' },
-    outline: { color: colors.emeraldDeep, fontWeight: '600' },
+    primary: { color: '#fff' },
+    secondary: { color: colors.ink },
+    ghost: { color: colors.emeraldDeep },
+    outline: { color: colors.emeraldDeep },
   };
 
   return (
@@ -126,7 +129,7 @@ export function Input({
   return (
     <View style={{ gap, ...style }}>
       {!!label && (
-        <Text style={{ ...typography.caption, fontWeight: '600', color: colors.ink, letterSpacing: 0.36 }}>
+        <Text style={{ ...typography.caption, color: colors.ink, letterSpacing: 0.36 }}>
           {label}
         </Text>
       )}
@@ -195,8 +198,9 @@ export function Card({ children, elevated = false, interactive = false, style, .
 }
 
 export function ScreenContainer({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={[{ flex: 1, backgroundColor: colors.paper }, style]}>
+    <View style={[{ flex: 1, backgroundColor: colors.paper, paddingTop: insets.top }, style]}>
       {children}
     </View>
   );
@@ -241,9 +245,10 @@ export function BrandHeader({ onBack }: { onBack?: () => void }) {
     <View style={styles.brandBar}>
       {!!onBack && (
         <TouchableOpacity
-          style={{ padding: spacing.sm, minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight }}
+          style={styles.backButton}
           onPress={onBack}
           activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <ChevronLeft size={20} color={colors.ink} />
         </TouchableOpacity>
@@ -256,7 +261,7 @@ export function BrandHeader({ onBack }: { onBack?: () => void }) {
         />
         <Text style={styles.brandWordmark}>Financial Hub</Text>
       </View>
-      {!!onBack && <View style={{ width: 40 }} />}
+      {!!onBack && <View style={{ width: touchTarget.minWidth }} />}
     </View>
 
   );
@@ -290,9 +295,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: spacing.xs,
+    paddingTop: spacing.md,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+  },
+  backButton: {
+    width: touchTarget.minWidth,
+    height: touchTarget.minHeight,
+    // Pull the tap target back toward the screen edge — brandBar already
+    // has paddingHorizontal(lg), so a fixed-width box with no extra
+    // padding of its own would sit ~44px in from the edge. The negative
+    // margin brings the chevron glyph close to flush while alignItems/
+    // justifyContent center keep it (and not just its padded box)
+    // vertically centered in the row.
+    marginLeft: -spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   brandMark: {
     flexDirection: 'row',
@@ -305,7 +323,6 @@ const styles = StyleSheet.create({
   },
   brandWordmark: {
     ...typography.heading,
-    fontWeight: '700',
     color: colors.ink,
     letterSpacing: -0.18,
   },

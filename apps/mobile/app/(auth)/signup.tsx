@@ -155,7 +155,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.display,
-    fontWeight: '800',
     color: colors.ink,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -192,7 +191,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   devNoteBold: {
-    fontWeight: '700',
   },
   footer: {
     marginTop: spacing.xxxl,
@@ -205,6 +203,5 @@ const styles = StyleSheet.create({
   },
   link: {
     color: colors.emeraldDeep,
-    fontWeight: '600',
   },
 });

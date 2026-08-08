@@ -161,9 +161,12 @@ export default function SignInScreen() {
         </View>
 
         <View style={styles.forgotPassword}>
-          <Button variant="ghost" onPress={() => Alert.alert('Reset password', 'Password reset would be implemented here')}>
-            Forgot password?
-          </Button>
+          <TouchableOpacity
+            onPress={() => Alert.alert('Reset password', 'Password reset would be implemented here')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          </TouchableOpacity>
         </View>
 
         <Button
@@ -195,8 +198,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.xxxl,
+    marginTop: spacing.md,
+    marginBottom: spacing.xxl,
   },
   eyebrow: {
     ...typography.eyebrow,
@@ -204,7 +207,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.display,
-    fontWeight: '800',
     color: colors.ink,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -217,13 +219,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   biometricSection: {
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.xxl,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginVertical: spacing.xl,
+    marginVertical: spacing.lg,
   },
   dividerLine: {
     flex: 1,
@@ -237,7 +239,7 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     gap: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   prefix: {
     ...typography.body,
@@ -246,8 +248,13 @@ const styles = StyleSheet.create({
   },
   forgotPassword: {
     alignSelf: 'flex-end',
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
     marginBottom: spacing.xl,
+  },
+  forgotPasswordText: {
+    ...typography.body,
+    fontSize: 13,
+    color: colors.emeraldDeep,
   },
   devNote: {
     marginTop: spacing.lg,
@@ -264,11 +271,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
   },
-  devNoteBold: {
-    fontWeight: '700',
-  },
   footer: {
-    marginTop: spacing.xxxl,
+    marginTop: spacing.xxl,
     alignItems: 'center',
     paddingBottom: spacing.xl,
   },
@@ -278,6 +282,5 @@ const styles = StyleSheet.create({
   },
   link: {
     color: colors.emeraldDeep,
-    fontWeight: '600',
   },
 });

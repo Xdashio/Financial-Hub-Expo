@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeAuth } from '@/services/auth';
 import { colors } from '@/theme';
 
@@ -30,27 +31,31 @@ export default function RootLayout() {
 
   if (!isReady) {
     return (
-      <View style={styles.loading}>
-        <StatusBar style="dark" />
-        <ActivityIndicator color={colors.emerald} />
-      </View>
+      <SafeAreaProvider>
+        <View style={styles.loading}>
+          <StatusBar style="dark" />
+          <ActivityIndicator color={colors.emerald} />
+        </View>
+      </SafeAreaProvider>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        <StatusBar style="dark" />
 
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(onboarding)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-    </View>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(onboarding)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </View>
+    </SafeAreaProvider>
   );
 }

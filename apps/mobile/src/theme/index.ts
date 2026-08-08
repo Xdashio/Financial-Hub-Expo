@@ -44,6 +44,10 @@ export const radius = {
   sm: 14,
   xs: 10,
   pill: 999,
+  // Dedicated, smaller radius for tappable buttons — kept as one token so
+  // every Button instance (regardless of variant/size) stays visually
+  // consistent app-wide.
+  button: 10,
 };
 
 export const spacing = {
@@ -56,26 +60,27 @@ export const spacing = {
   xxxl: 32,
 };
 
+// Single typeface, single (normal) weight across the whole app — Plus
+// Jakarta Sans Medium. Hierarchy between display/title/heading/body comes
+// from size, line-height and letter-spacing only, never from mixing in
+// heavier font-family variants or RN's synthetic `fontWeight`.
 export const typography = {
   fontFamily: 'PlusJakartaSans_500Medium',
-  fontFamilyBold: 'PlusJakartaSans_600SemiBold',
-  fontFamilyExtraBold: 'PlusJakartaSans_700Bold',
-  fontFamilyBlack: 'PlusJakartaSans_800ExtraBold',
 
   display: {
-    fontFamily: 'PlusJakartaSans_800ExtraBold',
+    fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 26,
     lineHeight: 32,
     letterSpacing: -0.26,
   },
   title: {
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 18,
     lineHeight: 24,
     letterSpacing: -0.18,
   },
   heading: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 15,
     lineHeight: 20,
   },
@@ -90,7 +95,7 @@ export const typography = {
     lineHeight: 16,
   },
   eyebrow: {
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'PlusJakartaSans_500Medium',
     fontSize: 11,
     lineHeight: 14,
     letterSpacing: 0.88,

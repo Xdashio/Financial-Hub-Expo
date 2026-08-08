@@ -301,7 +301,6 @@ const styles = StyleSheet.create({
   },
   planName: {
     ...typography.display,
-    fontWeight: '800',
     color: colors.ink,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -323,7 +322,6 @@ const styles = StyleSheet.create({
   },
   whyTitle: {
     ...typography.heading,
-    fontWeight: '600',
     fontSize: 13,
     color: colors.ink,
     marginBottom: spacing.sm,
@@ -359,12 +357,10 @@ const styles = StyleSheet.create({
   },
   incomeLabel: {
     ...typography.caption,
-    fontWeight: '600',
     color: colors.sage,
   },
   incomeValue: {
     ...typography.title,
-    fontWeight: '700',
     color: colors.emeraldDeep,
     marginTop: 2,
   },
@@ -397,11 +393,9 @@ const styles = StyleSheet.create({
   pocketIcon: {},
   pocketName: {
     ...typography.heading,
-    fontWeight: '600',
   },
   pocketAmount: {
     ...typography.body,
-    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
   lockIcon: {

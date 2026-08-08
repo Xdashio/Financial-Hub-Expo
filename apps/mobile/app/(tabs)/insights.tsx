@@ -18,7 +18,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.title,
-    fontWeight: '700',
     color: colors.ink,
     marginTop: spacing.lg,
   },
@@ -42,7 +41,6 @@ const styles = StyleSheet.create({
   },
   scoreValue: {
     ...typography.display,
-    fontWeight: '700',
     color: 'white',
     fontSize: 36,
   },
@@ -91,7 +89,6 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     ...typography.heading,
-    fontWeight: '700',
     fontSize: 20,
     color: colors.ink,
   },
@@ -125,7 +122,6 @@ const styles = StyleSheet.create({
   },
   eventTitle: {
     ...typography.heading,
-    fontWeight: '600',
     color: colors.ink,
   },
   eventDesc: {

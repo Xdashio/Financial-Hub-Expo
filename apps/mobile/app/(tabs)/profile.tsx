@@ -41,11 +41,10 @@ const styles = StyleSheet.create({
   avatarText: {
     color: colors.gold,
     fontSize: 24,
-    fontFamily: typography.fontFamilyExtraBold,
+    fontFamily: typography.fontFamily,
   },
   name: {
     ...typography.title,
-    fontWeight: '700',
     fontSize: 20,
     color: colors.ink,
     marginTop: spacing.md,
@@ -69,7 +68,6 @@ const styles = StyleSheet.create({
   planChipText: {
     ...typography.caption,
     fontSize: 11,
-    fontWeight: '600',
   },
   planChipA: {
     backgroundColor: colors.emeraldTint,
@@ -104,7 +102,6 @@ const styles = StyleSheet.create({
   },
   settingsTitle: {
     ...typography.heading,
-    fontWeight: '600',
     color: colors.ink,
   },
   settingsDesc: {

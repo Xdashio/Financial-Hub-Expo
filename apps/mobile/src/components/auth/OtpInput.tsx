@@ -125,7 +125,6 @@ const styles = StyleSheet.create({
   cellText: {
     ...typography.display,
     fontSize: 24,
-    fontWeight: '700',
     color: colors.sage,
   },
   cellTextFilled: {

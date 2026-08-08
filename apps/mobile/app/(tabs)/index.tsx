@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
 import { Shield, RefreshCw, Lock, ChevronLeft } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
@@ -41,7 +41,6 @@ const styles = StyleSheet.create({
   },
   brandWordmark: {
     ...typography.heading,
-    fontWeight: '700',
     color: colors.ink,
     letterSpacing: -0.18,
   },
@@ -54,15 +53,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: 14,
-    fontWeight: '700',
-    fontFamily: typography.fontFamilyExtraBold,
+    fontFamily: typography.fontFamily,
   },
   balanceBlock: {
     marginTop: spacing.xl,
   },
   balanceLabel: {
     ...typography.caption,
-    fontWeight: '600',
     color: colors.sage,
     letterSpacing: 0.36,
     flexDirection: 'row',
@@ -71,7 +68,6 @@ const styles = StyleSheet.create({
   },
   balanceValue: {
     ...typography.display,
-    fontWeight: '700',
     color: colors.emeraldDeep,
     marginTop: spacing.xs,
     fontVariant: ['tabular-nums'],
@@ -97,7 +93,6 @@ const styles = StyleSheet.create({
   },
   balanceSecondaryValue: {
     ...typography.body,
-    fontWeight: '600',
     color: colors.inkSoft,
     fontVariant: ['tabular-nums'],
   },
@@ -113,7 +108,6 @@ const styles = StyleSheet.create({
   },
   protectStripText: {
     ...typography.caption,
-    fontWeight: '500',
     color: colors.emeraldDeep,
   },
   sectionLabel: {
@@ -148,12 +142,10 @@ const styles = StyleSheet.create({
   },
   pocketName: {
     ...typography.heading,
-    fontWeight: '600',
     color: colors.ink,
   },
   pocketAmount: {
     ...typography.body,
-    fontWeight: '700',
     color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
@@ -193,7 +185,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     ...typography.title,
-    fontWeight: '700',
     color: colors.ink,
   },
   emptySub: {
@@ -227,7 +218,6 @@ const styles = StyleSheet.create({
   },
   dailyPocketRemaining: {
     ...typography.heading,
-    fontWeight: '700',
     color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
@@ -274,7 +264,6 @@ const styles = StyleSheet.create({
   },
   rolloverTitle: {
     ...typography.heading,
-    fontWeight: '600',
     color: colors.ink,
   },
   rolloverSub: {
@@ -285,7 +274,6 @@ const styles = StyleSheet.create({
   },
   rolloverValue: {
     ...typography.body,
-    fontWeight: '700',
     color: colors.emeraldDeep,
     fontVariant: ['tabular-nums'],
   },
@@ -400,15 +388,17 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} refreshControl={
-        <View style={{ paddingVertical: spacing.md }}>
-          <ActivityIndicator color={colors.emeraldDeep} size="small" />
-        </View>
-      } onRefresh={refreshData} refreshing={isLoading}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={isLoading} onRefresh={refreshData} tintColor={colors.emeraldDeep} colors={[colors.emeraldDeep]} />
+        }
+      >
         <View style={styles.brandBar}>
           <View style={styles.brandMark}>
             <View style={styles.brandGlyph}>
-              <Text style={{ color: 'white', fontSize: 14, fontWeight: '700' }}>FH</Text>
+              <Text style={{ color: 'white', fontSize: 14, fontFamily: typography.fontFamily }}>FH</Text>
             </View>
             <Text style={styles.brandWordmark}>Financial Hub</Text>
           </View>

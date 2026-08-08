@@ -192,7 +192,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.display,
-    fontWeight: '800',
     color: colors.ink,
     marginTop: spacing.sm,
     textAlign: 'center',
@@ -205,7 +204,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   boldPhone: {
-    fontWeight: '700',
     color: colors.ink,
   },
   hint: {
@@ -219,10 +217,8 @@ const styles = StyleSheet.create({
   },
   resendLink: {
     color: colors.emeraldDeep,
-    fontWeight: '600',
   },
   boldTimer: {
-    fontWeight: '700',
   },
   devNote: {
     marginTop: spacing.lg,
@@ -240,11 +236,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   devNoteBold: {
-    fontWeight: '700',
   },
   codeDisplay: {
     fontFamily: 'monospace',
-    fontWeight: '700',
     fontSize: 14,
   },
   footer: {
@@ -258,6 +252,5 @@ const styles = StyleSheet.create({
   },
   link: {
     color: colors.emeraldDeep,
-    fontWeight: '600',
   },
 });

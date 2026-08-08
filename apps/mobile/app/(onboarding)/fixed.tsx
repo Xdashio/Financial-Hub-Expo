@@ -358,7 +358,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.display,
-    fontWeight: '800',
     color: colors.ink,
     marginTop: spacing.sm,
   },
@@ -404,7 +403,6 @@ const styles = StyleSheet.create({
   },
   fixedName: {
     ...typography.body,
-    fontWeight: '600',
     color: colors.ink,
   },
   fixedSub: {
@@ -414,7 +412,6 @@ const styles = StyleSheet.create({
   },
   fixedAmount: {
     ...typography.body,
-    fontWeight: '700',
     color: colors.ink,
   },
   deleteBtn: {
@@ -442,7 +439,6 @@ const styles = StyleSheet.create({
   },
   suggestChipText: {
     ...typography.caption,
-    fontWeight: '600',
     color: colors.ink,
   },
   suggestNote: {
@@ -462,12 +458,10 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     ...typography.heading,
-    fontWeight: '600',
     color: colors.ink,
   },
   summaryValue: {
     ...typography.title,
-    fontWeight: '700',
     color: colors.emeraldDeep,
   },
   modalOverlay: {
@@ -494,7 +488,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     ...typography.title,
-    fontWeight: '700',
     color: colors.ink,
   },
   modalActions: {

@@ -148,7 +148,6 @@ const styles = StyleSheet.create({
   },
   title: {
     ...typography.display,
-    fontWeight: '800',
     color: colors.ink,
     marginTop: spacing.sm,
   },
@@ -189,7 +188,6 @@ const styles = StyleSheet.create({
   },
   optionTitle: {
     ...typography.heading,
-    fontWeight: '600',
     color: colors.ink,
   },
   optionTitleSelected: {
