@@ -53,4 +53,17 @@ describe('InsightsService', () => {
       expect(result).toEqual({ score: 72, delta: -4 });
     });
   });
+
+  describe('getBehaviorEvents', () => {
+    it('returns the most recent 20 behavior events for the user', async () => {
+      supabaseRepo.getBehaviorEventsByUserId = jest.fn().mockResolvedValue([
+        { id: 'evt-1', user_id: 'user-123', type: 'plan_created', payload: {}, created_at: new Date().toISOString() },
+      ]);
+
+      const result = await service.getBehaviorEvents('user-123');
+
+      expect(supabaseRepo.getBehaviorEventsByUserId).toHaveBeenCalledWith('user-123', 20);
+      expect(result).toHaveLength(1);
+    });
+  });
 });

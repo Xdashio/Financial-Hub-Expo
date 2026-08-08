@@ -15,6 +15,7 @@ export interface Pocket {
 export interface DailyPocket {
   name: string;
   color: string;
+  category?: string;
   remaining: number;
   cap: number;
   progress: number;
@@ -54,6 +55,7 @@ function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
     return {
       name: pocket.name,
       color: POCKET_COLORS[pocket.category || 'food'] || POCKET_COLORS.food,
+      category: pocket.category,
       remaining: Math.round(dailyCap),
       cap: Math.round(dailyCap),
       progress: 0, // No spend tracked yet — full cap available
@@ -76,7 +78,17 @@ function derivePlanType(pockets: Pocket[]): 'daily' | 'structured' {
 
 function calculateSafeToSpend(pockets: Pocket[]): number {
   const spendablePockets = pockets.filter(p => p.kind === 'spendable');
-  return spendablePockets.reduce((sum, p) => sum + (p.dailyCap || 0), 0);
+  const hasDailyCap = spendablePockets.some(p => (p.dailyCap ?? 0) > 0);
+
+  if (hasDailyCap) {
+    return spendablePockets.reduce((sum, p) => sum + (p.dailyCap || 0), 0);
+  }
+
+  // Structured plans don't set a daily_cap on spendable pockets (it's always
+  // null — see onboarding.service.ts), so summing dailyCap always came out
+  // to 0 and "Safe to spend" showed empty. For structured plans, fall back
+  // to the total spendable allocation instead.
+  return spendablePockets.reduce((sum, p) => sum + (p.monthlyAllocation || 0), 0);
 }
 
 function calculateTotalBalance(pockets: Pocket[]): number {

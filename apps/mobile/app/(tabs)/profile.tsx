@@ -1,4 +1,6 @@
-import { View, Text, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
 import {
   Lock,
@@ -9,7 +11,10 @@ import {
   BarChart3,
   RefreshCw,
   List,
+  LogOut,
 } from 'lucide-react-native';
+import { useAuthStore } from '@/services/auth';
+import { profileApi } from '@/services/api';
 
 const styles = StyleSheet.create({
   container: {
@@ -113,56 +118,119 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
     color: colors.sage,
   },
+  signOutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+  },
+  signOutIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: radius.xs,
+    backgroundColor: colors.clayTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutTitle: {
+    ...typography.heading,
+    color: colors.clay,
+  },
 });
 
-const SETTINGS_GROUPS = [
-  {
-    label: 'Security',
-    items: [
-      { icon: Lock, title: 'Biometric unlock', desc: 'Require Face ID to open app', trailing: 'On' },
-      { icon: Timer, title: 'Savings time-lock', desc: '7-day delay on withdrawals', trailing: 'Active' },
-      { icon: Lock, title: 'Change PIN', desc: 'Update your app PIN', trailing: '' },
-    ],
-  },
-  {
-    label: 'Account',
-    items: [
-      { icon: User, title: 'Personal info', desc: 'Name, email, phone number', trailing: '' },
-      { icon: Bell, title: 'Notifications', desc: 'Push and in-app alerts', trailing: 'On' },
-      { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: 'System' },
-    ],
-  },
-  {
-    label: 'Plan',
-    items: [
-      { icon: BarChart3, title: 'Current plan', desc: 'Structured Salaried — 50/30/20', trailing: '' },
-      { icon: RefreshCw, title: 'Retake behavior check-in', desc: 'Update plan if habits changed', trailing: '' },
-      { icon: List, title: 'Fixed expenses', desc: 'Manage detected recurring costs', trailing: '4 items' },
-    ],
-  },
-];
-
 export default function ProfileScreen() {
+  const router = useRouter();
+  const user = useAuthStore(s => s.user);
+  const signOut = useAuthStore(s => s.signOut);
+
+  const [plan, setPlan] = React.useState<any>(null);
+  const [fixedExpenseCount, setFixedExpenseCount] = React.useState<number | null>(null);
+  const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
+
+  React.useEffect(() => {
+    Promise.all([
+      profileApi.getPlan().catch(() => null),
+      profileApi.getFixedExpenses().catch(() => []),
+    ]).then(([planRes, expensesRes]) => {
+      setPlan(planRes);
+      setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
+      setIsLoadingPlan(false);
+    });
+  }, []);
+
+  const initials = user?.fullName
+    ?.split(' ')
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase() ?? '?';
+
+  const planLabel = plan?.type === 'daily' ? 'Daily Budget' : 'Structured Salaried';
+
+  const settingsGroups = [
+    {
+      label: 'Security',
+      items: [
+        {
+          icon: Lock,
+          title: 'Biometric unlock',
+          desc: 'Require Face ID to open app',
+          trailing: user?.biometricEnabled ? 'On' : 'Off',
+        },
+        { icon: Timer, title: 'Savings time-lock', desc: '7-day delay on withdrawals', trailing: 'Active' },
+        { icon: Lock, title: 'Change PIN', desc: 'Update your app PIN', trailing: '' },
+      ],
+    },
+    {
+      label: 'Account',
+      items: [
+        { icon: User, title: 'Personal info', desc: 'Name, email, phone number', trailing: '' },
+        { icon: Bell, title: 'Notifications', desc: 'Push and in-app alerts', trailing: 'On' },
+        { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: 'System' },
+      ],
+    },
+    {
+      label: 'Plan',
+      items: [
+        { icon: BarChart3, title: 'Current plan', desc: planLabel, trailing: '' },
+        { icon: RefreshCw, title: 'Retake behavior check-in', desc: 'Update plan if habits changed', trailing: '' },
+        {
+          icon: List,
+          title: 'Fixed expenses',
+          desc: 'Manage detected recurring costs',
+          trailing: fixedExpenseCount !== null ? `${fixedExpenseCount} item${fixedExpenseCount === 1 ? '' : 's'}` : '',
+        },
+      ],
+    },
+  ];
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace('/(auth)/signin');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>JD</Text>
+            <Text style={styles.avatarText}>{initials}</Text>
           </View>
-          <Text style={styles.name}>Jane Doe</Text>
-          <Text style={styles.sub}>jane@financialhub.app</Text>
+          <Text style={styles.name}>{user?.fullName || '—'}</Text>
+          <Text style={styles.sub}>{user?.phone || user?.email || '—'}</Text>
           <View style={styles.planChipRow}>
-            <View style={[styles.planChip, styles.planChipA]}>
-              <Text style={[styles.planChipText, styles.planChipTextA]}>Structured Salaried</Text>
-            </View>
-            <View style={[styles.planChip, { backgroundColor: colors.goldTint }]}>
-              <Text style={[styles.planChipText, { color: colors.gold }]}>50/30/20</Text>
-            </View>
+            {isLoadingPlan ? (
+              <ActivityIndicator size="small" color={colors.emeraldDeep} />
+            ) : (
+              <View style={[styles.planChip, styles.planChipA]}>
+                <Text style={[styles.planChipText, styles.planChipTextA]}>{planLabel}</Text>
+              </View>
+            )}
           </View>
         </View>
 
-        {SETTINGS_GROUPS.map((group, gi) => (
+        {settingsGroups.map((group, gi) => (
           <View key={gi} style={styles.settingsGroup}>
             <Text style={styles.groupLabel}>{group.label}</Text>
             {group.items.map((item, ii) => (
@@ -182,6 +250,13 @@ export default function ProfileScreen() {
             ))}
           </View>
         ))}
+
+        <Pressable style={styles.signOutRow} onPress={handleSignOut}>
+          <View style={styles.signOutIcon}>
+            <LogOut size={18} color={colors.clay} strokeWidth={2.5} />
+          </View>
+          <Text style={styles.signOutTitle}>Sign out</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

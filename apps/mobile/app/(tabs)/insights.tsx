@@ -1,5 +1,7 @@
-import { View, Text, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
+import { insightsApi } from '@/services/api';
 
 const styles = StyleSheet.create({
   container: {
@@ -136,6 +138,20 @@ const styles = StyleSheet.create({
     color: colors.sage,
     marginLeft: 'auto',
   },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.sage,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxxl,
+  },
 });
 
 const METRICS = [
@@ -145,14 +161,73 @@ const METRICS = [
   { label: 'Cooling-off skips', value: '0', color: colors.clay },
 ];
 
-const EVENTS = [
-  { type: 'positive', title: 'Savings streak', desc: '12 days without touching Savings pocket', time: 'Today', color: colors.emerald },
-  { type: 'positive', title: 'Daily cap respected', desc: 'Food & groceries stayed under KES 250', time: 'Yesterday', color: colors.emerald },
-  { type: 'caution', title: 'Reallocation', desc: 'Moved KES 500 from Transport → Personal', time: '2 days ago', color: colors.plum },
-  { type: 'positive', title: 'Plan assigned', desc: 'Structured Salaried plan from onboarding', time: '1 week ago', color: colors.gold },
-];
+interface DisplayEvent {
+  title: string;
+  desc: string;
+  time: string;
+  color: string;
+}
+
+function formatRelativeTime(iso: string): string {
+  const date = new Date(iso);
+  const diffDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  const diffWeeks = Math.floor(diffDays / 7);
+  return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
+}
+
+// Maps a raw behavior_events row (type + payload) to something displayable.
+// Only `plan_created` is emitted by the API today (see onboarding.service.ts);
+// `reallocation_completed` and `savings_streak_*` are handled defensively for
+// when reallocation/streak tracking lands, per ROADMAP.md.
+function mapBehaviorEvent(event: any): DisplayEvent {
+  const payload = event.payload || {};
+  const time = formatRelativeTime(event.created_at);
+
+  if (event.type === 'plan_created') {
+    return { title: 'Plan assigned', desc: 'Your money plan is ready', time, color: colors.gold };
+  }
+  if (event.type === 'reallocation_completed') {
+    const desc = payload.amount && payload.fromPocket && payload.toPocket
+      ? `Moved ${payload.amount} from ${payload.fromPocket} → ${payload.toPocket}`
+      : 'Funds moved between pockets';
+    return { title: 'Reallocation', desc, time, color: colors.plum };
+  }
+  if (typeof event.type === 'string' && event.type.startsWith('savings_streak')) {
+    const desc = payload.days ? `${payload.days} days without touching Savings pocket` : 'Savings streak continues';
+    return { title: 'Savings streak', desc, time, color: colors.emerald };
+  }
+  // Unknown/future event type — show something reasonable rather than nothing.
+  return { title: String(event.type ?? 'Activity').replace(/_/g, ' '), desc: '', time, color: colors.sage };
+}
 
 export default function InsightsScreen() {
+  const [score, setScore] = React.useState<number | null>(null);
+  const [delta, setDelta] = React.useState(0);
+  const [events, setEvents] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    Promise.all([
+      insightsApi.getDisciplineScore(),
+      insightsApi.getBehaviorEvents(),
+    ])
+      .then(([scoreRes, eventsRes]) => {
+        setScore(scoreRes?.score ?? null);
+        setDelta(scoreRes?.delta ?? 0);
+        setEvents(Array.isArray(eventsRes) ? eventsRes : []);
+      })
+      .catch(() => {
+        setScore(null);
+        setEvents([]);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const displayEvents = events.map(mapBehaviorEvent);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
@@ -160,11 +235,13 @@ export default function InsightsScreen() {
 
         <View style={styles.scoreHero}>
           <View style={styles.scoreRing}>
-            <Text style={styles.scoreValue}>87</Text>
+            <Text style={styles.scoreValue}>{isLoading ? '—' : score ?? '—'}</Text>
           </View>
           <Text style={styles.scoreLabel}>Discipline Score</Text>
           <View style={styles.scoreDelta}>
-            <Text style={styles.scoreDeltaText}>+3 vs last week</Text>
+            <Text style={styles.scoreDeltaText}>
+              {delta > 0 ? `+${delta}` : delta} vs last week
+            </Text>
           </View>
         </View>
 
@@ -182,16 +259,26 @@ export default function InsightsScreen() {
 
         <Text style={styles.sectionLabel}>Recent activity</Text>
 
-        {EVENTS.map((event, i) => (
-          <View key={i} style={styles.eventRow}>
-            <View style={[styles.eventDot, { backgroundColor: event.color }]} />
-            <View style={styles.eventContent}>
-              <Text style={styles.eventTitle}>{event.title}</Text>
-              <Text style={styles.eventDesc}>{event.desc}</Text>
-            </View>
-            <Text style={styles.eventTime}>{event.time}</Text>
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.emeraldDeep} />
           </View>
-        ))}
+        ) : displayEvents.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No activity yet — complete a week to see insights</Text>
+          </View>
+        ) : (
+          displayEvents.map((event, i) => (
+            <View key={i} style={styles.eventRow}>
+              <View style={[styles.eventDot, { backgroundColor: event.color }]} />
+              <View style={styles.eventContent}>
+                <Text style={styles.eventTitle}>{event.title}</Text>
+                {event.desc ? <Text style={styles.eventDesc}>{event.desc}</Text> : null}
+              </View>
+              <Text style={styles.eventTime}>{event.time}</Text>
+            </View>
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

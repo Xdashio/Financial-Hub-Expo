@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { BehaviorEvent } from '../../database/database.types';
 
 export interface DisciplineScoreResult {
   score: number;
@@ -13,6 +14,8 @@ export interface DisciplineScoreResult {
 // only source of truth for the discipline score.
 const DEFAULT_DISCIPLINE_SCORE: DisciplineScoreResult = { score: 100, delta: 0 };
 
+const BEHAVIOR_EVENTS_LIMIT = 20;
+
 @Injectable()
 export class InsightsService {
   constructor(private readonly supabaseRepo: SupabaseRepository) {}
@@ -23,5 +26,9 @@ export class InsightsService {
       return DEFAULT_DISCIPLINE_SCORE;
     }
     return { score: latest.score, delta: latest.delta };
+  }
+
+  async getBehaviorEvents(userId: string): Promise<BehaviorEvent[]> {
+    return this.supabaseRepo.getBehaviorEventsByUserId(userId, BEHAVIOR_EVENTS_LIMIT);
   }
 }

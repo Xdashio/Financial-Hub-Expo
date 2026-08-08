@@ -1,52 +1,20 @@
 import React from 'react';
 import { View, Text, Image, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
-import { Shield, RefreshCw, ChevronLeft } from 'lucide-react-native';
+import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
 import { Button } from '@/components/ui';
 
-// Pocket icon components matching the mockup design
-const PocketIconSavings = ({ color, size = 14 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7}>
-    <Path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.31-8.86c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43V6.9c1.1 0 1.98.37 2.63 1.06l.86-1.09c-.85-.74-2.06-1.28-3.49-1.28V4h-1.5v2.5c-1.9.32-3.15 1.53-3.15 3.03 0 1.67 1.31 2.69 3.15 3.14 1.97.47 2.34 1.09 2.34 1.99 0 1.03-1.01 1.56-2.29 1.56-1.32 0-2.31-.52-3.05-1.27l-.95 1.1c.94.96 2.25 1.53 3.8 1.53v2.5h1.5v-2.5c2.11-.32 3.32-1.68 3.32-3.25 0-1.82-1.5-2.82-3.05-3.27z" />
-  </Svg>
-);
-
-const PocketIconRent = ({ color, size = 14 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7}>
-    <Path d="M3 21h18M5 21V7l8-4 8 4v14M8 21v-2a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </Svg>
-);
-
-const PocketIconGroceries = ({ color, size = 14 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7}>
-    <Path d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-8 2a2 2 0 1 1-4 0 2 2 0 0 1 4 0z" />
-  </Svg>
-);
-
-const PocketIconPersonal = ({ color, size = 14 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7}>
-    <Circle cx="12" cy="8" r="4" />
-    <Path d="M4 21c0-4 4-6 8-6s8 2 8 6" />
-  </Svg>
-);
-
-const PocketIconTransport = ({ color, size = 14 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7}>
-    <Path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
-    <Circle cx="7" cy="17" r="2" />
-    <Circle cx="17" cy="17" r="2" />
-  </Svg>
-);
-
-const PocketIconLock = ({ color, size = 13 }: { color: string; size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7}>
-    <Path d="M8 10V7a4 4 0 0 1 8 0v3" />
-    <Path d="M4 10h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-10" />
-  </Svg>
-);
+// Pocket icons — using lucide-react-native so pocket icons stay visually
+// consistent (same stroke weight/family) with the rest of the app instead
+// of one-off hand-drawn SVG paths.
+const PocketIconSavings = PiggyBank;
+const PocketIconRent = House;
+const PocketIconGroceries = ShoppingBasket;
+const PocketIconPersonal = User;
+const PocketIconTransport = Car;
+const PocketIconLock = Lock;
 
 const getPocketIcon = (category?: string, kind?: string) => {
   switch (kind) {
@@ -122,11 +90,15 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: radius.sm,
     backgroundColor: colors.goldTint,
-    color: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarText: {
+    color: colors.gold,
     fontSize: 14,
     fontFamily: typography.fontFamily,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   balanceBlock: {
     marginTop: spacing.xl,
@@ -201,9 +173,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1.5,
     borderTopColor: colors.line,
     borderStyle: 'dashed',
-    marginHorizontal: -spacing.lg,
-    marginTop: -spacing.lg,
-    paddingTop: spacing.lg,
+    marginTop: -spacing.xs,
+    paddingTop: spacing.md,
   },
   pocketTab: {
     position: 'absolute',
@@ -514,13 +485,15 @@ export default function HomeScreen() {
             />
             <Text style={styles.brandWordmark}>Financial Hub</Text>
           </View>
-          <Text style={styles.avatar}>{initials}</Text>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
         </View>
 
         <View style={styles.balanceBlock}>
-          <Text style={styles.balanceLabel}>Safe to spend today</Text>
+          <Text style={styles.balanceLabel}>{isDaily ? 'Safe to spend today' : 'Safe to spend'}</Text>
           <Text style={styles.balanceValue}>{formatCurrency(safeToSpendToday)}</Text>
-          <Text style={styles.balanceSub}>Sum of daily caps</Text>
+          <Text style={styles.balanceSub}>{isDaily ? 'Sum of daily caps' : 'Total across spendable pockets'}</Text>
         </View>
 
         <View style={styles.balanceSecondary}>

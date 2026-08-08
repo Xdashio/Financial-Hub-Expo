@@ -11,6 +11,7 @@ describe('InsightsController', () => {
   beforeEach(async () => {
     insightsService = {
       getDisciplineScore: jest.fn().mockResolvedValue({ score: 100, delta: 0 }),
+      getBehaviorEvents: jest.fn().mockResolvedValue([]),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -35,5 +36,14 @@ describe('InsightsController', () => {
 
     expect(insightsService.getDisciplineScore).toHaveBeenCalledWith('user-123');
     expect(result).toEqual({ score: 100, delta: 0 });
+  });
+
+  it('returns behavior events for the authenticated user', async () => {
+    const req = { user: { id: 'user-123' } };
+
+    const result = await controller.getBehaviorEvents(req);
+
+    expect(insightsService.getBehaviorEvents).toHaveBeenCalledWith('user-123');
+    expect(result).toEqual([]);
   });
 });
