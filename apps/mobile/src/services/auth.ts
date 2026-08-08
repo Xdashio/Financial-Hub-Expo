@@ -58,8 +58,8 @@ export interface AuthState {
   hasPlan: boolean;
   // True while we're checking the server for an active plan (avoids routing flicker)
   isCheckingPlan: boolean;
-  sendOtp: (phone: string, fullName?: string) => Promise<void>;
-  verifyOtp: (phone: string, code: string) => Promise<{ user: User | null; error?: string }>;
+  sendOtp: (phone: string, options?: { fullName?: string; allowSignup?: boolean }) => Promise<void>;
+  verifyOtp: (phone: string, code: string, fullName?: string) => Promise<{ user: User | null; error?: string }>;
   signOut: () => Promise<void>;
   enableBiometrics: () => Promise<void>;
   disableBiometrics: () => Promise<void>;
@@ -123,28 +123,51 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
           const pockets: any[] = await res.json();
-          set({ hasPlan: Array.isArray(pockets) && pockets.length > 0, isCheckingPlan: false });
+          const hasPockets = Array.isArray(pockets) && pockets.length > 0;
+          set({ hasPlan: hasPockets, isCheckingPlan: false });
         } catch {
           // Network error — default to no plan so user isn't stuck
           set({ hasPlan: false, isCheckingPlan: false });
         }
       },
 
-      sendOtp: async (phone: string, fullName?: string) => {
+      sendOtp: async (phone: string, options?: { fullName?: string; allowSignup?: boolean }) => {
+        // allowSignup defaults to true so existing call sites that don't pass
+        // it (e.g. resend-code) keep prior behaviour. The sign-in screen
+        // explicitly passes allowSignup: false.
+        const allowSignup = options?.allowSignup !== false;
+        const fullName = options?.fullName;
+
         const { error } = await supabase.auth.signInWithOtp({
           phone,
           options: {
             channel: 'sms',
+            // Without this, Supabase happily creates a brand-new account for
+            // any phone number that doesn't exist yet whenever OTP is
+            // requested — so "Sign in" with an unregistered number silently
+            // registered a blank phantom account instead of failing. Signup
+            // explicitly opts in; sign-in explicitly opts out.
+            shouldCreateUser: allowSignup,
             // Carries the name from signup into user_metadata so verifyOtp
-            // can read it back — without this, every signup ends up with a
-            // blank name since verifyOtp only ever reads existing metadata.
+            // can read it back for a brand-new account. NOTE: Supabase only
+            // applies this `data` payload when the account is first created
+            // — if the phone number is already registered it's silently
+            // ignored, which is why verifyOtp() below also force-applies the
+            // name via updateUser() after verification.
             ...(fullName ? { data: { full_name: fullName } } : {}),
           },
         });
-        if (error) throw error;
+        if (error) {
+          // Supabase's exact error text when shouldCreateUser: false hits an
+          // unregistered phone number is "Signups not allowed for otp".
+          if (!allowSignup && /signups not allowed/i.test(error.message)) {
+            throw new Error('No account found for this number. Please create an account first.');
+          }
+          throw error;
+        }
       },
 
-      verifyOtp: async (phone: string, code: string) => {
+      verifyOtp: async (phone: string, code: string, fullName?: string) => {
         const { data, error } = await supabase.auth.verifyOtp({
           phone,
           token: code,
@@ -152,13 +175,33 @@ export const useAuthStore = create<AuthState>()(
         });
         if (error) return { user: null, error: error.message };
         if (data.user) {
+          let authUser = data.user;
+          const trimmedName = fullName?.trim();
+
+          // signInWithOtp's `data: { full_name }` payload only lands on
+          // *newly created* accounts. If this number was already registered
+          // (someone going through "Sign up" a second time, e.g. because
+          // their first attempt silently became a sign-in), that metadata
+          // is ignored and the name never persists. Force it here instead,
+          // unconditionally, right after verification — this covers both
+          // the brand-new-user case (no-op, name already matches) and the
+          // already-registered case (actually fixes the stored name).
+          if (trimmedName && authUser.user_metadata?.full_name !== trimmedName) {
+            const { data: updateData, error: updateError } = await supabase.auth.updateUser({
+              data: { full_name: trimmedName },
+            });
+            if (!updateError && updateData.user) {
+              authUser = updateData.user;
+            }
+          }
+
           const user: User = {
-            id: data.user.id,
-            phone: data.user.phone || phone,
-            fullName: data.user.user_metadata?.full_name || '',
+            id: authUser.id,
+            phone: authUser.phone || phone,
+            fullName: authUser.user_metadata?.full_name || '',
             biometricEnabled: false,
-            createdAt: data.user.created_at,
-            email: data.user.email,
+            createdAt: authUser.created_at,
+            email: authUser.email,
           };
           await storeUser(user);
           set({ user, isAuthenticated: true, session: data.session });
@@ -211,30 +254,43 @@ export const useAuthStore = create<AuthState>()(
       },
 
       restoreSession: async () => {
+        // The live Supabase session (now correctly persisted via
+        // AsyncStorage — see supabase.config.ts) is the single source of
+        // truth for whether the user is actually signed in. The app also
+        // keeps its own small 'user' cache (name, biometric flag) for fast
+        // UI, but that cache must never grant an authenticated state on its
+        // own — it previously could, which let a stale/cleared session
+        // still "look" signed in with no real token behind it, and it
+        // could also fail to recognize a perfectly valid live session just
+        // because the cache was empty (e.g. first launch after a fix, or
+        // cache/session writes racing each other).
+        set({ isCheckingPlan: true });
         const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
+        const biometricEnabled = await getBiometricEnabled();
+
+        if (session?.user) {
           const storedUser = await getStoredUser();
-          const biometricEnabled = await getBiometricEnabled();
-          if (storedUser) {
-            set({
-              user: { ...storedUser, biometricEnabled },
-              isAuthenticated: true,
-              session,
-            });
-            // Check for existing plan so returning users route correctly on cold start
-            await get().checkHasPlan();
-          }
+          const user: User =
+            storedUser && storedUser.id === session.user.id
+              ? { ...storedUser, biometricEnabled }
+              : {
+                  id: session.user.id,
+                  phone: session.user.phone || '',
+                  fullName: session.user.user_metadata?.full_name || '',
+                  biometricEnabled,
+                  createdAt: session.user.created_at,
+                  email: session.user.email,
+                };
+          // Heal the local cache if it was missing/stale/for a different user.
+          await storeUser(user);
+          set({ user, isAuthenticated: true, session });
+          // Check for existing plan so returning users route correctly on cold start
+          await get().checkHasPlan();
         } else {
-          const storedUser = await getStoredUser();
-          const biometricEnabled = await getBiometricEnabled();
-          if (storedUser) {
-            set({
-              user: { ...storedUser, biometricEnabled },
-              isAuthenticated: true,
-            });
-            // No live session but stored user — still check plan with whatever token we have
-            await get().checkHasPlan();
-          }
+          // No live session — don't trust a leftover local cache to grant
+          // access with no real credentials behind it.
+          await clearStoredUser();
+          set({ user: null, isAuthenticated: false, session: null, hasPlan: false, isCheckingPlan: false });
         }
       },
     }),
@@ -263,6 +319,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         hasPlan: state.hasPlan,
+        isCheckingPlan: state.isCheckingPlan,
       }),
     }
   )

@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Check, Shield } from 'lucide-react-native';
-import { colors, radius, spacing, typography, borderWidth } from '@/theme';
+import { radius, spacing, typography, borderWidth } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore } from '@/services/home-store';
 import { Button, ScreenContainer, SafeScrollView } from '@/components/ui';
 
@@ -22,12 +23,80 @@ export default function ReallocSuccessScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<SuccessParams>();
   const refreshData = useHomeStore((s) => s.refreshData);
+  const { colors } = useTheme();
 
   const amount = Number(params.amount) || 0;
 
   const handleDone = () => {
     refreshData();
     router.replace('/(tabs)');
+  };
+
+  const styles = {
+    hero: {
+      alignItems: 'center' as const,
+      marginTop: spacing.lg,
+      paddingHorizontal: spacing.md,
+    },
+    icon: {
+      width: 56,
+      height: 56,
+      borderRadius: radius.pill,
+      backgroundColor: colors.emeraldTint,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: spacing.md,
+    },
+    title: {
+      ...typography.title,
+      color: colors.ink,
+      textAlign: 'center' as const,
+    },
+    subtext: {
+      ...typography.body,
+      color: colors.sage,
+      textAlign: 'center' as const,
+      marginTop: spacing.sm,
+    },
+    bold: {
+      color: colors.ink,
+      fontFamily: typography.heading.fontFamily,
+    },
+    reviewList: {
+      marginTop: spacing.xxl,
+      backgroundColor: colors.surface,
+      borderWidth: borderWidth,
+      borderColor: colors.line,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      gap: spacing.sm,
+    },
+    reviewRow: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+    },
+    reviewKey: {
+      ...typography.caption,
+      color: colors.sage,
+    },
+    reviewValue: {
+      ...typography.body,
+      color: colors.ink,
+    },
+    protectStrip: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: spacing.xs,
+      backgroundColor: colors.emeraldTint,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginTop: spacing.lg,
+    },
+    protectText: {
+      ...typography.caption,
+      color: colors.emeraldDeep,
+      flex: 1,
+    },
   };
 
   return (
@@ -45,12 +114,12 @@ export default function ReallocSuccessScreen() {
         </View>
 
         <View style={styles.reviewList}>
-          <ReviewRow label="From" value={params.fromName} />
-          <ReviewRow label="To" value={params.toName} />
-          <ReviewRow label="Amount" value={formatCurrency(amount)} />
-          {!!params.reasonLabel && <ReviewRow label="Reason" value={params.reasonLabel} />}
+          <ReviewRow label="From" value={params.fromName} styles={styles} />
+          <ReviewRow label="To" value={params.toName} styles={styles} />
+          <ReviewRow label="Amount" value={formatCurrency(amount)} styles={styles} />
+          {!!params.reasonLabel && <ReviewRow label="Reason" value={params.reasonLabel} styles={styles} />}
           {!!params.newFromBalance && (
-            <ReviewRow label={`New ${params.fromName} balance`} value={formatCurrency(Number(params.newFromBalance))} />
+            <ReviewRow label={`New ${params.fromName} balance`} value={formatCurrency(Number(params.newFromBalance))} styles={styles} />
           )}
         </View>
 
@@ -69,7 +138,7 @@ export default function ReallocSuccessScreen() {
   );
 }
 
-function ReviewRow({ label, value }: { label?: string; value?: string }) {
+function ReviewRow({ label, value, styles }: { label?: string; value?: string; styles: any }) {
   return (
     <View style={styles.reviewRow}>
       <Text style={styles.reviewKey}>{label}</Text>
@@ -77,70 +146,3 @@ function ReviewRow({ label, value }: { label?: string; value?: string }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  hero: {
-    alignItems: 'center',
-    marginTop: spacing.xxl,
-    paddingHorizontal: spacing.md,
-  },
-  icon: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.pill,
-    backgroundColor: colors.emeraldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  title: {
-    ...typography.title,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  bold: {
-    color: colors.ink,
-    fontFamily: typography.heading.fontFamily,
-  },
-  reviewList: {
-    marginTop: spacing.xxl,
-    backgroundColor: colors.surface,
-    borderWidth: borderWidth,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  reviewRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  reviewKey: {
-    ...typography.caption,
-    color: colors.sage,
-  },
-  reviewValue: {
-    ...typography.body,
-    color: colors.ink,
-  },
-  protectStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.emeraldTint,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.lg,
-  },
-  protectText: {
-    ...typography.caption,
-    color: colors.emeraldDeep,
-    flex: 1,
-  },
-});

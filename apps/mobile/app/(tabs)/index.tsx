@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography, shadow } from '../../src/theme';
+import { useTheme } from '@/theme/ThemeContext';
 import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock, ArrowLeftRight } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
@@ -51,349 +52,20 @@ const getPocketIcon = (category?: string, kind?: string) => {
   }
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.paper,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  brandBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: spacing.xs,
-  },
-  brandMark: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  brandGlyph: {
-    width: 26,
-    height: 26,
-  },
-  brandWordmark: {
-    ...typography.heading,
-    color: colors.ink,
-    letterSpacing: -0.18,
-  },
-  avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: radius.sm,
-    backgroundColor: colors.goldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  balanceBlock: {
-    marginTop: spacing.xl,
-  },
-  balanceLabel: {
-    ...typography.caption,
-    color: colors.sage,
-    letterSpacing: 0.36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  balanceValue: {
-    ...typography.display,
-    color: colors.emeraldDeep,
-    marginTop: spacing.xs,
-    fontVariant: ['tabular-nums'],
-  },
-  balanceSub: {
-    ...typography.caption,
-    fontSize: 11,
-    color: colors.sage,
-    marginTop: spacing.xs,
-  },
-  balanceSecondary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.lineSoft,
-  },
-  balanceSecondaryLabel: {
-    ...typography.caption,
-    color: colors.sage,
-  },
-  balanceSecondaryValue: {
-    ...typography.body,
-    color: colors.inkSoft,
-    fontVariant: ['tabular-nums'],
-  },
-  protectStrip: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.emeraldTint,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  protectStripText: {
-    ...typography.caption,
-    color: colors.emeraldDeep,
-  },
-  reallocateRow: {
-    marginTop: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  reallocateLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  reallocateIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.pill,
-    backgroundColor: colors.plumTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reallocateText: {
-    ...typography.body,
-    color: colors.ink,
-  },
-  sectionLabel: {
-    ...typography.eyebrow,
-    marginTop: spacing.xxl,
-    marginBottom: spacing.md,
-  },
-  pocketCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    ...shadow.default,
-  },
-  pocketStitch: {
-    borderTopWidth: 1.5,
-    borderTopColor: colors.line,
-    borderStyle: 'dashed',
-    marginTop: -spacing.xs,
-    paddingTop: spacing.md,
-  },
-  pocketTab: {
-    position: 'absolute',
-    top: -4,
-    left: 16,
-    width: 34,
-    height: 8,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
-  },
-  pocketTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  pocketNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  pocketIconMain: {
-    flexShrink: 0,
-  },
-  pocketName: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  pocketIcons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pocketLock: {
-    color: colors.sage,
-  },
-  pocketAmount: {
-    ...typography.body,
-    color: colors.ink,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '700',
-  },
-  pocketBarTrack: {
-    height: 6,
-    backgroundColor: colors.lineSoft,
-    borderRadius: radius.pill,
-    marginTop: spacing.md,
-    overflow: 'hidden',
-  },
-  pocketBarFill: {
-    height: '100%',
-    borderRadius: radius.pill,
-  },
-  pocketMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-  },
-  pocketMetaText: {
-    ...typography.caption,
-    fontSize: 11,
-    color: colors.sage,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-  },
-  emptyIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.lg,
-    backgroundColor: colors.emeraldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  emptyTitle: {
-    ...typography.title,
-    color: colors.ink,
-  },
-  emptySub: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-    lineHeight: 21,
-  },
-  dailyPocketCard: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    ...shadow.default,
-  },
-  dailyPocketTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  dailyPocketLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  dailyPocketRight: {
-    alignItems: 'flex-end',
-  },
-  dailyPocketRemaining: {
-    ...typography.heading,
-    color: colors.ink,
-    fontVariant: ['tabular-nums'],
-  },
-  dailyPocketCap: {
-    ...typography.caption,
-    color: colors.sage,
-    marginTop: 2,
-    fontVariant: ['tabular-nums'],
-  },
-  dailyPocketBarTrack: {
-    height: 6,
-    backgroundColor: colors.lineSoft,
-    borderRadius: radius.pill,
-    marginTop: spacing.md,
-    overflow: 'hidden',
-  },
-  dailyPocketBarFill: {
-    height: '100%',
-    borderRadius: radius.pill,
-  },
-  rolloverStrip: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  rolloverLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  rolloverIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.xs,
-    backgroundColor: colors.goldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rolloverTitle: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  rolloverSub: {
-    ...typography.caption,
-    fontSize: 11,
-    color: colors.sage,
-    marginTop: 1,
-  },
-  rolloverValue: {
-    ...typography.body,
-    color: colors.emeraldDeep,
-    fontVariant: ['tabular-nums'],
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxxl,
-  },
-  loadingText: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.md,
-  },
-});
-
 export default function HomeScreen() {
+  const { colors } = useTheme();
   const router = useRouter();
-  const { 
-    pockets, 
-    dailyPockets, 
+  const {
+    pockets,
+    dailyPockets,
     planType,
-    rolloverAmount, 
-    safeToSpendToday, 
-    totalBalance, 
-    disciplineScore, 
+    rolloverAmount,
+    safeToSpendToday,
+    totalBalance,
+    disciplineScore,
     scoreDelta,
-    isLoading, 
-    error, 
+    isLoading,
+    error,
     fetchHomeData,
     refreshData,
   } = useHomeStore();
@@ -429,11 +101,11 @@ export default function HomeScreen() {
 
   if (isLoading && pockets.length === 0) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-          <View style={styles.loadingContainer}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.xxxl }}>
             <ActivityIndicator size="large" color={colors.emeraldDeep} />
-            <Text style={styles.loadingText}>Loading your financial hub...</Text>
+            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>Loading your financial hub...</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -442,14 +114,14 @@ export default function HomeScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+          <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
+            <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
               <ChevronLeft size={32} color={colors.emeraldDeep} strokeWidth={2} />
             </View>
-            <Text style={styles.emptyTitle}>Unable to load data</Text>
-            <Text style={styles.emptySub}>{error}</Text>
+            <Text style={{ ...typography.title, color: colors.ink }}>Unable to load data</Text>
+            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>{error}</Text>
             <Button fullWidth size="md" onPress={refreshData} style={{ marginTop: spacing.lg }}>
               Try Again
             </Button>
@@ -461,14 +133,14 @@ export default function HomeScreen() {
 
   if (pockets.length === 0) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+          <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
+            <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
               <Shield size={32} color={colors.emeraldDeep} strokeWidth={2} />
             </View>
-            <Text style={styles.emptyTitle}>No plan yet</Text>
-            <Text style={styles.emptySub}>
+            <Text style={{ ...typography.title, color: colors.ink }}>No plan yet</Text>
+            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
               Complete onboarding to see your personalized money plan with pockets for savings, fixed costs, and daily spending.
             </Text>
           </View>
@@ -485,100 +157,102 @@ export default function HomeScreen() {
   const isDaily = planType === 'daily';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={{ flex: 1 }}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
         refreshControl={
           <RefreshControl refreshing={isLoading} onRefresh={refreshData} tintColor={colors.emeraldDeep} colors={[colors.emeraldDeep]} />
         }
       >
-        <View style={styles.brandBar}>
-          <View style={styles.brandMark}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <Image
               source={require('../../assets/financial_hub_logo_transparent.png')}
-              style={styles.brandGlyph}
+              style={{ width: 26, height: 26 }}
               resizeMode="contain"
             />
-            <Text style={styles.brandWordmark}>Financial Hub</Text>
+            <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }}>Financial Hub</Text>
           </View>
-          <View style={styles.avatar}>
+          <View style={{ width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
             <User size={18} color={colors.gold} strokeWidth={2.5} />
           </View>
         </View>
 
-        <View style={styles.balanceBlock}>
-          <Text style={styles.balanceLabel}>{isDaily ? 'Safe to spend today' : 'Safe to spend'}</Text>
-          <Text style={styles.balanceValue}>{formatCurrency(safeToSpendToday)}</Text>
-          <Text style={styles.balanceSub}>{isDaily ? 'Sum of daily caps' : 'Total across spendable pockets'}</Text>
+        <View style={{ marginTop: spacing.xl }}>
+          <Text style={{ ...typography.caption, color: colors.sage, letterSpacing: 0.36, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>{isDaily ? 'Safe to spend today' : 'Safe to spend'}</Text>
+          <Text style={{ ...typography.display, color: colors.emeraldDeep, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>{formatCurrency(safeToSpendToday)}</Text>
+          <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }}>{isDaily ? 'Sum of daily caps' : 'Total across spendable pockets'}</Text>
         </View>
 
-        <View style={styles.balanceSecondary}>
-          <Text style={styles.balanceSecondaryLabel}>Total balance</Text>
-          <Text style={styles.balanceSecondaryValue}>{formatCurrency(totalBalance)}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+          <Text style={{ ...typography.caption, color: colors.sage }}>Total balance</Text>
+          <Text style={{ ...typography.body, color: colors.inkSoft, fontVariant: ['tabular-nums'] }}>{formatCurrency(totalBalance)}</Text>
         </View>
 
-        <View style={styles.protectStrip}>
+        <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.emeraldTint, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Shield size={14} color={colors.emeraldDeep} strokeWidth={2} style={{ marginRight: 4 }} />
-            <Text style={styles.protectStripText}>Savings protected — unspent daily amounts roll over</Text>
+            <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>Savings protected — unspent daily amounts roll over</Text>
           </View>
         </View>
 
         <TouchableOpacity
-          style={styles.reallocateRow}
+          style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
           activeOpacity={0.8}
           onPress={() => router.push('/(modals)/realloc-pick')}
         >
-          <View style={styles.reallocateLeft}>
-            <View style={styles.reallocateIcon}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.plumTint, alignItems: 'center', justifyContent: 'center' }}>
               <ArrowLeftRight size={16} color={colors.plum} strokeWidth={2} />
             </View>
-            <Text style={styles.reallocateText}>Reallocate money between pockets</Text>
+            <Text style={{ ...typography.body, color: colors.ink }}>Reallocate money between pockets</Text>
           </View>
         </TouchableOpacity>
 
         {isDaily && (
-          <View style={styles.rolloverStrip}>
-            <View style={styles.rolloverLeft}>
-              <View style={styles.rolloverIcon}>
+          <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 32, height: 32, borderRadius: radius.xs, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
                 <RefreshCw size={16} color={colors.gold} strokeWidth={2.5} />
               </View>
               <View>
-                <Text style={styles.rolloverTitle}>Today's rollover</Text>
-                <Text style={styles.rolloverSub}>Unspent amounts move to Savings at midnight</Text>
+                <Text style={{ ...typography.heading, color: colors.ink }}>Today's rollover</Text>
+                <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 1 }}>Unspent amounts move to Savings at midnight</Text>
               </View>
             </View>
-            <Text style={styles.rolloverValue}>{formatCurrency(rolloverAmount)}</Text>
+            <Text style={{ ...typography.body, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>{formatCurrency(rolloverAmount)}</Text>
           </View>
         )}
 
         {isDaily && dailyPockets.length > 0 && (
           <>
-            <Text style={styles.sectionLabel}>Spendable pockets</Text>
+            <Text style={{ ...typography.eyebrow, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
             {dailyPockets.map((pocket, i) => {
               const PocketIcon = getPocketIcon(pocket.category);
               return (
-                <View key={i} style={styles.dailyPocketCard}>
-                  <View style={[styles.pocketStitch, { borderTopColor: pocket.color }]} />
-                  <View style={[styles.pocketTab, { backgroundColor: pocket.color }]} />
-                  <View style={styles.dailyPocketTop}>
-                    <View style={styles.dailyPocketLeft}>
+                <View key={i} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
+                  <View style={{ borderTopWidth: 1.5, borderTopColor: pocket.color, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
+                  <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocket.color }} />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                       <PocketIcon color={pocket.color} size={14} />
-                      <Text style={styles.pocketName}>{pocket.name}</Text>
+                      <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
-                    <View style={styles.dailyPocketRight}>
-                      <Text style={styles.dailyPocketRemaining}>{pocket.remaining} left</Text>
-                      <Text style={styles.dailyPocketCap}>/ {pocket.cap} cap</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{pocket.remaining} left</Text>
+                      <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, fontVariant: ['tabular-nums'] }}>/ {pocket.cap} cap</Text>
                     </View>
                   </View>
-                  <View style={styles.dailyPocketBarTrack}>
+                  <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
                     <View
-                      style={[
-                        styles.dailyPocketBarFill,
-                        { backgroundColor: pocket.color, width: `${Math.max(0, Math.min(100, pocket.progress * 100))}%` },
-                      ]}
+                      style={{
+                        height: '100%',
+                        borderRadius: radius.pill,
+                        backgroundColor: pocket.color,
+                        width: `${Math.max(0, Math.min(100, pocket.progress * 100))}%`,
+                      }}
                     />
                   </View>
                 </View>
@@ -589,36 +263,38 @@ export default function HomeScreen() {
 
         {!isDaily && structuredSpendablePockets.length > 0 && (
           <>
-            <Text style={styles.sectionLabel}>Spendable pockets</Text>
+            <Text style={{ ...typography.eyebrow, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
             {structuredSpendablePockets.map((pocket, i) => {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
               return (
-                <View key={i} style={styles.pocketCard}>
-                  <View style={[styles.pocketStitch, { borderTopColor: pocketColor }]} />
-                  <View style={[styles.pocketTab, { backgroundColor: pocketColor }]} />
-                  <View style={styles.pocketTop}>
-                    <View style={styles.pocketNameRow}>
+                <View key={i} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
+                  <View style={{ borderTopWidth: 1.5, borderTopColor: pocketColor, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
+                  <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                       <PocketIcon color={pocketColor} size={14} />
-                      <Text style={styles.pocketName}>{pocket.name}</Text>
+                      <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
-                    <View style={styles.pocketIcons}>
-                      <Text style={styles.pocketAmount}>{formatCurrency(pocket.monthlyAllocation)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.monthlyAllocation)}</Text>
                     </View>
                   </View>
-                  <View style={styles.pocketBarTrack}>
+                  <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
                     <View
-                      style={[
-                        styles.pocketBarFill,
-                        { backgroundColor: pocketColor, width: '100%' },
-                      ]}
+                      style={{
+                        height: '100%',
+                        borderRadius: radius.pill,
+                        backgroundColor: pocketColor,
+                        width: '100%',
+                      }}
                     />
                   </View>
-                  <View style={styles.pocketMeta}>
-                    <Text style={styles.pocketMetaText}>{status.label}</Text>
-                    <Text style={styles.pocketMetaText}>Available</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{status.label}</Text>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>Available</Text>
                   </View>
                 </View>
               );
@@ -628,39 +304,41 @@ export default function HomeScreen() {
 
         {fixedPockets.length > 0 && (
           <>
-            <Text style={styles.sectionLabel}>Fixed & Protected</Text>
+            <Text style={{ ...typography.eyebrow, marginTop: spacing.xxl, marginBottom: spacing.md }}>Fixed & Protected</Text>
 
             {fixedPockets.map((pocket, i) => {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
               return (
-                <View key={i} style={styles.pocketCard}>
-                  <View style={[styles.pocketStitch, { borderTopColor: pocketColor }]} />
-                  <View style={[styles.pocketTab, { backgroundColor: pocketColor }]} />
-                  <View style={styles.pocketTop}>
-                    <View style={styles.pocketNameRow}>
+                <View key={i} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
+                  <View style={{ borderTopWidth: 1.5, borderTopColor: pocketColor, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
+                  <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                       <PocketIcon color={pocketColor} size={14} />
-                      <Text style={styles.pocketName}>{pocket.name}</Text>
+                      <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
-                    <View style={styles.pocketIcons}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                       {pocket.isTimeLocked && (
                         <PocketIconLock color={colors.sage} size={13} />
                       )}
-                      <Text style={styles.pocketAmount}>{formatCurrency(pocket.monthlyAllocation)}</Text>
+                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.monthlyAllocation)}</Text>
                     </View>
                   </View>
-                  <View style={styles.pocketBarTrack}>
+                  <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
                     <View
-                      style={[
-                        styles.pocketBarFill,
-                        { backgroundColor: pocketColor, width: '100%' },
-                      ]}
+                      style={{
+                        height: '100%',
+                        borderRadius: radius.pill,
+                        backgroundColor: pocketColor,
+                        width: '100%',
+                      }}
                     />
                   </View>
-                  <View style={styles.pocketMeta}>
-                    <Text style={styles.pocketMetaText}>{status.label}</Text>
-                    <Text style={styles.pocketMetaText}>{pocket.isTimeLocked ? 'Locked' : 'Available'}</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{status.label}</Text>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{pocket.isTimeLocked ? 'Locked' : 'Available'}</Text>
                   </View>
                 </View>
               );
@@ -669,12 +347,12 @@ export default function HomeScreen() {
         )}
 
         {pockets.length === 0 && (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
+          <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
+            <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
               <Shield size={32} color={colors.emeraldDeep} strokeWidth={2} />
             </View>
-            <Text style={styles.emptyTitle}>No plan yet</Text>
-            <Text style={styles.emptySub}>
+            <Text style={{ ...typography.title, color: colors.ink }}>No plan yet</Text>
+            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
               Complete onboarding to see your personalized money plan with pockets for savings, fixed costs, and daily spending.
             </Text>
           </View>
@@ -682,8 +360,4 @@ export default function HomeScreen() {
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function formatCurrency(amount: number) {
-  return `KES ${amount.toLocaleString()}`;
 }

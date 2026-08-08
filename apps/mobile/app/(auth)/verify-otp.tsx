@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
 import { showAlert } from '@/utils/alert';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
@@ -18,6 +19,7 @@ type VerifyOtpParams = {
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<VerifyOtpParams>();
+  const { colors } = useTheme();
   const { verifyOtp } = useAuthStore();
   
   const [code, setCode] = React.useState('');
@@ -62,8 +64,10 @@ export default function VerifyOtpScreen() {
     setError('');
 
     try {
-      // verifyOtp returns { user, error? } — not a boolean
-      const result = await verifyOtp(phone, code);
+      // verifyOtp returns { user, error? } — not a boolean.
+      // Passing fullName lets the store force-persist the name even when
+      // this number turns out to already be registered (see auth.ts).
+      const result = await verifyOtp(phone, code, mode === 'signup' ? fullName : undefined);
 
       if (result.error || !result.user) {
         setError(result.error ?? 'Invalid code. Please try again.');
@@ -97,7 +101,7 @@ export default function VerifyOtpScreen() {
     
     setIsLoading(true);
     try {
-      await useAuthStore.getState().sendOtp(phone);
+      await useAuthStore.getState().sendOtp(phone, { allowSignup: mode === 'signup' });
       setResendTimer(60);
       setCanResend(false);
     } catch {
@@ -118,14 +122,14 @@ export default function VerifyOtpScreen() {
 
   return (
     <ScreenContainer>
-      <SafeScrollView contentContainerStyle={styles.scrollContent}>
+      <SafeScrollView contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
         <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>One-time code</Text>
-          <Text style={styles.title}>Enter the 6-digit code</Text>
-          <Text style={styles.subtext}>
-            We sent it to <Text style={styles.boldPhone}>{formatPhone(phone)}</Text>. It expires in 10 minutes.
+        <View style={{ alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xxl }}>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>One-time code</Text>
+          <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>Enter the 6-digit code</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md, textAlign: 'center', lineHeight: 22 }}>
+            We sent it to <Text style={{ color: colors.ink }}>{formatPhone(phone)}</Text>. It expires in 10 minutes.
           </Text>
         </View>
 
@@ -138,19 +142,17 @@ export default function VerifyOtpScreen() {
           accessibilityLabel="Enter the 6-digit verification code sent to your phone"
         />
 
-        <View style={styles.hint}>
+        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           {canResend ? (
             <TouchableOpacity onPress={handleResend}>
-              <Text style={[styles.hintText, styles.resendLink]}>Resend code</Text>
+              <Text style={{ ...typography.body, color: colors.emeraldDeep, textAlign: 'center' }}>Resend code</Text>
             </TouchableOpacity>
           ) : (
-            <Text style={styles.hintText}>
-              <Text style={styles.boldTimer}>Resend code</Text> in {Math.floor(resendTimer / 60)}:{String(resendTimer % 60).padStart(2, '0')}
+            <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center' }}>
+              <Text>Resend code</Text> in {Math.floor(resendTimer / 60)}:{String(resendTimer % 60).padStart(2, '0')}
             </Text>
           )}
         </View>
-
-        
 
         <Button
           fullWidth
@@ -163,91 +165,13 @@ export default function VerifyOtpScreen() {
           Verify & continue
         </Button>
 
-        <View style={[styles.footer, { flexDirection: 'row', gap: 4 }]}>
-          <Text style={styles.footerText}>Wrong number?</Text>
+        <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.xxl, alignItems: 'center', paddingBottom: spacing.xl }}>
+          <Text style={{ ...typography.body, color: colors.sage }}>Wrong number?</Text>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={styles.link}>Edit it</Text>
+            <Text style={{ color: colors.emeraldDeep }}>Edit it</Text>
           </TouchableOpacity>
         </View>
       </SafeScrollView>
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xxl,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.sage,
-  },
-  title: {
-    ...typography.display,
-    color: colors.ink,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  boldPhone: {
-    color: colors.ink,
-  },
-  hint: {
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
-  },
-  hintText: {
-    ...typography.body,
-    color: colors.sage,
-    textAlign: 'center',
-  },
-  resendLink: {
-    color: colors.emeraldDeep,
-  },
-  boldTimer: {
-  },
-  devNote: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    backgroundColor: colors.warningTint,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  devNoteText: {
-    ...typography.caption,
-    fontSize: 11.5,
-    color: colors.warning,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  devNoteBold: {
-  },
-  codeDisplay: {
-    fontFamily: 'monospace',
-    fontSize: 14,
-  },
-  footer: {
-    marginTop: spacing.xxl,
-    alignItems: 'center',
-    paddingBottom: spacing.xl,
-  },
-  footerText: {
-    ...typography.body,
-    color: colors.sage,
-  },
-  link: {
-    color: colors.emeraldDeep,
-  },
-});

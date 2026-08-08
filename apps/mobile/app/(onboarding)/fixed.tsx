@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { showAlert } from '@/utils/alert';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
@@ -48,6 +49,7 @@ function getIconComponent(iconName: string) {
 export default function FixedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { 
     fixedExpenses, 
     addFixedExpense, 
@@ -61,12 +63,12 @@ export default function FixedScreen() {
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [newName, setNewName] = React.useState('');
   const [newAmount, setNewAmount] = React.useState('');
-  const [newDueDay, setNewDueDay] = React.useState(1);
+  const [newDueDay, setNewDueDay] = React.useState('');
   const [newCategory, setNewCategory] = React.useState('other');
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editName, setEditName] = React.useState('');
   const [editAmount, setEditAmount] = React.useState('');
-  const [editDueDay, setEditDueDay] = React.useState(1);
+  const [editDueDay, setEditDueDay] = React.useState('');
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -98,7 +100,7 @@ export default function FixedScreen() {
     setShowAddModal(true);
     setNewName('');
     setNewAmount('');
-    setNewDueDay(1);
+    setNewDueDay('');
     setNewCategory('other');
     setEditingId(null);
   };
@@ -107,7 +109,7 @@ export default function FixedScreen() {
     setEditingId(expense.id);
     setEditName(expense.name);
     setEditAmount(expense.amount.toLocaleString());
-    setEditDueDay(expense.dueDay);
+    setEditDueDay(String(expense.dueDay));
     setShowAddModal(true);
   };
 
@@ -125,10 +127,15 @@ export default function FixedScreen() {
         showAlert('Error', 'Please enter a name');
         return;
       }
+      const dueDay = Number(editDueDay);
+      if (!dueDay || dueDay < 1 || dueDay > 31) {
+        showAlert('Error', 'Please enter a valid due day (1-31)');
+        return;
+      }
       
       // Update in store
       const updated = fixedExpenses.map((e: FixedExpenseItem) => 
-        e.id === editingId ? { ...e, name: editName, amount, dueDay: editDueDay } : e
+        e.id === editingId ? { ...e, name: editName, amount, dueDay } : e
       );
       setFixedExpenses(updated);
     } else {
@@ -142,11 +149,16 @@ export default function FixedScreen() {
         showAlert('Error', 'Please enter a name');
         return;
       }
+      const dueDay = Number(newDueDay);
+      if (!dueDay || dueDay < 1 || dueDay > 31) {
+        showAlert('Error', 'Please enter a valid due day (1-31)');
+        return;
+      }
       
       addFixedExpense({
         name: newName,
         amount,
-        dueDay: newDueDay,
+        dueDay,
         category: newCategory,
       });
     }
@@ -173,12 +185,12 @@ export default function FixedScreen() {
   const resetForm = () => {
     setNewName('');
     setNewAmount('');
-    setNewDueDay(1);
+    setNewDueDay('');
     setNewCategory('other');
     setEditingId(null);
     setEditName('');
     setEditAmount('');
-    setEditDueDay(1);
+    setEditDueDay('');
   };
 
   const handleContinue = async () => {
@@ -208,38 +220,38 @@ export default function FixedScreen() {
         <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         <ProgressIndicator currentStep={3} totalSteps={4} />
 
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Step 3 of 4 — Fixed costs</Text>
-          <Text style={styles.title}>What repeats every month?</Text>
-          <Text style={styles.subtext}>
+        <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 3 of 4 — Fixed costs</Text>
+          <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>What repeats every month?</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>
             These get set aside before anything else. No bank link needed in this build — enter them once, edit anytime.
           </Text>
         </View>
 
         {fixedExpenses.length > 0 && (
-          <View style={styles.fixedList}>
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.lg }}>
             {fixedExpenses.map((expense, index) => {
               const IconComponent = getIconComponent(expense.icon as string || 'CreditCard');
               return (
-                <View key={expense.id} style={styles.fixedItem}>
+                <View key={expense.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
                   <TouchableOpacity
-                    style={styles.fixedItemContent}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, minHeight: touchTarget.minHeight }}
                     onPress={() => handleEdit(expense)}
                     activeOpacity={0.85}
                     accessibilityLabel={`Edit ${expense.name}, KSh ${expense.amount.toLocaleString()}`}
                     accessibilityRole="button"
                   >
-                    <View style={styles.fixedIcon}>
+                    <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
                       <IconComponent size={16} color={colors.ink} strokeWidth={2} />
                     </View>
-                    <View style={styles.fixedInfo}>
-                      <Text style={styles.fixedName}>{expense.name}</Text>
-                      <Text style={styles.fixedSub}>Paid by the {expense.dueDay}{expense.dueDay === 1 ? 'st' : expense.dueDay === 2 ? 'nd' : expense.dueDay === 3 ? 'rd' : 'th'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ ...typography.body, color: colors.ink }}>{expense.name}</Text>
+                      <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage }}>Paid by the {expense.dueDay}{expense.dueDay === 1 ? 'st' : expense.dueDay === 2 ? 'nd' : expense.dueDay === 3 ? 'rd' : 'th'}</Text>
                     </View>
-                    <Text style={styles.fixedAmount}>KSh {expense.amount.toLocaleString()}</Text>
+                    <Text style={{ ...typography.body, color: colors.ink }}>KSh {expense.amount.toLocaleString()}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.deleteBtn}
+                    style={{ padding: spacing.sm, minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight }}
                     onPress={() => handleDelete(expense.id)}
                     accessibilityLabel={`Delete ${expense.name}`}
                     accessibilityRole="button"
@@ -253,27 +265,27 @@ export default function FixedScreen() {
         )}
 
         <SectionTitle>Quick add</SectionTitle>
-        <View style={styles.suggestRow}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm }}>
           {SUGGESTIONS.map((suggestion) => (
             <TouchableOpacity
               key={suggestion.name}
-              style={styles.suggestChip}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }}
               onPress={() => handleAddSuggestion(suggestion)}
               accessibilityLabel={`Add ${suggestion.name}`}
               accessibilityRole="button"
             >
               <suggestion.icon size={12} color={colors.ink} strokeWidth={2.2} />
-              <Text style={styles.suggestChipText}>{suggestion.name}</Text>
+              <Text style={{ ...typography.caption, color: colors.ink }}>{suggestion.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
-        <Text style={styles.suggestNote}>
+        <Text style={{ ...typography.caption, fontSize: 11.5, color: colors.sage, lineHeight: 18, marginBottom: spacing.xl }}>
           Tap a suggestion to add it — these are suggestions, not auto-detection (manual entry only in this build).
         </Text>
 
-        <View style={styles.fixedSummary}>
-          <Text style={styles.summaryLabel}>Total fixed per month</Text>
-          <Text style={styles.summaryValue}>KSh {totalFixed.toLocaleString()}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, marginBottom: spacing.xl, backgroundColor: colors.emeraldTint, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line }}>
+          <Text style={{ ...typography.heading, color: colors.ink }}>Total fixed per month</Text>
+          <Text style={{ ...typography.title, color: colors.emeraldDeep }}>KSh {totalFixed.toLocaleString()}</Text>
         </View>
 
         <Button
@@ -295,18 +307,18 @@ export default function FixedScreen() {
           onRequestClose={() => { setShowAddModal(false); resetForm(); }}
         >
           <KeyboardAvoidingView
-            style={styles.modalOverlay}
+            style={{ flex: 1, justifyContent: 'flex-end' }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <TouchableOpacity style={styles.modalBackdrop} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1} />
-            <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.lg }]}>
-              <View style={styles.modalHandle} />
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
+            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(22,35,29,0.45)' }} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1} />
+            <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
+              <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>
+                <Text style={{ ...typography.title, color: colors.ink }}>
                   {editingId ? 'Edit fixed expense' : 'Add fixed expense'}
                 </Text>
                 <TouchableOpacity
-                  style={styles.modalCloseBtn}
+                  style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }}
                   onPress={() => { setShowAddModal(false); resetForm(); }}
                   accessibilityLabel="Close"
                   accessibilityRole="button"
@@ -316,7 +328,7 @@ export default function FixedScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.modalFields}>
+              <View style={{ gap: spacing.lg }}>
                 <Input
                   label="Name"
                   value={editingId ? editName : newName}
@@ -342,10 +354,9 @@ export default function FixedScreen() {
 
                 <Input
                   label="Due day"
-                  value={editingId ? String(editDueDay) : String(newDueDay)}
+                  value={editingId ? editDueDay : newDueDay}
                   onChangeText={(t) => {
-                    const day = Math.min(Math.max(Number(t) || 1, 1), 31);
-                    editingId ? setEditDueDay(day) : setNewDueDay(day);
+                    editingId ? setEditDueDay(t) : setNewDueDay(t);
                   }}
                   placeholder="1"
                   keyboardType="numeric"
@@ -354,11 +365,11 @@ export default function FixedScreen() {
                 />
               </View>
 
-              <View style={styles.modalActions}>
-                <Button variant="secondary" style={styles.modalActionBtn} onPress={() => { setShowAddModal(false); resetForm(); }}>
+              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
+                <Button variant="secondary" style={{ flex: 1 }} onPress={() => { setShowAddModal(false); resetForm(); }}>
                   Cancel
                 </Button>
-                <Button style={styles.modalActionBtn} onPress={handleSave}>
+                <Button style={{ flex: 1 }} onPress={handleSave}>
                   {editingId ? 'Save changes' : 'Add expense'}
                 </Button>
               </View>
@@ -374,14 +385,14 @@ export default function FixedScreen() {
           statusBarTranslucent
           onRequestClose={cancelDelete}
         >
-          <View style={styles.modalOverlay}>
-            <TouchableOpacity style={styles.modalBackdrop} onPress={cancelDelete} activeOpacity={1} />
-            <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.lg }]}>
-              <View style={styles.modalHandle} />
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Delete expense</Text>
+          <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(22,35,29,0.45)' }} onPress={cancelDelete} activeOpacity={1} />
+            <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
+              <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>
+                <Text style={{ ...typography.title, color: colors.ink }}>Delete expense</Text>
                 <TouchableOpacity
-                  style={styles.modalCloseBtn}
+                  style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }}
                   onPress={cancelDelete}
                   accessibilityLabel="Close"
                   accessibilityRole="button"
@@ -391,16 +402,16 @@ export default function FixedScreen() {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.deleteConfirmText}>
+              <Text style={{ ...typography.body, color: colors.inkSoft, lineHeight: 21 }}>
                 Are you sure you want to remove {deleteTarget ? `"${deleteTarget.name}"` : 'this fixed expense'}? This can&apos;t be undone.
               </Text>
 
-              <View style={styles.modalActions}>
-                <Button variant="secondary" style={styles.modalActionBtn} onPress={cancelDelete}>
+              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
+                <Button variant="secondary" style={{ flex: 1 }} onPress={cancelDelete}>
                   Cancel
                 </Button>
                 <Button
-                  style={styles.modalDeleteBtnAction}
+                  style={{ flex: 1, backgroundColor: colors.error, borderColor: colors.error }}
                   onPress={confirmDelete}
                   accessibilityLabel="Confirm delete"
                   accessibilityRole="button"
@@ -415,193 +426,3 @@ export default function FixedScreen() {
     </ScreenContainer>
   );
 }
- 
-const styles = StyleSheet.create({
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.sage,
-  },
-  title: {
-    ...typography.display,
-    color: colors.ink,
-    marginTop: spacing.sm,
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.sm,
-    lineHeight: 22,
-  },
-  fixedList: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    padding: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  fixedItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.lineSoft,
-  },
-  fixedItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
-    minHeight: touchTarget.minHeight,
-  },
-  fixedIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.md,
-    backgroundColor: colors.emeraldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fixedInfo: {
-    flex: 1,
-  },
-  fixedName: {
-    ...typography.body,
-    color: colors.ink,
-  },
-  fixedSub: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.sage,
-  },
-  fixedAmount: {
-    ...typography.body,
-    color: colors.ink,
-  },
-  deleteBtn: {
-    padding: spacing.sm,
-    minWidth: touchTarget.minWidth,
-    minHeight: touchTarget.minHeight,
-  },
-  suggestRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  suggestChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    minHeight: touchTarget.minHeight,
-  },
-  suggestChipText: {
-    ...typography.caption,
-    color: colors.ink,
-  },
-  suggestNote: {
-    ...typography.caption,
-    fontSize: 11.5,
-    color: colors.sage,
-    lineHeight: 18,
-    marginBottom: spacing.xl,
-  },
-  fixedSummary: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
-    backgroundColor: colors.emeraldTint,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  summaryLabel: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  summaryValue: {
-    ...typography.title,
-    color: colors.emeraldDeep,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(22,35,29,0.45)',
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg,
-    borderTopRightRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    maxHeight: '85%',
-    ...shadow.elevated,
-  },
-  modalHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: radius.pill,
-    backgroundColor: colors.line,
-    alignSelf: 'center',
-    marginBottom: spacing.lg,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  modalTitle: {
-    ...typography.title,
-    color: colors.ink,
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.pill,
-    backgroundColor: colors.lineSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalFields: {
-    gap: spacing.lg,
-  },
-  deleteConfirmText: {
-    ...typography.body,
-    color: colors.inkSoft,
-    lineHeight: 21,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  modalActionBtn: {
-    flex: 1,
-  },
-  modalDeleteBtn: {
-    backgroundColor: colors.error,
-    borderColor: colors.error,
-  },
-  modalDeleteBtnAction: {
-    flex: 1,
-    backgroundColor: colors.error,
-    borderColor: colors.error,
-  },
-});

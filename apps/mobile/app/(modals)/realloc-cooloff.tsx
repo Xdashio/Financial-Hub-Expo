@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, AppState } from 'react-native';
+import { View, Text, AppState } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Clock } from 'lucide-react-native';
-import { colors, radius, spacing, typography, borderWidth } from '@/theme';
+import { radius, spacing, typography, borderWidth } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
 import { reallocationsApi } from '@/services/api';
 import { useHomeStore } from '@/services/home-store';
 import { showAlert, showConfirm } from '@/utils/alert';
@@ -35,6 +36,7 @@ export default function ReallocCooloffScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<CooloffParams>();
   const refreshData = useHomeStore((s) => s.refreshData);
+  const { colors } = useTheme();
 
   const endsAt = React.useMemo(() => new Date(params.coolingOffEndsAt).getTime(), [params.coolingOffEndsAt]);
   const startedAt = React.useMemo(() => Date.now(), []);
@@ -117,6 +119,77 @@ export default function ReallocCooloffScreen() {
     router.canGoBack() ? router.back() : router.replace('/(tabs)');
   };
 
+  const styles = {
+    hero: {
+      alignItems: 'center' as const,
+      marginTop: spacing.lg,
+      paddingHorizontal: spacing.md,
+    },
+    icon: {
+      width: 56,
+      height: 56,
+      borderRadius: radius.pill,
+      backgroundColor: colors.plumTint,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      marginBottom: spacing.md,
+    },
+    title: {
+      ...typography.title,
+      color: colors.ink,
+      textAlign: 'center' as const,
+    },
+    subtext: {
+      ...typography.body,
+      color: colors.sage,
+      textAlign: 'center' as const,
+      marginTop: spacing.sm,
+    },
+    timerCard: {
+      marginTop: spacing.xl,
+      backgroundColor: colors.surface,
+      borderWidth: borderWidth,
+      borderColor: colors.line,
+      borderRadius: radius.lg,
+      padding: spacing.lg,
+      alignItems: 'center' as const,
+    },
+    timerLabel: {
+      ...typography.caption,
+      color: colors.sage,
+    },
+    timerValue: {
+      ...typography.display,
+      color: colors.plum,
+      marginTop: spacing.xs,
+    },
+    barTrack: {
+      flex: 1,
+      height: 6,
+      borderRadius: radius.pill,
+      backgroundColor: colors.lineSoft,
+      marginTop: spacing.md,
+      overflow: 'hidden' as const,
+    },
+    barFill: {
+      height: 6,
+      backgroundColor: colors.plum,
+      borderRadius: radius.pill,
+    },
+    timerSub: {
+      ...typography.caption,
+      color: colors.sage,
+      marginTop: spacing.sm,
+      textAlign: 'center' as const,
+    },
+    skipNote: {
+      ...typography.caption,
+      color: colors.sage,
+      textAlign: 'center' as const,
+      marginTop: spacing.md,
+    },
+  };
+
   return (
     <ScreenContainer>
       <BrandHeader onBack={() => router.canGoBack() && router.back()} />
@@ -136,7 +209,7 @@ export default function ReallocCooloffScreen() {
           <Text style={styles.timerLabel}>Pause ends in</Text>
           <Text style={styles.timerValue}>{formatRemaining(remainingMs)}</Text>
           <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${progress * 100}%` }]} />
+            <View style={[styles.barFill, { width: `${progress * 100}%` } as any]} />
           </View>
           <Text style={styles.timerSub}>Your move is confirmed and safe — it lands when the pause ends.</Text>
         </View>
@@ -157,74 +230,3 @@ export default function ReallocCooloffScreen() {
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  hero: {
-    alignItems: 'center',
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing.md,
-  },
-  icon: {
-    width: 56,
-    height: 56,
-    borderRadius: radius.pill,
-    backgroundColor: colors.plumTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  title: {
-    ...typography.title,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  timerCard: {
-    marginTop: spacing.xl,
-    backgroundColor: colors.surface,
-    borderWidth: borderWidth,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  timerLabel: {
-    ...typography.caption,
-    color: colors.sage,
-  },
-  timerValue: {
-    ...typography.display,
-    color: colors.plum,
-    marginTop: spacing.xs,
-  },
-  barTrack: {
-    width: '100%',
-    height: 6,
-    borderRadius: radius.pill,
-    backgroundColor: colors.lineSoft,
-    marginTop: spacing.md,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: colors.plum,
-    borderRadius: radius.pill,
-  },
-  timerSub: {
-    ...typography.caption,
-    color: colors.sage,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  skipNote: {
-    ...typography.caption,
-    color: colors.sage,
-    textAlign: 'center',
-    marginTop: spacing.md,
-  },
-});
