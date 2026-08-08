@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, Image, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
-import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock } from 'lucide-react-native';
+import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock, ArrowLeftRight } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
 import { Button } from '@/components/ui';
@@ -147,6 +148,35 @@ const styles = StyleSheet.create({
   protectStripText: {
     ...typography.caption,
     color: colors.emeraldDeep,
+  },
+  reallocateRow: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  reallocateLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  reallocateIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: radius.pill,
+    backgroundColor: colors.plumTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reallocateText: {
+    ...typography.body,
+    color: colors.ink,
   },
   sectionLabel: {
     ...typography.eyebrow,
@@ -352,6 +382,7 @@ const styles = StyleSheet.create({
 });
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { 
     pockets, 
     dailyPockets, 
@@ -493,6 +524,19 @@ export default function HomeScreen() {
             <Text style={styles.protectStripText}>Savings protected — unspent daily amounts roll over</Text>
           </View>
         </View>
+
+        <TouchableOpacity
+          style={styles.reallocateRow}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(modals)/realloc-pick')}
+        >
+          <View style={styles.reallocateLeft}>
+            <View style={styles.reallocateIcon}>
+              <ArrowLeftRight size={16} color={colors.plum} strokeWidth={2} />
+            </View>
+            <Text style={styles.reallocateText}>Reallocate money between pockets</Text>
+          </View>
+        </TouchableOpacity>
 
         {isDaily && (
           <View style={styles.rolloverStrip}>
