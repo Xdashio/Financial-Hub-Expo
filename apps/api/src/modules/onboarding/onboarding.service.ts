@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import {
+  OnboardingInputSchema,
   OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
@@ -27,11 +28,8 @@ const DEFAULT_SAVINGS_LOCK_DAYS = 30;
 export class OnboardingService {
   constructor(private readonly supabaseRepo: SupabaseRepository) {}
 
-  assign(input: OnboardingInput): OnboardingAssignResult {
-    const validationErrors = validateOnboardingInput(input);
-    if (validationErrors.length > 0) {
-      throw new Error(validationErrors.join('; '));
-    }
+  assign(rawInput: unknown): OnboardingAssignResult {
+    const input = this.parseInput(rawInput);
 
     const assignment = assignPlan(input);
 
@@ -46,7 +44,8 @@ export class OnboardingService {
     };
   }
 
-  async commit(input: OnboardingInput, userId: string): Promise<OnboardingCommitResult> {
+  async commit(rawInput: unknown, userId: string): Promise<OnboardingCommitResult> {
+    const input = this.parseInput(rawInput);
     const assignment = assignPlan(input);
     const planId = uuidv4();
 
@@ -110,6 +109,21 @@ export class OnboardingService {
         dailyCap: p.daily_cap || undefined,
       })),
     };
+  }
+
+  // Schema check first (shape/types), then the domain rules — both run on
+  // every entry point so unvalidated client payloads never reach the rules
+  // engine or the database.
+  private parseInput(input: unknown): OnboardingInput {
+    const result = OnboardingInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+    }
+    const errors = validateOnboardingInput(result.data);
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join('; '));
+    }
+    return result.data;
   }
 
   private createPocketInputs(

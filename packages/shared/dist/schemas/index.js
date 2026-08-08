@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -132,6 +132,17 @@ exports.PocketSchema = zod_1.z.object({
     createdAt: zod_1.z.string().datetime(),
     updatedAt: zod_1.z.string().datetime(),
 });
+// Fields a user is allowed to change on their own pocket. Balances
+// (monthlyAllocation), plan ownership (planId) and the savings time-lock are
+// derived by the allocation engine / plan provisioning, never client-supplied.
+exports.PocketUpdateInputSchema = zod_1.z
+    .object({
+    name: zod_1.z.string().min(1).max(100),
+    category: exports.PocketCategorySchema,
+    dailyCap: zod_1.z.number().nonnegative(),
+})
+    .partial()
+    .strict();
 exports.FixedExpenseSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(), // per user
@@ -224,6 +235,7 @@ exports.schemas = {
     User: exports.UserSchema,
     Plan: exports.PlanSchema,
     Pocket: exports.PocketSchema,
+    PocketUpdateInput: exports.PocketUpdateInputSchema,
     FixedExpense: exports.FixedExpenseSchema,
     IncomeEvent: exports.IncomeEventSchema,
     Transaction: exports.TransactionSchema,

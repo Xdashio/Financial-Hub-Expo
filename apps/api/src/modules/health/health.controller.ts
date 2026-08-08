@@ -1,6 +1,7 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { HealthService } from './health.service';
+import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 
 @ApiTags('Health')
 @Controller('health')
@@ -15,8 +16,11 @@ export class HealthController {
   }
 
   @Get('detailed')
-  @ApiOperation({ summary: 'Detailed health check with system metrics' })
+  @UseGuards(SupabaseAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Detailed health check with system metrics (authenticated)' })
   @ApiResponse({ status: 200, description: 'Detailed health information' })
+  @ApiResponse({ status: 401, description: 'Missing or invalid token' })
   detailed() {
     return this.healthService.detailed();
   }
