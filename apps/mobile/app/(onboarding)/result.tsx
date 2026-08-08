@@ -5,15 +5,15 @@ import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { useAuthStore } from '@/services/auth';
+import { supabase } from '@/config/supabase.config';
 import { showAlert } from '@/utils/alert';
 import { Button, ScreenContainer, SafeScrollView, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight } from 'lucide-react-native';
-import { authStore } from '@/services/auth';
 
 export default function ResultScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { assignResult, commitPlan, reset } = useOnboardingStore();
+  const { assignResult, commitPlan, reset, input } = useOnboardingStore();
 
   const [isCommitting, setIsCommitting] = React.useState(false);
   const [activeSlide, setActiveSlide] = React.useState(0);
@@ -29,7 +29,7 @@ export default function ResultScreen() {
   }
 
   const { plan, planType, incomePattern, reasons, remainingAfterFixed, savingsTarget, spendableAmount } = assignResult;
-  const incomeAmount = remainingAfterFixed + savingsTarget + spendableAmount;
+  const incomeAmount = input?.incomeAmount || remainingAfterFixed + savingsTarget + spendableAmount;
 
   const handleSlideChange = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -46,20 +46,73 @@ export default function ResultScreen() {
     setIsCommitting(true);
     try {
       await commitPlan();
-      // Commit succeeded - pockets are now created in database
-      // Re-check plan status to ensure routing works correctly
-      await useAuthStore.getState().checkHasPlan();
+      
+      // OPTIMISTIC UPDATE: Set hasPlan immediately after successful commit
+      // This prevents the race condition where checkHasPlan() is called
+      // before database fully persists the pockets
+      useAuthStore.setState({ hasPlan: true, isCheckingPlan: false });
+      
+      // Verify in background with retry logic to ensure database consistency
+      await verifyPlanCreation();
+      
       // Small delay to ensure state updates propagate
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
       router.replace('/');
+      
       // Clear onboarding state after navigation to prevent re-entry
-      setTimeout(() => reset(), 0);
+      setTimeout(() => {
+        reset();
+      }, 0);
     } catch (error) {
       showAlert('Error', 'Failed to create your plan. Please try again.');
+      // Ensure hasPlan is false on error
+      useAuthStore.setState({ hasPlan: false, isCheckingPlan: false });
     } finally {
       setIsCommitting(false);
     }
   };
+
+  // New helper function with retry logic to verify plan creation
+  const verifyPlanCreation = async () => {
+    const maxRetries = 5;
+    const retryDelay = 200; // ms
+    
+    for (let i = 0; i < maxRetries; i++) {
+      // Check pockets API directly without calling checkHasPlan to avoid overriding optimistic state
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        const API_BASE_URL = __DEV__
+          ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
+          : 'https://api.financialhub.app/api';
+        
+        const res = await fetch(`${API_BASE_URL}/pockets`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        
+        if (res.ok) {
+          const pockets: any[] = await res.json();
+          const hasPockets = Array.isArray(pockets) && pockets.length > 0;
+          
+          if (hasPockets) {
+            // Pockets are now persisted - update state to match reality
+            useAuthStore.setState({ hasPlan: true, isCheckingPlan: false });
+            return;
+          }
+        }
+      }
+      
+      // Wait before retry with exponential backoff
+      if (i < maxRetries - 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, retryDelay * (i + 1)));
+      }
+    }
+    
+    // If we get here, verification failed - but we already set hasPlan optimistically
+    // so the user should still be able to proceed. Log for debugging.
+    console.warn('Plan creation verification failed after retries, but proceeding with optimistic state');
+  };
+
+
 
   const handleAdjust = () => {
     // Navigate back to fixed screen, user can continue back from there

@@ -1,6 +1,8 @@
 import { Redirect } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
+import React from 'react';
 import { useAuthStore } from '@/services/auth';
+import { useOnboardingStore } from '@/services/onboarding-store';
 import { useTheme } from '@/theme/ThemeContext';
 import LandingScreen from './landing';
 
@@ -9,6 +11,14 @@ export default function Index() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const hasPlan = useAuthStore((state) => state.hasPlan);
   const isCheckingPlan = useAuthStore((state) => state.isCheckingPlan);
+  const recoverOnboarding = useOnboardingStore((state: any) => state.recoverState);
+
+  // Add recovery for interrupted onboarding
+  React.useEffect(() => {
+    if (isAuthenticated && !isCheckingPlan && !hasPlan) {
+      recoverOnboarding();
+    }
+  }, [isAuthenticated, isCheckingPlan, hasPlan, recoverOnboarding]);
 
   // Still checking auth state → show loading
   if (isCheckingPlan) {

@@ -63,12 +63,12 @@ export default function FixedScreen() {
   const [showAddModal, setShowAddModal] = React.useState(false);
   const [newName, setNewName] = React.useState('');
   const [newAmount, setNewAmount] = React.useState('');
-  const [newDueDay, setNewDueDay] = React.useState('');
+  const [newDueDay, setNewDueDay] = React.useState('1');
   const [newCategory, setNewCategory] = React.useState('other');
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editName, setEditName] = React.useState('');
   const [editAmount, setEditAmount] = React.useState('');
-  const [editDueDay, setEditDueDay] = React.useState('');
+  const [editDueDay, setEditDueDay] = React.useState('1');
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -91,7 +91,7 @@ export default function FixedScreen() {
   setShowAddModal(true);
   setNewName(suggestion.name);
   setNewAmount('');
-  setNewDueDay(1);
+  setNewDueDay('1');
   setNewCategory(suggestion.category);
   setEditingId(null);
 };
@@ -100,7 +100,7 @@ export default function FixedScreen() {
     setShowAddModal(true);
     setNewName('');
     setNewAmount('');
-    setNewDueDay('');
+    setNewDueDay('1');
     setNewCategory('other');
     setEditingId(null);
   };
@@ -185,12 +185,12 @@ export default function FixedScreen() {
   const resetForm = () => {
     setNewName('');
     setNewAmount('');
-    setNewDueDay('');
+    setNewDueDay('1');
     setNewCategory('other');
     setEditingId(null);
     setEditName('');
     setEditAmount('');
-    setEditDueDay('');
+    setEditDueDay('1');
   };
 
   const handleContinue = async () => {
