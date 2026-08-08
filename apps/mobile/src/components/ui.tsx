@@ -88,10 +88,14 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={variant === 'primary' || variant === 'ghost' ? '#fff' : colors.emeraldDeep} />
       ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          {leftIcon}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
+          {leftIcon && <View style={{ flexShrink: 0 }}>{leftIcon}</View>}
           <Text style={[{ ...typography.body, ...textStyles[variant] }, loading && { opacity: 0 }]}>{children}</Text>
-          {rightIcon}
+          {rightIcon && (
+            <View style={{ flexShrink: 0, marginLeft: spacing.xs }}>
+              {rightIcon}
+            </View>
+          )}
         </View>
       )}
     </TouchableOpacity>

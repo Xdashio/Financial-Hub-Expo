@@ -8,12 +8,13 @@ import { colors } from '@/theme';
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7F2',
+    backgroundColor: colors.paper,
   },
   loading: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.paper,
   },
 });
 
@@ -30,6 +31,7 @@ export default function RootLayout() {
   if (!isReady) {
     return (
       <View style={styles.loading}>
+        <StatusBar style="dark" />
         <ActivityIndicator color={colors.emerald} />
       </View>
     );
@@ -38,6 +40,7 @@ export default function RootLayout() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
+
       <Stack
         screenOptions={{
           headerShown: false,
