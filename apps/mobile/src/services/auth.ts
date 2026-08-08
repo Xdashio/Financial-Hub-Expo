@@ -212,9 +212,18 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: async () => {
-        await supabase.auth.signOut();
+        // Clear local state first so the UI reflects "signed out" immediately —
+        // don't make the user wait on a network round-trip to Supabase before
+        // they can navigate away. The Supabase session revocation happens in
+        // the background; if it fails (e.g. offline), the local session is
+        // already gone and the stored refresh token can no longer be used to
+        // silently resume it, so we fail safe rather than leaving the user
+        // stuck mid-sign-out.
         await clearStoredUser();
         set({ user: null, isAuthenticated: false, session: null, hasPlan: false });
+        supabase.auth.signOut().catch(() => {
+          // Best-effort: local state is already cleared, nothing more to do.
+        });
       },
 
       enableBiometrics: async () => {

@@ -165,6 +165,16 @@ export class SupabaseRepository {
     return data || [];
   }
 
+  async getFixedExpenseById(id: string): Promise<FixedExpense | null> {
+    const { data, error } = await this.supabase
+      .from('fixed_expenses')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
   async updateFixedExpense(id: string, updates: FixedExpenseUpdate): Promise<FixedExpense | null> {
     const { data, error } = await this.supabase
       .from('fixed_expenses')

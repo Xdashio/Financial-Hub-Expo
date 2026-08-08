@@ -13,6 +13,10 @@ describe('ProfileController', () => {
       getProfile: jest.fn().mockResolvedValue({ id: 'user-123' }),
       getActivePlan: jest.fn().mockResolvedValue({ id: 'plan-1', type: 'daily' }),
       getFixedExpenses: jest.fn().mockResolvedValue([]),
+      createFixedExpense: jest.fn().mockResolvedValue({ id: 'fe-1' }),
+      updateFixedExpense: jest.fn().mockResolvedValue({ id: 'fe-1', amount: 2000 }),
+      deleteFixedExpense: jest.fn().mockResolvedValue(undefined),
+      retakePlan: jest.fn().mockResolvedValue({ planId: 'plan-2', pockets: [] }),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -55,5 +59,43 @@ describe('ProfileController', () => {
 
     expect(profileService.getFixedExpenses).toHaveBeenCalledWith('user-123');
     expect(result).toEqual([]);
+  });
+
+  it('creates a fixed expense for the authenticated user', async () => {
+    const req = { user: { id: 'user-123' } };
+    const body = { name: 'Rent', amount: 15000, dueDay: 1, category: 'utilities' };
+
+    const result = await controller.createFixedExpense(body, req);
+
+    expect(profileService.createFixedExpense).toHaveBeenCalledWith('user-123', body);
+    expect(result).toEqual({ id: 'fe-1' });
+  });
+
+  it('updates a fixed expense for the authenticated user', async () => {
+    const req = { user: { id: 'user-123' } };
+    const body = { amount: 2000 };
+
+    const result = await controller.updateFixedExpense('fe-1', body, req);
+
+    expect(profileService.updateFixedExpense).toHaveBeenCalledWith('user-123', 'fe-1', body);
+    expect(result).toEqual({ id: 'fe-1', amount: 2000 });
+  });
+
+  it('deletes a fixed expense for the authenticated user', async () => {
+    const req = { user: { id: 'user-123' } };
+
+    await controller.deleteFixedExpense('fe-1', req);
+
+    expect(profileService.deleteFixedExpense).toHaveBeenCalledWith('user-123', 'fe-1');
+  });
+
+  it('retakes the plan for the authenticated user', async () => {
+    const req = { user: { id: 'user-123' } };
+    const body = { incomeAmount: 50000 };
+
+    const result = await controller.retakePlan(body, req);
+
+    expect(profileService.retakePlan).toHaveBeenCalledWith('user-123', body);
+    expect(result).toEqual({ planId: 'plan-2', pockets: [] });
   });
 });

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
 import {
@@ -149,14 +149,19 @@ export default function ProfileScreen() {
   const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
 
   React.useEffect(() => {
+    let isMounted = true;
     Promise.all([
       profileApi.getPlan().catch(() => null),
       profileApi.getFixedExpenses().catch(() => []),
     ]).then(([planRes, expensesRes]) => {
+      if (!isMounted) return;
       setPlan(planRes);
       setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
       setIsLoadingPlan(false);
     });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const initials = user?.fullName
@@ -205,9 +210,24 @@ export default function ProfileScreen() {
     },
   ];
 
-  const handleSignOut = async () => {
-    await signOut();
-    router.replace('/(auth)/signin');
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign out?',
+      'You\u2019ll need to sign in again to access your money plan.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Sign out',
+          style: 'destructive',
+          onPress: async () => {
+            // signOut() clears local session state synchronously and revokes
+            // the Supabase session in the background, so this resolves fast.
+            await signOut();
+            router.replace('/(auth)/signin');
+          },
+        },
+      ]
+    );
   };
 
   return (

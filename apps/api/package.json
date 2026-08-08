@@ -62,7 +62,7 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "moduleNameMapper": {
-      "^@financial-hub/shared$": "<rootDir>/../../packages/shared/src/index.ts"
+      "^@financial-hub/shared$": "<rootDir>/../../../packages/shared/src/index.ts"
     },
     "transformIgnorePatterns": [
       "node_modules/(?!uuid)"

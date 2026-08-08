@@ -210,20 +210,28 @@ export default function InsightsScreen() {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
+    let isMounted = true;
     Promise.all([
       insightsApi.getDisciplineScore(),
       insightsApi.getBehaviorEvents(),
     ])
       .then(([scoreRes, eventsRes]) => {
+        if (!isMounted) return;
         setScore(scoreRes?.score ?? null);
         setDelta(scoreRes?.delta ?? 0);
         setEvents(Array.isArray(eventsRes) ? eventsRes : []);
       })
       .catch(() => {
+        if (!isMounted) return;
         setScore(null);
         setEvents([]);
       })
-      .finally(() => setIsLoading(false));
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const displayEvents = events.map(mapBehaviorEvent);
