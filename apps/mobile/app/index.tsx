@@ -1,26 +1,27 @@
 import { Redirect } from 'expo-router';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { useAuthStore } from '@/services/auth';
-import { colors } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import LandingScreen from './landing';
 
 export default function Index() {
+  const { colors } = useTheme();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const hasPlan = useAuthStore((state) => state.hasPlan);
   const isCheckingPlan = useAuthStore((state) => state.isCheckingPlan);
 
-  // Not logged in → sign in
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/signin" />;
-  }
-
-  // Logged in but still waiting for the plan check to resolve —
-  // show a neutral spinner so neither route flickers in briefly.
+  // Still checking auth state → show loading
   if (isCheckingPlan) {
     return (
-      <View style={styles.loading}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paper }}>
         <ActivityIndicator color={colors.emerald} />
       </View>
     );
+  }
+
+  // Not logged in → show landing page
+  if (!isAuthenticated) {
+    return <LandingScreen />;
   }
 
   // Logged in, plan check done — route based on result
@@ -30,12 +31,3 @@ export default function Index() {
 
   return <Redirect href="/(tabs)" />;
 }
-
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.paper,
-  },
-});

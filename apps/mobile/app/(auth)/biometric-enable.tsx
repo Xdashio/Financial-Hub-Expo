@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle } from '@/components/ui';
 import { Fingerprint, ScanFace, Shield, ChevronLeft } from 'lucide-react-native';
@@ -15,18 +16,22 @@ type BiometricEnableParams = {
 export default function BiometricEnableScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<BiometricEnableParams>();
-  const { enableBiometrics, disableBiometrics, user, checkBiometricAvailability } = useAuthStore();
+  const { colors } = useTheme();
+  const { enableBiometrics, disableBiometrics, user, checkBiometricAvailability, checkHasPlan } = useAuthStore();
   
   const [isEnabled, setIsEnabled] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
   const [biometricType, setBiometricType] = React.useState<'face' | 'fingerprint' | null>(null);
   const [biometricAvailable, setBiometricAvailable] = React.useState(false);
+  const [isReady, setIsReady] = React.useState(false);
   const fromSignup = params?.fromSignup === 'true';
 
+  // Check for biometric availability on mount
   useEffect(() => {
     const checkBiometrics = async () => {
       const available = await checkBiometricAvailability();
       setBiometricAvailable(available);
+      setIsReady(true);
       
       if (available) {
         const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
@@ -38,7 +43,19 @@ export default function BiometricEnableScreen() {
       }
     };
     checkBiometrics();
-  }, []);
+  }, [checkBiometricAvailability]);
+
+  // Handle skip if biometrics not available
+  useEffect(() => {
+    if (isReady && !biometricAvailable) {
+      const handleSkip = async () => {
+        await checkHasPlan();
+        await new Promise(resolve => setTimeout(resolve, 100));
+        router.replace('/');
+      };
+      handleSkip();
+    }
+  }, [isReady, biometricAvailable, checkHasPlan, router]);
 
   const toggleBiometric = async () => {
     if (!biometricAvailable) return;
@@ -68,55 +85,66 @@ export default function BiometricEnableScreen() {
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     // Always route through index so it can apply the plan gate correctly.
     // index.tsx will read hasPlan from the store (set during verifyOtp) and
     // send the user to onboarding or home as appropriate.
+    // Ensure plan check completes before redirecting
+    await checkHasPlan();
+    await new Promise(resolve => setTimeout(resolve, 100));
     router.replace('/');
   };
 
+  // Show loading while checking biometric availability
+  if (!isReady) {
+    return (
+      <ScreenContainer>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.emeraldDeep} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  // Don't render the UI if biometrics are not available (skip already handled)
   if (!biometricAvailable) {
-    // If biometrics not available, skip to home
-    useEffect(() => {
-      handleContinue();
-    }, []);
     return null;
   }
 
   return (
     <ScreenContainer>
-      <SafeScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <View style={styles.successIcon}>
+      <SafeScrollView contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
+        <View style={{ alignItems: 'center', paddingTop: spacing.lg, marginBottom: spacing.xxl }}>
+          <View style={{ width: 64, height: 64, borderRadius: radius.lg, backgroundColor: colors.clayTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
             {biometricType === 'face' ? (
               <ScanFace size={28} color={colors.clay} strokeWidth={2.5} />
             ) : (
               <Fingerprint size={28} color={colors.clay} strokeWidth={2.5} />
             )}
           </View>
-          <Text style={styles.eyebrow}>Almost there</Text>
-          <Text style={styles.title}>Speed up future sign-ins</Text>
-          <Text style={styles.subtext}>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Almost there</Text>
+          <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>Speed up future sign-ins</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md, textAlign: 'center', lineHeight: 22 }}>
             {biometricType === 'face' ? 'Face ID' : 'Fingerprint'} lets you open Financial Hub without typing your password every time.
           </Text>
         </View>
 
-        <View style={styles.biometricRow}>
-          <View style={styles.bioIcon}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.xl, marginBottom: spacing.xl, paddingHorizontal: spacing.md }}>
+          <View style={{ width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
             {biometricType === 'face' ? (
               <ScanFace size={20} color={colors.ink} strokeWidth={2.5} />
             ) : (
               <Fingerprint size={20} color={colors.ink} strokeWidth={2.5} />
             )}
           </View>
-          <View style={styles.bioText}>
-            <Text style={styles.bioTitle}>Use {biometricType === 'face' ? 'Face ID' : 'fingerprint'} to unlock</Text>
-            <Text style={styles.bioDesc}>You&apos;ll be prompted by your device — this is native, on-device, and free</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ ...typography.heading, color: colors.ink }}>Use {biometricType === 'face' ? 'Face ID' : 'fingerprint'} to unlock</Text>
+            <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>You&apos;ll be prompted by your device — this is native, on-device, and free</Text>
           </View>
           <TouchableOpacity
             style={[
-              styles.toggle,
-              isEnabled && styles.toggleEnabled,
+              { width: 52, height: 30, borderRadius: radius.pill, backgroundColor: colors.lineSoft, padding: 2, justifyContent: 'center', minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight },
+              isEnabled && { backgroundColor: colors.emeraldDeep },
               { opacity: isLoading ? 0.5 : 1 },
             ]}
             onPress={toggleBiometric}
@@ -125,21 +153,21 @@ export default function BiometricEnableScreen() {
             accessibilityLabel={`Enable ${biometricType === 'face' ? 'Face ID' : 'fingerprint'}`}
           >
             <View style={[
-              styles.toggleThumb,
-              isEnabled && styles.toggleThumbEnabled,
+              { width: 26, height: 26, borderRadius: radius.pill, backgroundColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+              isEnabled && { marginLeft: 22 },
             ]} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.protectStrip}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: spacing.xl, marginBottom: spacing.xl, backgroundColor: colors.emeraldTint, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm }}>
           <Shield size={15} color={colors.emeraldDeep} strokeWidth={2} />
-          <Text style={styles.protectText}>
+          <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
             Biometrics stay on your device — Financial Hub never stores your fingerprint or face data.
           </Text>
         </View>
 
-        <Text style={styles.settingsText}>
-          You can change this anytime in <Text style={styles.bold}>Profile → Security</Text>.
+        <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center', marginTop: spacing.xl }}>
+          You can change this anytime in <Text style={{ color: colors.ink }}>Profile → Security</Text>.
         </Text>
 
         <Button
@@ -152,7 +180,7 @@ export default function BiometricEnableScreen() {
           Enable & continue
         </Button>
 
-        <View style={styles.footer}>
+        <View style={{ marginTop: spacing.md }}>
           <Button variant="ghost" onPress={handleContinue}>
             Not now
           </Button>
@@ -161,127 +189,3 @@ export default function BiometricEnableScreen() {
     </ScreenContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    alignItems: 'center',
-    paddingTop: spacing.xl,
-    marginBottom: spacing.xxl,
-  },
-  successIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: radius.lg,
-    backgroundColor: colors.clayTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.lg,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.sage,
-  },
-  title: {
-    ...typography.display,
-    color: colors.ink,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  biometricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
-    paddingHorizontal: spacing.md,
-  },
-  bioIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.emeraldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bioText: {
-    flex: 1,
-  },
-  bioTitle: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  bioDesc: {
-    ...typography.caption,
-    color: colors.sage,
-    marginTop: 2,
-  },
-  toggle: {
-    width: 52,
-    height: 30,
-    borderRadius: radius.pill,
-    backgroundColor: colors.lineSoft,
-    padding: 2,
-    justifyContent: 'center',
-    minWidth: touchTarget.minWidth,
-    minHeight: touchTarget.minHeight,
-  },
-  toggleEnabled: {
-    backgroundColor: colors.emeraldDeep,
-  },
-  toggleThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: radius.pill,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  toggleThumbEnabled: {
-    marginLeft: 22,
-  },
-  protectStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xl,
-    marginBottom: spacing.xl,
-    backgroundColor: colors.emeraldTint,
-    borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  protectText: {
-    ...typography.caption,
-    color: colors.emeraldDeep,
-    flex: 1,
-  },
-  settingsText: {
-    ...typography.caption,
-    fontSize: 11.5,
-    color: colors.sage,
-    marginTop: spacing.lg,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  bold: {
-    color: colors.ink,
-  },
-  footer: {
-    marginTop: spacing.xxl,
-    alignItems: 'center',
-    paddingBottom: spacing.xl,
-  },
-});

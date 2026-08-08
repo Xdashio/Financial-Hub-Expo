@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Building2, TrendingUp, Clock } from 'lucide-react-native';
@@ -36,6 +37,7 @@ const SOURCE_COUNTS = [
 
 export default function IncomeScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { setIncomeData, input } = useOnboardingStore();
   
   const [incomePattern, setIncomePattern] = React.useState<IncomePattern>('salaried');
@@ -78,17 +80,17 @@ export default function IncomeScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+        <BrandHeader />
         <ProgressIndicator currentStep={1} totalSteps={4} />
 
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Step 1 of 4 — Income</Text>
-          <Text style={styles.title}>How does your income usually arrive?</Text>
-          <Text style={styles.subtext}>This shapes how your money gets split. There&apos;s no wrong answer — it just tunes the plan.</Text>
+        <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 1 of 4 — Income</Text>
+          <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>How does your income usually arrive?</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>This shapes how your money gets split. There&apos;s no wrong answer — it just tunes the plan.</Text>
         </View>
 
         <SectionTitle>Income pattern</SectionTitle>
-        <View style={styles.options}>
+        <View style={{ marginTop: spacing.md, gap: spacing.md }}>
           {INCOME_PATTERNS.map((option) => (
             <TouchableOption
               key={option.id}
@@ -99,24 +101,24 @@ export default function IncomeScreen() {
               accessibilityState={{ selected: incomePattern === option.id }}
             >
               <View style={[
-                styles.optionIcon,
-                incomePattern === option.id && styles.optionIconSelected,
+                { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' },
+                incomePattern === option.id && { backgroundColor: 'rgba(255,255,255,0.2)' },
               ]}>
                 <option.icon size={18} color={incomePattern === option.id ? '#fff' : colors.ink} strokeWidth={2} />
               </View>
-              <View style={styles.optionText}>
+              <View style={{ flex: 1 }}>
                 <Text style={[
-                  styles.optionTitle,
-                  incomePattern === option.id && styles.optionTitleSelected,
+                  { ...typography.heading, color: colors.ink },
+                  incomePattern === option.id && { color: '#fff' },
                 ]}>{option.label}</Text>
                 <Text style={[
-                  styles.optionDesc,
-                  incomePattern === option.id && styles.optionDescSelected,
+                  { ...typography.caption, fontSize: 12, color: colors.sage, marginTop: 2 },
+                  incomePattern === option.id && { color: 'rgba(255,255,255,0.8)' },
                 ]}>{option.description}</Text>
               </View>
               {incomePattern === option.id && (
-                <View style={styles.optionCheck}>
-                  <View style={styles.checkMark} />
+                <View style={{ width: 24, height: 24, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center' }}>
+                  <View style={{ width: 12, height: 12, borderWidth: 2, borderColor: '#fff', borderLeftWidth: 0, borderTopWidth: 0, transform: [{ rotate: '45deg' }] }} />
                 </View>
               )}
             </TouchableOption>
@@ -130,19 +132,19 @@ export default function IncomeScreen() {
           placeholder="68,000"
           keyboardType="numeric"
           textContentType="none"
-          leftElement={<Text style={styles.currencyPrefix}>KSh</Text>}
+          leftElement={<Text style={{ ...typography.body, fontSize: 15, color: colors.sage }}>KSh</Text>}
           accessible={true}
           accessibilityLabel="Average monthly income in Kenyan shillings"
         />
 
         <SectionTitle>Income sources</SectionTitle>
-        <View style={styles.chipRow}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xxl }}>
           {SOURCE_COUNTS.map((option) => (
             <TouchableOpacity
               key={option.id}
               style={[
-                styles.chip,
-                sourceCount === option.id && styles.chipSelected,
+                { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minWidth: 88, alignItems: 'center', justifyContent: 'center' },
+                sourceCount === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
               ]}
               onPress={() => setSourceCount(option.id)}
               hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -151,8 +153,8 @@ export default function IncomeScreen() {
               accessibilityLabel={option.label}
             >
               <Text style={[
-                styles.chipText,
-                sourceCount === option.id && styles.chipTextSelected,
+                { ...typography.caption, color: colors.ink, textAlign: 'center' },
+                sourceCount === option.id && { color: '#fff' },
               ]}>{option.label}</Text>
             </TouchableOpacity>
           ))}
@@ -180,11 +182,12 @@ function TouchableOption({
   accessibilityState,
   ...props 
 }: any) {
+  const { colors } = useTheme();
   return (
     <TouchableOpacity
       style={[
-        styles.optionCard,
-        selected && styles.optionCardSelected,
+        { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: radius.lg },
+        selected && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
         { minHeight: touchTarget.minHeight * 2 },
       ]}
       onPress={onPress}
@@ -198,125 +201,3 @@ function TouchableOption({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  header: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.sage,
-  },
-  title: {
-    ...typography.display,
-    color: colors.ink,
-    marginTop: spacing.sm,
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.sm,
-    lineHeight: 22,
-  },
-  options: {
-    marginTop: spacing.md,
-    gap: spacing.md,
-  },
-  optionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: radius.lg,
-  },
-  optionCardSelected: {
-    borderColor: colors.emeraldDeep,
-    backgroundColor: colors.emeraldDeep,
-  },
-  optionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
-    backgroundColor: colors.emeraldTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  optionIconSelected: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-  optionText: {
-    flex: 1,
-  },
-  optionTitle: {
-    ...typography.heading,
-    color: colors.ink,
-  },
-  optionTitleSelected: {
-    color: '#fff',
-  },
-  optionDesc: {
-    ...typography.caption,
-    fontSize: 12,
-    color: colors.sage,
-    marginTop: 2,
-  },
-  optionDescSelected: {
-    color: 'rgba(255,255,255,0.8)',
-  },
-  optionCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: radius.pill,
-    backgroundColor: colors.emeraldDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkMark: {
-    width: 12,
-    height: 12,
-    borderWidth: 2,
-    borderColor: '#fff',
-    borderLeftWidth: 0,
-    borderTopWidth: 0,
-    transform: [{ rotate: '45deg' }],
-  },
-  currencyPrefix: {
-    ...typography.body,
-    fontSize: 15,
-    color: colors.sage,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xxl,
-  },
-  chip: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    backgroundColor: colors.surface,
-    minWidth: 88,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipSelected: {
-    borderColor: colors.emeraldDeep,
-    backgroundColor: colors.emeraldDeep,
-  },
-  chipText: {
-    ...typography.caption,
-    color: colors.ink,
-    textAlign: 'center',
-  },
-  chipTextSelected: {
-    color: '#fff',
-  },
-});

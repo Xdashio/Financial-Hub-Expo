@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
 import { showAlert } from '@/utils/alert';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
@@ -9,6 +10,7 @@ import React from 'react';
 
 export default function SignUpScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const { sendOtp } = useAuthStore();
   const [phone, setPhone] = React.useState('');
   const [fullName, setFullName] = React.useState('');
@@ -76,7 +78,7 @@ export default function SignUpScreen() {
     setIsLoading(true);
     try {
       const fullPhone = `+254${phone.replace(/\s/g, '')}`;
-      await sendOtp(fullPhone, fullName.trim());
+      await sendOtp(fullPhone, { fullName: fullName.trim(), allowSignup: true });
       
       // Navigate to OTP verification with the phone and name
       router.push({
@@ -97,16 +99,16 @@ export default function SignUpScreen() {
 
   return (
     <ScreenContainer>
-      <SafeScrollView contentContainerStyle={styles.scrollContent}>
+      <SafeScrollView contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
         <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>Your money, in pockets</Text>
-          <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtext}>Enter your phone number — we'll send a one-time code to verify you.</Text>
+        <View style={{ alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xxl }}>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money, in pockets</Text>
+          <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>Create your account</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md, textAlign: 'center', lineHeight: 22 }}>Enter your phone number — we'll send a one-time code to verify you.</Text>
         </View>
 
-        <View style={styles.formGroup}>
+        <View style={{ gap: spacing.lg, marginBottom: spacing.xl }}>
           <Input
             label="Phone number"
             value={phone}
@@ -115,7 +117,7 @@ export default function SignUpScreen() {
             keyboardType="phone-pad"
             textContentType="telephoneNumber"
             autoComplete="tel"
-            leftElement={<Text style={styles.prefix}>+254</Text>}
+            leftElement={<Text style={{ ...typography.body, fontSize: 15, color: colors.sage }}>+254</Text>}
             error={phoneError}
             accessible={true}
             accessibilityLabel="Phone number"
@@ -134,7 +136,6 @@ export default function SignUpScreen() {
           />
         </View>
 
-
         <Button
           fullWidth
           size="lg"
@@ -145,79 +146,13 @@ export default function SignUpScreen() {
           Send one-time code
         </Button>
 
-        <View style={[styles.footer, { flexDirection: 'row', gap: 4 }]}>
-          <Text style={styles.footerText}>Already have an account?</Text>
+        <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.xxl, alignItems: 'center', paddingBottom: spacing.xl }}>
+          <Text style={{ ...typography.body, color: colors.sage }}>Already have an account?</Text>
           <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
-            <Text style={styles.link}>Sign in</Text>
+            <Text style={{ color: colors.emeraldDeep }}>Sign in</Text>
           </TouchableOpacity>
         </View>
       </SafeScrollView>
     </ScreenContainer>
   );
 }
- 
-const styles = StyleSheet.create({
-  scrollContent: {
-    paddingBottom: spacing.xxxl,
-  },
-  header: {
-    alignItems: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.xxl,
-  },
-  eyebrow: {
-    ...typography.eyebrow,
-    color: colors.sage,
-  },
-  title: {
-    ...typography.display,
-    color: colors.ink,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-  },
-  subtext: {
-    ...typography.body,
-    color: colors.sage,
-    marginTop: spacing.md,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  formGroup: {
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  prefix: {
-    ...typography.body,
-    fontSize: 15,
-    color: colors.sage,
-  },
-  devNote: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    backgroundColor: colors.warningTint,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.warning,
-  },
-  devNoteText: {
-    ...typography.caption,
-    fontSize: 11.5,
-    color: colors.warning,
-    lineHeight: 18,
-    textAlign: 'center',
-  },
-  devNoteBold: {
-  },
-  footer: {
-    marginTop: spacing.xxl,
-    alignItems: 'center',
-    paddingBottom: spacing.xl,
-  },
-  footerText: {
-    ...typography.body,
-    color: colors.sage,
-  },
-  link: {
-    color: colors.emeraldDeep,
-  },
-});
