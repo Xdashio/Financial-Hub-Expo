@@ -14,11 +14,14 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
+  email TEXT,
   full_name TEXT NOT NULL CHECK (char_length(full_name) >= 1 AND char_length(full_name) <= 100),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT valid_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
+  -- email is optional: this product's settled auth flow is phone OTP only
+  -- (see ui-mockups/auth-otp.html), so auth.users.email is NULL for real
+  -- accounts. Only validate the format when an email is actually present.
+  CONSTRAINT valid_email CHECK (email IS NULL OR email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
 
 -- ============================================================================
@@ -137,10 +140,11 @@ CREATE TABLE IF NOT EXISTS public.merchant_classifications (
 );
 
 -- ============================================================================
--- Behavior Events Table (single event log)
+-- Behavior Events Table (per-user event log)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.behavior_events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   type TEXT NOT NULL,
   payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -197,6 +201,7 @@ CREATE INDEX IF NOT EXISTS idx_merchant_classifications_recipient_key ON public.
 CREATE INDEX IF NOT EXISTS idx_merchant_classifications_category ON public.merchant_classifications(category);
 
 -- Behavior Events
+CREATE INDEX IF NOT EXISTS idx_behavior_events_user_id ON public.behavior_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_behavior_events_type ON public.behavior_events(type);
 CREATE INDEX IF NOT EXISTS idx_behavior_events_created_at ON public.behavior_events(created_at);
 
@@ -373,9 +378,9 @@ CREATE POLICY "Users can update own reallocations" ON public.reallocations
 CREATE POLICY "Anyone can view merchant classifications" ON public.merchant_classifications
   FOR SELECT USING (true);
 
--- Behavior Events: Read-only for users, write via service layer
-CREATE POLICY "Anyone can view behavior events" ON public.behavior_events
-  FOR SELECT USING (true);
+-- Behavior Events: users can only read their own; writes happen via service layer
+CREATE POLICY "Users can view own behavior events" ON public.behavior_events
+  FOR SELECT USING (user_id = auth.uid());
 
 -- Discipline Scores: Users can only read/write their own scores
 CREATE POLICY "Users can view own discipline scores" ON public.discipline_scores
@@ -486,6 +491,7 @@ $$ LANGUAGE plpgsql;
 -- Helper Function to Log Behavior Events
 -- ============================================================================
 CREATE OR REPLACE FUNCTION public.log_behavior_event(
+  p_user_id UUID,
   p_event_type TEXT,
   p_payload JSONB DEFAULT '{}'::jsonb
 )
@@ -493,8 +499,8 @@ RETURNS UUID AS $$
 DECLARE
   v_event_id UUID;
 BEGIN
-  INSERT INTO public.behavior_events (type, payload)
-  VALUES (p_event_type, p_payload)
+  INSERT INTO public.behavior_events (user_id, type, payload)
+  VALUES (p_user_id, p_event_type, p_payload)
   RETURNING id INTO v_event_id;
   
   RETURN v_event_id;
@@ -517,5 +523,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create trigger on auth.users (requires Supabase auth setup)
--- This will be set up in Supabase dashboard, not in migration
+-- Create trigger on auth.users so every new signup gets a matching
+-- public.users profile row automatically (required by plans.user_id FK
+-- and every other table that references public.users).
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

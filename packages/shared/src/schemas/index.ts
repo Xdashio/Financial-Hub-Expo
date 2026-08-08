@@ -138,7 +138,7 @@ export type OnboardingCommitResult = z.infer<typeof OnboardingCommitResultSchema
 
 export const UserSchema = z.object({
   id: z.string().uuid(), // Supabase Auth user id
-  email: z.string().email(),
+  email: z.string().email().nullable().optional(), // absent for phone-OTP-only accounts
   fullName: z.string().min(1).max(100),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),

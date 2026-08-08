@@ -19,6 +19,10 @@ const CATEGORY_NAMES: Record<SpendableCategory, string> = {
   leisure: 'Personal & Leisure',
 };
 
+// Default savings time-lock length applied at plan creation. Short locks
+// (30-60 days) are best for habit-building; 30 days is the floor.
+const DEFAULT_SAVINGS_LOCK_DAYS = 30;
+
 @Injectable()
 export class OnboardingService {
   constructor(private readonly supabaseRepo: SupabaseRepository) {}
@@ -122,17 +126,24 @@ export class OnboardingService {
       plan_id: planId,
       name: 'Fixed Expenses',
       kind: 'fixed' as PocketKind,
+      category: null,
+      is_time_locked: false,
+      lock_until: null,
       monthly_allocation: fixedTotal,
       daily_cap: null,
     });
 
     const savingsPocketId = uuidv4();
+    const lockUntil = new Date();
+    lockUntil.setDate(lockUntil.getDate() + DEFAULT_SAVINGS_LOCK_DAYS);
     pockets.push({
       id: savingsPocketId,
       plan_id: planId,
       name: 'Savings',
       kind: 'savings' as PocketKind,
+      category: null,
       is_time_locked: true,
+      lock_until: lockUntil.toISOString(),
       monthly_allocation: assignment.savingsTarget,
       daily_cap: null,
     });
@@ -148,6 +159,8 @@ export class OnboardingService {
           name: CATEGORY_NAMES[category],
           kind: 'spendable' as PocketKind,
           category: category as PocketCategory,
+          is_time_locked: false,
+          lock_until: null,
           monthly_allocation: perPocketAmount,
           daily_cap: null,
         });
@@ -164,6 +177,8 @@ export class OnboardingService {
           name: CATEGORY_NAMES[category],
           kind: 'spendable' as PocketKind,
           category: category as PocketCategory,
+          is_time_locked: false,
+          lock_until: null,
           monthly_allocation: dailyCap * daysInMonth,
           daily_cap: Math.round(dailyCap * 100) / 100,
         });

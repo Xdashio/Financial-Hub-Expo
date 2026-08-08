@@ -15,7 +15,7 @@ export interface Database {
       users: {
         Row: {
           id: string
-          email: string
+          email: string | null
           full_name: string | null
           biometric_enabled: boolean
           created_at: string
@@ -23,7 +23,7 @@ export interface Database {
         }
         Insert: {
           id: string
-          email: string
+          email?: string | null
           full_name?: string | null
           biometric_enabled?: boolean
           created_at?: string
@@ -31,7 +31,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          email?: string
+          email?: string | null
           full_name?: string | null
           biometric_enabled?: boolean
           created_at?: string
