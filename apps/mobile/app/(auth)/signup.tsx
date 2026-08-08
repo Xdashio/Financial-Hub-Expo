@@ -87,8 +87,9 @@ export default function SignUpScreen() {
           mode: 'signup',
         },
       });
-    } catch (error) {
-      showAlert('Error', 'Failed to send verification code. Please try again.');
+    } catch (error: any) {
+      console.log('sendOtp error:', JSON.stringify(error, null, 2));
+      showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }

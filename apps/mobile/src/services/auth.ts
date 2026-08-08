@@ -7,7 +7,7 @@ import { supabase } from '@/config/supabase.config';
 
 // Base URL for API calls — mirrors the pattern in api.ts
 const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000/api'
+  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
   : 'https://api.financialhub.app/api';
 
 // expo-secure-store has no web implementation (it throws

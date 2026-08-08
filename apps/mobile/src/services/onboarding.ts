@@ -6,7 +6,7 @@ import {
 import { supabase } from '@/config/supabase.config';
 
 const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000/api'
+  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
   : 'https://api.financialhub.app/api';
 
 async function fetchWithAuth<T>(endpoint: string, body: unknown): Promise<T> {

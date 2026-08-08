@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -46,6 +47,7 @@ function getIconComponent(iconName: string) {
 
 export default function FixedScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { 
     fixedExpenses, 
     addFixedExpense, 
@@ -285,9 +287,19 @@ export default function FixedScreen() {
         </Button>
 
         {/* Add/Edit Modal */}
-        {showAddModal && (
-          <TouchableOpacity style={styles.modalOverlay} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1}>
-            <TouchableOpacity style={styles.modalContent} onPress={() => {}} activeOpacity={1}>
+        <Modal
+          visible={showAddModal}
+          transparent
+          animationType="slide"
+          statusBarTranslucent
+          onRequestClose={() => { setShowAddModal(false); resetForm(); }}
+        >
+          <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
+            <TouchableOpacity style={styles.modalBackdrop} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1} />
+            <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.lg }]}>
               <View style={styles.modalHandle} />
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
@@ -350,14 +362,21 @@ export default function FixedScreen() {
                   {editingId ? 'Save changes' : 'Add expense'}
                 </Button>
               </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        )}
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
 
         {/* Delete confirmation modal */}
-        {deleteTargetId && (
-          <TouchableOpacity style={styles.modalOverlay} onPress={cancelDelete} activeOpacity={1}>
-            <TouchableOpacity style={styles.modalContent} onPress={() => {}} activeOpacity={1}>
+        <Modal
+          visible={!!deleteTargetId}
+          transparent
+          animationType="slide"
+          statusBarTranslucent
+          onRequestClose={cancelDelete}
+        >
+          <View style={styles.modalOverlay}>
+            <TouchableOpacity style={styles.modalBackdrop} onPress={cancelDelete} activeOpacity={1} />
+            <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.lg }]}>
               <View style={styles.modalHandle} />
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Delete expense</Text>
@@ -389,9 +408,9 @@ export default function FixedScreen() {
                   Delete
                 </Button>
               </View>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        )}
+            </View>
+          </View>
+        </Modal>
       </SafeScrollView>
     </ScreenContainer>
   );
@@ -518,13 +537,12 @@ const styles = StyleSheet.create({
     color: colors.emeraldDeep,
   },
   modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(22,35,29,0.45)',
+    flex: 1,
     justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(22,35,29,0.45)',
   },
   modalContent: {
     backgroundColor: colors.surface,
@@ -532,7 +550,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radius.lg,
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxl,
     maxHeight: '85%',
     ...shadow.elevated,
   },

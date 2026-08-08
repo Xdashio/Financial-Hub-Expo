@@ -1,42 +1,23 @@
 // import { StyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
 
-export const colors = {
-  // Base
-  paper: '#F6F7F2',
-  surface: '#FFFFFF',
-  ink: '#16231D',
-  inkSoft: '#3C4A42',
-  sage: '#5B6B63',
-  line: '#DEDFD6',
-  lineSoft: '#E9EAE3',
+import { lightColors } from './palettes';
 
-  // Brand - Emerald (primary)
-  emerald: '#1F5F4E',
-  emeraldDeep: '#153F34',
-  emeraldTint: '#E4EEE9',
+// NOTE: This is the static LIGHT palette, kept for backward compatibility
+// with screens that haven't migrated to the theme system yet — importing
+// `colors` from here always gives you light-mode colors regardless of the
+// device's actual appearance.
+//
+// For new/updated screens, prefer:
+//   import { useTheme } from '@/theme/ThemeContext';
+//   const { colors } = useTheme();
+// which returns the correct palette for the current light/dark mode and
+// re-renders when it changes.
+export const colors = lightColors;
 
-  // Brand - Gold (accent/warning)
-  gold: '#B8873A',
-  goldTint: '#F3EBDA',
-
-  // Brand - Plum (cooling-off)
-  plum: '#8A6FB0',
-  plumTint: '#EEE8F6',
-
-  // Brand - Clay (friction/essential→discretionary)
-  clay: '#C4622D',
-  clayTint: '#F7E7DD',
-
-  // Semantic
-  success: '#1F5F4E',
-  successTint: '#E4EEE9',
-  warning: '#B8873A',
-  warningTint: '#F3EBDA',
-  error: '#C4622D',
-  errorTint: '#F7E7DD',
-  info: '#8A6FB0',
-  infoTint: '#EEE8F6',
-};
+export { lightColors, darkColors } from './palettes';
+export type { ColorPalette } from './palettes';
+export { ThemeProvider, useTheme } from './ThemeContext';
+export type { ThemeMode } from './ThemeContext';
 
 export const radius = {
   lg: 24,

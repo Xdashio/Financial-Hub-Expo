@@ -1,7 +1,7 @@
 import { supabase } from '@/config/supabase.config';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000/api' 
+const API_BASE_URL = __DEV__
+  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
   : 'https://api.financialhub.app/api';
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
