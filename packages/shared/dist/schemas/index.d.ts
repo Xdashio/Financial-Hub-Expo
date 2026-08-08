@@ -186,22 +186,22 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
 export type OnboardingCommitResult = z.infer<typeof OnboardingCommitResultSchema>;
 export declare const UserSchema: z.ZodObject<{
     id: z.ZodString;
-    email: z.ZodString;
+    email: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     fullName: z.ZodString;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
     id: string;
-    email: string;
     fullName: string;
     createdAt: string;
     updatedAt: string;
+    email?: string | null | undefined;
 }, {
     id: string;
-    email: string;
     fullName: string;
     createdAt: string;
     updatedAt: string;
+    email?: string | null | undefined;
 }>;
 export type User = z.infer<typeof UserSchema>;
 export declare const PlanSchema: z.ZodObject<{
@@ -387,6 +387,31 @@ export declare const ReallocationSchema: z.ZodObject<{
     completedAt?: string | undefined;
 }>;
 export type Reallocation = z.infer<typeof ReallocationSchema>;
+export declare const ReallocationInputSchema: z.ZodObject<{
+    fromPocketId: z.ZodString;
+    toPocketId: z.ZodString;
+    amount: z.ZodNumber;
+    reason: z.ZodEnum<["emergency", "unexpected_expense", "income_change", "priority_shift", "other"]>;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
+    fromPocketId: string;
+    toPocketId: string;
+}, {
+    amount: number;
+    reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
+    fromPocketId: string;
+    toPocketId: string;
+}>;
+export type ReallocationInput = z.infer<typeof ReallocationInputSchema>;
+export declare const ReallocationCompleteInputSchema: z.ZodObject<{
+    skipCoolingOff: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+}, "strip", z.ZodTypeAny, {
+    skipCoolingOff: boolean;
+}, {
+    skipCoolingOff?: boolean | undefined;
+}>;
+export type ReallocationCompleteInput = z.infer<typeof ReallocationCompleteInputSchema>;
 export declare const MerchantClassificationSchema: z.ZodObject<{
     id: z.ZodString;
     recipientKey: z.ZodString;
@@ -600,22 +625,22 @@ export declare const schemas: {
     }>;
     User: z.ZodObject<{
         id: z.ZodString;
-        email: z.ZodString;
+        email: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         fullName: z.ZodString;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        email: string;
         fullName: string;
         createdAt: string;
         updatedAt: string;
+        email?: string | null | undefined;
     }, {
         id: string;
-        email: string;
         fullName: string;
         createdAt: string;
         updatedAt: string;
+        email?: string | null | undefined;
     }>;
     Plan: z.ZodObject<{
         id: z.ZodString;
@@ -793,6 +818,29 @@ export declare const schemas: {
         coolingOffEndsAt?: string | undefined;
         disciplineCost?: number | undefined;
         completedAt?: string | undefined;
+    }>;
+    ReallocationInput: z.ZodObject<{
+        fromPocketId: z.ZodString;
+        toPocketId: z.ZodString;
+        amount: z.ZodNumber;
+        reason: z.ZodEnum<["emergency", "unexpected_expense", "income_change", "priority_shift", "other"]>;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
+        fromPocketId: string;
+        toPocketId: string;
+    }, {
+        amount: number;
+        reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
+        fromPocketId: string;
+        toPocketId: string;
+    }>;
+    ReallocationCompleteInput: z.ZodObject<{
+        skipCoolingOff: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    }, "strip", z.ZodTypeAny, {
+        skipCoolingOff: boolean;
+    }, {
+        skipCoolingOff?: boolean | undefined;
     }>;
     MerchantClassification: z.ZodObject<{
         id: z.ZodString;

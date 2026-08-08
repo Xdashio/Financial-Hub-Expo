@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -105,7 +105,7 @@ exports.OnboardingCommitResultSchema = zod_1.z.object({
 // ============================================================================
 exports.UserSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(), // Supabase Auth user id
-    email: zod_1.z.string().email(),
+    email: zod_1.z.string().email().nullable().optional(), // absent for phone-OTP-only accounts
     fullName: zod_1.z.string().min(1).max(100),
     createdAt: zod_1.z.string().datetime(),
     updatedAt: zod_1.z.string().datetime(),
@@ -173,6 +173,15 @@ exports.ReallocationSchema = zod_1.z.object({
     createdAt: zod_1.z.string().datetime(),
     completedAt: zod_1.z.string().datetime().optional(),
 });
+exports.ReallocationInputSchema = zod_1.z.object({
+    fromPocketId: zod_1.z.string().uuid(),
+    toPocketId: zod_1.z.string().uuid(),
+    amount: zod_1.z.number().positive(),
+    reason: exports.ReallocationReasonSchema,
+});
+exports.ReallocationCompleteInputSchema = zod_1.z.object({
+    skipCoolingOff: zod_1.z.boolean().optional().default(false),
+});
 exports.MerchantClassificationSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     recipientKey: zod_1.z.string(), // e.g. till/paybill
@@ -219,6 +228,8 @@ exports.schemas = {
     IncomeEvent: exports.IncomeEventSchema,
     Transaction: exports.TransactionSchema,
     Reallocation: exports.ReallocationSchema,
+    ReallocationInput: exports.ReallocationInputSchema,
+    ReallocationCompleteInput: exports.ReallocationCompleteInputSchema,
     MerchantClassification: exports.MerchantClassificationSchema,
     BehaviorEvent: exports.BehaviorEventSchema,
     DisciplineScore: exports.DisciplineScoreSchema,
