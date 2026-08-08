@@ -171,6 +171,19 @@ export const PocketSchema = z.object({
 });
 export type Pocket = z.infer<typeof PocketSchema>;
 
+// Fields a user is allowed to change on their own pocket. Balances
+// (monthlyAllocation), plan ownership (planId) and the savings time-lock are
+// derived by the allocation engine / plan provisioning, never client-supplied.
+export const PocketUpdateInputSchema = z
+  .object({
+    name: z.string().min(1).max(100),
+    category: PocketCategorySchema,
+    dailyCap: z.number().nonnegative(),
+  })
+  .partial()
+  .strict();
+export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
+
 export const FixedExpenseSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(), // per user
@@ -282,6 +295,7 @@ export const schemas = {
   User: UserSchema,
   Plan: PlanSchema,
   Pocket: PocketSchema,
+  PocketUpdateInput: PocketUpdateInputSchema,
   FixedExpense: FixedExpenseSchema,
   IncomeEvent: IncomeEventSchema,
   Transaction: TransactionSchema,

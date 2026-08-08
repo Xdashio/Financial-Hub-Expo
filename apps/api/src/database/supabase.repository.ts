@@ -13,6 +13,18 @@ import {
   DisciplineScore, DisciplineScoreInsert,
 } from '../database/database.types';
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// PostgREST `or()` takes a raw filter string, so any interpolated value must
+// be proven safe before it goes in — a value containing `,` or `)` would
+// otherwise rewrite the filter expression.
+function assertUuid(value: string, label: string): string {
+  if (!UUID_PATTERN.test(value)) {
+    throw new Error(`Invalid ${label}`);
+  }
+  return value;
+}
+
 @Injectable()
 export class SupabaseRepository {
   private supabase = getSupabaseClient();
@@ -267,6 +279,7 @@ export class SupabaseRepository {
   }
 
   async getReallocationsByUserId(userId: string): Promise<Reallocation[]> {
+    assertUuid(userId, 'user id');
     const { data, error } = await this.supabase
       .from('reallocations')
       .select(`

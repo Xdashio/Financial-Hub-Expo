@@ -2,7 +2,6 @@ import { Controller, Get, Put, Param, Body, UseGuards, Request } from '@nestjs/c
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { PocketsService } from './pockets.service';
 import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
-import { PocketUpdate } from '../../database/database.types';
 
 @ApiTags('Pockets')
 @Controller('pockets')
@@ -27,10 +26,11 @@ export class PocketsController {
   }
 
   @Put(':id')
-  @ApiOperation({ summary: 'Update a pocket' })
+  @ApiOperation({ summary: 'Update a pocket (name, category, dailyCap)' })
   @ApiResponse({ status: 200, description: 'The updated pocket' })
+  @ApiResponse({ status: 400, description: 'Invalid or non-updatable fields' })
   @ApiResponse({ status: 404, description: 'Pocket not found' })
-  update(@Param('id') id: string, @Body() updates: PocketUpdate, @Request() req: any) {
+  update(@Param('id') id: string, @Body() updates: unknown, @Request() req: any) {
     return this.pocketsService.updateForUser(id, req.user.id, updates);
   }
 }

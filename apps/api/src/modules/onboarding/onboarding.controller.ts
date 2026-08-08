@@ -3,7 +3,6 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nes
 import { OnboardingService } from './onboarding.service';
 import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import {
-  OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
 } from '@financial-hub/shared';
@@ -21,7 +20,7 @@ export class OnboardingController {
   @ApiBody({ description: 'Onboarding answers', required: true })
   @ApiResponse({ status: 200, description: 'Plan assignment preview with reasons' })
   @ApiResponse({ status: 400, description: 'Invalid onboarding input' })
-  assign(@Body() input: OnboardingInput): OnboardingAssignResult {
+  assign(@Body() input: unknown): OnboardingAssignResult {
     return this.onboardingService.assign(input);
   }
 
@@ -31,7 +30,7 @@ export class OnboardingController {
   @ApiBody({ description: 'Onboarding answers', required: true })
   @ApiResponse({ status: 201, description: 'Plan committed with created pockets' })
   @ApiResponse({ status: 400, description: 'Invalid onboarding input' })
-  async commit(@Body() input: OnboardingInput, @Request() req: any): Promise<OnboardingCommitResult> {
+  async commit(@Body() input: unknown, @Request() req: any): Promise<OnboardingCommitResult> {
     const userId = req.user.id;
     return this.onboardingService.commit(input, userId);
   }
