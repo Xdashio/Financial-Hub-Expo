@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator, Re
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
 import { Shield, RefreshCw, Lock, ChevronLeft } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
+import { useAuthStore } from '@/services/auth';
 import { Button } from '@/components/ui';
 
 const styles = StyleSheet.create({
@@ -294,6 +295,7 @@ export default function HomeScreen() {
   const { 
     pockets, 
     dailyPockets, 
+    planType,
     rolloverAmount, 
     safeToSpendToday, 
     totalBalance, 
@@ -304,6 +306,14 @@ export default function HomeScreen() {
     fetchHomeData,
     refreshData,
   } = useHomeStore();
+
+  const user = useAuthStore(s => s.user);
+  const initials = user?.fullName
+    ?.split(' ')
+    .slice(0, 2)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase() ?? '?';
 
   React.useEffect(() => {
     fetchHomeData();
@@ -330,7 +340,7 @@ export default function HomeScreen() {
   const getPocketStatus = (pocket: any) => {
     if (pocket.kind === 'fixed') return { label: 'Settled', status: 'Settled' };
     if (pocket.kind === 'savings') return { label: 'Protected', status: 'Protected' };
-    return { label: 'Daily cap', status: 'Daily cap' };
+    return { label: 'Monthly budget', status: 'Monthly budget' };
   };
 
   if (isLoading && pockets.length === 0) {
@@ -384,7 +394,11 @@ export default function HomeScreen() {
   }
 
   const fixedPockets = pockets.filter(p => p.kind === 'fixed' || p.kind === 'savings');
-  const spendablePockets = pockets.filter(p => p.kind === 'spendable');
+  // In the structured plan, spendable pockets don't have a daily cap — they're
+  // shown as monthly-allocation cards alongside fixed & savings pockets
+  // instead of the daily budget strip.
+  const structuredSpendablePockets = pockets.filter(p => p.kind === 'spendable');
+  const isDaily = planType === 'daily';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -402,7 +416,7 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.brandWordmark}>Financial Hub</Text>
           </View>
-          <Text style={styles.avatar}>JD</Text>
+          <Text style={styles.avatar}>{initials}</Text>
         </View>
 
         <View style={styles.balanceBlock}>
@@ -423,20 +437,22 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.rolloverStrip}>
-          <View style={styles.rolloverLeft}>
-            <View style={styles.rolloverIcon}>
-              <RefreshCw size={16} color={colors.gold} strokeWidth={2.5} />
+        {isDaily && (
+          <View style={styles.rolloverStrip}>
+            <View style={styles.rolloverLeft}>
+              <View style={styles.rolloverIcon}>
+                <RefreshCw size={16} color={colors.gold} strokeWidth={2.5} />
+              </View>
+              <View>
+                <Text style={styles.rolloverTitle}>Today's rollover</Text>
+                <Text style={styles.rolloverSub}>Unspent amounts move to Savings at midnight</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.rolloverTitle}>Today's rollover</Text>
-              <Text style={styles.rolloverSub}>Unspent amounts move to Savings at midnight</Text>
-            </View>
+            <Text style={styles.rolloverValue}>{formatCurrency(rolloverAmount)}</Text>
           </View>
-          <Text style={styles.rolloverValue}>{formatCurrency(rolloverAmount)}</Text>
-        </View>
+        )}
 
-        {dailyPockets.length > 0 && (
+        {isDaily && dailyPockets.length > 0 && (
           <>
             <Text style={styles.sectionLabel}>Spendable pockets</Text>
 
@@ -462,6 +478,40 @@ export default function HomeScreen() {
                 </View>
               </View>
             ))}
+          </>
+        )}
+
+        {!isDaily && structuredSpendablePockets.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Spendable pockets</Text>
+
+            {structuredSpendablePockets.map((pocket, i) => {
+              const pocketColor = getPocketColor(pocket.kind, pocket.category);
+              const status = getPocketStatus(pocket);
+              return (
+                <View key={i} style={styles.pocketCard}>
+                  <View style={styles.pocketTop}>
+                    <View style={styles.pocketNameRow}>
+                      <View style={[styles.pocketDot, { backgroundColor: pocketColor }]} />
+                      <Text style={styles.pocketName}>{pocket.name}</Text>
+                    </View>
+                    <Text style={styles.pocketAmount}>{formatCurrency(pocket.monthlyAllocation)}</Text>
+                  </View>
+                  <View style={styles.pocketBarTrack}>
+                    <View
+                      style={[
+                        styles.pocketBarFill,
+                        { backgroundColor: pocketColor, width: '100%' },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.pocketMeta}>
+                    <Text style={styles.pocketMetaText}>{status.label}</Text>
+                    <Text style={styles.pocketMetaText}>Available</Text>
+                  </View>
+                </View>
+              );
+            })}
           </>
         )}
 

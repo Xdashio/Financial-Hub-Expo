@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
+import { showAlert } from '@/utils/alert';
 import { useAuthStore } from '@/services/auth';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Fingerprint, ScanFace } from 'lucide-react-native';
@@ -59,7 +60,7 @@ export default function SignInScreen() {
 
   const handleSignIn = async () => {
     if (!phone.trim() || !password) {
-      Alert.alert('Error', 'Please enter both phone and password');
+      showAlert('Error', 'Please enter both phone and password');
       return;
     }
 
@@ -77,7 +78,7 @@ export default function SignInScreen() {
           },
         });
       } else {
-        Alert.alert('Error', 'Invalid credentials. Please try again.');
+        showAlert('Error', 'Invalid credentials. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -163,7 +164,7 @@ export default function SignInScreen() {
 
         <View style={styles.forgotPassword}>
           <TouchableOpacity
-            onPress={() => Alert.alert('Reset password', 'Password reset would be implemented here')}
+            onPress={() => showAlert('Reset password', 'Password reset would be implemented here')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.forgotPasswordText}>Forgot password?</Text>

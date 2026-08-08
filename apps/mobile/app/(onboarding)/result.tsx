@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { useAuthStore } from '@/services/auth';
+import { showAlert } from '@/utils/alert';
 import { Button, ScreenContainer, SafeScrollView, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock } from 'lucide-react-native';
 
@@ -33,7 +34,7 @@ export default function ResultScreen() {
       await useAuthStore.getState().checkHasPlan();
       router.replace('/');
     } catch (error) {
-      Alert.alert('Error', 'Failed to create your plan. Please try again.');
+      showAlert('Error', 'Failed to create your plan. Please try again.');
     } finally {
       setIsCommitting(false);
     }

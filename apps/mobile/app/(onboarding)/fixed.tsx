@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Keyboard } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
+import { showAlert } from '@/utils/alert';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Plus, Trash2, Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard, X } from 'lucide-react-native';
 
@@ -83,17 +84,13 @@ export default function FixedScreen() {
   };
 
   const handleAddSuggestion = (suggestion: typeof SUGGESTIONS[0]) => {
-    addFixedExpense({
-      name: suggestion.name,
-      amount: 0,
-      dueDay: 1,
-      category: suggestion.category,
-    });
-    setShowAddModal(true);
-    setNewName(suggestion.name);
-    setNewCategory(suggestion.category);
-    setEditingId(null);
-  };
+  setShowAddModal(true);
+  setNewName(suggestion.name);
+  setNewAmount('');
+  setNewDueDay(1);
+  setNewCategory(suggestion.category);
+  setEditingId(null);
+};
 
   const handleAddCustom = () => {
     setShowAddModal(true);
@@ -119,11 +116,11 @@ export default function FixedScreen() {
       // Update existing
       const amount = Number(editAmount.replace(/,/g, ''));
       if (!amount || amount <= 0) {
-        Alert.alert('Error', 'Please enter a valid amount');
+        showAlert('Error', 'Please enter a valid amount');
         return;
       }
       if (!editName.trim()) {
-        Alert.alert('Error', 'Please enter a name');
+        showAlert('Error', 'Please enter a name');
         return;
       }
       
@@ -136,11 +133,11 @@ export default function FixedScreen() {
       // Add new
       const amount = Number(newAmount.replace(/,/g, ''));
       if (!amount || amount <= 0) {
-        Alert.alert('Error', 'Please enter a valid amount');
+        showAlert('Error', 'Please enter a valid amount');
         return;
       }
       if (!newName.trim()) {
-        Alert.alert('Error', 'Please enter a name');
+        showAlert('Error', 'Please enter a name');
         return;
       }
       
@@ -183,17 +180,18 @@ export default function FixedScreen() {
   };
 
   const handleContinue = async () => {
-    setIsLoading(true);
-    try {
-      await previewPlan(); // calls API, sets assignResult in store
-      router.push('/(onboarding)/result');
-    } catch (error) {
-      // error is already set in store, show it
-      Alert.alert('Error', 'Could not generate your plan. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  setIsLoading(true);
+  try {
+    await previewPlan(); // calls API, sets assignResult in store
+    router.push('/(onboarding)/result');
+  } catch (error) {
+    // error is already set in store, but show the real message here too
+    const message = error instanceof Error ? error.message : 'Please try again.';
+    showAlert('Could not generate your plan', message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const getIconComponent = (iconName: string) => {
     const icons: Record<string, React.ComponentType<any>> = {

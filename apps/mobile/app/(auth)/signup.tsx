@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
+import { showAlert } from '@/utils/alert';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
@@ -84,7 +85,7 @@ export default function SignUpScreen() {
         },
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to send verification code. Please try again.');
+      showAlert('Error', 'Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }

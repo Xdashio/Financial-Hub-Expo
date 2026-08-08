@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
+import { showAlert } from '@/utils/alert';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { ChevronLeft } from 'lucide-react-native';
@@ -86,7 +87,7 @@ export default function VerifyOtpScreen() {
         router.replace('/');
       }
     } catch (err) {
-      Alert.alert('Error', 'Verification failed. Please try again.');
+      showAlert('Error', 'Verification failed. Please try again.');
       setIsLoading(false);
     }
   };
@@ -100,7 +101,7 @@ export default function VerifyOtpScreen() {
       setResendTimer(60);
       setCanResend(false);
     } catch {
-      Alert.alert('Error', 'Failed to resend code. Please try again.');
+      showAlert('Error', 'Failed to resend code. Please try again.');
     } finally {
       setIsLoading(false);
     }

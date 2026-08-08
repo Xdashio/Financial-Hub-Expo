@@ -23,6 +23,7 @@ export interface DailyPocket {
 export interface HomeState {
   pockets: Pocket[];
   dailyPockets: DailyPocket[];
+  planType: 'daily' | 'structured';
   rolloverAmount: number;
   safeToSpendToday: number;
   totalBalance: number;
@@ -43,24 +44,34 @@ const POCKET_COLORS: Record<string, string> = {
   fixed: '#B8873A',
 };
 
+// Note: transaction/spend tracking is out of scope for the MVP showcase, so
+// there's no real spend data to compute "remaining" against yet. Until that
+// exists, the full daily cap is shown as remaining with 0% of it spent.
 function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
   const spendablePockets = pockets.filter(p => p.kind === 'spendable');
   return spendablePockets.map(pocket => {
     const dailyCap = pocket.dailyCap || 0;
-    const remaining = dailyCap * 0.7; // Placeholder - in real app, calculate from transactions
     return {
       name: pocket.name,
       color: POCKET_COLORS[pocket.category || 'food'] || POCKET_COLORS.food,
-      remaining: Math.round(remaining),
+      remaining: Math.round(dailyCap),
       cap: Math.round(dailyCap),
-      progress: dailyCap > 0 ? 1 - (remaining / dailyCap) : 0,
+      progress: 0, // No spend tracked yet — full cap available
     };
   });
 }
 
-function calculateRollover(pockets: Pocket[]): number {
-  // In real app, calculate from actual daily spending vs caps
-  return 140;
+// No spend tracking yet, so nothing has ever gone unspent to roll over.
+function calculateRollover(): number {
+  return 0;
+}
+
+// Daily-plan pockets carry a positive daily_cap; structured-plan pockets
+// have daily_cap === null. If any spendable pocket has a cap, treat the
+// whole plan as "daily".
+function derivePlanType(pockets: Pocket[]): 'daily' | 'structured' {
+  const hasDailyCap = pockets.some(p => p.kind === 'spendable' && (p.dailyCap ?? 0) > 0);
+  return hasDailyCap ? 'daily' : 'structured';
 }
 
 function calculateSafeToSpend(pockets: Pocket[]): number {
@@ -72,10 +83,27 @@ function calculateTotalBalance(pockets: Pocket[]): number {
   return pockets.reduce((sum, p) => sum + p.monthlyAllocation, 0);
 }
 
+// The API returns pocket rows straight from the DB in snake_case
+// (daily_cap, monthly_allocation, is_time_locked, lock_until); the store's
+// Pocket interface uses camelCase, so map between the two here.
+function mapPocket(raw: any): Pocket {
+  return {
+    id: raw.id,
+    name: raw.name,
+    kind: raw.kind,
+    category: raw.category,
+    monthlyAllocation: raw.monthly_allocation,
+    dailyCap: raw.daily_cap ?? undefined,
+    isTimeLocked: raw.is_time_locked,
+    lockUntil: raw.lock_until ?? undefined,
+  };
+}
+
 export const useHomeStore = create<HomeState>()(
   (set, get) => ({
     pockets: [],
     dailyPockets: [],
+    planType: 'daily',
     rolloverAmount: 0,
     safeToSpendToday: 0,
     totalBalance: 0,
@@ -92,15 +120,17 @@ export const useHomeStore = create<HomeState>()(
           insightsApi.getDisciplineScore(),
         ]);
         
-        const pockets = pocketsRes || [];
+        const pockets = (pocketsRes || []).map(mapPocket);
         const dailyPockets = calculateDailyPockets(pockets);
-        const rolloverAmount = calculateRollover(pockets);
+        const planType = derivePlanType(pockets);
+        const rolloverAmount = calculateRollover();
         const safeToSpendToday = calculateSafeToSpend(pockets);
         const totalBalance = calculateTotalBalance(pockets);
         
         set({
           pockets,
           dailyPockets,
+          planType,
           rolloverAmount,
           safeToSpendToday,
           totalBalance,
