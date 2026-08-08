@@ -1,6 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { OnboardingService } from './onboarding.service';
+import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import {
   OnboardingInput,
   OnboardingAssignResult,
@@ -9,6 +10,8 @@ import {
 
 @ApiTags('Onboarding')
 @Controller('onboarding')
+@UseGuards(SupabaseAuthGuard)
+@ApiBearerAuth()
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
 
@@ -28,8 +31,8 @@ export class OnboardingController {
   @ApiBody({ description: 'Onboarding answers', required: true })
   @ApiResponse({ status: 201, description: 'Plan committed with created pockets' })
   @ApiResponse({ status: 400, description: 'Invalid onboarding input' })
-  commit(@Body() input: OnboardingInput): OnboardingCommitResult {
-    const userId = '00000000-0000-0000-0000-000000000000';
+  async commit(@Body() input: OnboardingInput, @Request() req: any): Promise<OnboardingCommitResult> {
+    const userId = req.user.id;
     return this.onboardingService.commit(input, userId);
   }
 }

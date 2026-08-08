@@ -4,7 +4,6 @@ dist
 # Environment files (never commit secrets)
 .env
 .env.local
-
 !.env.example
 
 # Build artifacts

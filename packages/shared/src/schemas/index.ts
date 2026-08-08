@@ -84,12 +84,21 @@ export type PlanStatus = z.infer<typeof PlanStatusSchema>;
 // Onboarding Schemas - Pack 2 Specification
 // ============================================================================
 
+export const FixedExpenseInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  amount: z.number().positive(),
+  dueDay: z.number().int().min(1).max(31),
+  category: PocketCategorySchema,
+});
+export type FixedExpenseInput = z.infer<typeof FixedExpenseInputSchema>;
+
 export const OnboardingInputSchema = z.object({
   incomePattern: IncomePatternSchema,
   spendingHabit: SpendingHabitSchema,
   incomeAmount: z.number().positive(),
   fixedTotal: z.number().nonnegative(),
   sourceCount: z.number().int().positive(),
+  fixedExpenses: z.array(FixedExpenseInputSchema).optional(),
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 

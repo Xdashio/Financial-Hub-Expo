@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { getOtpDelivery, OtpDelivery } from '@/services/otp-delivery';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { supabase } from '@/config/supabase.config';
 
 export interface User {
   id: string;
@@ -10,32 +10,28 @@ export interface User {
   fullName: string;
   biometricEnabled: boolean;
   createdAt: string;
+  email?: string;
 }
 
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  otpCode: string | null;
+  session: any;
   sendOtp: (phone: string) => Promise<void>;
-  verifyOtp: (phone: string, code: string) => Promise<boolean>;
+  verifyOtp: (phone: string, code: string) => Promise<{ user: User | null; error?: string }>;
   signUp: (phone: string, fullName: string) => Promise<void>;
-  signIn: (phone: string, password: string) => Promise<void>;
-  signOut: () => void;
+  signInWithPassword: (phone: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
   enableBiometrics: () => Promise<void>;
   disableBiometrics: () => Promise<void>;
   checkBiometricAvailability: () => Promise<boolean>;
-}
-
-function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  restoreSession: () => Promise<void>;
 }
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
-
-const OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
 
 function getStoredUser(): Promise<User | null> {
   return SecureStore.getItemAsync('user').then((data) => (data ? JSON.parse(data) : null));
@@ -63,77 +59,89 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       isLoading: false,
-      otpCode: null,
+      session: null,
 
       sendOtp: async (phone: string) => {
-        const code = generateOtp();
-        const delivery: OtpDelivery = getOtpDelivery();
-        await delivery.send(phone, code);
-        set({ otpCode: code });
-        
-        // Clear OTP after expiry
-        setTimeout(() => {
-          const currentCode = get().otpCode;
-          if (currentCode === code) {
-            set({ otpCode: null });
-          }
-        }, OTP_EXPIRY_MS);
+        const { error } = await supabase.auth.signInWithOtp({
+          phone,
+          options: {
+            channel: 'sms',
+          },
+        });
+        if (error) throw error;
       },
 
       verifyOtp: async (phone: string, code: string) => {
-        const storedCode = get().otpCode;
-        return storedCode === code;
+        const { data, error } = await supabase.auth.verifyOtp({
+          phone,
+          token: code,
+          type: 'sms',
+        });
+        if (error) return { user: null, error: error.message };
+        if (data.user) {
+          const user: User = {
+            id: data.user.id,
+            phone: data.user.phone || phone,
+            fullName: data.user.user_metadata?.full_name || '',
+            biometricEnabled: false,
+            createdAt: data.user.created_at,
+            email: data.user.email,
+          };
+          await storeUser(user);
+          set({ user, isAuthenticated: true, session: data.session });
+          return { user };
+        }
+        return { user: null, error: 'Verification failed' };
       },
 
       signUp: async (phone: string, fullName: string) => {
         set({ isLoading: true });
         try {
-          await get().sendOtp(phone);
-          
-          // In a real app, you'd verify OTP here before creating user
-          // For now, we'll create the user after OTP verification in the UI flow
-          
-          const user: User = {
-            id: generateId(),
+          const { error } = await supabase.auth.signInWithOtp({
             phone,
-            fullName,
-            biometricEnabled: false,
-            createdAt: new Date().toISOString(),
-          };
-          
-          await storeUser(user);
-          set({ user, isAuthenticated: true, isLoading: false });
+            options: {
+              channel: 'sms',
+              data: { full_name: fullName },
+            },
+          });
+          if (error) throw error;
+          set({ isLoading: false });
         } catch (error) {
           set({ isLoading: false });
           throw error;
         }
       },
 
-      signIn: async (phone: string, _password: string) => {
+      signInWithPassword: async (phone: string, password: string) => {
         set({ isLoading: true });
         try {
-          const storedUser = await getStoredUser();
-          
-          if (!storedUser || storedUser.phone !== phone) {
-            // New device - send OTP for verification
-            await get().sendOtp(phone);
-            set({ isLoading: false });
-            throw new Error('NEW_DEVICE_OTP_REQUIRED');
+          const { data, error } = await supabase.auth.signInWithPassword({
+            phone,
+            password,
+          });
+          if (error) throw error;
+          if (data.user) {
+            const user: User = {
+              id: data.user.id,
+              phone: data.user.phone || phone,
+              fullName: data.user.user_metadata?.full_name || '',
+              biometricEnabled: false,
+              createdAt: data.user.created_at,
+              email: data.user.email,
+            };
+            await storeUser(user);
+            set({ user, isAuthenticated: true, session: data.session, isLoading: false });
           }
-          
-          // In a real app, you'd verify password here
-          // For MVP, we'll just check if user exists
-          
-          set({ user: storedUser, isAuthenticated: true, isLoading: false });
         } catch (error) {
           set({ isLoading: false });
           throw error;
         }
       },
 
-      signOut: () => {
-        clearStoredUser();
-        set({ user: null, isAuthenticated: false });
+      signOut: async () => {
+        await supabase.auth.signOut();
+        await clearStoredUser();
+        set({ user: null, isAuthenticated: false, session: null });
       },
 
       enableBiometrics: async () => {
@@ -160,6 +168,30 @@ export const useAuthStore = create<AuthState>()(
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         return hasHardware && isEnrolled;
+      },
+
+      restoreSession: async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const storedUser = await getStoredUser();
+          const biometricEnabled = await getBiometricEnabled();
+          if (storedUser) {
+            set({
+              user: { ...storedUser, biometricEnabled },
+              isAuthenticated: true,
+              session,
+            });
+          }
+        } else {
+          const storedUser = await getStoredUser();
+          const biometricEnabled = await getBiometricEnabled();
+          if (storedUser) {
+            set({
+              user: { ...storedUser, biometricEnabled },
+              isAuthenticated: true,
+            });
+          }
+        }
       },
     }),
     {
@@ -193,13 +225,5 @@ export const useAuthStore = create<AuthState>()(
 
 // Initialize auth state on app start
 export async function initializeAuth() {
-  const storedUser = await getStoredUser();
-  const biometricEnabled = await getBiometricEnabled();
-  
-  if (storedUser) {
-    useAuthStore.setState({
-      user: { ...storedUser, biometricEnabled },
-      isAuthenticated: true,
-    });
-  }
+  await useAuthStore.getState().restoreSession();
 }

@@ -128,7 +128,6 @@ describe('Shared Schemas - Pack 1', () => {
         pocketId: '123e4567-e89b-12d3-a456-426614174001',
         amount: 5000, // positive for credit
         type: 'allocation' as const,
-        category: 'food' as const,
         createdAt: new Date().toISOString(),
       };
       expect(() => TransactionSchema.parse(transaction)).not.toThrow();
@@ -136,8 +135,8 @@ describe('Shared Schemas - Pack 1', () => {
 
     it('validates a debit transaction (spend)', () => {
       const transaction = {
-        id: '123e4567-e89b-12d3-a456-426614000',
-        pocketId: '123e4567-e89b-12d3-a456-426614001',
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        pocketId: '123e4567-e89b-12d3-a456-426614174001',
         amount: -500, // negative for debit
         type: 'spend' as const,
         merchant: 'Naivas Supermarket',
@@ -149,8 +148,8 @@ describe('Shared Schemas - Pack 1', () => {
 
     it('validates a reallocation out transaction', () => {
       const transaction = {
-        id: '123e4567-e89b-12d3-a456-426614000',
-        pocketId: '123e4567-e89b-12d3-a456-426614001',
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        pocketId: '123e4567-e89b-12d3-a456-426614174001',
         amount: -200, // negative for debit
         type: 'reallocation_out' as const,
         createdAt: new Date().toISOString(),
@@ -207,7 +206,7 @@ describe('Shared Schemas - Pack 1', () => {
     it('validates an income event that triggers allocation', () => {
       const income = {
         id: '123e4567-e89b-12d3-a456-426614174000',
-        userId: '123e4567-e89b-12d3-a456-426614001',
+        userId: '123e4567-e89b-12d3-a456-426614174001',
         amount: 68000,
         source: 'Salary',
         label: 'Monthly salary',
@@ -221,7 +220,7 @@ describe('Shared Schemas - Pack 1', () => {
     it('validates an income event without allocation trigger', () => {
       const income = {
         id: '123e4567-e89b-12d3-a456-426614174000',
-        userId: '123e4567-e89b-12d3-a456-426614001',
+        userId: '123e4567-e89b-12d3-a456-426614174001',
         amount: 5000,
         source: 'Freelance',
         label: 'Side project payment',

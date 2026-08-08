@@ -9,9 +9,9 @@ Phased from empty repo → MVP showcase → embeddable product with billing. Tim
 - [x] Core screens designed (Onboarding → Result → Home ×2 → Detail → Reallocate → Insights → Profile)
 - [x] Product docs written (this doc set)
 - [x] Confirmed: standalone MVP showcase first, Individual segment only, no wallet/PSP (manual income entry), clean new tech stack — existing Flutter/Supabase wallet codebase left untouched, not extended
-- [x] Confirmed: company registration is on hold, blocked on funding — not started
-- [ ] Repo scaffolded (frontend + backend skeletons, empty but structured)
-- [ ] Decide the open questions in `PRD.md` §8 before writing business logic — several are still genuinely open, not defaults to assume:
+- [] Confirmed: company registration is on hold, blocked on funding — not started
+- [x] Repo scaffolded (frontend + backend skeletons, empty but structured)
+- [] Decide the open questions in `PRD.md` §8 before writing business logic — several are still genuinely open, not defaults to assume:
   - Daily Budget mode (global vs per-pocket)
   - Reallocation cooling-off timer design
   - Merchant categorization / MCC blocking UX

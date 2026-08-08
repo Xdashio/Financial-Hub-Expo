@@ -1,6 +1,9 @@
-import { View, Text, ScrollView, StyleSheet, SafeAreaView } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
 import { colors, radius, spacing, typography, shadow } from '../../src/theme';
-import { Shield, RefreshCw, Lock } from 'lucide-react-native';
+import { Shield, RefreshCw, Lock, ChevronLeft } from 'lucide-react-native';
+import { useHomeStore } from '@/services/home-store';
+import { Button } from '@/components/ui';
 
 const styles = StyleSheet.create({
   container: {
@@ -286,26 +289,122 @@ const styles = StyleSheet.create({
     color: colors.emeraldDeep,
     fontVariant: ['tabular-nums'],
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+  },
+  loadingText: {
+    ...typography.body,
+    color: colors.sage,
+    marginTop: spacing.md,
+  },
 });
 
-const POCKETS = [
-  { name: 'Fixed costs', color: colors.emerald, amount: '42,500', progress: 1, status: 'Settled' },
-  { name: 'Savings', color: colors.gold, amount: '15,000', progress: 0.3, status: 'Protected', locked: true },
-  { name: 'Food & groceries', color: colors.emerald, amount: '8,200', progress: 0.45, status: 'Daily cap' },
-  { name: 'Transport', color: colors.plum, amount: '5,400', progress: 0.6, status: 'Daily cap' },
-  { name: 'Personal & leisure', color: colors.clay, amount: '7,100', progress: 0.25, status: 'Daily cap' },
-];
-
-const DAILY_POCKETS = [
-  { name: 'Food & groceries', color: colors.emerald, remaining: 180, cap: 250, progress: 0.28 },
-  { name: 'Transport', color: colors.plum, remaining: 120, cap: 200, progress: 0.4 },
-  { name: 'Personal & leisure', color: colors.clay, remaining: 160, cap: 200, progress: 0.2 },
-];
-
 export default function HomeScreen() {
+  const { 
+    pockets, 
+    dailyPockets, 
+    rolloverAmount, 
+    safeToSpendToday, 
+    totalBalance, 
+    disciplineScore, 
+    scoreDelta,
+    isLoading, 
+    error, 
+    fetchHomeData,
+    refreshData,
+  } = useHomeStore();
+
+  React.useEffect(() => {
+    fetchHomeData();
+  }, []);
+
+  const formatCurrency = (amount: number) => {
+    return `KES ${amount.toLocaleString()}`;
+  };
+
+  const getPocketColor = (kind: string, category?: string) => {
+    if (kind === 'fixed') return colors.gold;
+    if (kind === 'savings') return colors.emeraldDeep;
+    if (kind === 'spendable') {
+      switch (category) {
+        case 'food': return colors.emerald;
+        case 'transport': return colors.plum;
+        case 'leisure': return colors.clay;
+        default: return colors.emerald;
+      }
+    }
+    return colors.emerald;
+  };
+
+  const getPocketStatus = (pocket: any) => {
+    if (pocket.kind === 'fixed') return { label: 'Settled', status: 'Settled' };
+    if (pocket.kind === 'savings') return { label: 'Protected', status: 'Protected' };
+    return { label: 'Daily cap', status: 'Daily cap' };
+  };
+
+  if (isLoading && pockets.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.emeraldDeep} />
+            <Text style={styles.loadingText}>Loading your financial hub...</Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <ChevronLeft size={32} color={colors.emeraldDeep} strokeWidth={2} />
+            </View>
+            <Text style={styles.emptyTitle}>Unable to load data</Text>
+            <Text style={styles.emptySub}>{error}</Text>
+            <Button fullWidth size="md" onPress={refreshData} style={{ marginTop: spacing.lg }}>
+              Try Again
+            </Button>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (pockets.length === 0) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <Shield size={32} color={colors.emeraldDeep} strokeWidth={2} />
+            </View>
+            <Text style={styles.emptyTitle}>No plan yet</Text>
+            <Text style={styles.emptySub}>
+              Complete onboarding to see your personalized money plan with pockets for savings, fixed costs, and daily spending.
+            </Text>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const fixedPockets = pockets.filter(p => p.kind === 'fixed' || p.kind === 'savings');
+  const spendablePockets = pockets.filter(p => p.kind === 'spendable');
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} refreshControl={
+        <View style={{ paddingVertical: spacing.md }}>
+          <ActivityIndicator color={colors.emeraldDeep} size="small" />
+        </View>
+      } onRefresh={refreshData} refreshing={isLoading}>
         <View style={styles.brandBar}>
           <View style={styles.brandMark}>
             <View style={styles.brandGlyph}>
@@ -318,13 +417,13 @@ export default function HomeScreen() {
 
         <View style={styles.balanceBlock}>
           <Text style={styles.balanceLabel}>Safe to spend today</Text>
-          <Text style={styles.balanceValue}>KES 460</Text>
+          <Text style={styles.balanceValue}>{formatCurrency(safeToSpendToday)}</Text>
           <Text style={styles.balanceSub}>Sum of daily caps</Text>
         </View>
 
         <View style={styles.balanceSecondary}>
           <Text style={styles.balanceSecondaryLabel}>Total balance</Text>
-          <Text style={styles.balanceSecondaryValue}>KES 78,200</Text>
+          <Text style={styles.balanceSecondaryValue}>{formatCurrency(totalBalance)}</Text>
         </View>
 
         <View style={styles.protectStrip}>
@@ -344,63 +443,91 @@ export default function HomeScreen() {
               <Text style={styles.rolloverSub}>Unspent amounts move to Savings at midnight</Text>
             </View>
           </View>
-          <Text style={styles.rolloverValue}>KES 140</Text>
+          <Text style={styles.rolloverValue}>{formatCurrency(rolloverAmount)}</Text>
         </View>
 
-        <Text style={styles.sectionLabel}>Spendable pockets</Text>
+        {dailyPockets.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Spendable pockets</Text>
 
-        {DAILY_POCKETS.map((pocket, i) => (
-          <View key={i} style={styles.dailyPocketCard}>
-            <View style={styles.dailyPocketTop}>
-              <View style={styles.dailyPocketLeft}>
-                <View style={[styles.pocketDot, { backgroundColor: pocket.color }]} />
-                <Text style={styles.pocketName}>{pocket.name}</Text>
+            {dailyPockets.map((pocket, i) => (
+              <View key={i} style={styles.dailyPocketCard}>
+                <View style={styles.dailyPocketTop}>
+                  <View style={styles.dailyPocketLeft}>
+                    <View style={[styles.pocketDot, { backgroundColor: pocket.color }]} />
+                    <Text style={styles.pocketName}>{pocket.name}</Text>
+                  </View>
+                  <View style={styles.dailyPocketRight}>
+                    <Text style={styles.dailyPocketRemaining}>{pocket.remaining} left</Text>
+                    <Text style={styles.dailyPocketCap}>/ {pocket.cap} cap</Text>
+                  </View>
+                </View>
+                <View style={styles.dailyPocketBarTrack}>
+                  <View
+                    style={[
+                      styles.dailyPocketBarFill,
+                      { backgroundColor: pocket.color, width: `${Math.max(0, Math.min(100, pocket.progress * 100))}%` },
+                    ]}
+                  />
+                </View>
               </View>
-              <View style={styles.dailyPocketRight}>
-                <Text style={styles.dailyPocketRemaining}>{pocket.remaining} left</Text>
-                <Text style={styles.dailyPocketCap}>/ {pocket.cap} cap</Text>
-              </View>
+            ))}
+          </>
+        )}
+
+        {fixedPockets.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>Fixed & Protected</Text>
+
+            {fixedPockets.map((pocket, i) => {
+              const pocketColor = getPocketColor(pocket.kind, pocket.category);
+              const status = getPocketStatus(pocket);
+              return (
+                <View key={i} style={styles.pocketCard}>
+                  <View style={styles.pocketTop}>
+                    <View style={styles.pocketNameRow}>
+                      <View style={[styles.pocketDot, { backgroundColor: pocketColor }]} />
+                      <Text style={styles.pocketName}>{pocket.name}</Text>
+                      {pocket.isTimeLocked && (
+                        <Lock size={12} color={colors.sage} strokeWidth={2.5} />
+                      )}
+                    </View>
+                    <Text style={styles.pocketAmount}>{formatCurrency(pocket.monthlyAllocation)}</Text>
+                  </View>
+                  <View style={styles.pocketBarTrack}>
+                    <View
+                      style={[
+                        styles.pocketBarFill,
+                        { backgroundColor: pocketColor, width: '100%' },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.pocketMeta}>
+                    <Text style={styles.pocketMetaText}>{status.label}</Text>
+                    <Text style={styles.pocketMetaText}>{pocket.isTimeLocked ? 'Locked' : 'Available'}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {pockets.length === 0 && (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIcon}>
+              <Shield size={32} color={colors.emeraldDeep} strokeWidth={2} />
             </View>
-            <View style={styles.dailyPocketBarTrack}>
-              <View
-                style={[
-                  styles.dailyPocketBarFill,
-                  { backgroundColor: pocket.color, width: `${pocket.progress * 100}%` },
-                ]}
-              />
-            </View>
+            <Text style={styles.emptyTitle}>No plan yet</Text>
+            <Text style={styles.emptySub}>
+              Complete onboarding to see your personalized money plan with pockets for savings, fixed costs, and daily spending.
+            </Text>
           </View>
-        ))}
-
-        <Text style={styles.sectionLabel}>Fixed & Protected</Text>
-
-        {POCKETS.slice(0, 2).map((pocket, i) => (
-          <View key={i} style={styles.pocketCard}>
-            <View style={styles.pocketTop}>
-              <View style={styles.pocketNameRow}>
-                <View style={[styles.pocketDot, { backgroundColor: pocket.color }]} />
-                <Text style={styles.pocketName}>{pocket.name}</Text>
-                {pocket.locked && (
-                  <Lock size={12} color={colors.sage} strokeWidth={2.5} />
-                )}
-              </View>
-              <Text style={styles.pocketAmount}>KES {pocket.amount}</Text>
-            </View>
-            <View style={styles.pocketBarTrack}>
-              <View
-                style={[
-                  styles.pocketBarFill,
-                  { backgroundColor: pocket.color, width: `${pocket.progress * 100}%` },
-                ]}
-              />
-            </View>
-            <View style={styles.pocketMeta}>
-              <Text style={styles.pocketMetaText}>{pocket.status}</Text>
-              <Text style={styles.pocketMetaText}>{pocket.locked ? 'Locked' : 'Available'}</Text>
-            </View>
-          </View>
-        ))}
+        )}
       </ScrollView>
     </SafeAreaView>
   );
+}
+
+function formatCurrency(amount: number) {
+  return `KES ${amount.toLocaleString()}`;
 }

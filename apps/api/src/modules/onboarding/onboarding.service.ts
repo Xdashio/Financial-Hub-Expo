@@ -8,6 +8,7 @@ import {
   PocketCategory,
 } from '@financial-hub/shared';
 import { assignPlan, PlanAssignment, validateOnboardingInput } from './rules-engine';
+import { SupabaseRepository } from '../../database/supabase.repository';
 
 type SpendableCategory = 'food' | 'transport' | 'leisure';
 
@@ -20,6 +21,8 @@ const CATEGORY_NAMES: Record<SpendableCategory, string> = {
 
 @Injectable()
 export class OnboardingService {
+  constructor(private readonly supabaseRepo: SupabaseRepository) {}
+
   assign(input: OnboardingInput): OnboardingAssignResult {
     const validationErrors = validateOnboardingInput(input);
     if (validationErrors.length > 0) {
@@ -39,43 +42,99 @@ export class OnboardingService {
     };
   }
 
-  commit(input: OnboardingInput, _userId: string): OnboardingCommitResult {
+  async commit(input: OnboardingInput, userId: string): Promise<OnboardingCommitResult> {
     const assignment = assignPlan(input);
     const planId = uuidv4();
 
-    const pockets = this.createPockets(planId, assignment, input.incomeAmount, input.fixedTotal);
+    // Deactivate any existing active plans for this user
+    await this.supabaseRepo.deactivateUserPlans(userId);
+
+    // Map income pattern: 'mix' -> 'salaried' for database
+    const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
+
+    // Create the new plan
+    const plan = await this.supabaseRepo.createPlan({
+      id: planId,
+      user_id: userId,
+      type: assignment.planType,
+      income_pattern: dbIncomePattern,
+      status: 'active',
+    });
+
+    if (!plan) {
+      throw new Error('Failed to create plan');
+    }
+
+    // Create pockets
+    const pocketInputs = this.createPocketInputs(planId, assignment, input.incomeAmount, input.fixedTotal);
+    const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
+
+    // Create fixed expenses
+    for (const expense of input.fixedExpenses || []) {
+      await this.supabaseRepo.createFixedExpense({
+        user_id: userId,
+        name: expense.name,
+        amount: expense.amount,
+        due_day: expense.dueDay,
+        category: expense.category,
+      });
+    }
+
+    // Create initial allocation transactions
+    const transactions = this.createAllocationTransactions(createdPockets, assignment);
+    await this.supabaseRepo.createTransactions(transactions);
+
+    // Create behavior event for plan creation
+    await this.supabaseRepo.createBehaviorEvent({
+      user_id: userId,
+      type: 'plan_created',
+      payload: {
+        planId,
+        planType: assignment.planType,
+        incomePattern: assignment.incomePattern,
+      },
+    });
 
     return {
       planId,
-      pockets,
+      pockets: createdPockets.map(p => ({
+        id: p.id,
+        name: p.name,
+        kind: p.kind,
+        category: p.category || undefined,
+        monthlyAllocation: p.monthly_allocation,
+        dailyCap: p.daily_cap || undefined,
+      })),
     };
   }
 
-  private createPockets(
+  private createPocketInputs(
     planId: string,
     assignment: PlanAssignment,
     incomeAmount: number,
     fixedTotal: number
-  ): OnboardingCommitResult['pockets'] {
+  ): any[] {
     const pockets = [];
 
     const fixedPocketId = uuidv4();
     pockets.push({
       id: fixedPocketId,
+      plan_id: planId,
       name: 'Fixed Expenses',
       kind: 'fixed' as PocketKind,
-      monthlyAllocation: fixedTotal,
-      dailyCap: undefined,
+      monthly_allocation: fixedTotal,
+      daily_cap: null,
     });
 
     const savingsPocketId = uuidv4();
     pockets.push({
       id: savingsPocketId,
+      plan_id: planId,
       name: 'Savings',
       kind: 'savings' as PocketKind,
-      isTimeLocked: true,
-      monthlyAllocation: assignment.savingsTarget,
-      dailyCap: undefined,
+      is_time_locked: true,
+      monthly_allocation: assignment.savingsTarget,
+      daily_cap: null,
     });
 
     if (assignment.planType === 'structured') {
@@ -85,11 +144,12 @@ export class OnboardingService {
       for (const category of SPENDABLE_CATEGORIES) {
         pockets.push({
           id: uuidv4(),
+          plan_id: planId,
           name: CATEGORY_NAMES[category],
           kind: 'spendable' as PocketKind,
           category: category as PocketCategory,
-          monthlyAllocation: perPocketAmount,
-          dailyCap: undefined,
+          monthly_allocation: perPocketAmount,
+          daily_cap: null,
         });
       }
     } else {
@@ -100,15 +160,27 @@ export class OnboardingService {
         const dailyCap = dailySpendable / SPENDABLE_CATEGORIES.length;
         pockets.push({
           id: uuidv4(),
+          plan_id: planId,
           name: CATEGORY_NAMES[category],
           kind: 'spendable' as PocketKind,
           category: category as PocketCategory,
-          monthlyAllocation: dailyCap * daysInMonth,
-          dailyCap: Math.round(dailyCap * 100) / 100,
+          monthly_allocation: dailyCap * daysInMonth,
+          daily_cap: Math.round(dailyCap * 100) / 100,
         });
       }
     }
 
     return pockets;
+  }
+
+  private createAllocationTransactions(
+    pockets: any[],
+    assignment: PlanAssignment
+  ): any[] {
+    return pockets.map(pocket => ({
+      pocket_id: pocket.id,
+      amount: pocket.monthly_allocation,
+      type: 'allocation' as const,
+    }));
   }
 }

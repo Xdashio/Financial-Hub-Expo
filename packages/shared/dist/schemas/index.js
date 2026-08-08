@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -62,12 +62,19 @@ exports.PlanStatusSchema = zod_1.z.enum(['active', 'inactive', 'reassigned']);
 // ============================================================================
 // Onboarding Schemas - Pack 2 Specification
 // ============================================================================
+exports.FixedExpenseInputSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(100),
+    amount: zod_1.z.number().positive(),
+    dueDay: zod_1.z.number().int().min(1).max(31),
+    category: exports.PocketCategorySchema,
+});
 exports.OnboardingInputSchema = zod_1.z.object({
     incomePattern: exports.IncomePatternSchema,
     spendingHabit: exports.SpendingHabitSchema,
     incomeAmount: zod_1.z.number().positive(),
     fixedTotal: zod_1.z.number().nonnegative(),
     sourceCount: zod_1.z.number().int().positive(),
+    fixedExpenses: zod_1.z.array(exports.FixedExpenseInputSchema).optional(),
 });
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
