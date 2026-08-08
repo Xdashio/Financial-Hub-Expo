@@ -3,12 +3,13 @@ import { View, Text, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
+import { useAuthStore } from '@/services/auth';
 import { Button, ScreenContainer, SafeScrollView, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock } from 'lucide-react-native';
 
 export default function ResultScreen() {
   const router = useRouter();
-  const { assignResult, commitPlan, goBack, reset } = useOnboardingStore();
+  const { assignResult, commitPlan, reset } = useOnboardingStore();
   
   const [isCommitting, setIsCommitting] = React.useState(false);
 
@@ -27,8 +28,10 @@ export default function ResultScreen() {
     setIsCommitting(true);
     try {
       await commitPlan();
-      // Navigate to home after successful commit
-      router.replace('/(tabs)');
+      // Re-check plan status so root routing (app/index.tsx) sees hasPlan=true,
+      // then let it re-evaluate and route to the tabs.
+      await useAuthStore.getState().checkHasPlan();
+      router.replace('/');
     } catch (error) {
       Alert.alert('Error', 'Failed to create your plan. Please try again.');
     } finally {
@@ -37,7 +40,7 @@ export default function ResultScreen() {
   };
 
   const handleAdjust = () => {
-    goBack();
+    router.canGoBack() ? router.back() : router.replace('/(onboarding)/fixed');
   };
 
   const getPlanTag = () => {

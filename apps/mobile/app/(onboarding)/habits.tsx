@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import React from 'react';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
@@ -29,31 +30,23 @@ const HABIT_OPTIONS = [
 
 export default function HabitsScreen() {
   const router = useRouter();
-  const { setHabitsData, previewPlan, input, goBack } = useOnboardingStore();
+  const { setHabitsData, input } = useOnboardingStore();
   
   const [spendingHabit, setSpendingHabit] = React.useState<SpendingHabit>('tracker');
-  const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (input.spendingHabit) setSpendingHabit(input.spendingHabit);
   }, [input]);
 
-  const handleContinue = async () => {
-    setIsLoading(true);
-    try {
-      setHabitsData({ spendingHabit: spendingHabit as any });
-      await previewPlan();
-    } catch (error) {
-      // Error handled by store
-    } finally {
-      setIsLoading(false);
-    }
+  const handleContinue = () => {
+    setHabitsData({ spendingHabit: spendingHabit as any });
+    router.push('/(onboarding)/fixed');
   };
 
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => goBack()} />
+        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         <ProgressIndicator currentStep={2} totalSteps={4} />
 
         <View style={styles.header}>
@@ -98,7 +91,6 @@ export default function HabitsScreen() {
         <Button
           fullWidth
           size="lg"
-          loading={isLoading}
           onPress={handleContinue}
           rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
         >
@@ -108,8 +100,6 @@ export default function HabitsScreen() {
     </ScreenContainer>
   );
 }
-
-import React from 'react';
 
 function TouchableOption({ 
   children, 
@@ -159,6 +149,7 @@ const styles = StyleSheet.create({
   },
   options: {
     marginTop: spacing.md,
+    marginBottom: spacing.xxl,
     gap: spacing.md,
   },
   optionCard: {

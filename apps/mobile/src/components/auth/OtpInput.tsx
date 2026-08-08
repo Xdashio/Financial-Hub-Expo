@@ -93,8 +93,10 @@ const styles = StyleSheet.create({
     width: 1,
     height: 1,
     opacity: 0,
+    outlineStyle: 'none',
+    outlineWidth: 0,
     // This ensures the input is accessible but not visible
-  },
+  } as any,
   cellsContainer: {
     flexDirection: 'row',
     gap: 8,

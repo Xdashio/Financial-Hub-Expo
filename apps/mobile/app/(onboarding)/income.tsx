@@ -36,12 +36,11 @@ const SOURCE_COUNTS = [
 
 export default function IncomeScreen() {
   const router = useRouter();
-  const { setIncomeData, previewPlan, input } = useOnboardingStore();
+  const { setIncomeData, input } = useOnboardingStore();
   
   const [incomePattern, setIncomePattern] = React.useState<IncomePattern>('salaried');
   const [incomeAmount, setIncomeAmount] = React.useState('');
   const [sourceCount, setSourceCount] = React.useState(1);
-  const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (input.incomePattern) setIncomePattern(input.incomePattern);
@@ -68,19 +67,12 @@ export default function IncomeScreen() {
       return;
     }
 
-    setIsLoading(true);
-    try {
-      setIncomeData({
-        incomePattern: incomePattern as any,
-        incomeAmount: amount,
-        sourceCount,
-      });
-      await previewPlan();
-    } catch (error) {
-      // Error handled by store
-    } finally {
-      setIsLoading(false);
-    }
+    setIncomeData({
+      incomePattern: incomePattern as any,
+      incomeAmount: amount,
+      sourceCount,
+    });
+    router.push('/(onboarding)/habits');
   };
 
   return (
@@ -153,6 +145,7 @@ export default function IncomeScreen() {
                 sourceCount === option.id && styles.chipSelected,
               ]}
               onPress={() => setSourceCount(option.id)}
+              hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
               accessibilityRole="button"
               accessibilityState={{ selected: sourceCount === option.id }}
               accessibilityLabel={option.label}
@@ -168,7 +161,6 @@ export default function IncomeScreen() {
         <Button
           fullWidth
           size="lg"
-          loading={isLoading}
           onPress={handleContinue}
           rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
         >
@@ -302,15 +294,18 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.sm,
+    marginBottom: spacing.xxl,
   },
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
     borderRadius: radius.pill,
     borderWidth: 1.5,
     borderColor: colors.line,
     backgroundColor: colors.surface,
-    minHeight: touchTarget.minHeight,
+    minWidth: 88,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   chipSelected: {
     borderColor: colors.emeraldDeep,
@@ -319,6 +314,7 @@ const styles = StyleSheet.create({
   chipText: {
     ...typography.caption,
     color: colors.ink,
+    textAlign: 'center',
   },
   chipTextSelected: {
     color: '#fff',

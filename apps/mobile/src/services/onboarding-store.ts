@@ -171,7 +171,7 @@ export const useOnboardingStore = create<OnboardingState>()(
           }
 
           const result = await onboardingApi.assign(fullInput);
-          set({ assignResult: result, isLoading: false, currentStep: 'result' });
+          set({ assignResult: result, isLoading: false });
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Failed to preview plan', isLoading: false });
           throw error;

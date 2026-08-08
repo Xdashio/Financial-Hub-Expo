@@ -5,7 +5,7 @@ import React from 'react';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
-import { ChevronLeft, Plus, Trash2, Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard } from 'lucide-react-native';
+import { ChevronLeft, Plus, Trash2, Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard, X } from 'lucide-react-native';
 
 interface SuggestionItem {
   name: string;
@@ -51,7 +51,6 @@ export default function FixedScreen() {
     removeFixedExpense, 
     setFixedExpenses,
     previewPlan, 
-    goBack,
     input,
   } = useOnboardingStore();
   
@@ -65,6 +64,7 @@ export default function FixedScreen() {
   const [editName, setEditName] = React.useState('');
   const [editAmount, setEditAmount] = React.useState('');
   const [editDueDay, setEditDueDay] = React.useState(1);
+  const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (fixedExpenses.length === 0) {
@@ -74,6 +74,7 @@ export default function FixedScreen() {
   }, []);
 
   const totalFixed = fixedExpenses.reduce((sum: number, e: FixedExpenseItem) => sum + e.amount, 0);
+  const deleteTarget = fixedExpenses.find((e: FixedExpenseItem) => e.id === deleteTargetId);
 
   const formatAmount = (text: string) => {
     const cleaned = text.replace(/[^\d]/g, '');
@@ -156,14 +157,18 @@ export default function FixedScreen() {
   };
 
   const handleDelete = (id: string) => {
-    Alert.alert(
-      'Delete expense',
-      'Are you sure you want to remove this fixed expense?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => removeFixedExpense(id) },
-      ]
-    );
+    setDeleteTargetId(id);
+  };
+
+  const confirmDelete = () => {
+    if (deleteTargetId) {
+      removeFixedExpense(deleteTargetId);
+    }
+    setDeleteTargetId(null);
+  };
+
+  const cancelDelete = () => {
+    setDeleteTargetId(null);
   };
 
   const resetForm = () => {
@@ -180,9 +185,11 @@ export default function FixedScreen() {
   const handleContinue = async () => {
     setIsLoading(true);
     try {
-      await previewPlan();
+      await previewPlan(); // calls API, sets assignResult in store
+      router.push('/(onboarding)/result');
     } catch (error) {
-      // Error handled by store
+      // error is already set in store, show it
+      Alert.alert('Error', 'Could not generate your plan. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +205,7 @@ export default function FixedScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => goBack()} />
+        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         <ProgressIndicator currentStep={3} totalSteps={4} />
 
         <View style={styles.header}>
@@ -283,60 +290,105 @@ export default function FixedScreen() {
         {showAddModal && (
           <TouchableOpacity style={styles.modalOverlay} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1}>
             <TouchableOpacity style={styles.modalContent} onPress={() => {}} activeOpacity={1}>
+              <View style={styles.modalHandle} />
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>
                   {editingId ? 'Edit fixed expense' : 'Add fixed expense'}
                 </Text>
                 <TouchableOpacity
+                  style={styles.modalCloseBtn}
                   onPress={() => { setShowAddModal(false); resetForm(); }}
                   accessibilityLabel="Close"
+                  accessibilityRole="button"
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
-                  <ChevronLeft size={20} color={colors.ink} strokeWidth={2} />
+                  <X size={18} color={colors.inkSoft} strokeWidth={2} />
                 </TouchableOpacity>
               </View>
 
-              <Input
-                label="Name"
-                value={editingId ? editName : newName}
-                onChangeText={editingId ? setEditName : setNewName}
-                placeholder="e.g., Rent"
-                autoFocus
-                accessible={true}
-                accessibilityLabel="Expense name"
-              />
+              <View style={styles.modalFields}>
+                <Input
+                  label="Name"
+                  value={editingId ? editName : newName}
+                  onChangeText={editingId ? setEditName : setNewName}
+                  placeholder="e.g., Rent"
+                  autoFocus
+                  accessible={true}
+                  accessibilityLabel="Expense name"
+                />
 
-              <Input
-                label="Amount (KSh)"
-                value={editingId ? editAmount : newAmount}
-                onChangeText={(t) => {
-                  const formatted = formatAmount(t);
-                  editingId ? setEditAmount(formatted) : setNewAmount(formatted);
-                }}
-                placeholder="0"
-                keyboardType="numeric"
-                accessible={true}
-                accessibilityLabel="Amount in Kenyan shillings"
-              />
+                <Input
+                  label="Amount (KSh)"
+                  value={editingId ? editAmount : newAmount}
+                  onChangeText={(t) => {
+                    const formatted = formatAmount(t);
+                    editingId ? setEditAmount(formatted) : setNewAmount(formatted);
+                  }}
+                  placeholder="0"
+                  keyboardType="numeric"
+                  accessible={true}
+                  accessibilityLabel="Amount in Kenyan shillings"
+                />
 
-              <Input
-                label="Due day"
-                value={editingId ? String(editDueDay) : String(newDueDay)}
-                onChangeText={(t) => {
-                  const day = Math.min(Math.max(Number(t) || 1, 1), 31);
-                  editingId ? setEditDueDay(day) : setNewDueDay(day);
-                }}
-                placeholder="1"
-                keyboardType="numeric"
-                accessible={true}
-                accessibilityLabel="Due day of the month"
-              />
+                <Input
+                  label="Due day"
+                  value={editingId ? String(editDueDay) : String(newDueDay)}
+                  onChangeText={(t) => {
+                    const day = Math.min(Math.max(Number(t) || 1, 1), 31);
+                    editingId ? setEditDueDay(day) : setNewDueDay(day);
+                  }}
+                  placeholder="1"
+                  keyboardType="numeric"
+                  accessible={true}
+                  accessibilityLabel="Due day of the month"
+                />
+              </View>
 
               <View style={styles.modalActions}>
-                <Button variant="ghost" onPress={() => { setShowAddModal(false); resetForm(); }}>
+                <Button variant="secondary" style={styles.modalActionBtn} onPress={() => { setShowAddModal(false); resetForm(); }}>
                   Cancel
                 </Button>
-                <Button onPress={handleSave}>
+                <Button style={styles.modalActionBtn} onPress={handleSave}>
                   {editingId ? 'Save changes' : 'Add expense'}
+                </Button>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        )}
+
+        {/* Delete confirmation modal */}
+        {deleteTargetId && (
+          <TouchableOpacity style={styles.modalOverlay} onPress={cancelDelete} activeOpacity={1}>
+            <TouchableOpacity style={styles.modalContent} onPress={() => {}} activeOpacity={1}>
+              <View style={styles.modalHandle} />
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Delete expense</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseBtn}
+                  onPress={cancelDelete}
+                  accessibilityLabel="Close"
+                  accessibilityRole="button"
+                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                >
+                  <X size={18} color={colors.inkSoft} strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.deleteConfirmText}>
+                Are you sure you want to remove {deleteTarget ? `"${deleteTarget.name}"` : 'this fixed expense'}? This can&apos;t be undone.
+              </Text>
+
+              <View style={styles.modalActions}>
+                <Button variant="secondary" style={styles.modalActionBtn} onPress={cancelDelete}>
+                  Cancel
+                </Button>
+                <Button
+                  style={styles.modalDeleteBtnAction}
+                  onPress={confirmDelete}
+                  accessibilityLabel="Confirm delete"
+                  accessibilityRole="button"
+                >
+                  Delete
                 </Button>
               </View>
             </TouchableOpacity>
@@ -446,15 +498,18 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: colors.sage,
     lineHeight: 18,
+    marginBottom: spacing.xl,
   },
   fixedSummary: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.lg,
-    paddingTop: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.lineSoft,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
+    backgroundColor: colors.emeraldTint,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
   },
   summaryLabel: {
     ...typography.heading,
@@ -470,29 +525,68 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: spacing.lg,
+    backgroundColor: 'rgba(22,35,29,0.45)',
+    justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.lg,
+    borderTopLeftRadius: radius.lg,
+    borderTopRightRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
     maxHeight: '85%',
+    ...shadow.elevated,
+  },
+  modalHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: radius.pill,
+    backgroundColor: colors.line,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   modalTitle: {
     ...typography.title,
     color: colors.ink,
   },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.pill,
+    backgroundColor: colors.lineSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalFields: {
+    gap: spacing.lg,
+  },
+  deleteConfirmText: {
+    ...typography.body,
+    color: colors.inkSoft,
+    lineHeight: 21,
+  },
   modalActions: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
+  },
+  modalActionBtn: {
+    flex: 1,
+  },
+  modalDeleteBtn: {
+    backgroundColor: colors.error,
+    borderColor: colors.error,
+  },
+  modalDeleteBtnAction: {
+    flex: 1,
+    backgroundColor: colors.error,
+    borderColor: colors.error,
   },
 });

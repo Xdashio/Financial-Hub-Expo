@@ -3,38 +3,36 @@ import {
   OnboardingAssignResult,
   OnboardingCommitResult,
 } from '@financial-hub/shared';
+import { supabase } from '@/config/supabase.config';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000' 
-  : 'https://api.financialhub.app';
+const API_BASE_URL = __DEV__
+  ? 'http://localhost:3000/api'
+  : 'https://api.financialhub.app/api';
 
-async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
+async function fetchWithAuth<T>(endpoint: string, body: unknown): Promise<T> {
+  const { data: { session } } = await supabase.auth.getSession();
+
+  const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
     },
+    body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: 'Request failed' }));
+    throw new Error(err.message || `HTTP ${res.status}`);
   }
 
-  return response.json();
+  return res.json();
 }
 
 export const onboardingApi = {
   assign: (input: OnboardingInput): Promise<OnboardingAssignResult> =>
-    fetchApi<OnboardingAssignResult>('/onboarding/assign', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    }),
+    fetchWithAuth<OnboardingAssignResult>('/onboarding/assign', input),
 
   commit: (input: OnboardingInput): Promise<OnboardingCommitResult> =>
-    fetchApi<OnboardingCommitResult>('/onboarding/commit', {
-      method: 'POST',
-      body: JSON.stringify(input),
-    }),
+    fetchWithAuth<OnboardingCommitResult>('/onboarding/commit', input),
 };

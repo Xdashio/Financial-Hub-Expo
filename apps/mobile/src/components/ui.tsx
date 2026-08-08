@@ -153,7 +153,9 @@ export function Input({
             ...typography.body,
             color: colors.ink,
             paddingVertical: spacing.sm,
-          }}
+            outlineStyle: 'none',
+            outlineWidth: 0,
+          } as any}
           {...props}
         />
         {rightElement}
@@ -302,13 +304,6 @@ const styles = StyleSheet.create({
   backButton: {
     width: touchTarget.minWidth,
     height: touchTarget.minHeight,
-    // Pull the tap target back toward the screen edge — brandBar already
-    // has paddingHorizontal(lg), so a fixed-width box with no extra
-    // padding of its own would sit ~44px in from the edge. The negative
-    // margin brings the chevron glyph close to flush while alignItems/
-    // justifyContent center keep it (and not just its padded box)
-    // vertically centered in the row.
-    marginLeft: -spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
