@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image, ActivityIndicator, ScrollView, ViewStyle, TextStyle, TextInputProps } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, ViewStyle, TextStyle, TextInputProps } from 'react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import { colors, radius, spacing, typography, shadow, touchTarget, borderWidth } from '../theme';
 
 export interface ButtonProps extends Omit<React.ComponentPropsWithoutRef<typeof TouchableOpacity>, 'children' | 'style'> {
@@ -228,10 +229,7 @@ export function BrandHeader({ onBack }: { onBack?: () => void }) {
           onPress={onBack}
           activeOpacity={0.7}
         >
-          <Image
-            source={require('../../../assets/chevron-left.png')}
-            style={{ width: 20, height: 20, tintColor: colors.ink }}
-          />
+          <ChevronLeft size={20} color={colors.ink} />
         </TouchableOpacity>
       )}
       <View style={styles.brandMark}>
