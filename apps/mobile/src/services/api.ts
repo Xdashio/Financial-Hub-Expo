@@ -74,7 +74,8 @@ export const transactionsApi = {
 export const reallocationsApi = {
   getAll: () => api.get<any[]>('/reallocations'),
   create: (data: any) => api.post<any>('/reallocations', data),
-  update: (id: string, data: any) => api.put<any>(`/reallocations/${id}`, data),
+  complete: (id: string, data: { skipCoolingOff?: boolean } = {}) =>
+    api.post<any>(`/reallocations/${id}/complete`, data),
 };
 
 export const insightsApi = {

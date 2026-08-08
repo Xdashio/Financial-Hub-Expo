@@ -220,6 +220,19 @@ export const ReallocationSchema = z.object({
 });
 export type Reallocation = z.infer<typeof ReallocationSchema>;
 
+export const ReallocationInputSchema = z.object({
+  fromPocketId: z.string().uuid(),
+  toPocketId: z.string().uuid(),
+  amount: z.number().positive(),
+  reason: ReallocationReasonSchema,
+});
+export type ReallocationInput = z.infer<typeof ReallocationInputSchema>;
+
+export const ReallocationCompleteInputSchema = z.object({
+  skipCoolingOff: z.boolean().optional().default(false),
+});
+export type ReallocationCompleteInput = z.infer<typeof ReallocationCompleteInputSchema>;
+
 export const MerchantClassificationSchema = z.object({
   id: z.string().uuid(),
   recipientKey: z.string(), // e.g. till/paybill
@@ -273,6 +286,8 @@ export const schemas = {
   IncomeEvent: IncomeEventSchema,
   Transaction: TransactionSchema,
   Reallocation: ReallocationSchema,
+  ReallocationInput: ReallocationInputSchema,
+  ReallocationCompleteInput: ReallocationCompleteInputSchema,
   MerchantClassification: MerchantClassificationSchema,
   BehaviorEvent: BehaviorEventSchema,
   DisciplineScore: DisciplineScoreSchema,

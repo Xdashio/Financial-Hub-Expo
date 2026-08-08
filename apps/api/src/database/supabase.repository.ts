@@ -256,6 +256,16 @@ export class SupabaseRepository {
     return data;
   }
 
+  async getReallocationById(id: string): Promise<Reallocation | null> {
+    const { data, error } = await this.supabase
+      .from('reallocations')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
   async getReallocationsByUserId(userId: string): Promise<Reallocation[]> {
     const { data, error } = await this.supabase
       .from('reallocations')

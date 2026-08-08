@@ -30,8 +30,11 @@ export default function SignUpScreen() {
   };
 
   // Strip emojis and characters that aren't letters, spaces, hyphens, or apostrophes.
+  // Uses \p{L} (unicode letter property) rather than a-zA-Z so names with
+  // diacritics — common in Kikuyu/Kalenjin/Luo orthography, e.g. "Wanjirũ",
+  // "Njũgũna" — aren't mangled character-by-character as the user types.
   const sanitiseName = (text: string) =>
-    text.replace(/[^a-zA-Z\s'-]/g, '');
+    text.replace(/[^\p{L}\s'-]/gu, '');
 
   const formatPhone = (value: string) => {
     // Strip everything except digits first (blocks emojis, letters, symbols)

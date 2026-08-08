@@ -43,11 +43,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    color: colors.gold,
-    fontSize: 24,
-    fontFamily: typography.fontFamily,
-  },
   name: {
     ...typography.title,
     fontSize: 20,
@@ -164,13 +159,6 @@ export default function ProfileScreen() {
     };
   }, []);
 
-  const initials = user?.fullName
-    ?.split(' ')
-    .slice(0, 2)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase() ?? '?';
-
   const planLabel = plan?.type === 'daily' ? 'Daily Budget' : 'Structured Salaried';
 
   const settingsGroups = [
@@ -235,7 +223,7 @@ export default function ProfileScreen() {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            <User size={32} color={colors.gold} strokeWidth={2} />
           </View>
           <Text style={styles.name}>{user?.fullName || '—'}</Text>
           <Text style={styles.sub}>{user?.phone || user?.email || '—'}</Text>

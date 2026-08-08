@@ -93,13 +93,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    color: colors.gold,
-    fontSize: 14,
-    fontFamily: typography.fontFamily,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
   balanceBlock: {
     marginTop: spacing.xl,
   },
@@ -375,13 +368,6 @@ export default function HomeScreen() {
   } = useHomeStore();
 
   const user = useAuthStore(s => s.user);
-  const initials = user?.fullName
-    ?.split(' ')
-    .slice(0, 2)
-    .map(w => w[0])
-    .join('')
-    .toUpperCase() ?? '?';
-
   React.useEffect(() => {
     fetchHomeData();
   }, []);
@@ -486,7 +472,7 @@ export default function HomeScreen() {
             <Text style={styles.brandWordmark}>Financial Hub</Text>
           </View>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+            <User size={18} color={colors.gold} strokeWidth={2.5} />
           </View>
         </View>
 

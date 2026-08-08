@@ -6,6 +6,8 @@ import {
   PlanTypeSchema,
   TransactionSchema,
   ReallocationSchema,
+  ReallocationInputSchema,
+  ReallocationCompleteInputSchema,
   IncomeEventSchema
 } from '../index';
 
@@ -199,6 +201,50 @@ describe('Shared Schemas - Pack 1', () => {
         createdAt: new Date().toISOString(),
       };
       expect(() => ReallocationSchema.parse(reallocation)).not.toThrow();
+    });
+  });
+
+  describe('ReallocationInputSchema', () => {
+    it('validates a well-formed create request', () => {
+      const input = {
+        fromPocketId: '123e4567-e89b-12d3-a456-426614174001',
+        toPocketId: '123e4567-e89b-12d3-a456-426614174002',
+        amount: 800,
+        reason: 'unexpected_expense' as const,
+      };
+      expect(() => ReallocationInputSchema.parse(input)).not.toThrow();
+    });
+
+    it('rejects a non-positive amount', () => {
+      const input = {
+        fromPocketId: '123e4567-e89b-12d3-a456-426614174001',
+        toPocketId: '123e4567-e89b-12d3-a456-426614174002',
+        amount: 0,
+        reason: 'other' as const,
+      };
+      expect(() => ReallocationInputSchema.parse(input)).toThrow();
+    });
+
+    it('rejects an invalid reason', () => {
+      const input = {
+        fromPocketId: '123e4567-e89b-12d3-a456-426614174001',
+        toPocketId: '123e4567-e89b-12d3-a456-426614174002',
+        amount: 800,
+        reason: 'ran_out_early',
+      };
+      expect(() => ReallocationInputSchema.parse(input)).toThrow();
+    });
+  });
+
+  describe('ReallocationCompleteInputSchema', () => {
+    it('defaults skipCoolingOff to false when omitted', () => {
+      const result = ReallocationCompleteInputSchema.parse({});
+      expect(result.skipCoolingOff).toBe(false);
+    });
+
+    it('honors an explicit skipCoolingOff', () => {
+      const result = ReallocationCompleteInputSchema.parse({ skipCoolingOff: true });
+      expect(result.skipCoolingOff).toBe(true);
     });
   });
 
