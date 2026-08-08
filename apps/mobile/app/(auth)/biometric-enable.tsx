@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     paddingTop: spacing.xl,
-    marginBottom: spacing.xxxl,
+    marginBottom: spacing.xxl,
   },
   successIcon: {
     width: 64,
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   footer: {
-    marginTop: spacing.xxxl,
+    marginTop: spacing.xxl,
     alignItems: 'center',
     paddingBottom: spacing.xl,
   },

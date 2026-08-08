@@ -183,8 +183,8 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.xxxl,
+    marginTop: spacing.md,
+    marginBottom: spacing.xxl,
   },
   eyebrow: {
     ...typography.eyebrow,
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   footer: {
-    marginTop: spacing.xxxl,
+    marginTop: spacing.xxl,
     alignItems: 'center',
     paddingBottom: spacing.xl,
   },
