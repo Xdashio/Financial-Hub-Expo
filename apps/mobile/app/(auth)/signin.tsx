@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
@@ -11,12 +11,10 @@ import React from 'react';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const _auth = useAuthStore() as any;
-  const { user, checkBiometricAvailability } = _auth;
-  const signIn = _auth.signIn as any;
-  const [phone, setPhone] = React.useState('712 345 678');
-  const [password, setPassword] = React.useState('');
+  const { user, checkBiometricAvailability, sendOtp } = useAuthStore();
+  const [phone, setPhone] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
+  const [phoneError, setPhoneError] = React.useState('');
   const [showBiometric, setShowBiometric] = React.useState(false);
   const [biometricType, setBiometricType] = React.useState<'face' | 'fingerprint' | null>(null);
 
@@ -39,47 +37,46 @@ export default function SignInScreen() {
 
   const handleBiometricSignIn = async () => {
     if (!user || !user.biometricEnabled) return;
-    
+
     setIsLoading(true);
     try {
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Sign in to Financial Hub',
-        fallbackLabel: 'Use phone & password',
+        fallbackLabel: 'Use passcode',
         cancelLabel: 'Cancel',
       });
-      
+
       if (result.success) {
         router.replace('/(tabs)');
       }
     } catch (error) {
-      // User cancelled or error - fall back to password
+      // User cancelled or error - fall back to OTP
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignIn = async () => {
-    if (!phone.trim() || !password) {
-      showAlert('Error', 'Please enter both phone and password');
+  const validatePhone = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    return cleaned.length === 9 && cleaned.startsWith('7');
+  };
+
+  const handleSendCode = async () => {
+    if (!validatePhone(phone)) {
+      setPhoneError('Enter a valid Kenyan number starting with 7 (e.g., 712 345 678)');
       return;
     }
 
     setIsLoading(true);
     try {
-      await signIn(`+254${phone.replace(/\s/g, '')}`, password);
-      router.replace('/(tabs)');
+      const fullPhone = `+254${phone.replace(/\s/g, '')}`;
+      await sendOtp(fullPhone);
+      router.push({
+        pathname: '/(auth)/verify-otp',
+        params: { phone: fullPhone, mode: 'signin' },
+      });
     } catch (error) {
-      if (error instanceof Error && error.message === 'NEW_DEVICE_OTP_REQUIRED') {
-        router.push({
-          pathname: '/(auth)/verify-otp',
-          params: {
-            phone: `+254${phone.replace(/\s/g, '')}`,
-            mode: 'new-device',
-          },
-        });
-      } else {
-        showAlert('Error', 'Invalid credentials. Please try again.');
-      }
+      showAlert('Error', 'Failed to send verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -95,6 +92,7 @@ export default function SignInScreen() {
 
   const handlePhoneChange = (text: string) => {
     setPhone(formatPhone(text));
+    if (phoneError) setPhoneError('');
   };
 
   return (
@@ -145,40 +143,20 @@ export default function SignInScreen() {
             textContentType="telephoneNumber"
             autoComplete="tel"
             leftElement={<Text style={styles.prefix}>+254</Text>}
+            error={phoneError}
             accessible={true}
             accessibilityLabel="Phone number"
           />
-
-          <Input
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-            secureTextEntry
-            textContentType="password"
-            autoComplete="current-password"
-            accessible={true}
-            accessibilityLabel="Password"
-          />
-        </View>
-
-        <View style={styles.forgotPassword}>
-          <TouchableOpacity
-            onPress={() => showAlert('Reset password', 'Password reset would be implemented here')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-          </TouchableOpacity>
         </View>
 
         <Button
           fullWidth
           size="lg"
           loading={isLoading}
-          onPress={handleSignIn}
+          onPress={handleSendCode}
           rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
         >
-          Sign in
+          Send one-time code
         </Button>
 
         <View style={[styles.footer, { flexDirection: 'row', gap: 4 }]}>
@@ -239,37 +217,12 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     gap: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xl,
   },
   prefix: {
     ...typography.body,
     fontSize: 15,
     color: colors.sage,
-  },
-  forgotPassword: {
-    alignSelf: 'flex-end',
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  forgotPasswordText: {
-    ...typography.body,
-    fontSize: 13,
-    color: colors.emeraldDeep,
-  },
-  devNote: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    backgroundColor: colors.infoTint,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.info,
-  },
-  devNoteText: {
-    ...typography.caption,
-    fontSize: 11.5,
-    color: colors.info,
-    lineHeight: 18,
-    textAlign: 'center',
   },
   footer: {
     marginTop: spacing.xxl,

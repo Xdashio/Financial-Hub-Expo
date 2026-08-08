@@ -18,7 +18,7 @@ type VerifyOtpParams = {
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<VerifyOtpParams>();
-  const { verifyOtp, signUp, user } = useAuthStore();
+  const { verifyOtp } = useAuthStore();
   
   const [code, setCode] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);

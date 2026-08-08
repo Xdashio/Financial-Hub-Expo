@@ -58,10 +58,8 @@ export interface AuthState {
   hasPlan: boolean;
   // True while we're checking the server for an active plan (avoids routing flicker)
   isCheckingPlan: boolean;
-  sendOtp: (phone: string) => Promise<void>;
+  sendOtp: (phone: string, fullName?: string) => Promise<void>;
   verifyOtp: (phone: string, code: string) => Promise<{ user: User | null; error?: string }>;
-  signUp: (phone: string, fullName: string) => Promise<void>;
-  signInWithPassword: (phone: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   enableBiometrics: () => Promise<void>;
   disableBiometrics: () => Promise<void>;
@@ -132,11 +130,15 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      sendOtp: async (phone: string) => {
+      sendOtp: async (phone: string, fullName?: string) => {
         const { error } = await supabase.auth.signInWithOtp({
           phone,
           options: {
             channel: 'sms',
+            // Carries the name from signup into user_metadata so verifyOtp
+            // can read it back — without this, every signup ends up with a
+            // blank name since verifyOtp only ever reads existing metadata.
+            ...(fullName ? { data: { full_name: fullName } } : {}),
           },
         });
         if (error) throw error;
@@ -165,50 +167,6 @@ export const useAuthStore = create<AuthState>()(
           return { user };
         }
         return { user: null, error: 'Verification failed' };
-      },
-
-      signUp: async (phone: string, fullName: string) => {
-        set({ isLoading: true });
-        try {
-          const { error } = await supabase.auth.signInWithOtp({
-            phone,
-            options: {
-              channel: 'sms',
-              data: { full_name: fullName },
-            },
-          });
-          if (error) throw error;
-          set({ isLoading: false });
-        } catch (error) {
-          set({ isLoading: false });
-          throw error;
-        }
-      },
-
-      signInWithPassword: async (phone: string, password: string) => {
-        set({ isLoading: true });
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            phone,
-            password,
-          });
-          if (error) throw error;
-          if (data.user) {
-            const user: User = {
-              id: data.user.id,
-              phone: data.user.phone || phone,
-              fullName: data.user.user_metadata?.full_name || '',
-              biometricEnabled: false,
-              createdAt: data.user.created_at,
-              email: data.user.email,
-            };
-            await storeUser(user);
-            set({ user, isAuthenticated: true, session: data.session, isLoading: false });
-          }
-        } catch (error) {
-          set({ isLoading: false });
-          throw error;
-        }
       },
 
       signOut: async () => {

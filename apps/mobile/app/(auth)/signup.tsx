@@ -9,7 +9,7 @@ import React from 'react';
 
 export default function SignUpScreen() {
   const router = useRouter();
-  const { sendOtp, signUp } = useAuthStore();
+  const { sendOtp } = useAuthStore();
   const [phone, setPhone] = React.useState('');
   const [fullName, setFullName] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -73,7 +73,7 @@ export default function SignUpScreen() {
     setIsLoading(true);
     try {
       const fullPhone = `+254${phone.replace(/\s/g, '')}`;
-      await sendOtp(fullPhone);
+      await sendOtp(fullPhone, fullName.trim());
       
       // Navigate to OTP verification with the phone and name
       router.push({
