@@ -268,6 +268,20 @@ export declare const PocketSchema: z.ZodObject<{
     lockUntil?: string | undefined;
 }>;
 export type Pocket = z.infer<typeof PocketSchema>;
+export declare const PocketUpdateInputSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+    dailyCap: z.ZodOptional<z.ZodNumber>;
+}, "strict", z.ZodTypeAny, {
+    name?: string | undefined;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+    dailyCap?: number | undefined;
+}, {
+    name?: string | undefined;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+    dailyCap?: number | undefined;
+}>;
+export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
 export declare const FixedExpenseSchema: z.ZodObject<{
     id: z.ZodString;
     userId: z.ZodString;
@@ -703,6 +717,19 @@ export declare const schemas: {
         dailyCap?: number | undefined;
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
+    }>;
+    PocketUpdateInput: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+        dailyCap: z.ZodOptional<z.ZodNumber>;
+    }, "strict", z.ZodTypeAny, {
+        name?: string | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        dailyCap?: number | undefined;
+    }, {
+        name?: string | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        dailyCap?: number | undefined;
     }>;
     FixedExpense: z.ZodObject<{
         id: z.ZodString;
