@@ -86,7 +86,7 @@ export default function IncomeScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => router.back()} />
+        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         <ProgressIndicator currentStep={1} totalSteps={4} />
 
         <View style={styles.header}>

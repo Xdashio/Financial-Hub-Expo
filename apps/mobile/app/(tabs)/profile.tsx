@@ -35,11 +35,12 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: radius.lg,
     backgroundColor: colors.goldTint,
-    color: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarText: {
+    color: colors.gold,
     fontSize: 24,
-    fontWeight: '700',
     fontFamily: typography.fontFamilyExtraBold,
   },
   name: {
@@ -61,15 +62,19 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   planChip: {
-    ...typography.caption,
-    fontSize: 11,
-    fontWeight: '600',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: radius.pill,
   },
+  planChipText: {
+    ...typography.caption,
+    fontSize: 11,
+    fontWeight: '600',
+  },
   planChipA: {
     backgroundColor: colors.emeraldTint,
+  },
+  planChipTextA: {
     color: colors.emeraldDeep,
   },
   settingsGroup: {
@@ -145,12 +150,18 @@ export default function ProfileScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
         <View style={styles.hero}>
-          <View style={styles.avatar}>JD</View>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>JD</Text>
+          </View>
           <Text style={styles.name}>Jane Doe</Text>
           <Text style={styles.sub}>jane@financialhub.app</Text>
           <View style={styles.planChipRow}>
-            <View style={[styles.planChip, styles.planChipA]}>Structured Salaried</View>
-            <View style={[styles.planChip, { backgroundColor: colors.goldTint }]}><Text style={{ color: colors.gold }}>50/30/20</Text></View>
+            <View style={[styles.planChip, styles.planChipA]}>
+              <Text style={[styles.planChipText, styles.planChipTextA]}>Structured Salaried</Text>
+            </View>
+            <View style={[styles.planChip, { backgroundColor: colors.goldTint }]}>
+              <Text style={[styles.planChipText, { color: colors.gold }]}>50/30/20</Text>
+            </View>
           </View>
         </View>
 
@@ -166,9 +177,9 @@ export default function ProfileScreen() {
                   <Text style={styles.settingsTitle}>{item.title}</Text>
                   <Text style={styles.settingsDesc}>{item.desc}</Text>
                 </View>
-                {item.trailing && (
+                {item.trailing ? (
                   <Text style={{ ...typography.caption, color: colors.sage }}>{item.trailing}</Text>
-                )}
+                ) : null}
                 <Text style={styles.chevron}>›</Text>
               </View>
             ))}

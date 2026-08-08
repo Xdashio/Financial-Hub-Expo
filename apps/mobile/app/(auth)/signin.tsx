@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -6,10 +6,13 @@ import { colors, radius, spacing, typography, shadow, touchTarget } from '@/them
 import { useAuthStore } from '@/services/auth';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Fingerprint, ScanFace } from 'lucide-react-native';
+import React from 'react';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { signIn, user, checkBiometricAvailability } = useAuthStore();
+  const _auth = useAuthStore() as any;
+  const { user, checkBiometricAvailability } = _auth;
+  const signIn = _auth.signIn as any;
   const [phone, setPhone] = React.useState('712 345 678');
   const [password, setPassword] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -94,8 +97,8 @@ export default function SignInScreen() {
 
   return (
     <ScreenContainer>
-      <SafeScrollView>
-        <BrandHeader onBack={() => router.back()} />
+      <SafeScrollView contentContainerStyle={styles.scrollContent}>
+        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Your money, in pockets</Text>
@@ -104,70 +107,63 @@ export default function SignInScreen() {
         </View>
 
         {showBiometric && user?.biometricEnabled && (
-          <Button
-            variant="secondary"
-            fullWidth
-            size="lg"
-            loading={isLoading}
-            onPress={handleBiometricSignIn}
-leftIcon={
-            biometricType === 'face' ? (
-              <ScanFace size={18} color={colors.ink} strokeWidth={2} />
-            ) : (
-              <Fingerprint size={18} color={colors.ink} strokeWidth={2} />
-            )
-          }
-          >
-            Continue with {biometricType === 'face' ? 'Face ID' : 'Fingerprint'}
-          </Button>
-        )}
-
-        {showBiometric && user?.biometricEnabled && (
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
+          <View style={styles.biometricSection}>
+            <Button
+              variant="secondary"
+              fullWidth
+              size="lg"
+              loading={isLoading}
+              onPress={handleBiometricSignIn}
+              leftIcon={
+                biometricType === 'face' ? (
+                  <ScanFace size={18} color={colors.ink} strokeWidth={2} />
+                ) : (
+                  <Fingerprint size={18} color={colors.ink} strokeWidth={2} />
+                )
+              }
+            >
+              Continue with {biometricType === 'face' ? 'Face ID' : 'Fingerprint'}
+            </Button>
+            
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>OR</Text>
+              <View style={styles.dividerLine} />
+            </View>
           </View>
         )}
 
-        <Input
-          label="Phone number"
-          value={phone}
-          onChangeText={handlePhoneChange}
-          placeholder="712 345 678"
-          keyboardType="phone-pad"
-          textContentType="telephoneNumber"
-          autoComplete="tel"
-          leftElement={<Text style={styles.prefix}>+254</Text>}
-          helperText="Uses the device's number pad — no custom keypad needed."
-          accessible={true}
-          accessibilityLabel="Phone number"
-        />
+        <View style={styles.formGroup}>
+          <Input
+            label="Phone number"
+            value={phone}
+            onChangeText={handlePhoneChange}
+            placeholder="712 345 678"
+            keyboardType="phone-pad"
+            textContentType="telephoneNumber"
+            autoComplete="tel"
+            leftElement={<Text style={styles.prefix}>+254</Text>}
+            accessible={true}
+            accessibilityLabel="Phone number"
+          />
 
-        <Input
-          label="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="••••••••"
-          secureTextEntry
-          textContentType="password"
-          autoComplete="current-password"
-          accessible={true}
-          accessibilityLabel="Password"
-        />
+          <Input
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="••••••••"
+            secureTextEntry
+            textContentType="password"
+            autoComplete="current-password"
+            accessible={true}
+            accessibilityLabel="Password"
+          />
+        </View>
 
         <View style={styles.forgotPassword}>
           <Button variant="ghost" onPress={() => Alert.alert('Reset password', 'Password reset would be implemented here')}>
             Forgot password?
           </Button>
-        </View>
-
-        <View style={styles.devNote}>
-          <Text style={styles.devNoteText}>
-            <Text style={styles.devNoteBold}>Dev build:</Text>{' '}
-            new-device sign-ins verify with a phone OTP code shown in the terminal. 
-            No email, no SMS spend — the real SMS path is the production upgrade.
-          </Text>
         </View>
 
         <Button
@@ -183,7 +179,9 @@ leftIcon={
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             New here?{' '}
-            <Text style={styles.link} onPress={() => router.push('/(auth)/signup')}>Create an account</Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+              <Text style={styles.link}>Create an account</Text>
+            </TouchableOpacity>
           </Text>
         </View>
       </SafeScrollView>
@@ -191,13 +189,14 @@ leftIcon={
   );
 }
 
-import React from 'react';
-
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xxxl,
+  },
   header: {
     alignItems: 'center',
-    marginTop: spacing.xl,
-    marginBottom: spacing.xxl,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xxxl,
   },
   eyebrow: {
     ...typography.eyebrow,
@@ -213,15 +212,18 @@ const styles = StyleSheet.create({
   subtext: {
     ...typography.body,
     color: colors.sage,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  biometricSection: {
+    marginBottom: spacing.xxxl,
   },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginVertical: spacing.lg,
+    marginVertical: spacing.xl,
   },
   dividerLine: {
     flex: 1,
@@ -233,6 +235,10 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: colors.sage,
   },
+  formGroup: {
+    gap: spacing.lg,
+    marginBottom: spacing.lg,
+  },
   prefix: {
     ...typography.body,
     fontSize: 15,
@@ -241,6 +247,7 @@ const styles = StyleSheet.create({
   forgotPassword: {
     alignSelf: 'flex-end',
     marginTop: spacing.xs,
+    marginBottom: spacing.xl,
   },
   devNote: {
     marginTop: spacing.lg,
@@ -261,8 +268,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   footer: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xxxl,
     alignItems: 'center',
+    paddingBottom: spacing.xl,
   },
   footerText: {
     ...typography.body,

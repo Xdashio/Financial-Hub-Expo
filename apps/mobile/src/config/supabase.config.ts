@@ -10,20 +10,20 @@ export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseAnonKe
     storage: {
       getItem: async (key: string) => {
         if (Platform.OS === 'web') {
-          return localStorage.getItem(key);
+          return (globalThis as any).localStorage?.getItem(key) ?? null;
         }
         return await SecureStore.getItemAsync(key);
       },
       setItem: async (key: string, value: string) => {
         if (Platform.OS === 'web') {
-          localStorage.setItem(key, value);
+          (globalThis as any).localStorage?.setItem(key, value);
         } else {
           await SecureStore.setItemAsync(key, value);
         }
       },
       removeItem: async (key: string) => {
         if (Platform.OS === 'web') {
-          localStorage.removeItem(key);
+          (globalThis as any).localStorage?.removeItem(key);
         } else {
           await SecureStore.deleteItemAsync(key);
         }

@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
@@ -79,8 +79,8 @@ export default function SignUpScreen() {
 
   return (
     <ScreenContainer>
-      <SafeScrollView>
-        <BrandHeader onBack={() => router.back()} />
+      <SafeScrollView contentContainerStyle={styles.scrollContent}>
+        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         
         <View style={styles.header}>
           <Text style={styles.eyebrow}>Your money, in pockets</Text>
@@ -88,40 +88,34 @@ export default function SignUpScreen() {
           <Text style={styles.subtext}>Enter your phone number — we'll send a one-time code to verify you.</Text>
         </View>
 
-        <Input
-          label="Phone number"
-          value={phone}
-          onChangeText={handlePhoneChange}
-          placeholder="712 345 678"
-          keyboardType="phone-pad"
-          textContentType="telephoneNumber"
-          autoComplete="tel"
-          leftElement={<Text style={styles.prefix}>+254</Text>}
-          error={phoneError}
-          helperText="Uses the device's number pad — no custom keypad needed."
-          accessible={true}
-          accessibilityLabel="Phone number"
-        />
+        <View style={styles.formGroup}>
+          <Input
+            label="Phone number"
+            value={phone}
+            onChangeText={handlePhoneChange}
+            placeholder="712 345 678"
+            keyboardType="phone-pad"
+            textContentType="telephoneNumber"
+            autoComplete="tel"
+            leftElement={<Text style={styles.prefix}>+254</Text>}
+            error={phoneError}
+            accessible={true}
+            accessibilityLabel="Phone number"
+          />
 
-        <Input
-          label="Full name"
-          value={fullName}
-          onChangeText={handleNameChange}
-          placeholder="Amina Mwangi"
-          textContentType="name"
-          autoComplete="name"
-          error={nameError}
-          accessible={true}
-          accessibilityLabel="Full name"
-        />
-
-        <View style={styles.devNote}>
-          <Text style={styles.devNoteText}>
-            <Text style={styles.devNoteBold}>Dev build:</Text>{' '}
-            SMS OTP needs a paid provider, so in the showcase the code appears on screen / in the terminal. 
-            Phone OTP remains the real flow — only the delivery differs until funded.
-          </Text>
+          <Input
+            label="Full name"
+            value={fullName}
+            onChangeText={handleNameChange}
+            placeholder="Amina Mwangi"
+            textContentType="name"
+            autoComplete="name"
+            error={nameError}
+            accessible={true}
+            accessibilityLabel="Full name"
+          />
         </View>
+
 
         <Button
           fullWidth
@@ -136,7 +130,9 @@ export default function SignUpScreen() {
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Already have an account?{' '}
-            <Text style={styles.link} onPress={() => router.replace('/(auth)/signin')}>Sign in</Text>
+            <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
+              <Text style={styles.link}>Sign in</Text>
+            </TouchableOpacity>
           </Text>
         </View>
       </SafeScrollView>
@@ -145,10 +141,13 @@ export default function SignUpScreen() {
 }
  
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xxxl,
+  },
   header: {
     alignItems: 'center',
-    marginTop: spacing.xl,
-    marginBottom: spacing.xxl,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xxxl,
   },
   eyebrow: {
     ...typography.eyebrow,
@@ -164,9 +163,13 @@ const styles = StyleSheet.create({
   subtext: {
     ...typography.body,
     color: colors.sage,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     textAlign: 'center',
     lineHeight: 22,
+  },
+  formGroup: {
+    gap: spacing.lg,
+    marginBottom: spacing.xl,
   },
   prefix: {
     ...typography.body,
@@ -175,7 +178,7 @@ const styles = StyleSheet.create({
   },
   devNote: {
     marginTop: spacing.lg,
-    padding: spacing.md,
+    padding: spacing.lg,
     backgroundColor: colors.warningTint,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -192,8 +195,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   footer: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xxxl,
     alignItems: 'center',
+    paddingBottom: spacing.xl,
   },
   footerText: {
     ...typography.body,

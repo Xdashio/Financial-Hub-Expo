@@ -1,6 +1,6 @@
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, ViewStyle, TextStyle, TextInputProps } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, ScrollView, ViewStyle, TextStyle, TextInputProps, Image } from 'react-native';
 import { ChevronLeft } from 'lucide-react-native';
-import { colors, radius, spacing, typography, shadow, touchTarget, borderWidth } from '../theme';
+import { colors, radius, spacing, typography, shadow, touchTarget, borderWidth, borderWidthThick } from '../theme';
 
 export interface ButtonProps extends Omit<React.ComponentPropsWithoutRef<typeof TouchableOpacity>, 'children' | 'style'> {
   children: React.ReactNode;
@@ -25,13 +25,16 @@ export function Button({
   disabled,
   ...props
 }: ButtonProps) {
+  // Buttons are tappable, high-intent surfaces — they get the crisper
+  // radius-sm + 1.5px border treatment from the mockups, not the softer
+  // radius-md hairline used for passive containers like Card.
   const baseStyle: ViewStyle = {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
-    borderRadius: radius.md,
-    borderWidth: borderWidth,
+    borderRadius: radius.sm,
+    borderWidth: borderWidthThick,
     minHeight: touchTarget.minHeight,
   };
 
@@ -47,6 +50,7 @@ export function Button({
     ghost: {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
+      borderWidth: 0,
     },
     outline: {
       backgroundColor: 'transparent',
@@ -84,11 +88,11 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={variant === 'primary' || variant === 'ghost' ? '#fff' : colors.emeraldDeep} />
       ) : (
-        <>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           {leftIcon}
           <Text style={[{ ...typography.body, ...textStyles[variant] }, loading && { opacity: 0 }]}>{children}</Text>
           {rightIcon}
-        </>
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -102,6 +106,7 @@ export interface InputProps extends Omit<React.ComponentPropsWithoutRef<typeof T
   rightElement?: React.ReactNode;
   style?: ViewStyle;
   autoComplete?: TextInputProps['autoComplete'];
+  gap?: number;
 }
 
 export function Input({
@@ -111,11 +116,12 @@ export function Input({
   leftElement,
   rightElement,
   style,
+  gap = spacing.md,
   ...props
 }: InputProps) {
   return (
-    <View style={{ gap: spacing.xs, ...style }}>
-      {label && (
+    <View style={{ gap, ...style }}>
+      {!!label && (
         <Text style={{ ...typography.caption, fontWeight: '600', color: colors.ink, letterSpacing: 0.36 }}>
           {label}
         </Text>
@@ -124,6 +130,7 @@ export function Input({
         style={{
           flexDirection: 'row',
           alignItems: 'center',
+          gap: spacing.sm,
           backgroundColor: colors.surface,
           borderWidth: borderWidth,
           borderColor: error ? colors.error : colors.line,
@@ -132,7 +139,7 @@ export function Input({
           minHeight: touchTarget.minHeight,
         }}
       >
-        {leftElement && <View style={{ marginRight: spacing.sm }}>{leftElement}</View>}
+        {leftElement}
         <TextInput
           style={{
             flex: 1,
@@ -142,10 +149,10 @@ export function Input({
           }}
           {...props}
         />
-        {rightElement && <View style={{ marginLeft: spacing.sm }}>{rightElement}</View>}
+        {rightElement}
       </View>
-      {error && <Text style={{ ...typography.caption, color: colors.error }}>{error}</Text>}
-      {helperText && !error && <Text style={{ ...typography.caption, color: colors.sage }}>{helperText}</Text>}
+      {!!error && <Text style={{ ...typography.caption, color: colors.error }}>{error}</Text>}
+      {!!helperText && !error && <Text style={{ ...typography.caption, color: colors.sage }}>{helperText}</Text>}
     </View>
   );
 }
@@ -153,16 +160,21 @@ export function Input({
 export interface CardProps extends React.ComponentPropsWithoutRef<typeof View> {
   children: React.ReactNode;
   elevated?: boolean;
+  interactive?: boolean;
   style?: ViewStyle;
 }
 
-export function Card({ children, elevated = false, style, ...props }: CardProps) {
+export function Card({ children, elevated = false, interactive = false, style, ...props }: CardProps) {
   return (
     <View
       style={[
         {
           backgroundColor: colors.surface,
-          borderWidth: borderWidth,
+          // Static display cards (balances, summaries) get the quiet 1px
+          // line from the mockups; interactive/selectable cards (option
+          // rows, pocket picks) get the crisper 1.5px so they read as
+          // tappable — matching .option-card / .flow-pocket in the mockups.
+          borderWidth: interactive ? borderWidthThick : borderWidth,
           borderColor: colors.line,
           borderRadius: radius.lg,
           padding: spacing.lg,
@@ -223,7 +235,7 @@ export function ProgressIndicator({ currentStep, totalSteps = 4 }: { currentStep
 export function BrandHeader({ onBack }: { onBack?: () => void }) {
   return (
     <View style={styles.brandBar}>
-      {onBack && (
+      {!!onBack && (
         <TouchableOpacity
           style={{ padding: spacing.sm, minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight }}
           onPress={onBack}
@@ -233,19 +245,22 @@ export function BrandHeader({ onBack }: { onBack?: () => void }) {
         </TouchableOpacity>
       )}
       <View style={styles.brandMark}>
-        <View style={styles.brandGlyph}>
-          <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>FH</Text>
-        </View>
+        <Image
+          source={require('../../assets/financial_hub_logo_transparent.png')}
+          style={styles.brandLogo}
+          resizeMode="contain"
+        />
         <Text style={styles.brandWordmark}>Financial Hub</Text>
       </View>
-      {onBack && <View style={{ width: 40 }} />}
+      {!!onBack && <View style={{ width: 40 }} />}
     </View>
+
   );
 }
 
 export function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <Text style={[typography.eyebrow, { marginTop: spacing.xxl, marginBottom: spacing.md }]}>{children}</Text>
+    <Text style={[typography.eyebrow, { marginTop: spacing.xl, marginBottom: spacing.md }]}>{children}</Text>
   );
 }
 
@@ -272,19 +287,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   brandMark: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  brandGlyph: {
-    width: 26,
-    height: 26,
-    borderRadius: radius.xs,
-    backgroundColor: colors.emeraldDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
+  brandLogo: {
+    width: 32,
+    height: 32,
   },
   brandWordmark: {
     ...typography.heading,

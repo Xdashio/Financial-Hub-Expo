@@ -1,8 +1,39 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from '@/config/supabase.config';
+
+// expo-secure-store has no web implementation (it throws
+// "getValueWithKeyAsync is not a function" there), so on web we fall back to
+// localStorage. This is not secure storage — fine for local dev on the web
+// target, but real secrets should not rely on this path in production.
+const storageAdapter = {
+  getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      const store = (globalThis as any).localStorage;
+      return Promise.resolve(store ? store.getItem(key) : null);
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      const store = (globalThis as any).localStorage;
+      if (store) store.setItem(key, value);
+      return Promise.resolve();
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+  removeItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      const store = (globalThis as any).localStorage;
+      if (store) store.removeItem(key);
+      return Promise.resolve();
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
+};
 
 export interface User {
   id: string;
@@ -34,23 +65,23 @@ function generateId(): string {
 }
 
 function getStoredUser(): Promise<User | null> {
-  return SecureStore.getItemAsync('user').then((data) => (data ? JSON.parse(data) : null));
+  return storageAdapter.getItem('user').then((data) => (data ? JSON.parse(data) : null));
 }
 
 function storeUser(user: User): Promise<void> {
-  return SecureStore.setItemAsync('user', JSON.stringify(user));
+  return storageAdapter.setItem('user', JSON.stringify(user));
 }
 
 function clearStoredUser(): Promise<void> {
-  return SecureStore.deleteItemAsync('user');
+  return storageAdapter.removeItem('user');
 }
 
 function getBiometricEnabled(): Promise<boolean> {
-  return SecureStore.getItemAsync('biometricEnabled').then((v) => v === 'true');
+  return storageAdapter.getItem('biometricEnabled').then((v) => v === 'true');
 }
 
 function setBiometricEnabled(enabled: boolean): Promise<void> {
-  return SecureStore.setItemAsync('biometricEnabled', enabled.toString());
+  return storageAdapter.setItem('biometricEnabled', enabled.toString());
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -199,19 +230,19 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => ({
         getItem: async (name) => {
           if (name === 'auth-storage') {
-            const data = await SecureStore.getItemAsync(name);
+            const data = await storageAdapter.getItem(name);
             return data ? JSON.parse(data) : null;
           }
           return null;
         },
         setItem: async (name, value) => {
           if (name === 'auth-storage') {
-            await SecureStore.setItemAsync(name, JSON.stringify(value));
+            await storageAdapter.setItem(name, JSON.stringify(value));
           }
         },
         removeItem: async (name) => {
           if (name === 'auth-storage') {
-            await SecureStore.deleteItemAsync(name);
+            await storageAdapter.removeItem(name);
           }
         },
       })),

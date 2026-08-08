@@ -1,8 +1,8 @@
 import { supabase } from '@/config/supabase.config';
 
 const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000' 
-  : 'https://api.financialhub.app';
+  ? 'http://localhost:3000/api' 
+  : 'https://api.financialhub.app/api';
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();

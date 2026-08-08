@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Alert } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { colors, radius, spacing, typography, shadow, touchTarget } from '@/theme';
@@ -6,6 +6,7 @@ import { useAuthStore } from '@/services/auth';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { ChevronLeft } from 'lucide-react-native';
+import React from 'react';
 
 type VerifyOtpParams = {
   phone: string;
@@ -16,7 +17,7 @@ type VerifyOtpParams = {
 export default function VerifyOtpScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<VerifyOtpParams>();
-  const { verifyOtp, otpCode, signUp, user } = useAuthStore();
+  const { verifyOtp, signUp, user } = useAuthStore();
   
   const [code, setCode] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -118,8 +119,8 @@ export default function VerifyOtpScreen() {
 
   return (
     <ScreenContainer>
-      <SafeScrollView>
-        <BrandHeader onBack={() => router.back()} />
+      <SafeScrollView contentContainerStyle={styles.scrollContent}>
+        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
         
         <View style={styles.header}>
           <Text style={styles.eyebrow}>One-time code</Text>
@@ -141,7 +142,9 @@ export default function VerifyOtpScreen() {
         <View style={styles.hint}>
           <Text style={styles.hintText}>
             {canResend ? (
-              <Text style={styles.resendLink} onPress={handleResend}>Resend code</Text>
+              <TouchableOpacity onPress={handleResend}>
+                <Text style={styles.resendLink}>Resend code</Text>
+              </TouchableOpacity>
             ) : (
               <Text><Text style={styles.boldTimer}>Resend code</Text> in {Math.floor(resendTimer / 60)}:{String(resendTimer % 60).padStart(2, '0')}</Text>
             )}
@@ -151,7 +154,7 @@ export default function VerifyOtpScreen() {
         <View style={styles.devNote}>
           <Text style={styles.devNoteText}>
             <Text style={styles.devNoteBold}>Dev build:</Text>{' '}
-            the code is shown in the terminal / console: <Text style={styles.codeDisplay}>{otpCode || '------'}</Text>
+            the code is shown in the terminal / console: <Text style={styles.codeDisplay}>{'------'}</Text>
           </Text>
         </View>
 
@@ -169,7 +172,9 @@ export default function VerifyOtpScreen() {
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             Wrong number?{' '}
-            <Text style={styles.link} onPress={() => router.back()}>Edit it</Text>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text style={styles.link}>Edit it</Text>
+            </TouchableOpacity>
           </Text>
         </View>
       </SafeScrollView>
@@ -177,13 +182,14 @@ export default function VerifyOtpScreen() {
   );
 }
 
-import React from 'react';
-
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xxxl,
+  },
   header: {
     alignItems: 'center',
-    marginTop: spacing.xl,
-    marginBottom: spacing.xxl,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xxxl,
   },
   eyebrow: {
     ...typography.eyebrow,
@@ -199,7 +205,7 @@ const styles = StyleSheet.create({
   subtext: {
     ...typography.body,
     color: colors.sage,
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     textAlign: 'center',
     lineHeight: 22,
   },
@@ -208,7 +214,8 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   hint: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
+    marginBottom: spacing.xl,
   },
   hintText: {
     ...typography.body,
@@ -224,7 +231,7 @@ const styles = StyleSheet.create({
   },
   devNote: {
     marginTop: spacing.lg,
-    padding: spacing.md,
+    padding: spacing.lg,
     backgroundColor: colors.warningTint,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -246,8 +253,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   footer: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xxxl,
     alignItems: 'center',
+    paddingBottom: spacing.xl,
   },
   footerText: {
     ...typography.body,
