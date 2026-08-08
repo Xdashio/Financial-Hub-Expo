@@ -158,8 +158,8 @@ export function Input({
         />
         {rightElement}
       </View>
-      {!!error && <Text style={{ ...typography.caption, color: colors.error }}>{error}</Text>}
-      {!!helperText && !error && <Text style={{ ...typography.caption, color: colors.sage }}>{helperText}</Text>}
+      {error ? <Text style={{ ...typography.caption, color: colors.error }}>{error}</Text> : null}
+      {helperText && !error ? <Text style={{ ...typography.caption, color: colors.sage }}>{helperText}</Text> : null}
     </View>
   );
 }

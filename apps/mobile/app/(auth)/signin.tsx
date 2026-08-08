@@ -65,14 +65,14 @@ export default function SignInScreen() {
 
     setIsLoading(true);
     try {
-      await signIn(`+254 ${phone.replace(/\s/g, '')}`, password);
+      await signIn(`+254${phone.replace(/\s/g, '')}`, password);
       router.replace('/(tabs)');
     } catch (error) {
       if (error instanceof Error && error.message === 'NEW_DEVICE_OTP_REQUIRED') {
         router.push({
           pathname: '/(auth)/verify-otp',
           params: {
-            phone: `+254 ${phone.replace(/\s/g, '')}`,
+            phone: `+254${phone.replace(/\s/g, '')}`,
             mode: 'new-device',
           },
         });
@@ -85,7 +85,8 @@ export default function SignInScreen() {
   };
 
   const formatPhone = (text: string) => {
-    const cleaned = text.replace(/\D/g, '');
+    // Strip everything except digits (blocks emojis, letters, symbols); cap at 9
+    const cleaned = text.replace(/\D/g, '').slice(0, 9);
     if (cleaned.length <= 3) return cleaned;
     if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
     return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 9)}`;
@@ -179,13 +180,11 @@ export default function SignInScreen() {
           Sign in
         </Button>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            New here?{' '}
-            <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
-              <Text style={styles.link}>Create an account</Text>
-            </TouchableOpacity>
-          </Text>
+        <View style={[styles.footer, { flexDirection: 'row', gap: 4 }]}>
+          <Text style={styles.footerText}>New here?</Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+            <Text style={styles.link}>Create an account</Text>
+          </TouchableOpacity>
         </View>
       </SafeScrollView>
     </ScreenContainer>

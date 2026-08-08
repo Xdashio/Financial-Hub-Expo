@@ -61,34 +61,28 @@ export default function VerifyOtpScreen() {
     setError('');
 
     try {
-      const isValid = await verifyOtp(phone, code);
-      
-      if (!isValid) {
-        setError('Invalid code. Please try again.');
+      // verifyOtp returns { user, error? } — not a boolean
+      const result = await verifyOtp(phone, code);
+
+      if (result.error || !result.user) {
+        setError(result.error ?? 'Invalid code. Please try again.');
         setIsLoading(false);
         return;
       }
 
-      if (mode === 'signup' && fullName) {
-        // Complete sign up
-        await signUp(phone, fullName);
-        // Check biometric availability and show enable screen if available
+      // OTP verified successfully — user is already authenticated.
+      // For signup mode we do NOT call signUp() again (that would fire
+      // another signInWithOtp, which hangs indefinitely).
+      if (mode === 'signup' || mode === 'signin' || mode === 'new-device') {
         const hasBiometric = await useAuthStore.getState().checkBiometricAvailability();
-        if (hasBiometric) {
+        if (mode === 'signup' && hasBiometric) {
           router.replace({ pathname: '/(auth)/biometric-enable', params: { fromSignup: 'true' } });
         } else {
           router.replace('/(tabs)');
         }
-      } else if (mode === 'signin' || mode === 'new-device') {
-        // Sign in or new device verification complete
-        router.replace('/(tabs)');
       }
-    } catch (error) {
-      if (error instanceof Error && error.message === 'NEW_DEVICE_OTP_REQUIRED') {
-        // Already handled by sending OTP
-      } else {
-        Alert.alert('Error', 'Verification failed. Please try again.');
-      }
+    } catch (err) {
+      Alert.alert('Error', 'Verification failed. Please try again.');
       setIsLoading(false);
     }
   };
@@ -140,15 +134,15 @@ export default function VerifyOtpScreen() {
         />
 
         <View style={styles.hint}>
-          <Text style={styles.hintText}>
-            {canResend ? (
-              <TouchableOpacity onPress={handleResend}>
-                <Text style={styles.resendLink}>Resend code</Text>
-              </TouchableOpacity>
-            ) : (
-              <Text><Text style={styles.boldTimer}>Resend code</Text> in {Math.floor(resendTimer / 60)}:{String(resendTimer % 60).padStart(2, '0')}</Text>
-            )}
-          </Text>
+          {canResend ? (
+            <TouchableOpacity onPress={handleResend}>
+              <Text style={[styles.hintText, styles.resendLink]}>Resend code</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.hintText}>
+              <Text style={styles.boldTimer}>Resend code</Text> in {Math.floor(resendTimer / 60)}:{String(resendTimer % 60).padStart(2, '0')}
+            </Text>
+          )}
         </View>
 
         
@@ -164,13 +158,11 @@ export default function VerifyOtpScreen() {
           Verify & continue
         </Button>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Wrong number?{' '}
-            <TouchableOpacity onPress={() => router.back()}>
-              <Text style={styles.link}>Edit it</Text>
-            </TouchableOpacity>
-          </Text>
+        <View style={[styles.footer, { flexDirection: 'row', gap: 4 }]}>
+          <Text style={styles.footerText}>Wrong number?</Text>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={styles.link}>Edit it</Text>
+          </TouchableOpacity>
         </View>
       </SafeScrollView>
     </ScreenContainer>

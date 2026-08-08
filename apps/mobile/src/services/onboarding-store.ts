@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import {
   OnboardingInput,
   OnboardingAssignResult,
@@ -21,6 +23,33 @@ export interface FixedExpenseItem {
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
+
+// Platform-aware storage adapter (mirrors the pattern in auth.ts)
+const storageAdapter = {
+  getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      const store = (globalThis as any).localStorage;
+      return Promise.resolve(store ? store.getItem(key) : null);
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      const store = (globalThis as any).localStorage;
+      if (store) store.setItem(key, value);
+      return Promise.resolve();
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+  removeItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      const store = (globalThis as any).localStorage;
+      if (store) store.removeItem(key);
+      return Promise.resolve();
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
+};
 
 interface OnboardingState {
   currentStep: OnboardingStep;
@@ -196,21 +225,14 @@ export const useOnboardingStore = create<OnboardingState>()(
       name: 'onboarding-storage',
       storage: createJSONStorage(() => ({
         getItem: async (name) => {
-          if (name === 'onboarding-storage') {
-            const data = await SecureStore.getItemAsync(name);
-            return data ? JSON.parse(data) : null;
-          }
-          return null;
+          const data = await storageAdapter.getItem(name);
+          return data ? JSON.parse(data) : null;
         },
         setItem: async (name, value) => {
-          if (name === 'onboarding-storage') {
-            await SecureStore.setItemAsync(name, JSON.stringify(value));
-          }
+          await storageAdapter.setItem(name, JSON.stringify(value));
         },
         removeItem: async (name) => {
-          if (name === 'onboarding-storage') {
-            await SecureStore.deleteItemAsync(name);
-          }
+          await storageAdapter.removeItem(name);
         },
       })),
       partialize: (state) => ({
@@ -222,6 +244,3 @@ export const useOnboardingStore = create<OnboardingState>()(
     }
   )
 );
-
-// Import SecureStore for persistence
-import * as SecureStore from 'expo-secure-store';

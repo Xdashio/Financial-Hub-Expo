@@ -17,14 +17,24 @@ export default function SignUpScreen() {
 
   const validatePhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length === 9 && cleaned.startsWith('7')) {
-      return true;
-    }
-    return false;
+    return cleaned.length === 9 && cleaned.startsWith('7');
   };
 
+  const validateName = (value: string) => {
+    const trimmed = value.trim();
+    if (trimmed.length < 2) return 'Please enter your full name';
+    // Must be at least two words (first + last name)
+    if (!/\s/.test(trimmed)) return 'Please enter both your first and last name';
+    return null;
+  };
+
+  // Strip emojis and characters that aren't letters, spaces, hyphens, or apostrophes.
+  const sanitiseName = (text: string) =>
+    text.replace(/[^a-zA-Z\s'-]/g, '');
+
   const formatPhone = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
+    // Strip everything except digits first (blocks emojis, letters, symbols)
+    const cleaned = value.replace(/\D/g, '').slice(0, 9);
     if (cleaned.length <= 3) return cleaned;
     if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
     return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 9)}`;
@@ -33,32 +43,35 @@ export default function SignUpScreen() {
   const handlePhoneChange = (text: string) => {
     const formatted = formatPhone(text);
     setPhone(formatted);
-    setPhoneError('');
+    if (phoneError) setPhoneError('');
   };
 
   const handleNameChange = (text: string) => {
-    setFullName(text.trim());
-    setNameError('');
+    // Sanitise but do NOT trim — trimming on change removes spaces as the user types
+    const clean = sanitiseName(text);
+    setFullName(clean);
+    if (nameError) setNameError('');
   };
 
   const handleContinue = async () => {
     let hasError = false;
-    
-    if (!fullName.trim()) {
-      setNameError('Please enter your full name');
+
+    const nameErr = validateName(fullName);
+    if (nameErr) {
+      setNameError(nameErr);
       hasError = true;
     }
-    
+
     if (!validatePhone(phone)) {
-      setPhoneError('Please enter a valid Kenyan phone number (e.g., 712 345 678)');
+      setPhoneError('Enter a valid Kenyan number starting with 7 (e.g., 712 345 678)');
       hasError = true;
     }
-    
+
     if (hasError) return;
     
     setIsLoading(true);
     try {
-      const fullPhone = `+254 ${phone.replace(/\s/g, '')}`;
+      const fullPhone = `+254${phone.replace(/\s/g, '')}`;
       await sendOtp(fullPhone);
       
       // Navigate to OTP verification with the phone and name
@@ -127,13 +140,11 @@ export default function SignUpScreen() {
           Send one-time code
         </Button>
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            Already have an account?{' '}
-            <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
-              <Text style={styles.link}>Sign in</Text>
-            </TouchableOpacity>
-          </Text>
+        <View style={[styles.footer, { flexDirection: 'row', gap: 4 }]}>
+          <Text style={styles.footerText}>Already have an account?</Text>
+          <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
+            <Text style={styles.link}>Sign in</Text>
+          </TouchableOpacity>
         </View>
       </SafeScrollView>
     </ScreenContainer>

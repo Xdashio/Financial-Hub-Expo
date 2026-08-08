@@ -17,8 +17,6 @@ export interface PlanAssignment {
 }
 
 const MIN_SAVINGS_RATE = 0.10;
-const MEANINGFUL_DIVISION_THRESHOLD = 0.15;
-const MIN_MEANINGFUL_AMOUNT = 2000; // minimum remaining after fixed to consider structured allocation
 
 function determineIncomePattern(input: OnboardingInput): { pattern: IncomePattern; reason: PlanAssignReason } {
   const { incomePattern } = input;
@@ -72,8 +70,8 @@ function determineAllocationStyle(
     };
   }
 
-  const meaningfulAmount = remainingAfterFixed * MEANINGFUL_DIVISION_THRESHOLD;
-  if (spendingHabit === 'tracker' && remainingAfterFixed > 0 && meaningfulAmount >= MIN_MEANINGFUL_AMOUNT) {
+  const twentyPercentOfIncome = incomeAmount * 0.20;
+  if (spendingHabit === 'tracker' && remainingAfterFixed >= twentyPercentOfIncome) {
     return {
       planType: 'structured',
       reason: {
@@ -89,7 +87,7 @@ function determineAllocationStyle(
     reason: {
       rule: 'allocation_style_daily_budget_fallback',
       reason:
-        'Daily caps provide clearer guardrails when the remaining amount is too small to divide meaningfully across pockets.',
+        'Daily caps provide clearer guardrails when the remaining amount is less than 20% of your income.',
     },
   };
 }
