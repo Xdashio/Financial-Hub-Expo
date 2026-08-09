@@ -185,7 +185,7 @@ export default function ProfileScreen() {
 
         {settingsGroups.map((group, gi) => (
           <View key={gi} style={{ marginTop: spacing.xl }}>
-            <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>{group.label}</Text>
+            <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>{group.label}</Text>
             {group.items.map((item, ii) => (
               <Pressable 
                 key={ii} 

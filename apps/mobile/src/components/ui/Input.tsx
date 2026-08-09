@@ -48,6 +48,7 @@ export function Input({
       >
         {leftElement}
         <TextInput
+          placeholderTextColor={colors.sage}
           style={{
             flex: 1,
             ...typography.body,

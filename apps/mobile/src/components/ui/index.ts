@@ -4,6 +4,7 @@ export { Card } from './Card';
 export { Badge } from './Badge';
 export { Divider } from './Divider';
 export { ConfirmModal } from './ConfirmModal';
+export { Text } from './Text';
 export { ScreenContainer, SafeScrollView, ProgressIndicator, BrandHeader, SectionTitle } from './Layout';
 export {
   useMakeStyles,
@@ -19,3 +20,4 @@ export type { CardProps } from './Card';
 export type { BadgeProps } from './Badge';
 export type { DividerProps } from './Divider';
 export type { ConfirmModalProps } from './ConfirmModal';
+export type { ThemedTextProps, TextVariant, TextColorIntent } from './Text';

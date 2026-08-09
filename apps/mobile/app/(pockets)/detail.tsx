@@ -378,7 +378,7 @@ export default function PocketDetailScreen() {
 
             {/* Recent Activity */}
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-              <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
                 Recent Activity
               </Text>
               <View style={{ 
@@ -411,7 +411,7 @@ export default function PocketDetailScreen() {
 
             {/* Transaction History */}
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-              <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
                 Transaction History
               </Text>
               {transactions.length === 0 ? (

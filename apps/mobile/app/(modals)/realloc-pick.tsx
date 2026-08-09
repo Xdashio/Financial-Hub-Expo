@@ -157,7 +157,7 @@ export default function ReallocPickScreen() {
             size="lg"
             disabled={!canContinue}
             onPress={handleContinue}
-            rightIcon={<ArrowRight size={16} color="#fff" />}
+            rightIcon={<ArrowRight size={16} color={colors.surface} />}
           >
             Continue to review
           </Button>

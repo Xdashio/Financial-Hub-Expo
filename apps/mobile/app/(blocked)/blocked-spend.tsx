@@ -123,7 +123,7 @@ export default function BlockedSpendScreen() {
 
         {/* Options */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             What would you like to do?
           </Text>
 

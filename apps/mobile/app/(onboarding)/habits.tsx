@@ -68,8 +68,11 @@ export default function HabitsScreen() {
               accessibilityRole="button"
               accessibilityState={{ selected: spendingHabit === option.id }}
             >
-              <View style={{ width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
-                <option.icon size={18} color={spendingHabit === option.id ? '#fff' : colors.ink} strokeWidth={2} />
+              <View style={[
+                { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' },
+                spendingHabit === option.id && { backgroundColor: `${colors.surface}33` },
+              ]}>
+                <option.icon size={18} color={spendingHabit === option.id ? colors.surface : colors.ink} strokeWidth={2} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[
@@ -94,7 +97,7 @@ export default function HabitsScreen() {
           fullWidth
           size="lg"
           onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >
           Continue
         </Button>

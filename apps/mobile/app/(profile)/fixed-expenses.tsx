@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput, Alert, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput, Modal, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
   Plus,
@@ -41,6 +42,7 @@ export default function FixedExpensesScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
+  const { alert, confirm, modal } = useAlertModal();
   
   // Form state
   const [name, setName] = useState('');
@@ -112,7 +114,7 @@ export default function FixedExpensesScreen() {
 
   const handleAddExpense = async () => {
     if (!name || !amount || !dueDay || !category) {
-      Alert.alert('Missing Information', 'Please fill in all fields.');
+      alert('Missing Information', 'Please fill in all fields.');
       return;
     }
 
@@ -140,9 +142,9 @@ export default function FixedExpensesScreen() {
 
       setShowAddModal(false);
       resetForm();
-      Alert.alert('Success', 'Fixed expense added successfully.');
+      alert('Success', 'Fixed expense added successfully.');
     } catch (error) {
-      Alert.alert('Error', 'Failed to add expense. Please try again.');
+      alert('Error', 'Failed to add expense. Please try again.');
     }
   };
 
@@ -177,35 +179,29 @@ export default function FixedExpensesScreen() {
       setShowEditModal(false);
       setEditingExpense(null);
       resetForm();
-      Alert.alert('Success', 'Fixed expense updated successfully.');
+      alert('Success', 'Fixed expense updated successfully.');
     } catch (error) {
-      Alert.alert('Error', 'Failed to update expense. Please try again.');
+      alert('Error', 'Failed to update expense. Please try again.');
     }
   };
 
-  const handleDeleteExpense = (expense: FixedExpense) => {
-    Alert.alert(
+  const handleDeleteExpense = async (expense: FixedExpense) => {
+    const confirmed = await confirm(
       'Delete Fixed Expense',
       `Are you sure you want to delete "${expense.name}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // TODO: Replace with actual API call
-              // await profileApi.deleteFixedExpense(expense.id);
-
-              setExpenses(expenses.filter((exp) => exp.id !== expense.id));
-              Alert.alert('Deleted', 'Fixed expense deleted successfully.');
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete expense. Please try again.');
-            }
-          },
-        },
-      ]
+      { confirmLabel: 'Delete', destructive: true }
     );
+    if (!confirmed) return;
+
+    try {
+      // TODO: Replace with actual API call
+      // await profileApi.deleteFixedExpense(expense.id);
+
+      setExpenses(expenses.filter((exp) => exp.id !== expense.id));
+      alert('Deleted', 'Fixed expense deleted successfully.');
+    } catch (error) {
+      alert('Error', 'Failed to delete expense. Please try again.');
+    }
   };
 
   const handleEditExpense = (expense: FixedExpense) => {
@@ -267,7 +263,7 @@ export default function FixedExpensesScreen() {
             <ScrollView style={{ padding: spacing.lg }}>
               {/* Quick Suggestions */}
               <View style={{ marginBottom: spacing.lg }}>
-                <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>Quick Add</Text>
+                <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick Add</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {suggestions.map((suggestion) => {
                     const CategoryIcon = getCategoryIcon(suggestion.category);
@@ -604,7 +600,7 @@ export default function FixedExpensesScreen() {
         {/* Expenses List */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
-            <Text style={{ ...typography.eyebrow }}>
+            <Text style={{ ...typography.eyebrow, color: colors.ink }}>
               Your Expenses
             </Text>
             <Pressable
@@ -703,6 +699,7 @@ export default function FixedExpensesScreen() {
         <AddExpenseModal />
         <EditExpenseModal />
       </ScrollView>
+      {modal}
     </SafeAreaView>
   );
 }

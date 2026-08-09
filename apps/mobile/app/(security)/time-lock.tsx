@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { Card } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
   Lock,
@@ -24,6 +25,7 @@ export default function TimeLockScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [reason, setReason] = useState('');
+  const { alert, confirm, modal } = useAlertModal();
 
   useEffect(() => {
     if (pocketId) {
@@ -63,60 +65,48 @@ export default function TimeLockScreen() {
 
   const handleUnlock = async () => {
     if (!lockStatus?.can_unlock) {
-      Alert.alert('Cannot Unlock', 'This pocket is not currently locked.');
+      alert('Cannot Unlock', 'This pocket is not currently locked.');
       return;
     }
 
-    Alert.alert(
+    const confirmed = await confirm(
       'Early Unlock Required',
       `Unlocking will cost ${lockStatus.early_unlock_cost} discipline points. Your score will decrease from 85 to 75.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Unlock with Biometric',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setIsUnlocking(true);
-              // TODO: Replace with actual API call and biometric confirmation
-              // await pocketsApi.unlock(pocketId, { reason, biometric_confirmed: true });
-              
-              Alert.alert('Unlocked Successfully', 'Your pocket has been unlocked early.', [
-                { text: 'OK', onPress: () => router.back() },
-              ]);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to unlock pocket. Please try again.');
-            } finally {
-              setIsUnlocking(false);
-            }
-          },
-        },
-      ]
+      { confirmLabel: 'Unlock with Biometric', destructive: true }
     );
+    if (!confirmed) return;
+
+    try {
+      setIsUnlocking(true);
+      // TODO: Replace with actual API call and biometric confirmation
+      // await pocketsApi.unlock(pocketId, { reason, biometric_confirmed: true });
+
+      await alert('Unlocked Successfully', 'Your pocket has been unlocked early.');
+      router.back();
+    } catch (error) {
+      alert('Error', 'Failed to unlock pocket. Please try again.');
+    } finally {
+      setIsUnlocking(false);
+    }
   };
 
-  const handleExtendLock = () => {
-    Alert.alert(
+  const handleExtendLock = async () => {
+    const confirmed = await confirm(
       'Extend Lock Period',
       'Extending your lock will earn you discipline bonus points for better security.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Extend 30 Days',
-          onPress: async () => {
-            try {
-              // TODO: Replace with actual API call
-              // await pocketsApi.extendLock(pocketId, { additional_days: 30, reason: 'Building emergency fund' });
-              
-              Alert.alert('Lock Extended', 'Your lock has been extended by 30 days.');
-              loadLockStatus();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to extend lock. Please try again.');
-            }
-          },
-        },
-      ]
+      { confirmLabel: 'Extend 30 Days' }
     );
+    if (!confirmed) return;
+
+    try {
+      // TODO: Replace with actual API call
+      // await pocketsApi.extendLock(pocketId, { additional_days: 30, reason: 'Building emergency fund' });
+
+      alert('Lock Extended', 'Your lock has been extended by 30 days.');
+      loadLockStatus();
+    } catch (error) {
+      alert('Error', 'Failed to extend lock. Please try again.');
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -368,6 +358,7 @@ export default function TimeLockScreen() {
           </>
         )}
       </ScrollView>
+      {modal}
     </SafeAreaView>
   );
 }

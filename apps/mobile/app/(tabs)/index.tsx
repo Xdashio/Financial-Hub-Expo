@@ -241,7 +241,7 @@ export default function HomeScreen() {
 
         {isDaily && dailyPockets.length > 0 && (
           <>
-            <Text style={{ ...typography.eyebrow, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
+            <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
             {dailyPockets.map((pocket, i) => {
               const PocketIcon = getPocketIcon(pocket.category);
@@ -282,7 +282,7 @@ export default function HomeScreen() {
 
         {!isDaily && structuredSpendablePockets.length > 0 && (
           <>
-            <Text style={{ ...typography.eyebrow, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
+            <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
             {structuredSpendablePockets.map((pocket, i) => {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
@@ -323,7 +323,7 @@ export default function HomeScreen() {
 
         {fixedPockets.length > 0 && (
           <>
-            <Text style={{ ...typography.eyebrow, marginTop: spacing.xxl, marginBottom: spacing.md }}>Fixed & Protected</Text>
+            <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Fixed & Protected</Text>
 
             {fixedPockets.map((pocket, i) => {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
