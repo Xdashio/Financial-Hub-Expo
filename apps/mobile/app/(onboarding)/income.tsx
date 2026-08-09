@@ -7,7 +7,7 @@ import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { ChevronLeft, Building2, TrendingUp, Clock } from 'lucide-react-native';
-import { IncomePattern } from '@financial-hub/shared';
+import { IncomePattern, IncomeIntervalBand } from '@financial-hub/shared';
 
 const INCOME_PATTERNS = [
   {
@@ -36,6 +36,16 @@ const SOURCE_COUNTS = [
   { id: 3, label: '4+ sources' },
 ] as const;
 
+// Deliberately banded, not exact — most freelancers can't state "I get paid
+// every 23 days," and asking for that precision just creates onboarding
+// anxiety and bad data. See docs/FREELANCER_RUNWAY.md.
+const INCOME_INTERVAL_BANDS: { id: IncomeIntervalBand; label: string }[] = [
+  { id: 'weekly', label: 'Weekly' },
+  { id: 'biweekly', label: 'Every 2 weeks' },
+  { id: 'monthly', label: 'Monthly' },
+  { id: 'irregular', label: 'No clear pattern' },
+];
+
 export default function IncomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -45,11 +55,13 @@ export default function IncomeScreen() {
   const [incomePattern, setIncomePattern] = React.useState<IncomePattern>('salaried');
   const [incomeAmount, setIncomeAmount] = React.useState('');
   const [sourceCount, setSourceCount] = React.useState(1);
+  const [incomeIntervalBand, setIncomeIntervalBand] = React.useState<IncomeIntervalBand | null>(null);
 
   React.useEffect(() => {
     if (input.incomePattern) setIncomePattern(input.incomePattern);
     if (input.incomeAmount) setIncomeAmount(input.incomeAmount.toLocaleString());
     if (input.sourceCount) setSourceCount(input.sourceCount);
+    if (input.incomeIntervalBand) setIncomeIntervalBand(input.incomeIntervalBand);
   }, [input]);
 
   const formatAmount = (text: string) => {
@@ -71,10 +83,16 @@ export default function IncomeScreen() {
       return;
     }
 
+    if (incomePattern === 'freelancer' && !incomeIntervalBand) {
+      alert('Error', 'Let us know roughly how often payments land');
+      return;
+    }
+
     setIncomeData({
       incomePattern: incomePattern as any,
       incomeAmount: amount,
       sourceCount,
+      incomeIntervalBand: incomePattern === 'freelancer' ? incomeIntervalBand ?? undefined : undefined,
     });
     router.push('/(onboarding)/habits');
   };
@@ -126,6 +144,36 @@ export default function IncomeScreen() {
             </TouchableOption>
           ))}
         </View>
+
+        {incomePattern === 'freelancer' && (
+          <View style={{ marginTop: spacing.xl }}>
+            <SectionTitle>Roughly how often do payments land?</SectionTitle>
+            <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage, marginTop: 4, marginBottom: spacing.md, lineHeight: 18 }}>
+              Freelance income comes in bursts — that&apos;s normal, not a budgeting failure. A rough estimate is all we need; we&apos;ll refine it automatically as real payments come in.
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+              {INCOME_INTERVAL_BANDS.map((band) => (
+                <TouchableOpacity
+                  key={band.id}
+                  style={[
+                    { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minWidth: 88, alignItems: 'center', justifyContent: 'center' },
+                    incomeIntervalBand === band.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  ]}
+                  onPress={() => setIncomeIntervalBand(band.id)}
+                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: incomeIntervalBand === band.id }}
+                  accessibilityLabel={band.label}
+                >
+                  <Text style={[
+                    { ...typography.caption, color: colors.ink, textAlign: 'center' },
+                    incomeIntervalBand === band.id && { color: colors.surface },
+                  ]}>{band.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         <Input
           label="Average monthly income (after tax)"

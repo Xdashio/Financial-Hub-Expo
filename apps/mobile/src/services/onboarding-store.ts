@@ -63,7 +63,7 @@ interface OnboardingState {
   
   // Actions
   setStep: (step: OnboardingStep) => void;
-  setIncomeData: (data: Pick<OnboardingInput, 'incomePattern' | 'incomeAmount' | 'sourceCount'>) => void;
+  setIncomeData: (data: Pick<OnboardingInput, 'incomePattern' | 'incomeAmount' | 'sourceCount' | 'incomeIntervalBand'>) => void;
   setHabitsData: (data: Pick<OnboardingInput, 'spendingHabit'>) => void;
   addFixedExpense: (expense: Omit<FixedExpenseItem, 'id'>) => void;
   removeFixedExpense: (id: string) => void;

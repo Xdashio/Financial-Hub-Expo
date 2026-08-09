@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { pocketsApi, insightsApi } from '@/services/api';
+import { RunwaySummary } from '@financial-hub/shared';
 
 export interface Pocket {
   id: string;
@@ -32,6 +33,10 @@ export interface HomeState {
   totalBalance: number;
   disciplineScore: number;
   scoreDelta: number;
+  // { applicable: false } for salaried/mix/structured plans — home screen
+  // should only render runway UI when applicable is true. See
+  // docs/FREELANCER_RUNWAY.md.
+  runway: RunwaySummary;
   isLoading: boolean;
   error: string | null;
   
@@ -126,15 +131,20 @@ export const useHomeStore = create<HomeState>()(
     totalBalance: 0,
     disciplineScore: 87,
     scoreDelta: 3,
+    runway: { applicable: false },
     isLoading: false,
     error: null,
 
     fetchHomeData: async () => {
       set({ isLoading: true, error: null });
       try {
-        const [pocketsRes, insightsRes] = await Promise.all([
+        const [pocketsRes, insightsRes, runwayRes] = await Promise.all([
           pocketsApi.getAll(),
           insightsApi.getDisciplineScore(),
+          // Cheap for salaried/mix/structured plans (returns { applicable:
+          // false } immediately) so it's safe to always fetch rather than
+          // branching on plan type client-side. See docs/FREELANCER_RUNWAY.md.
+          pocketsApi.getRunway().catch(() => ({ applicable: false } as RunwaySummary)),
         ]);
         
         const pockets = (pocketsRes || []).map(mapPocket);
@@ -153,6 +163,7 @@ export const useHomeStore = create<HomeState>()(
           totalBalance,
           disciplineScore: insightsRes?.score || 87,
           scoreDelta: insightsRes?.delta || 3,
+          runway: runwayRes || { applicable: false },
           isLoading: false,
         });
       } catch (error) {

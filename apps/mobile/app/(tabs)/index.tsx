@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import {
   Shield, RefreshCw, PiggyBank, House, ShoppingBasket, User, Car, Lock,
   ArrowLeftRight, Plus, Lightbulb, HeartPulse, GraduationCap, Wifi, Package,
+  Calendar,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
@@ -83,6 +84,7 @@ export default function HomeScreen() {
     totalBalance,
     disciplineScore,
     scoreDelta,
+    runway,
     isLoading,
     error,
     fetchHomeData,
@@ -214,6 +216,24 @@ export default function HomeScreen() {
           <Text style={{ ...typography.display, color: colors.emeraldDeep, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>{formatCurrency(safeToSpendToday)}</Text>
           <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }}>{isDaily ? 'Sum of daily caps' : 'Total across spendable pockets'}</Text>
         </View>
+
+        {runway.applicable && typeof runway.runwayDays === 'number' && (
+          <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2 }}>
+            <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Calendar size={14} color={colors.gold} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.body, color: colors.ink }}>
+                {runway.runwayDays} {runway.runwayDays === 1 ? 'day' : 'days'} of runway
+              </Text>
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 1 }}>
+                {runway.confidence === 'historical'
+                  ? 'Based on your recent payments — freelance income comes in bursts, that\u2019s normal'
+                  : 'Estimated from your usual pay pattern — we\u2019ll refine this as payments come in'}
+              </Text>
+            </View>
+          </View>
+        )}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
           <Text style={{ ...typography.caption, color: colors.sage }}>Total balance</Text>
