@@ -6,6 +6,7 @@ import { radius, spacing, typography, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { reallocationsApi } from '@/services/api';
 import { useHomeStore } from '@/services/home-store';
+import { useDataSync } from '@/services/data-sync';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
 
@@ -68,6 +69,7 @@ export default function ReallocCooloffScreen() {
       setIsResolving(true);
       try {
         await reallocationsApi.complete(params.reallocationId, { skipCoolingOff });
+        useDataSync.getState().bump();
         await refreshData();
         goToSuccess();
       } catch (err) {

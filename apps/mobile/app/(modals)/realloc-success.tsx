@@ -5,6 +5,7 @@ import { Check, Shield } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore } from '@/services/home-store';
+import { useDataSync } from '@/services/data-sync';
 import { Button, ScreenContainer, SafeScrollView } from '@/components/ui';
 
 type SuccessParams = {
@@ -28,8 +29,25 @@ export default function ReallocSuccessScreen() {
   const amount = Number(params.amount) || 0;
 
   const handleDone = () => {
+    // Tell every mounted balance-showing screen to refetch regardless of
+    // whether it's about to regain focus (see data-sync.ts) — refreshData()
+    // alone only covers Home; this also covers Pocket Detail/Insights if
+    // they're still mounted underneath.
+    useDataSync.getState().bump();
     refreshData();
-    router.replace('/(tabs)');
+    // dismissAll() closes the whole (modals) reallocation stack and
+    // returns to whatever screen actually presented it — Home, or the
+    // Pocket Detail screen the user started from — instead of
+    // router.replace('/(tabs)'), which unconditionally discarded that
+    // screen (and its place in the stack) and dropped the user on Home
+    // even if they'd opened this from a specific pocket. That made a
+    // successful reallocation look like it had no effect on the screen
+    // the user was actually looking at.
+    if (router.canDismiss()) {
+      router.dismissAll();
+    } else {
+      router.replace('/(tabs)');
+    }
   };
 
   const styles = {

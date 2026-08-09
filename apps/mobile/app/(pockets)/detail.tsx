@@ -12,6 +12,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer, LoadingState, ErrorState, InlineLoading } from '@/components/ui';
 import {
   ChevronLeft,
@@ -260,6 +261,17 @@ export default function PocketDetailScreen() {
       loadAll();
     }, [loadAll])
   );
+
+  // Defense-in-depth against the focus effect above — see
+  // src/services/data-sync.ts. Some flows (reallocation, income) can
+  // finish without ever handing focus back to this screen; this refetches
+  // as soon as any of them report a change, regardless of navigation.
+  const dataVersion = useDataSync(s => s.version);
+  const isFirstVersion = useRef(true);
+  React.useEffect(() => {
+    if (isFirstVersion.current) { isFirstVersion.current = false; return; }
+    loadAll();
+  }, [dataVersion, loadAll]);
 
   const onRefresh = async () => {
     setIsRefreshing(true);

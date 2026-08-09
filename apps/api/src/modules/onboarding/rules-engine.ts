@@ -20,7 +20,7 @@ export interface PlanAssignment {
   incomeIntervalDays?: number;
 }
 
-const MIN_SAVINGS_RATE = 0.10;
+export const MIN_SAVINGS_RATE = 0.10;
 
 function determineIncomePattern(input: OnboardingInput): { pattern: IncomePattern; reason: PlanAssignReason } {
   const { incomePattern } = input;

@@ -6,6 +6,7 @@ import { IncomeEventInsert, TransactionInsert, Pocket, Plan } from '../../databa
 import { RunwaySummary } from '@financial-hub/shared';
 import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
+import { MIN_SAVINGS_RATE } from '../onboarding/rules-engine';
 
 @Injectable()
 export class IncomeService {
@@ -191,27 +192,69 @@ export class IncomeService {
     percentage: number;
     is_minimum?: boolean;
   }> {
-    const allocations = [];
     const totalMonthlyAllocation = pockets.reduce((sum, p) => sum + (p.monthly_allocation || 0), 0);
 
     if (totalMonthlyAllocation === 0) {
       return [];
     }
 
-    // Allocate based on existing pocket proportions
-    for (const pocket of pockets) {
+    // First pass: split this income proportionally to each pocket's share
+    // of the overall plan, same as before.
+    const raw = pockets.map(pocket => {
       const pocketAllocation = pocket.monthly_allocation || 0;
       const proportion = pocketAllocation / totalMonthlyAllocation;
-      const amount = totalAmount * proportion;
-      const percentage = proportion * 100;
+      return { pocket, amount: totalAmount * proportion };
+    });
 
+    // Enforce the plan's minimum savings rate (see rules-engine.ts,
+    // MIN_SAVINGS_RATE) on every income event, not just at plan creation.
+    // Previously, a savings pocket only got whatever proportional share it
+    // happened to hold of the total plan — which is very often well under
+    // 10% once fixed expenses are large relative to income — while the
+    // result was still labelled `is_minimum: true`, implying a floor that
+    // was never actually enforced. If a savings pocket's proportional cut
+    // of *this* income event falls short of 10%, top it up to the floor
+    // and pull the shortfall proportionally from the non-savings pockets
+    // (scaled down, never below zero) so the total allocated still equals
+    // totalAmount.
+    const minSavingsTotal = totalAmount * MIN_SAVINGS_RATE;
+    const savingsRows = raw.filter(r => r.pocket.kind === 'savings');
+    const currentSavingsTotal = savingsRows.reduce((sum, r) => sum + r.amount, 0);
+
+    if (savingsRows.length > 0 && currentSavingsTotal < minSavingsTotal) {
+      const shortfall = minSavingsTotal - currentSavingsTotal;
+      const nonSavingsRows = raw.filter(r => r.pocket.kind !== 'savings');
+      const nonSavingsTotal = nonSavingsRows.reduce((sum, r) => sum + r.amount, 0);
+
+      if (nonSavingsTotal > 0) {
+        // Scale every non-savings pocket down proportionally to fund the
+        // shortfall, so nothing goes negative and the sum stays exact.
+        const scale = Math.max(0, (nonSavingsTotal - shortfall) / nonSavingsTotal);
+        for (const row of nonSavingsRows) {
+          row.amount = row.amount * scale;
+        }
+      }
+      // Push each savings pocket up to its share of the floor. With a
+      // single savings pocket (the common case) it simply becomes
+      // minSavingsTotal; with more than one, distribute proportionally to
+      // their existing shares of the savings total (or evenly if the
+      // current total was zero).
+      for (const row of savingsRows) {
+        const share = currentSavingsTotal > 0 ? row.amount / currentSavingsTotal : 1 / savingsRows.length;
+        row.amount = minSavingsTotal * share;
+      }
+    }
+
+    const allocations = [];
+    for (const row of raw) {
+      const amount = Math.round(row.amount * 100) / 100;
       if (amount > 0) {
         allocations.push({
-          pocket_id: pocket.id,
-          pocket_name: pocket.name,
-          amount: Math.round(amount * 100) / 100,
-          percentage: Math.round(percentage * 100) / 100,
-          is_minimum: pocket.kind === 'savings',
+          pocket_id: row.pocket.id,
+          pocket_name: row.pocket.name,
+          amount,
+          percentage: Math.round((amount / totalAmount) * 100 * 100) / 100,
+          is_minimum: row.pocket.kind === 'savings',
         });
       }
     }

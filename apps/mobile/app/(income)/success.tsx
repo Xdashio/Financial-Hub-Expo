@@ -5,6 +5,7 @@ import { Check, Shield } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore } from '@/services/home-store';
+import { useDataSync } from '@/services/data-sync';
 import { Button, ScreenContainer, SafeScrollView } from '@/components/ui';
 
 interface ProjectedAllocation {
@@ -45,6 +46,7 @@ export default function IncomeSuccessScreen() {
   }
 
   const handleDone = () => {
+    useDataSync.getState().bump();
     refreshData();
     router.replace('/(tabs)');
   };

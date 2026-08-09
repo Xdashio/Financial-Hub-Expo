@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { Card, LoadingState, ErrorState } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketsApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 import * as LocalAuthentication from 'expo-local-authentication';
 import {
   ArrowLeft,
@@ -136,6 +137,7 @@ export default function TimeLockScreen() {
         reason,
         biometric_confirmed: biometricConfirmed,
       });
+      useDataSync.getState().bump();
 
       await alert(
         'Unlocked Successfully',
@@ -163,6 +165,7 @@ export default function TimeLockScreen() {
         additional_days: 30,
         reason: 'Building emergency fund',
       });
+      useDataSync.getState().bump();
 
       alert(
         'Lock Extended',
