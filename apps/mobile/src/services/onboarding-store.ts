@@ -8,6 +8,7 @@ import {
   OnboardingCommitResult,
 } from '@financial-hub/shared';
 import { onboardingApi } from '@/services/onboarding';
+import { profileApi } from '@/services/api';
 
 export type OnboardingStep = 'income' | 'habits' | 'fixed' | 'result';
 
@@ -71,6 +72,11 @@ interface OnboardingState {
   previewPlan: () => Promise<void>;
   commitPlan: () => Promise<void>;
   reset: () => void;
+  /** Re-enters the flow in "retake" mode: same screens, but the final step
+   *  calls the retake endpoint (which replaces the active plan) instead of
+   *  the initial-onboarding commit endpoint. */
+  startRetake: () => void;
+  isRetake: boolean;
   goBack: () => void;
   goNext: () => void;
   recoverState: () => Promise<void>;
@@ -96,6 +102,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       commitResult: null,
       isLoading: false,
       error: null,
+      isRetake: false,
 
       setStep: (step) => set({ currentStep: step, error: null }),
 
@@ -182,7 +189,7 @@ export const useOnboardingStore = create<OnboardingState>()(
       commitPlan: async () => {
         set({ isLoading: true, error: null });
         try {
-          const { input, fixedExpenses } = get();
+          const { input, fixedExpenses, isRetake } = get();
           const fullInput = input as OnboardingInput;
           
           // Include fixedExpenses in the commit data
@@ -196,7 +203,13 @@ export const useOnboardingStore = create<OnboardingState>()(
             })) : undefined,
           };
           
-          const result = await onboardingApi.commit(commitData);
+          // A retake re-runs the same rules engine against fresh answers
+          // and replaces the active plan (see profile.service.ts
+          // retakePlan) — it's a distinct endpoint from initial onboarding
+          // commit, not just the same call with an empty body.
+          const result = isRetake
+            ? await profileApi.retakeBehaviorCheckin(commitData)
+            : await onboardingApi.commit(commitData);
           set({ commitResult: result, isLoading: false });
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Failed to commit plan', isLoading: false });
@@ -213,6 +226,19 @@ export const useOnboardingStore = create<OnboardingState>()(
           commitResult: null,
           isLoading: false,
           error: null,
+          isRetake: false,
+        }),
+
+      startRetake: () =>
+        set({
+          currentStep: 'income',
+          input: initialInput,
+          fixedExpenses: [],
+          assignResult: null,
+          commitResult: null,
+          isLoading: false,
+          error: null,
+          isRetake: true,
         }),
 
       goBack: () =>
@@ -267,6 +293,7 @@ export const useOnboardingStore = create<OnboardingState>()(
         fixedExpenses: state.fixedExpenses,
         assignResult: state.assignResult,
         commitResult: state.commitResult,
+        isRetake: state.isRetake,
       }),
     }
   )

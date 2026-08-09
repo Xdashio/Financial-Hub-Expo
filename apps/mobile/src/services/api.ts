@@ -103,6 +103,12 @@ export const reallocationsApi = {
 export const insightsApi = {
   getDisciplineScore: () => api.get<any>('/insights/discipline-score'),
   getBehaviorEvents: () => api.get<any[]>('/insights/behavior-events'),
+  getBehaviorEventsPaginated: (page = 1, limit = 20) =>
+    api.get<any>(`/insights/behavior-events/paginated?page=${page}&limit=${limit}`),
+  getActivityHeatmap: (range: 'week' | 'month' | 'year' = 'month') =>
+    api.get<Array<{ date: string; count: number; points: number }>>(
+      `/insights/activity-heatmap?range=${range}`
+    ),
 };
 
 export const profileApi = {
@@ -111,7 +117,7 @@ export const profileApi = {
   updateFixedExpense: (id: string, data: any) => api.put<any>(`/profile/fixed-expenses/${id}`, data),
   deleteFixedExpense: (id: string) => api.delete<void>(`/profile/fixed-expenses/${id}`),
   getPlan: () => api.get<any>('/profile/plan'),
-  retakeBehaviorCheckin: () => api.post<any>('/profile/plan/retake', {}),
+  retakeBehaviorCheckin: (data: any) => api.post<any>('/profile/plan/retake', data),
 };
 
 export interface NotificationPreferences {

@@ -12,10 +12,9 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
-import { ScreenContainer } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, InlineLoading } from '@/components/ui';
 import {
   ChevronLeft,
-  Plus,
   ArrowLeftRight,
   ShoppingCart,
   Lock,
@@ -288,9 +287,7 @@ export default function PocketDetailScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.emeraldDeep} />
-        </View>
+        <LoadingState label="Loading pocket…" />
       </ScreenContainer>
     );
   }
@@ -298,14 +295,7 @@ export default function PocketDetailScreen() {
   if (!summary) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl }}>
-          <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center' }}>
-            Couldn't load pocket data.
-          </Text>
-          <TouchableOpacity onPress={onRefresh} style={{ marginTop: spacing.md }}>
-            <Text style={{ ...typography.heading, color: colors.emeraldDeep }}>Try again</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState message="Couldn't load pocket data." onRetry={onRefresh} />
       </ScreenContainer>
     );
   }
@@ -464,7 +454,13 @@ export default function PocketDetailScreen() {
           </View>
         </View>
 
-        {/* ── Action buttons ── */}
+        {/* ── Action buttons ──
+            "Add money" used to sit next to "Reallocate" here, but both
+            opened the same realloc-pick flow (one pre-filled the
+            destination, one didn't) — a distinction with no real
+            difference from the user's point of view, and a source of
+            confusion. Reallocate now covers both directions from this
+            pocket; the destination is preset when there's an obvious one. */}
         <View
           style={{
             flexDirection: 'row',
@@ -489,28 +485,8 @@ export default function PocketDetailScreen() {
               router.push({ pathname: '/(modals)/realloc-pick', params: { destinationPocketId: id } })
             }
           >
-            <Plus size={16} color={colors.surface} strokeWidth={2} />
-            <Text style={{ ...typography.heading, color: colors.surface }}>Add money</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: spacing.xs,
-              backgroundColor: colors.surface,
-              borderRadius: radius.md,
-              paddingVertical: spacing.md,
-              borderWidth: borderWidth,
-              borderColor: colors.line,
-            }}
-            activeOpacity={0.8}
-            onPress={() => router.push('/(modals)/realloc-pick')}
-          >
-            <ArrowLeftRight size={16} color={colors.ink} strokeWidth={2} />
-            <Text style={{ ...typography.heading, color: colors.ink }}>Reallocate</Text>
+            <ArrowLeftRight size={16} color={colors.surface} strokeWidth={2} />
+            <Text style={{ ...typography.heading, color: colors.surface }}>Reallocate</Text>
           </TouchableOpacity>
         </View>
 
@@ -742,7 +718,7 @@ export default function PocketDetailScreen() {
                   style={{ paddingVertical: spacing.md, alignItems: 'center' }}
                 >
                   {loadingMore ? (
-                    <ActivityIndicator size="small" color={colors.emeraldDeep} />
+                    <InlineLoading />
                   ) : (
                     <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
                       Load more
