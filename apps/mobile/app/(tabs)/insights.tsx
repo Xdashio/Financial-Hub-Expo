@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { CalendarCheck, ArrowLeftRight, Target, Timer } from 'lucide-react-native';
 import { radius, spacing, typography, shadow } from '../../src/theme';

@@ -22,13 +22,37 @@ const FIXED_POCKET = {
   kind: 'fixed',
 };
 
+// SPENDABLE_POCKET carries monthly_allocation: 5000, but that field is a
+// planning ceiling only — see supabase.repository.ts getPocketSummary.
+// Available balance is always ledger-derived, so every test here drives
+// balance purely through the getPocketSummary mock, not monthly_allocation
+// or getTransactionsByPocketId (spend.service.ts no longer touches that
+// directly; it calls repository.getPocketSummary(dto.pocket_id) and reads
+// .available — see e9924bb "Ledger balance calculation in repository").
+function makePocketSummary(overrides: Partial<{
+  allocated: number;
+  spent: number;
+  available: number;
+  transactionCount: number;
+  reallocationCount: number;
+}> = {}) {
+  return {
+    allocated: 5000,
+    spent: 0,
+    available: 5000,
+    transactionCount: 0,
+    reallocationCount: 0,
+    ...overrides,
+  };
+}
+
 describe('SpendService.commitSpend', () => {
   let repository: jest.Mocked<
     Pick<
       SupabaseRepository,
       | 'getPocketById'
       | 'getPlanById'
-      | 'getTransactionsByPocketId'
+      | 'getPocketSummary'
       | 'getMerchantClassification'
       | 'createTransaction'
     >
@@ -39,7 +63,7 @@ describe('SpendService.commitSpend', () => {
     repository = {
       getPocketById: jest.fn().mockResolvedValue(SPENDABLE_POCKET),
       getPlanById: jest.fn().mockResolvedValue({ id: 'plan-1', user_id: 'user-1' }),
-      getTransactionsByPocketId: jest.fn().mockResolvedValue([]),
+      getPocketSummary: jest.fn().mockResolvedValue(makePocketSummary()),
       getMerchantClassification: jest.fn().mockResolvedValue(null),
       createTransaction: jest.fn().mockImplementation((tx) => ({ id: 'tx-1', ...tx })),
     } as any;
@@ -64,9 +88,9 @@ describe('SpendService.commitSpend', () => {
   });
 
   it('does not write a transaction when the amount exceeds available balance', async () => {
-    repository.getTransactionsByPocketId.mockResolvedValue([
-      { id: 't1', pocket_id: 'pocket-1', amount: 4800, type: 'spend', merchant: null, category: null, created_at: '' },
-    ] as any);
+    // Ledger-derived available balance is 200 (regardless of the pocket's
+    // monthly_allocation ceiling of 5000).
+    repository.getPocketSummary.mockResolvedValue(makePocketSummary({ allocated: 5000, spent: 4800, available: 200 }));
 
     const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
 
@@ -96,6 +120,23 @@ describe('SpendService.commitSpend', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.block_reason).toBe('unclassified_merchant');
+    expect(repository.createTransaction).not.toHaveBeenCalled();
+  });
+
+  it('does not write a transaction when the pocket is time-locked, and still reports available balance', async () => {
+    const LOCKED_POCKET = {
+      ...SPENDABLE_POCKET,
+      is_time_locked: true,
+      lock_until: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1hr in the future
+    };
+    repository.getPocketById.mockResolvedValue(LOCKED_POCKET as any);
+    repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 3000 }));
+
+    const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
+
+    expect(result.allowed).toBe(false);
+    expect(result.block_reason).toBe('pocket_time_locked');
+    expect(result.pocket.available_balance).toBe(3000);
     expect(repository.createTransaction).not.toHaveBeenCalled();
   });
 });

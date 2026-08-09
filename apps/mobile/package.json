@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
-    "@babel/runtime": "^8.0.0",
+    "@babel/runtime": "^7.25.0",
     "@expo/log-box": "^57.0.2",
     "@expo/metro": "^55.1.1",
     "@expo/webpack-config": "^19.0.1",

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, Pressable, Modal } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme, ThemeMode } from '@/theme/ThemeContext';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Modal, Pressable, SafeAreaView, StyleSheet } from 'react-native';
+import { View, Text, Modal, Pressable, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow } from '@/theme';
 import { Button } from './Button';

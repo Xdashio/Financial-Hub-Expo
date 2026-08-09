@@ -78,18 +78,25 @@ export class OnboardingService {
     const pocketInputs = this.createPocketInputs(planId, assignment, input.incomeAmount, input.fixedTotal);
     const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
 
-    // Delete existing fixed expenses to prevent duplicates when retaking check-in
-    await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+    // Full-replace semantics apply only when fixedExpenses is actually part
+    // of this submission (including an explicit empty array, to let a
+    // retake clear everything). If the field is omitted entirely, this is
+    // a partial update that never touched fixed expenses, so leave
+    // whatever the user already has untouched — otherwise every onboarding
+    // commit that doesn't resubmit fixed expenses silently wipes them.
+    if (input.fixedExpenses !== undefined) {
+      // Delete existing fixed expenses to prevent duplicates when retaking check-in
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
 
-    // Create fixed expenses
-    for (const expense of input.fixedExpenses || []) {
-      await this.supabaseRepo.createFixedExpense({
-        user_id: userId,
-        name: expense.name,
-        amount: expense.amount,
-        due_day: expense.dueDay,
-        category: expense.category,
-      });
+      for (const expense of input.fixedExpenses) {
+        await this.supabaseRepo.createFixedExpense({
+          user_id: userId,
+          name: expense.name,
+          amount: expense.amount,
+          due_day: expense.dueDay,
+          category: expense.category,
+        });
+      }
     }
 
     // Create behavior event for plan creation
