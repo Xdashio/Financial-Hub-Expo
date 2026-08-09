@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
+import { merchantApi, pocketsApi } from '@/services/api';
 import {
   ArrowLeft,
   Tag,
@@ -25,6 +26,8 @@ export default function ClassificationScreen() {
   const [selectedPocket, setSelectedPocket] = useState<string | null>(null);
   const [remember, setRemember] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [pockets, setPockets] = useState<Array<{ id: string; name: string; kind: string }>>([]);
+  const [isLoadingPockets, setIsLoadingPockets] = useState(true);
   const { alert, modal } = useAlertModal();
 
   const categories = [
@@ -39,12 +42,21 @@ export default function ClassificationScreen() {
     { id: 'other', name: 'Other', icon: '📦' },
   ];
 
-  const pockets = [
-    { id: '1', name: 'Groceries & food', kind: 'spendable' },
-    { id: '2', name: 'Transport', kind: 'spendable' },
-    { id: '3', name: 'Personal & leisure', kind: 'spendable' },
-    { id: '4', name: 'Savings', kind: 'savings' },
-  ];
+  useEffect(() => {
+    loadPockets();
+  }, []);
+
+  const loadPockets = async () => {
+    try {
+      setIsLoadingPockets(true);
+      const data = await pocketsApi.getAll();
+      setPockets(data.map((p: any) => ({ id: p.id, name: p.name, kind: p.kind })));
+    } catch (error) {
+      console.error('Error loading pockets:', error);
+    } finally {
+      setIsLoadingPockets(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!selectedCategory || !selectedPocket) {
@@ -54,15 +66,14 @@ export default function ClassificationScreen() {
 
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call
-      // await merchantApi.classify({
-      //   recipient_key: recipientKey,
-      //   category: selectedCategory,
-      //   pocket_id: selectedPocket,
-      //   remember,
-      //   transaction_id: transactionId,
-      //   amount: amount ? parseFloat(amount) : undefined,
-      // });
+      await merchantApi.classify({
+        recipient_key: recipientKey,
+        category: selectedCategory,
+        pocket_id: selectedPocket,
+        remember,
+        transaction_id: transactionId || undefined,
+        amount: amount ? parseFloat(amount) : undefined,
+      });
 
       await alert('Success', 'Classification saved successfully!');
       router.back();
@@ -187,6 +198,11 @@ export default function ClassificationScreen() {
           <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             Which pocket?
           </Text>
+          {isLoadingPockets && (
+            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
+              Loading pockets…
+            </Text>
+          )}
           {pockets.map((pocket) => (
             <Pressable
               key={pocket.id}
