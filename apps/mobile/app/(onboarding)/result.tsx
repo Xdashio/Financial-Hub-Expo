@@ -254,18 +254,18 @@ export default function ResultScreen() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <DollarSign color={colors.emeraldDeep} size={14} />
-                    <Text style={{ ...typography.heading, color: '#fff' }}>Safe to spend</Text>
+                    <Text style={{ ...typography.heading, color: colors.surface }}>Safe to spend</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ ...typography.body, color: '#fff', fontVariant: ['tabular-nums'] }}>KSh {spendableAmount.toLocaleString()}</Text>
+                    <Text style={{ ...typography.body, color: colors.surface, fontVariant: ['tabular-nums'] }}>KSh {spendableAmount.toLocaleString()}</Text>
                   </View>
                 </View>
-                <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
+                <View style={{ height: 6, backgroundColor: `${colors.surface}26`, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
                   <View style={{ height: '100%', borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, width: `${spendablePercentage}%` }} />
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
-                  <Text style={{ ...typography.caption, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Daily budget</Text>
-                  <Text style={{ ...typography.caption, fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>Available</Text>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Daily budget</Text>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Available</Text>
                 </View>
               </View>
 

@@ -7,6 +7,10 @@ import { AuthModule } from './auth/auth.module';
 import { ReallocationsModule } from './modules/reallocations/reallocations.module';
 import { InsightsModule } from './modules/insights/insights.module';
 import { ProfileModule } from './modules/profile/profile.module';
+import { IncomeModule } from './modules/income/income.module';
+import { MerchantModule } from './modules/merchant/merchant.module';
+import { SpendModule } from './modules/spend/spend.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -21,6 +25,10 @@ import { ProfileModule } from './modules/profile/profile.module';
     ReallocationsModule,
     InsightsModule,
     ProfileModule,
+    IncomeModule,
+    MerchantModule,
+    SpendModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

@@ -101,7 +101,7 @@ export default function HomeScreen() {
 
   if (isLoading && pockets.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.xxxl }}>
             <ActivityIndicator size="large" color={colors.emeraldDeep} />
@@ -114,7 +114,7 @@ export default function HomeScreen() {
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
             <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
@@ -133,16 +133,30 @@ export default function HomeScreen() {
 
   if (pockets.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
-            <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
-              <Shield size={32} color={colors.emeraldDeep} strokeWidth={2} />
+            <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
+              <PiggyBank size={32} color={colors.gold} strokeWidth={2} />
             </View>
-            <Text style={{ ...typography.title, color: colors.ink }}>No plan yet</Text>
+            <Text style={{ ...typography.title, color: colors.ink }}>Start Your Money Plan</Text>
             <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
-              Complete onboarding to see your personalized money plan with pockets for savings, fixed costs, and daily spending.
+              Complete onboarding to create your personalized pockets for savings, fixed costs, and daily spending.
             </Text>
+            <TouchableOpacity
+              style={{
+                marginTop: spacing.lg,
+                backgroundColor: colors.emeraldDeep,
+                borderRadius: radius.md,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.xl,
+              }}
+              onPress={() => router.push('/(onboarding)/income')}
+            >
+              <Text style={{ ...typography.heading, color: colors.surface, textAlign: 'center' }}>
+                Start Onboarding
+              </Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -157,7 +171,7 @@ export default function HomeScreen() {
   const isDaily = planType === 'daily';
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
@@ -232,7 +246,12 @@ export default function HomeScreen() {
             {dailyPockets.map((pocket, i) => {
               const PocketIcon = getPocketIcon(pocket.category);
               return (
-                <View key={i} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
+                <TouchableOpacity
+                  key={i}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
+                  activeOpacity={0.8}
+                  onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+                >
                   <View style={{ borderTopWidth: 1.5, borderTopColor: pocket.color, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocket.color }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
@@ -255,7 +274,7 @@ export default function HomeScreen() {
                       }}
                     />
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </>
@@ -311,7 +330,12 @@ export default function HomeScreen() {
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
               return (
-                <View key={i} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
+                <TouchableOpacity
+                  key={i}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
+                  activeOpacity={0.8}
+                  onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+                >
                   <View style={{ borderTopWidth: 1.5, borderTopColor: pocketColor, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
@@ -340,7 +364,7 @@ export default function HomeScreen() {
                     <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{status.label}</Text>
                     <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{pocket.isTimeLocked ? 'Locked' : 'Available'}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </>

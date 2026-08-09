@@ -73,6 +73,20 @@ export default function ProfileScreen() {
     setShowThemePicker(true);
   };
 
+  const handleNotificationsPress = () => {
+    router.push('/(settings)/notifications');
+  };
+
+  const handleFixedExpensesPress = () => {
+    router.push('/(profile)/fixed-expenses');
+  };
+
+  const handleTimeLockPress = () => {
+    // For now, navigate to time-lock screen
+    // In production, this would be a modal or nested screen
+    router.push('/(security)/time-lock');
+  };
+
   const settingsGroups: SettingsGroup[] = [
     {
       label: 'Security',
@@ -83,7 +97,7 @@ export default function ProfileScreen() {
           desc: 'Require Face ID to open app',
           trailing: user?.biometricEnabled ? 'On' : 'Off',
         },
-        { icon: Timer, title: 'Savings time-lock', desc: '7-day delay on withdrawals', trailing: 'Active' },
+        { icon: Timer, title: 'Savings time-lock', desc: '7-day delay on withdrawals', trailing: 'Active', onPress: handleTimeLockPress },
         { icon: Lock, title: 'Change PIN', desc: 'Update your app PIN', trailing: '' },
       ],
     },
@@ -91,7 +105,7 @@ export default function ProfileScreen() {
       label: 'Account',
       items: [
         { icon: User, title: 'Personal info', desc: 'Name, email, phone number', trailing: '' },
-        { icon: Bell, title: 'Notifications', desc: 'Push and in-app alerts', trailing: 'On' },
+        { icon: Bell, title: 'Notifications', desc: 'Push and in-app alerts', trailing: 'On', onPress: handleNotificationsPress },
         { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: mode.charAt(0).toUpperCase() + mode.slice(1), onPress: handleThemePress },
       ],
     },
@@ -105,6 +119,7 @@ export default function ProfileScreen() {
           title: 'Fixed expenses',
           desc: 'Manage detected recurring costs',
           trailing: fixedExpenseCount !== null ? `${fixedExpenseCount} item${fixedExpenseCount === 1 ? '' : 's'}` : '',
+          onPress: handleFixedExpensesPress,
         },
       ],
     },
@@ -131,7 +146,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
         <View style={{ alignItems: 'center', paddingTop: spacing.lg }}>
           <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
@@ -190,7 +205,7 @@ export default function ProfileScreen() {
         animationType="slide"
         onRequestClose={() => setShowThemePicker(false)}
       >
-        <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: `${colors.ink}80` }}>
           <View style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: spacing.xxl }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.line }}>
@@ -218,7 +233,7 @@ export default function ProfileScreen() {
                     </View>
                     {mode === option.id && (
                       <View style={{ width: 20, height: 20, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                        <Text style={{ color: colors.surface, fontSize: 12, fontWeight: 'bold' }}>✓</Text>
                       </View>
                     )}
                   </Pressable>

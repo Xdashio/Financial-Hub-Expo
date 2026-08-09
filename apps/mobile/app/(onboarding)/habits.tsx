@@ -74,16 +74,16 @@ export default function HabitsScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={[
                   { ...typography.heading, color: colors.ink },
-                  spendingHabit === option.id && { color: '#fff' },
+                  spendingHabit === option.id && { color: colors.surface },
                 ]}>{option.label}</Text>
                 <Text style={[
                   { ...typography.caption, fontSize: 12, color: colors.sage, marginTop: 2 },
-                  spendingHabit === option.id && { color: 'rgba(255,255,255,0.8)' },
+                  spendingHabit === option.id && { color: `${colors.surface}CC` },
                 ]}>{option.description}</Text>
               </View>
               {spendingHabit === option.id && (
                 <View style={{ width: 24, height: 24, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={{ width: 12, height: 12, borderWidth: 2, borderColor: '#fff', borderLeftWidth: 0, borderTopWidth: 0, transform: [{ rotate: '45deg' }] }} />
+                  <View style={{ width: 12, height: 12, borderWidth: 2, borderColor: colors.surface, borderLeftWidth: 0, borderTopWidth: 0, transform: [{ rotate: '45deg' }] }} />
                 </View>
               )}
             </TouchableOption>

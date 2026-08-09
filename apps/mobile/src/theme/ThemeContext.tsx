@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from 'react';
 import { Appearance, ColorSchemeName } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { lightColors, darkColors, ColorPalette } from './palettes';
+
+const THEME_STORAGE_KEY = '@financial_hub_theme_mode';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -18,10 +21,39 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<ThemeMode>('system');
+  const [mode, setModeState] = useState<ThemeMode>('system');
   const [systemScheme, setSystemScheme] = useState<ColorSchemeName>(
     Appearance.getColorScheme() ?? 'light'
   );
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load saved theme preference on mount
+  useEffect(() => {
+    const loadThemePreference = async () => {
+      try {
+        const savedMode = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+        if (savedMode && (savedMode === 'light' || savedMode === 'dark' || savedMode === 'system')) {
+          setModeState(savedMode as ThemeMode);
+        }
+      } catch (error) {
+        console.error('Failed to load theme preference:', error);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    loadThemePreference();
+  }, []);
+
+  // Save theme preference when it changes
+  const setMode = async (newMode: ThemeMode) => {
+    setModeState(newMode);
+    try {
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, newMode);
+    } catch (error) {
+      console.error('Failed to save theme preference:', error);
+    }
+  };
 
   useEffect(() => {
     const sub = Appearance.addChangeListener(({ colorScheme }) => {
@@ -39,6 +71,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     () => ({ scheme, mode, setMode, colors }),
     [scheme, mode, colors]
   );
+
+  // Don't render children until theme preference is loaded
+  if (!isLoaded) {
+    return null;
+  }
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

@@ -11,6 +11,7 @@ import {
   MerchantClassification, MerchantClassificationInsert,
   BehaviorEvent, BehaviorEventInsert,
   DisciplineScore, DisciplineScoreInsert,
+  MerchantReport, MerchantReportInsert,
 } from '../database/database.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -257,6 +258,79 @@ export class SupabaseRepository {
     return data || [];
   }
 
+  async getTransactionsByPocketIdPaginated(
+    pocketId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ transactions: Transaction[]; total: number; totalPages: number }> {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data, error, count } = await this.supabase
+      .from('transactions')
+      .select('*', { count: 'exact' })
+      .eq('pocket_id', pocketId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    const total = count || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      transactions: data || [],
+      total,
+      totalPages
+    };
+  }
+
+  async getTransactionById(id: string): Promise<Transaction | null> {
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  async getMerchantClassificationsByPocketId(pocketId: string): Promise<MerchantClassification[]> {
+    const { data, error } = await this.supabase
+      .from('merchant_classifications')
+      .select('*')
+      .eq('pocket_id', pocketId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getPocketSummary(pocketId: string): Promise<{
+    spent: number;
+    available: number;
+    transactionCount: number;
+    reallocationCount: number;
+  }> {
+    const [transactions, reallocations] = await Promise.all([
+      this.getTransactionsByPocketId(pocketId),
+      this.supabase
+        .from('reallocations')
+        .select('*')
+        .or(`from_pocket_id.eq.${pocketId},to_pocket_id.eq.${pocketId}`)
+    ]);
+
+    const spendTransactions = transactions.filter(t => t.type === 'spend');
+    const spent = spendTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const transactionCount = transactions.length;
+    const reallocationCount = (reallocations.data || []).length;
+
+    return {
+      spent,
+      available: 0, // Will be calculated in service layer
+      transactionCount,
+      reallocationCount
+    };
+  }
+
   // Reallocations
   async createReallocation(reallocation: ReallocationInsert): Promise<Reallocation | null> {
     const { data, error } = await this.supabase
@@ -340,6 +414,39 @@ export class SupabaseRepository {
       .single();
     if (error && error.code !== 'PGRST116') throw error;
     return data;
+  }
+
+  async getMerchantClassificationById(id: string): Promise<MerchantClassification | null> {
+    const { data, error } = await this.supabase
+      .from('merchant_classifications')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  async deleteMerchantClassification(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('merchant_classifications')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  }
+
+  // Merchant Reports (stubs for now - table needs to be created in database)
+  async createMerchantReport(report: MerchantReportInsert): Promise<MerchantReport | null> {
+    // Stub implementation - table doesn't exist yet
+    // This will be implemented once the merchant_reports table is created
+    console.log('Merchant report creation stub:', report);
+    return report as MerchantReport;
+  }
+
+  async getMerchantReportsByUserId(userId: string): Promise<MerchantReport[]> {
+    // Stub implementation - table doesn't exist yet
+    // This will be implemented once the merchant_reports table is created
+    console.log('Merchant reports fetch stub for user:', userId);
+    return [];
   }
 
   // Behavior Events

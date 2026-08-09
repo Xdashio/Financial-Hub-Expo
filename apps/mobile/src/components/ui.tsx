@@ -71,7 +71,7 @@ export function Button({
   };
 
   const textStyles: Record<string, TextStyle> = {
-    primary: { color: '#fff' },
+    primary: { color: colors.surface },
     secondary: { color: colors.ink },
     ghost: { color: colors.emeraldDeep },
     outline: { color: colors.emeraldDeep },
@@ -92,7 +92,7 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={variant === 'primary' || variant === 'ghost' ? '#fff' : colors.emeraldDeep} />
+        <ActivityIndicator size="small" color={variant === 'primary' || variant === 'ghost' ? colors.surface : colors.emeraldDeep} />
       ) : (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
           {leftIcon && <View style={{ flexShrink: 0 }}>{leftIcon}</View>}

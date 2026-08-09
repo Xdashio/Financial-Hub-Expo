@@ -15,6 +15,7 @@ export interface ColorPalette {
   paper: string;
   surface: string;
   surfaceRaised: string;
+  background: string;
   ink: string;
   inkSoft: string;
   sage: string;
@@ -53,32 +54,33 @@ export const lightColors: ColorPalette = {
   paper: '#F6F7F2',
   surface: '#FFFFFF',
   surfaceRaised: '#FFFFFF',
-  ink: '#16231D',
-  inkSoft: '#3C4A42',
-  sage: '#5B6B63',
-  line: '#DEDFD6',
-  lineSoft: '#E9EAE3',
+  background: '#F6F7F2',
+  ink: '#0A1A13', // Darker for better contrast in light mode
+  inkSoft: '#2D3A32', // Darker for better readability
+  sage: '#4A5A52', // Darker for better visibility in light mode
+  line: '#C9CAC2',
+  lineSoft: '#E0E1DA',
 
-  emerald: '#1F5F4E',
-  emeraldDeep: '#153F34',
+  emerald: '#1A4F3E', // Darker for better contrast in light mode
+  emeraldDeep: '#0F2F26', // Darker for better contrast
   emeraldTint: '#E4EEE9',
 
-  gold: '#B8873A',
+  gold: '#A6762D', // Darker for better contrast
   goldTint: '#F3EBDA',
 
-  plum: '#8A6FB0',
+  plum: '#7A5F9D', // Darker for better contrast
   plumTint: '#EEE8F6',
 
-  clay: '#C4622D',
+  clay: '#B05320', // Darker for better contrast
   clayTint: '#F7E7DD',
 
-  success: '#1F5F4E',
+  success: '#1A4F3E', // Darker for better contrast
   successTint: '#E4EEE9',
-  warning: '#B8873A',
+  warning: '#A6762D', // Darker for better contrast
   warningTint: '#F3EBDA',
-  error: '#C4622D',
+  error: '#B05320', // Darker for better contrast
   errorTint: '#F7E7DD',
-  info: '#8A6FB0',
+  info: '#7A5F9D', // Darker for better contrast
   infoTint: '#EEE8F6',
 };
 
@@ -90,31 +92,32 @@ export const darkColors: ColorPalette = {
   paper: '#121815',
   surface: '#1B231F',
   surfaceRaised: '#232C27',
-  ink: '#EDF1EE',
-  inkSoft: '#B9C4BE',
-  sage: '#8AA398',
-  line: '#2E3A34',
-  lineSoft: '#242E29',
+  background: '#121815',
+  ink: '#FFFFFF', // Pure white for maximum readability in dark mode
+  inkSoft: '#E8F0EB', // Nearly white for secondary text
+  sage: '#D4E4DC', // Very light gray for tertiary text - critical for visibility
+  line: '#4A5A52', // Much brighter for better visibility
+  lineSoft: '#3A4A42', // Much brighter for subtle borders
 
-  emerald: '#4FAF93',
-  emeraldDeep: '#3A8A73',
+  emerald: '#5FC4A8', // Much brighter for dark mode
+  emeraldDeep: '#4A9F8A', // Much brighter for contrast
   emeraldTint: '#1C2E28',
 
-  gold: '#D9A75C',
+  gold: '#F5C97E', // Much brighter for dark mode
   goldTint: '#332A18',
 
-  plum: '#B29BD6',
+  plum: '#D4B8F0', // Much brighter for dark mode
   plumTint: '#2A2436',
 
-  clay: '#E0805A',
+  clay: '#F4A576', // Much brighter for dark mode
   clayTint: '#332019',
 
-  success: '#4FAF93',
+  success: '#5FC4A8', // Much brighter
   successTint: '#1C2E28',
-  warning: '#D9A75C',
+  warning: '#F5C97E', // Much brighter
   warningTint: '#332A18',
-  error: '#E0805A',
+  error: '#F4A576', // Much brighter
   errorTint: '#332019',
-  info: '#B29BD6',
+  info: '#D4B8F0', // Much brighter
   infoTint: '#2A2436',
 };

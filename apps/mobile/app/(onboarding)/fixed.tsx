@@ -310,7 +310,7 @@ export default function FixedScreen() {
             style={{ flex: 1, justifyContent: 'flex-end' }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(22,35,29,0.45)' }} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1} />
+            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1} />
             <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
               <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>
@@ -386,7 +386,7 @@ export default function FixedScreen() {
           onRequestClose={cancelDelete}
         >
           <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(22,35,29,0.45)' }} onPress={cancelDelete} activeOpacity={1} />
+            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }} onPress={cancelDelete} activeOpacity={1} />
             <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
               <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>

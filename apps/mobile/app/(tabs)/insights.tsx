@@ -91,17 +91,17 @@ export default function InsightsScreen() {
   const displayEvents = events.map(event => mapBehaviorEvent(event, colors));
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
         <Text style={{ ...typography.title, color: colors.ink, marginTop: spacing.xl }}>Insights</Text>
 
         <View style={{ marginTop: spacing.xl, borderRadius: radius.lg, paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, backgroundColor: colors.emeraldDeep, alignItems: 'center' }}>
-          <View style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: spacing.md }}>
-            <Text style={{ ...typography.display, color: 'white', fontSize: 36 }}>{isLoading ? '—' : score ?? '—'}</Text>
+          <View style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: `${colors.surface}33`, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md }}>
+            <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{isLoading ? '—' : score ?? '—'}</Text>
           </View>
-          <Text style={{ ...typography.caption, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Discipline Score</Text>
-          <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
-            <Text style={{ ...typography.caption, color: 'white' }}>
+          <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Discipline Score</Text>
+          <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: `${colors.surface}1E`, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
+            <Text style={{ ...typography.caption, color: colors.surface }}>
               {delta > 0 ? `+${delta}` : delta} vs last week
             </Text>
           </View>

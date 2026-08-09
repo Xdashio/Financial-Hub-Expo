@@ -102,18 +102,18 @@ export default function IncomeScreen() {
             >
               <View style={[
                 { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' },
-                incomePattern === option.id && { backgroundColor: 'rgba(255,255,255,0.2)' },
+                incomePattern === option.id && { backgroundColor: `${colors.surface}33` },
               ]}>
-                <option.icon size={18} color={incomePattern === option.id ? '#fff' : colors.ink} strokeWidth={2} />
+                <option.icon size={18} color={incomePattern === option.id ? colors.surface : colors.ink} strokeWidth={2} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[
                   { ...typography.heading, color: colors.ink },
-                  incomePattern === option.id && { color: '#fff' },
+                  incomePattern === option.id && { color: colors.surface },
                 ]}>{option.label}</Text>
                 <Text style={[
                   { ...typography.caption, fontSize: 12, color: colors.sage, marginTop: 2 },
-                  incomePattern === option.id && { color: 'rgba(255,255,255,0.8)' },
+                  incomePattern === option.id && { color: `${colors.surface}CC` },
                 ]}>{option.description}</Text>
               </View>
               {incomePattern === option.id && (

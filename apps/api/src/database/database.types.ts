@@ -372,3 +372,26 @@ export type BehaviorEventInsert = Database['public']['Tables']['behavior_events'
 
 export type DisciplineScore = Database['public']['Tables']['discipline_scores']['Row'];
 export type DisciplineScoreInsert = Database['public']['Tables']['discipline_scores']['Insert'];
+
+// Merchant Reports (for report merchant feature)
+export interface MerchantReport {
+  id: string;
+  user_id: string;
+  recipient_key: string;
+  report_type: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee';
+  description: string | null;
+  status: 'pending' | 'reviewed' | 'resolved';
+  created_at: string;
+  reviewed_at: string | null;
+}
+
+export interface MerchantReportInsert {
+  id?: string;
+  user_id: string;
+  recipient_key: string;
+  report_type: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee';
+  description?: string | null;
+  status?: 'pending' | 'reviewed' | 'resolved';
+  created_at?: string;
+  reviewed_at?: string | null;
+}
