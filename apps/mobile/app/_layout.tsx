@@ -16,17 +16,16 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { initializeAuth } from '@/services/auth';
 import { ThemeProvider, useTheme } from '@/theme/ThemeContext';
 
-// Themed status bar + root background — separated out so it can call
-// useTheme() (which needs to be inside <ThemeProvider>).
+// Themed status bar — theme-aware icon colour.
+// On Android (edge-to-edge by default in this Expo SDK) the status bar is
+// always transparent and `backgroundColor`/`translucent` are no longer
+// supported props on expo-status-bar. The status bar area instead takes its
+// colour from whatever renders beneath it: the root View's `paper` background
+// plus each screen's `ScreenContainer` safe-area top inset. So here we only
+// pick the icon style ('dark' vs 'light') to contrast against that background.
 function ThemedStatusBar() {
   const { scheme } = useTheme();
-  return (
-    // Android is edge-to-edge by default in this Expo SDK, so the status
-    // bar is always transparent — there's no backgroundColor prop to set.
-    // What shows behind it is whatever's rendered underneath (our themed
-    // container View), so all we control here is icon/text color.
-    <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
-  );
+  return <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />;
 }
 
 function RootLayoutInner() {
