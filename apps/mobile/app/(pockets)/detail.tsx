@@ -67,9 +67,21 @@ interface PocketSummary {
 }
 
 interface MerchantScope {
-  allowed_categories: string[];
-  blocked_categories: string[];
-  saved_merchants: Array<{ key: string; category: string }>;
+  pocket_id: string;
+  pocket_name: string;
+  pocket_kind: string;
+  merchant_scope: {
+    allowed_categories: string[];
+    blocked_categories: string[];
+    classification_mode: string;
+    unclassified_handling: string;
+  };
+  saved_classifications: Array<{
+    recipient_key: string;
+    category: string;
+    remember: boolean;
+    created_at: string;
+  }>;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -204,6 +216,7 @@ export default function PocketDetailScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const isFirstFocus = useRef(true);
 
@@ -212,6 +225,7 @@ export default function PocketDetailScreen() {
   const loadAll = useCallback(async () => {
     if (!id) return;
     try {
+      setError(null);
       const [s, txPage, sc] = await Promise.all([
         pocketsApi.getSummary(id),
         pocketsApi.getTransactions(id, 1, 20),
@@ -224,12 +238,15 @@ export default function PocketDetailScreen() {
       if (sc) setScope(sc);
     } catch (e) {
       console.error('PocketDetail load error:', e);
+      const errorMessage = e instanceof Error ? e.message : 'Failed to load pocket data';
+      setError(errorMessage);
     }
   }, [id]);
 
   // Initial load
   React.useEffect(() => {
     setIsLoading(true);
+    setError(null);
     loadAll().finally(() => setIsLoading(false));
   }, [loadAll]);
 
@@ -243,6 +260,7 @@ export default function PocketDetailScreen() {
 
   const onRefresh = async () => {
     setIsRefreshing(true);
+    setError(null);
     await loadAll();
     setIsRefreshing(false);
   };
@@ -295,7 +313,7 @@ export default function PocketDetailScreen() {
   if (!summary) {
     return (
       <ScreenContainer>
-        <ErrorState message="Couldn't load pocket data." onRetry={onRefresh} />
+        <ErrorState message={error || "Couldn't load pocket data."} onRetry={onRefresh} />
       </ScreenContainer>
     );
   }
@@ -327,7 +345,13 @@ export default function PocketDetailScreen() {
           }}
         >
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/(tabs)');
+              }
+            }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{ padding: spacing.xs, marginRight: spacing.sm }}
           >
@@ -598,10 +622,10 @@ export default function PocketDetailScreen() {
               {scope ? (
                 <>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                    {scope.allowed_categories.map(cat => (
+                    {scope.merchant_scope.allowed_categories.map(cat => (
                       <CategoryChip key={cat} label={cat} colors={colors} />
                     ))}
-                    {scope.blocked_categories.map(cat => (
+                    {scope.merchant_scope.blocked_categories.map(cat => (
                       <CategoryChip key={cat} label={cat} blocked colors={colors} />
                     ))}
                   </View>

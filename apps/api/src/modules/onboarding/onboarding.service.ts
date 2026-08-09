@@ -78,6 +78,9 @@ export class OnboardingService {
     const pocketInputs = this.createPocketInputs(planId, assignment, input.incomeAmount, input.fixedTotal);
     const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
 
+    // Delete existing fixed expenses to prevent duplicates when retaking check-in
+    await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+
     // Create fixed expenses
     for (const expense of input.fixedExpenses || []) {
       await this.supabaseRepo.createFixedExpense({

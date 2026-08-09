@@ -114,7 +114,6 @@ export default function ProfileScreen() {
           trailing: user?.biometricEnabled ? 'On' : 'Off',
         },
         { icon: Timer, title: 'Savings time-lock', desc: '7-day delay on withdrawals', trailing: 'Active', onPress: handleTimeLockPress },
-        { icon: Lock, title: 'Change PIN', desc: 'Update your app PIN', trailing: '' },
       ],
     },
     {
