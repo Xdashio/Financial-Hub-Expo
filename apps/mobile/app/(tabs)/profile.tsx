@@ -85,6 +85,14 @@ export default function ProfileScreen() {
     router.push('/(profile)/fixed-expenses');
   };
 
+  const handleCurrentPlanPress = () => {
+    router.push('/(profile)/current-plan');
+  };
+
+  const handleRetakeCheckinPress = () => {
+    router.push('/(profile)/retake-checkin');
+  };
+
   const handleTimeLockPress = () => {
     // For now, navigate to time-lock screen
     // In production, this would be a modal or nested screen
@@ -116,8 +124,8 @@ export default function ProfileScreen() {
     {
       label: 'Plan',
       items: [
-        { icon: BarChart3, title: 'Current plan', desc: planLabel, trailing: '' },
-        { icon: RefreshCw, title: 'Retake behavior check-in', desc: 'Update plan if habits changed', trailing: '' },
+        { icon: BarChart3, title: 'Current plan', desc: planLabel, trailing: '', onPress: handleCurrentPlanPress },
+        { icon: RefreshCw, title: 'Retake behavior check-in', desc: 'Update plan if habits changed', trailing: '', onPress: handleRetakeCheckinPress },
         {
           icon: List,
           title: 'Fixed expenses',
