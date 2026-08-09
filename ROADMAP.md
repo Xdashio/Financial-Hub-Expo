@@ -47,7 +47,7 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 - [ ] Merchant categorization / MCC-style spend restriction — **blocked on Phase A (C2); screen (`classify.tsx`) is mock, spend-check API itself is solid**
 - [x] Reallocation flow — pick/review/cooldown/success screens wired to a real API; **skip-cooldown discipline-cost path is blocked on Phase A's C3 fix**
 - [x] Insights screen — wired to real behavioral event log and discipline score; **will show inconsistent numbers vs. the time-lock screen until Phase A's discipline-score unification lands**
-- [x] Profile + fixed expenses — plan/profile CRUD is real and wired; **fixed-expenses screen itself (`fixed-expenses.tsx`) is still mock despite the backend being ready — pure frontend-wiring task, no backend blocker**
+- [x] Profile + fixed expenses — plan/profile CRUD is real and wired, including `fixed-expenses.tsx` (wired to `profileApi` — was mock, now real)
 - [ ] Notifications settings — blocked on Phase A (needs the new table + real service)
 - [ ] Report merchant — blocked on Phase A (needs the module registered + new table)
 - [ ] Time-lock screen — backend is solid and ready; screen itself (`time-lock.tsx`) is still mock, pure frontend-wiring task
@@ -58,7 +58,7 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 
 ### Phase 1 sequencing (screens ready to wire the moment Phase A lands)
 Once Phase A is done, these are pure frontend-wiring tasks with no backend blocker — safe to parallelize across however many people are available, roughly in this order (dependency-free ones first):
-1. Fixed expenses screen (`fixed-expenses.tsx`) — backend already solid today, doesn't even need to wait for Phase A
+1. ~~Fixed expenses screen (`fixed-expenses.tsx`)~~ — done, wired to `profileApi`
 2. Time-lock screen (`time-lock.tsx`) — backend already solid today, doesn't even need to wait for Phase A
 3. Blocked-spend screen (`blocked-spend.tsx`) — backend already solid today, doesn't even need to wait for Phase A
 4. Pocket detail screen — needs Phase A's C2 (merchant scope) fix first
