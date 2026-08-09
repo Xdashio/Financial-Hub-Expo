@@ -5,10 +5,12 @@ import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from '@/config/supabase.config';
 
-// Base URL for API calls — mirrors the pattern in api.ts
-const API_BASE_URL = __DEV__
-  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
-  : 'https://api.financialhub.app/api';
+// Base URL for API calls — mirrors the resolution logic in api.ts.
+// On native dev builds, set EXPO_PUBLIC_API_URL to your ngrok URL;
+// localhost resolves to the device itself, not your dev machine.
+const API_BASE_URL = !__DEV__
+  ? 'https://api.financialhub.app/api'
+  : (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api');
 
 // expo-secure-store has no web implementation (it throws
 // "getValueWithKeyAsync is not a function" there), so on web we fall back to
