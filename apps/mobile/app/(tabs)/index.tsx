@@ -1,15 +1,15 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import {
-  Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock,
+  Shield, RefreshCw, PiggyBank, House, ShoppingBasket, User, Car, Lock,
   ArrowLeftRight, Plus, Lightbulb, HeartPulse, GraduationCap, Wifi, Package,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
-import { Button, ScreenContainer } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
 
 // Pocket icons — using lucide-react-native so pocket icons stay visually
 // consistent (same stroke weight/family) with the rest of the app instead
@@ -129,12 +129,7 @@ export default function HomeScreen() {
   if (isLoading && pockets.length === 0) {
     return (
       <ScreenContainer>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.xxxl }}>
-            <ActivityIndicator size="large" color={colors.emeraldDeep} />
-            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>Loading your financial hub...</Text>
-          </View>
-        </ScrollView>
+        <LoadingState label="Loading your financial hub…" />
       </ScreenContainer>
     );
   }
@@ -142,18 +137,7 @@ export default function HomeScreen() {
   if (error) {
     return (
       <ScreenContainer>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
-          <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
-            <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
-              <ChevronLeft size={32} color={colors.emeraldDeep} strokeWidth={2} />
-            </View>
-            <Text style={{ ...typography.title, color: colors.ink }}>Unable to load data</Text>
-            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>{error}</Text>
-            <Button fullWidth size="md" onPress={refreshData} style={{ marginTop: spacing.lg }}>
-              Try Again
-            </Button>
-          </View>
-        </ScrollView>
+        <ErrorState message={error} onRetry={refreshData} />
       </ScreenContainer>
     );
   }
