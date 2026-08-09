@@ -91,7 +91,15 @@ export default function SignUpScreen() {
       });
     } catch (error: any) {
       console.log('sendOtp error:', JSON.stringify(error, null, 2));
-      showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
+      // If user already exists, redirect to signin
+      if (error?.message?.includes('already registered') || error?.message?.includes('already exists')) {
+        showAlert('Account exists', 'An account with this number already exists. Redirecting to sign in...');
+        setTimeout(() => {
+          router.replace('/(auth)/signin');
+        }, 1500);
+      } else {
+        showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -141,7 +149,7 @@ export default function SignUpScreen() {
           size="lg"
           loading={isLoading}
           onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >
           Send one-time code
         </Button>

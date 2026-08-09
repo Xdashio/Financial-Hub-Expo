@@ -80,4 +80,28 @@ export class ProfileController {
   async deleteFixedExpense(@Param('id') id: string, @Request() req: any): Promise<void> {
     await this.profileService.deleteFixedExpense(req.user.id, id);
   }
+
+  @Get('fixed-expenses/suggestions')
+  @ApiOperation({ summary: 'Get suggested fixed expenses based on common categories' })
+  @ApiResponse({ status: 200, description: 'List of suggested fixed expenses' })
+  getFixedExpenseSuggestions(@Request() req: any) {
+    return this.profileService.getFixedExpenseSuggestions(req.user.id);
+  }
+
+  @Post('fixed-expenses/bulk')
+  @ApiOperation({ summary: 'Bulk create fixed expenses' })
+  @ApiResponse({ status: 201, description: 'Created fixed expenses' })
+  @ApiResponse({ status: 400, description: 'Invalid input' })
+  bulkCreateFixedExpenses(@Body() input: unknown, @Request() req: any) {
+    return this.profileService.bulkCreateFixedExpenses(req.user.id, input);
+  }
+
+  @Put('fixed-expenses/:id/status')
+  @ApiOperation({ summary: 'Update fixed expense status' })
+  @ApiResponse({ status: 200, description: 'Updated fixed expense' })
+  @ApiResponse({ status: 403, description: 'Not the owner of this fixed expense' })
+  @ApiResponse({ status: 404, description: 'Fixed expense not found' })
+  updateFixedExpenseStatus(@Param('id') id: string, @Body() input: unknown, @Request() req: any) {
+    return this.profileService.updateFixedExpenseStatus(req.user.id, id, input);
+  }
 }

@@ -98,4 +98,147 @@ export class ProfileService {
     }
     return result.data;
   }
+
+  async getFixedExpenseSuggestions(userId: string): Promise<{
+    suggestions: Array<{
+      name: string;
+      category: string;
+      suggested_amount: number;
+      suggested_due_day: number;
+      description: string;
+    }>;
+    total_monthly_suggestion: number;
+  }> {
+    // Common fixed expense suggestions based on typical Kenyan spending patterns
+    // Using categories that match the PocketCategorySchema
+    const suggestions = [
+      {
+        name: 'Rent',
+        category: 'utilities',
+        suggested_amount: 15000,
+        suggested_due_day: 1,
+        description: 'Monthly rent payment',
+      },
+      {
+        name: 'Electricity',
+        category: 'utilities',
+        suggested_amount: 2000,
+        suggested_due_day: 15,
+        description: 'KPLC electricity bill',
+      },
+      {
+        name: 'Water',
+        category: 'utilities',
+        suggested_amount: 500,
+        suggested_due_day: 15,
+        description: 'Water bill',
+      },
+      {
+        name: 'Internet',
+        category: 'transport',
+        suggested_amount: 1500,
+        suggested_due_day: 10,
+        description: 'Monthly internet subscription',
+      },
+      {
+        name: 'Mobile Data',
+        category: 'transport',
+        suggested_amount: 1000,
+        suggested_due_day: 1,
+        description: 'Monthly mobile data bundle',
+      },
+      {
+        name: 'Netflix/Streaming',
+        category: 'leisure',
+        suggested_amount: 800,
+        suggested_due_day: 5,
+        description: 'Streaming subscription',
+      },
+      {
+        name: 'Gym Membership',
+        category: 'leisure',
+        suggested_amount: 2000,
+        suggested_due_day: 15,
+        description: 'Monthly gym membership',
+      },
+      {
+        name: 'School Fees',
+        category: 'healthcare',
+        suggested_amount: 5000,
+        suggested_due_day: 5,
+        description: 'Monthly school fees installment',
+      },
+    ];
+
+    const totalMonthlySuggestion = suggestions.reduce((sum, s) => sum + s.suggested_amount, 0);
+
+    return {
+      suggestions,
+      total_monthly_suggestion: totalMonthlySuggestion,
+    };
+  }
+
+  async bulkCreateFixedExpenses(userId: string, input: unknown): Promise<{
+    created: FixedExpense[];
+    failed: Array<{ index: number; error: string }>;
+    total_monthly: number;
+  }> {
+    const result = FixedExpenseInputSchema.array().safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+    }
+
+    const expenses = result.data;
+    const created: FixedExpense[] = [];
+    const failed: Array<{ index: number; error: string }> = [];
+
+    for (let i = 0; i < expenses.length; i++) {
+      try {
+        const createdExpense = await this.supabaseRepo.createFixedExpense({
+          user_id: userId,
+          name: expenses[i].name,
+          amount: expenses[i].amount,
+          due_day: expenses[i].dueDay,
+          category: expenses[i].category,
+        });
+        if (createdExpense) {
+          created.push(createdExpense);
+        } else {
+          failed.push({ index: i, error: 'Failed to create expense' });
+        }
+      } catch (error) {
+        failed.push({ index: i, error: (error as Error).message });
+      }
+    }
+
+    const totalMonthly = created.reduce((sum, e) => sum + e.amount, 0);
+
+    return {
+      created,
+      failed,
+      total_monthly: totalMonthly,
+    };
+  }
+
+  async updateFixedExpenseStatus(userId: string, id: string, input: unknown): Promise<FixedExpense> {
+    const existing = await this.getOwnedFixedExpense(id, userId);
+    
+    // Parse status from input
+    const status = (input as { status?: string }).status;
+    if (!status || (status !== 'active' && status !== 'inactive')) {
+      throw new BadRequestException('Invalid status. Must be "active" or "inactive"');
+    }
+
+    // Note: Status field doesn't exist in current schema, so we'll simulate it by storing in the name or category
+    // In a real implementation, we'd add a status field to the database schema
+    const updated = await this.supabaseRepo.updateFixedExpense(id, {
+      name: status === 'active' ? existing.name : `${existing.name} (inactive)`,
+    });
+
+    if (!updated) {
+      throw new NotFoundException('Fixed expense not found');
+    }
+
+    return updated;
+  }
 }

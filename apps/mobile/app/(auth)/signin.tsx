@@ -79,10 +79,15 @@ export default function SignInScreen() {
       });
     } catch (error: any) {
       console.log('sendOtp error:', JSON.stringify(error, null, 2));
-      // auth.ts turns Supabase's "signups not allowed" error into a clear
-      // "no account found" message when allowSignup: false is used here —
-      // surface it as-is rather than the generic fallback.
-      showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
+      // If user doesn't exist, redirect to signup
+      if (error?.message?.includes('No account found') || error?.message?.includes('signups not allowed')) {
+        showAlert('Account not found', 'No account found for this number. Redirecting to sign up...');
+        setTimeout(() => {
+          router.replace('/(auth)/signup');
+        }, 1500);
+      } else {
+        showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -160,7 +165,7 @@ export default function SignInScreen() {
           size="lg"
           loading={isLoading}
           onPress={handleSendCode}
-          rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >
           Send one-time code
         </Button>
