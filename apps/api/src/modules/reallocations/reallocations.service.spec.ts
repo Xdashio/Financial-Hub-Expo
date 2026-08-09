@@ -318,7 +318,7 @@ describe('ReallocationsService', () => {
       });
       repo.getPlanById.mockResolvedValue(PLAN as any);
       repo.updateReallocation.mockResolvedValue({ id: 'realloc-2', status: 'completed', discipline_cost: 5 } as any);
-      repo.getLatestDisciplineScore.mockResolvedValue({ score: 87, delta: 3 } as any);
+      repo.getLatestDisciplineScore.mockResolvedValue({ score: 100, delta: 3 } as any);
 
       await service.complete('user-123', 'realloc-2', { skipCoolingOff: true });
 
