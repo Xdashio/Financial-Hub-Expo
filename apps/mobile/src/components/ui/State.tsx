@@ -74,7 +74,7 @@ export function ErrorState({
   );
 }
 
-/** Small inline spinner for "load more" rows at the bottom of a list. */
+/** Small inline animated loader for "load more" rows at the bottom of a list. */
 export function InlineLoading() {
   const { colors } = useTheme();
   return (

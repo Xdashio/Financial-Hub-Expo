@@ -1,6 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTheme } from '@/theme/ThemeContext';
@@ -32,13 +31,6 @@ const SUGGESTIONS: readonly SuggestionItem[] = [
   { name: 'Subscriptions', icon: CreditCard, category: 'other' },
 ];
 
-const DEFAULT_FIXED: FixedExpenseItem[] = [
-  { id: '1', name: 'Rent', amount: 15000, dueDay: 5, category: 'utilities' },
-  { id: '2', name: 'Electricity', amount: 2200, dueDay: 15, category: 'utilities' },
-  { id: '3', name: 'Water', amount: 800, dueDay: 20, category: 'utilities' },
-  { id: '4', name: 'Internet', amount: 3000, dueDay: 25, category: 'utilities' },
-];
-
 function getIconComponent(name: string, category: string) {
   return getExpenseIcon(name, category);
 }
@@ -68,13 +60,6 @@ export default function FixedScreen() {
   const [editAmount, setEditAmount] = React.useState('');
   const [editDueDay, setEditDueDay] = React.useState('1');
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (fixedExpenses.length === 0) {
-      // Initialize with defaults
-      setFixedExpenses(DEFAULT_FIXED as any);
-    }
-  }, []);
 
   const totalFixed = fixedExpenses.reduce((sum: number, e: FixedExpenseItem) => sum + e.amount, 0);
   const deleteTarget = fixedExpenses.find((e: FixedExpenseItem) => e.id === deleteTargetId);
