@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PocketsService } from './pockets.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import type { RunwayService } from '../runway/runway.service';
 
 const POCKET = {
   id: 'pocket-1',
@@ -20,6 +21,7 @@ const POCKET = {
 describe('PocketsService.updateForUser', () => {
   let repository: jest.Mocked<Pick<SupabaseRepository, 'getPocketById' | 'getPlanById' | 'updatePocket'>>;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
+  let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
   let service: PocketsService;
 
   beforeEach(() => {
@@ -32,7 +34,10 @@ describe('PocketsService.updateForUser', () => {
       getCurrentScore: jest.fn(),
       applyDelta: jest.fn(),
     } as any;
-    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore);
+    runway = {
+      getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }),
+    } as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
   });
 
   it('applies whitelisted fields', async () => {
@@ -77,6 +82,7 @@ describe('PocketsService discipline-score unification', () => {
     >
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
+  let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
   let service: PocketsService;
 
   beforeEach(() => {
@@ -92,7 +98,10 @@ describe('PocketsService discipline-score unification', () => {
       getCurrentScore: jest.fn(),
       applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 95 }),
     } as any;
-    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore);
+    runway = {
+      getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }),
+    } as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
   });
 
   it('unlockPocket applies the cost through the shared DisciplineScoreService, not a local calculation', async () => {
