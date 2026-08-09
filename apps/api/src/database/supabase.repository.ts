@@ -12,11 +12,7 @@ import {
   BehaviorEvent, BehaviorEventInsert,
   DisciplineScore, DisciplineScoreInsert,
   MerchantReport, MerchantReportInsert,
-<<<<<<< Updated upstream
-  NotificationPreferences, NotificationPreferencesInsert, NotificationPreferencesUpdate,
-=======
   NotificationPreferences, NotificationPreferencesUpdate,
->>>>>>> Stashed changes
 } from '../database/database.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -519,21 +515,6 @@ export class SupabaseRepository {
 
   async upsertNotificationPreferences(
     userId: string,
-<<<<<<< Updated upstream
-    updates: NotificationPreferencesUpdate,
-    defaults: NotificationPreferencesInsert
-  ): Promise<NotificationPreferences | null> {
-    const { data, error } = await this.supabase
-      .from('notification_preferences')
-      .upsert(
-        { ...defaults, ...updates, user_id: userId, updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' }
-      )
-      .select()
-      .single();
-    if (error) throw error;
-    return data;
-=======
     updates: NotificationPreferencesUpdate
   ): Promise<NotificationPreferences | null> {
     const updatedAt = new Date().toISOString();
@@ -563,6 +544,5 @@ export class SupabaseRepository {
       .single();
     if (insertError) throw insertError;
     return inserted;
->>>>>>> Stashed changes
   }
 }
