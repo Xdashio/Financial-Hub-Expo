@@ -9,6 +9,7 @@ import {
   Calendar,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
+import { useDataSync } from '@/services/data-sync';
 import { useAuthStore } from '@/services/auth';
 import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
 
@@ -117,6 +118,18 @@ export default function HomeScreen() {
       refreshData();
     }, [refreshData])
   );
+
+  // Defense-in-depth against the focus-effect above: several money-moving
+  // flows (reallocation, income) call useDataSync's bump() the instant
+  // their request succeeds, before any navigation/focus event fires — so
+  // this refetches even if a screen transition skips past Home without a
+  // focus event (see src/services/data-sync.ts for why that can happen).
+  const dataVersion = useDataSync(s => s.version);
+  const isFirstVersion = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstVersion.current) { isFirstVersion.current = false; return; }
+    refreshData();
+  }, [dataVersion, refreshData]);
 
   const formatCurrency = (amount: number) => {
     return `KES ${amount.toLocaleString()}`;

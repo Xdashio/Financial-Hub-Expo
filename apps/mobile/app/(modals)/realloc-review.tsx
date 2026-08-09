@@ -5,6 +5,7 @@ import { ArrowRight, Clock, AlertTriangle } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore } from '@/services/home-store';
+import { useDataSync } from '@/services/data-sync';
 import { reallocationsApi } from '@/services/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, Card, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
@@ -102,6 +103,7 @@ export default function ReallocReviewScreen() {
 
       // status === 'pending' — nothing blocks it, complete immediately.
       const completed = await reallocationsApi.complete(created.id, {});
+      useDataSync.getState().bump();
       router.replace({
         pathname: '/(modals)/realloc-success',
         params: {

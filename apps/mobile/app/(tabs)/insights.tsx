@@ -5,6 +5,7 @@ import { CalendarCheck, ArrowLeftRight, Target, Timer } from 'lucide-react-nativ
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 import { LoadingState, ErrorState, InlineLoading } from '@/components/ui';
 import { StreakHeatmap } from '@/components/insights/StreakHeatmap';
 
@@ -120,6 +121,15 @@ export default function InsightsScreen() {
       load();
     }, [load])
   );
+
+  // Defense-in-depth against the focus effect above — see
+  // src/services/data-sync.ts.
+  const dataVersion = useDataSync(s => s.version);
+  const isFirstVersion = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstVersion.current) { isFirstVersion.current = false; return; }
+    load();
+  }, [dataVersion, load]);
 
   const loadMoreEvents = async () => {
     if (!hasMore || loadingMore) return;

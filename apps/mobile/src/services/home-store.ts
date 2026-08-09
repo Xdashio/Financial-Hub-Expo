@@ -129,8 +129,13 @@ export const useHomeStore = create<HomeState>()(
     rolloverAmount: 0,
     safeToSpendToday: 0,
     totalBalance: 0,
-    disciplineScore: 87,
-    scoreDelta: 3,
+    // Matches the backend's DEFAULT_DISCIPLINE_SCORE (insights.service.ts) —
+    // every user starts at 100 and loses points for things like skipping a
+    // cooling-off or unlocking savings early. The old placeholder (87/3)
+    // wasn't the real base value, and using `||` below meant a genuinely
+    // earned score of 0 would incorrectly redisplay as that placeholder.
+    disciplineScore: 100,
+    scoreDelta: 0,
     runway: { applicable: false },
     isLoading: false,
     error: null,
@@ -161,8 +166,10 @@ export const useHomeStore = create<HomeState>()(
           rolloverAmount,
           safeToSpendToday,
           totalBalance,
-          disciplineScore: insightsRes?.score || 87,
-          scoreDelta: insightsRes?.delta || 3,
+          // `??` not `||` — a real score/delta of 0 is a valid value and
+          // must not be silently replaced by the fallback.
+          disciplineScore: insightsRes?.score ?? 100,
+          scoreDelta: insightsRes?.delta ?? 0,
           runway: runwayRes || { applicable: false },
           isLoading: false,
         });

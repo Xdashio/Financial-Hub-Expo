@@ -5,6 +5,7 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { spendApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 import { ArrowLeft, ShoppingCart } from 'lucide-react-native';
 
 const CATEGORIES: { id: string; name: string }[] = [
@@ -56,6 +57,7 @@ export default function LogSpendScreen() {
       });
 
       if (result.allowed) {
+        useDataSync.getState().bump();
         await alert('Spend logged', `${result.pocket.name} now has KES ${Math.round(result.pocket.available_balance).toLocaleString()} left.`);
         router.back();
         return;
