@@ -1,16 +1,20 @@
 import { Module } from '@nestjs/common';
+import { MerchantReportController } from './merchant-report.controller';
 import { MerchantReportService } from './merchant-report.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
 
-// This module intentionally has no controller of its own. The report-merchant
-// HTTP routes (POST /merchant/report, GET /merchant/reports — see
-// API_SPECIFICATION.md §2.3) already live on MerchantController under the
-// `merchant` module. This module's job is to own MerchantReportService (now
-// backed by the real `merchant_reports` table, see BACKEND_FRONTEND_AUDIT.md
-// §C4) as a single source of truth and export it for MerchantModule to use,
-// instead of each module declaring its own duplicate provider instance.
+// This module owns the report-merchant HTTP routes (POST /merchant/report,
+// GET /merchant/reports — see API_SPECIFICATION.md §2.3), backed by the
+// real `merchant_reports` table (see BACKEND_FRONTEND_AUDIT.md §C4). It was
+// previously written but never registered in app.module.ts, and its
+// controller had drifted onto an undocumented `merchant-report` path prefix
+// while MerchantController grew a duplicate copy of the same two routes
+// under the correct `merchant` prefix. Registering this module now means
+// picking one home for these routes rather than shipping both: the
+// controller here mounts at `merchant` (matching the spec) and the
+// duplicate handlers were removed from MerchantController.
 @Module({
+  controllers: [MerchantReportController],
   providers: [MerchantReportService, SupabaseRepository],
-  exports: [MerchantReportService],
 })
 export class MerchantReportModule {}
