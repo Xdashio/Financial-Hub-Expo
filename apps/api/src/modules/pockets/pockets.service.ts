@@ -11,12 +11,24 @@ export class PocketsService {
     private readonly disciplineScore: DisciplineScoreService,
   ) {}
 
-  async getAllForUser(userId: string): Promise<Pocket[]> {
+  async getAllForUser(userId: string): Promise<(Pocket & { available_balance: number })[]> {
     const plan = await this.repository.getActivePlanByUserId(userId);
     if (!plan) {
       return [];
     }
-    return this.repository.getPocketsByPlanId(plan.id);
+    const pockets = await this.repository.getPocketsByPlanId(plan.id);
+
+    // Enrich each pocket with its ledger-derived available balance so the
+    // home screen doesn't need to call /summary per pocket. monthly_allocation
+    // is the planning ceiling; available_balance is the spendable ledger balance.
+    const enriched = await Promise.all(
+      pockets.map(async (pocket) => {
+        const summary = await this.repository.getPocketSummary(pocket.id);
+        return { ...pocket, available_balance: summary.available };
+      })
+    );
+
+    return enriched;
   }
 
   async getByIdForUser(id: string, userId: string): Promise<Pocket> {
@@ -115,10 +127,12 @@ export class PocketsService {
     await this.assertOwnership(pocket, userId);
 
     const summary = await this.repository.getPocketSummary(pocketId);
-    const available = (pocket.monthly_allocation || 0) - summary.spent;
-    const remaining = Math.max(0, available);
-    const percentage_remaining = pocket.monthly_allocation > 0 
-      ? Math.round((remaining / pocket.monthly_allocation) * 100) 
+    // Balance is purely ledger-derived: sum of allocation credits minus spend
+    // debits (and reallocation flows). monthly_allocation is the planning
+    // ceiling — used here only for the percentage display, not for the balance.
+    const remaining = summary.available;
+    const percentage_remaining = pocket.monthly_allocation > 0
+      ? Math.round((remaining / pocket.monthly_allocation) * 100)
       : 0;
 
     const now = new Date();
@@ -133,7 +147,7 @@ export class PocketsService {
     return {
       pocket,
       summary: {
-        available,
+        available: remaining,
         spent: summary.spent,
         remaining,
         percentage_remaining,
@@ -369,11 +383,9 @@ export class PocketsService {
       };
     }
 
-    // Calculate protected amount
-    const transactions = await this.repository.getTransactionsByPocketId(pocketId);
-    const spendTransactions = transactions.filter(t => t.type === 'spend');
-    const spent = spendTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const protectedAmount = (pocket.monthly_allocation || 0) - spent;
+    // Calculate protected amount from the ledger, not from monthly_allocation
+    const summary = await this.repository.getPocketSummary(pocketId);
+    const protectedAmount = summary.available;
 
     return {
       pocket_id: pocket.id,

@@ -58,7 +58,9 @@ export class ReallocationsService {
       throw new ForbiddenException('This pocket is time-locked and cannot be used as a source');
     }
 
-    if (fromPocket.monthly_allocation < parsed.amount) {
+    // Balance check against the ledger, not the planning ceiling.
+    const fromSummary = await this.repo.getPocketSummary(parsed.fromPocketId);
+    if (fromSummary.available < parsed.amount) {
       throw new BadRequestException('Insufficient balance in the source pocket');
     }
 
@@ -125,24 +127,22 @@ export class ReallocationsService {
       }
     }
 
-    // Balances may have moved since the reallocation was initiated (e.g. a
-    // fresh allocation pass) — re-check right before committing the move.
-    if (fromPocket.monthly_allocation < reallocation.amount) {
+    // Re-check balance against the ledger right before committing — balances
+    // may have changed since the reallocation was initiated (e.g. a spend
+    // event reduced the source pocket's available funds during cooling-off).
+    // monthly_allocation is the planning ceiling and is never mutated for
+    // balance movement; all money flows live in the transactions ledger only.
+    const fromSummary = await this.repo.getPocketSummary(fromPocket.id);
+    if (fromSummary.available < reallocation.amount) {
       throw new BadRequestException('Insufficient balance in the source pocket');
     }
 
     const disciplineCost = applyingSkip ? SKIP_COOLING_OFF_COST : 0;
     const completedAt = new Date().toISOString();
 
-    await Promise.all([
-      this.repo.updatePocket(fromPocket.id, {
-        monthly_allocation: fromPocket.monthly_allocation - reallocation.amount,
-      }),
-      this.repo.updatePocket(toPocket.id, {
-        monthly_allocation: toPocket.monthly_allocation + reallocation.amount,
-      }),
-    ]);
-
+    // Write ledger entries only — no mutation of monthly_allocation.
+    // reallocation_out is stored as a negative amount so the repository's
+    // ledger sum (allocated + reallocatedOut - spent) stays consistent.
     await this.repo.createTransactions([
       { pocket_id: fromPocket.id, amount: -reallocation.amount, type: 'reallocation_out' },
       { pocket_id: toPocket.id, amount: reallocation.amount, type: 'reallocation_in' },

@@ -85,7 +85,8 @@ export default function ResultScreen() {
         const API_BASE_URL = __DEV__
           ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
           : 'https://api.financialhub.app/api';
-        
+        // NOTE: this is a one-off verification fetch — for all other API
+        // calls use the shared api.ts client which reads the same env var.
         const res = await fetch(`${API_BASE_URL}/pockets`, {
           headers: { Authorization: `Bearer ${session.access_token}` },
         });

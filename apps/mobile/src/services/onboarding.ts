@@ -5,6 +5,8 @@ import {
 } from '@financial-hub/shared';
 import { supabase } from '@/config/supabase.config';
 
+// Use the same env var as api.ts and auth.ts — set EXPO_PUBLIC_API_URL in
+// .env.local to your ngrok URL for both web and native dev builds.
 const API_BASE_URL = __DEV__
   ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
   : 'https://api.financialhub.app/api';
