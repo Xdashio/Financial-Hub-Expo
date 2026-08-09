@@ -2,6 +2,8 @@
 
 Phased from empty repo → MVP showcase → embeddable product with billing. Timeframes are intentionally left as relative (not calendar dates) since this is a slow, clean build with an unfunded team — sequence matters more than deadlines here.
 
+> **2026-08-09 update:** the codebase was audited against this roadmap (see `BACKEND_FRONTEND_AUDIT.md` for full findings). Short version: Phase 0/1 progress is real but the "Phase 1 in progress" checklist below undersold how much of what looked done is actually blocked by database schema drift discovered during the audit — several backend modules that read as "built" will throw errors against a real database. A new **Phase A (Stabilize)** is inserted below, before any further Phase 1 screen-wiring work, to fix that drift and close a test-coverage gap in the most consequential business logic in the app. Do this first — building new features on top of a drifted schema means re-doing them once the schema is fixed. The old `IMPLEMENTATION_PLAN.md`, `API_IMPLEMENTATION_PLAN.md`, and `FRONTEND_UI_IMPLEMENTATION_PLAN.md` are kept for historical detail (some of their task breakdowns and code sketches are still useful reference) but are **superseded by this roadmap** as the source of truth for sequencing — they were written from a docs-level read of the repo, not a code-level audit, and their "5 real / 2 stub" backend framing undercounted the actual blockers.
+
 **Strategic context:** Financial HUB is a behavior-driven financial intelligence layer that structures income before spending, automates purpose-based allocations, protects savings, and helps individuals build long-term financial resilience across the financial institutions they already use. The roadmap reflects this positioning as infrastructure, not competition to existing financial institutions.
 
 ## Phase 0 — Foundation (current)
@@ -17,22 +19,53 @@ Phased from empty repo → MVP showcase → embeddable product with billing. Tim
   - Merchant categorization / MCC blocking UX
   - Revenue model (explicitly not agreed — do not build against it)
 
+## Phase A — Stabilize (do this before any further Phase 1 work)
+Goal: close the gap between what the code assumes and what the database actually enforces, so every module that already "works" keeps working once real data flows through it. Nothing in Phase 1 below should be picked up until this phase is done — several Phase 1 items depend on modules this phase fixes.
+
+- [ ] **Resolve the two diverged schema migrations** (`apps/api/src/database/migrations/` vs `apps/api/supabase/migrations/`) — pick one as canonical (the former; it has matching spec/test files and the auth signup trigger), delete or clearly deprecate the other, and wire up a real Supabase CLI project config so `supabase db push` can't silently apply the wrong one again
+- [ ] **Fix `merchant_classifications` schema drift** — add `user_id`, make the unique constraint `(user_id, recipient_key)` instead of a global `UNIQUE(recipient_key)`, and resolve the `pocket_id` filter used by `getMerchantScope` (no schema copy has this column — likely fix is to drop the filter and key off `pocket.kind` instead)
+- [ ] **Fix `discipline_scores` schema + onConflict drift** — needs a composite `(user_id, period)` key so per-period history can actually be stored, with the repository's `onConflict` target updated to match; this currently breaks the settled PRD §3.4 skip-cooldown feature at the DB layer
+- [ ] **Register `MerchantReportModule`** in `app.module.ts` (currently defined but never imported — the endpoints 404, not just stub) — pair with building the real `merchant_reports` table so the stub logic gets replaced at the same time
+- [ ] **Create `notification_preferences` table** and replace the notifications stub with real persistence
+- [ ] **Fix manual income entry not moving pocket balances** — decide once whether pocket balance is `monthly_allocation` (static, income tops it up) or fully ledger-derived (sum of all transaction types including `allocation`), and make every balance read consistent with that choice
+- [ ] **Write real tests for `OnboardingService`** — the current `.spec.ts` file is an accidental duplicate of the implementation, not tests; this is the most consequential single piece of business logic in the app and currently has zero coverage
+- [ ] **Unify the two disconnected discipline-score mechanisms** — `PocketsService.calculateDisciplineScore()` (derived locally from `behavior_events`, used only for time-lock unlock/extend) and the `discipline_scores` table (written by `ReallocationsService`, read by `InsightsService`) currently disagree with each other; pick one source of truth
+- [ ] **Fix the `fixed_expenses` status-update hack** — currently appends `" (inactive)"` to the expense `name` field instead of using a real `status` column, which corrupts user-entered data; add the column properly
+- [ ] Remove dead `transactionsApi.create()` client code in the mobile app (points at a `/transactions` endpoint that doesn't exist and is currently unused) — or build the endpoint if it turns out to be needed once ledger-vs-ceiling (above) is decided
+
+**Exit criteria:** `npx jest` passes (already true, but now meaningfully — real `OnboardingService` tests included), and every module marked "✅ Real" in `BACKEND_FRONTEND_AUDIT.md` has been exercised against an actual local Supabase/Postgres instance running the canonical migration, not just against mocked repository tests. Full detail on every item above is in `BACKEND_FRONTEND_AUDIT.md`'s "Critical: Schema Drift & Runtime-Breaking Bugs" section.
+
 ## Phase 1 — MVP showcase (Individual segment only)
 Goal: a clickable, real (not fake-static) app that demonstrates the core thesis to potential SACCO/bank partners.
 
-- [ ] Auth (basic — Supabase/Clerk)
-- [ ] Onboarding flow wired to real state (not just mockup) — income, spending habits, fixed expenses (mocked detection is fine)
-- [ ] Rules-engine plan assignment (deterministic, inspectable — powers the "why this plan" screen honestly)
-- [ ] Daily Budget mode design decision made and implemented (global vs per-pocket — see PRD §7 open item)
-- [ ] Home (both Daily and Structured variants) wired to real pocket data
-- [ ] Pocket detail + manual income entry
-- [ ] Merchant categorization / MCC-style spend restriction, with a clean, non-punitive UX for classification prompts and blocks
-- [ ] Reallocation flow end-to-end, including recent-count warning logic, cooling-off timer (once designed), and biometric confirm
-- [ ] Insights screen wired to real behavioral event log
-- [ ] Profile + basic settings
+- [x] Auth (Supabase, phone-OTP based per the settled `auth-otp.html` mockup) — real, guard applied consistently across controllers
+- [x] Onboarding flow wired to real state — income, spending habits, fixed expenses; rules-engine plan assignment is deterministic and inspectable, matches PRD; **only remaining gap is Phase A's test-coverage item**
+- [x] Daily Budget mode — implemented as per-pocket daily caps with a rollup hero, matching the settled PRD §8 decision
+- [x] Home (both Daily and Structured variants) — wired to real pocket data via `pocketsApi`
+- [ ] Pocket detail — **backend summary/merchant-scope endpoints exist but merchant-scope is blocked on Phase A's C2 fix; screen itself is still mock data, not yet wired**
+- [ ] Manual income entry screen — **no backend module gap (income API is real), but needs Phase A's C5 fix before the numbers it shows would be trustworthy, and the screen isn't built yet**
+- [ ] Merchant categorization / MCC-style spend restriction — **blocked on Phase A (C2); screen (`classify.tsx`) is mock, spend-check API itself is solid**
+- [x] Reallocation flow — pick/review/cooldown/success screens wired to a real API; **skip-cooldown discipline-cost path is blocked on Phase A's C3 fix**
+- [x] Insights screen — wired to real behavioral event log and discipline score; **will show inconsistent numbers vs. the time-lock screen until Phase A's discipline-score unification lands**
+- [x] Profile + fixed expenses — plan/profile CRUD is real and wired; **fixed-expenses screen itself (`fixed-expenses.tsx`) is still mock despite the backend being ready — pure frontend-wiring task, no backend blocker**
+- [ ] Notifications settings — blocked on Phase A (needs the new table + real service)
+- [ ] Report merchant — blocked on Phase A (needs the module registered + new table)
+- [ ] Time-lock screen — backend is solid and ready; screen itself (`time-lock.tsx`) is still mock, pure frontend-wiring task
+- [ ] Blocked-spend screen — backend is solid and ready; screen itself is still mock, pure frontend-wiring task
 - [ ] One cohesive demo script/dataset (e.g. two seeded users — one Daily, one Structured — so the adaptive-shell story is demoable live)
 
 **Exit criteria:** you can hand a phone to a partner, walk through onboarding → plan → a week of simulated activity → a reallocation → insights, and every number on screen is real, not hardcoded.
+
+### Phase 1 sequencing (screens ready to wire the moment Phase A lands)
+Once Phase A is done, these are pure frontend-wiring tasks with no backend blocker — safe to parallelize across however many people are available, roughly in this order (dependency-free ones first):
+1. Fixed expenses screen (`fixed-expenses.tsx`) — backend already solid today, doesn't even need to wait for Phase A
+2. Time-lock screen (`time-lock.tsx`) — backend already solid today, doesn't even need to wait for Phase A
+3. Blocked-spend screen (`blocked-spend.tsx`) — backend already solid today, doesn't even need to wait for Phase A
+4. Pocket detail screen — needs Phase A's C2 (merchant scope) fix first
+5. Merchant classification screen (`classify.tsx`) — needs Phase A's C2 fix first
+6. Notifications screen — needs Phase A's new table + real service
+7. Report-merchant screen — needs Phase A's module registration + new table
+8. Manual income entry screen (new build, no mockup-to-screen gap listed above but referenced in PRD §3.8/§3.1) — needs Phase A's C5 fix first so the numbers are trustworthy
 
 ## Phase 2 — Depth on Individual segment
 - [ ] Freelancer income pattern support (irregular income handling, not just salaried)

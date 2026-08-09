@@ -1,6 +1,8 @@
 # Financial Hub - Frontend UI Implementation Plan
 
-## Overview
+> **⚠️ Superseded 2026-08-09, and its central premise is wrong.** This plan's Phase 1 ("Create API Service Infrastructure") assumes no API service layer exists yet. It already does: `apps/mobile/src/services/api.ts`, `auth.ts`, `home-store.ts`, and `onboarding-store.ts` are real, working, and already used by 9+ screens (auth, onboarding, home, reallocation, insights, profile). Only 7 screens remain mock (`detail.tsx`, `classify.tsx`, `blocked-spend.tsx`, `report.tsx`, `time-lock.tsx`, `notifications.tsx`, `fixed-expenses.tsx`) and they need small additions to the *existing* `api.ts` file, not a new infrastructure layer. **Use `ROADMAP.md`'s "Phase 1 sequencing" section for the current, per-screen task list, and `BACKEND_FRONTEND_AUDIT.md` for which screens are backend-ready today vs. blocked on Phase A.** This file's client-code sketches (HTTP client shape, types) are reasonable reference but describe rebuilding something that already exists — don't start Phase 1 as written below.
+
+## Overview (original — see banner above before acting on this)
 
 This plan outlines the steps to make all frontend screens fully functional by connecting them to real backend APIs, removing mock data, and implementing proper error handling and loading states.
 
