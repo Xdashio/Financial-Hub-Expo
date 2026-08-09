@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS public.plans (
 );
 
 -- Ensure only one active plan per user via unique constraint
-CREATE UNIQUE INDEX one_active_plan_per_user ON public.plans(user_id) WHERE status = 'active';
+CREATE UNIQUE INDEX IF NOT EXISTS one_active_plan_per_user ON public.plans(user_id) WHERE status = 'active';
 
 -- ============================================================================
 -- Pockets Table (per plan)
@@ -95,6 +95,14 @@ CREATE TABLE IF NOT EXISTS public.income_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Belt-and-braces: CREATE TABLE IF NOT EXISTS above is a no-op against a
+-- database that already has this table from an older run of this file, so
+-- it can't fix a stale NOT NULL constraint on `label` by itself. This ALTER
+-- is idempotent (safe to run repeatedly, including on a freshly-created
+-- table) and guarantees a full re-run always converges the live schema to
+-- match this file, even for projects migrated before this fix existed.
+ALTER TABLE public.income_events ALTER COLUMN label DROP NOT NULL;
+
 -- ============================================================================
 -- Transactions Table (ledger)
 -- ============================================================================
@@ -148,6 +156,41 @@ CREATE TABLE IF NOT EXISTS public.merchant_classifications (
   CONSTRAINT unique_user_recipient UNIQUE (user_id, recipient_key)
 );
 
+-- Belt-and-braces (see the income_events ALTER above for why): a database
+-- migrated before this fix existed has this table without `user_id` at all
+-- (an early version scoped classifications globally by `recipient_key`
+-- alone). CREATE TABLE IF NOT EXISTS can't add a missing column to an
+-- existing table, so do it explicitly. Every read/write in
+-- supabase.repository.ts filters on `user_id` (see
+-- getMerchantClassificationsByUserId), so its absence throws "column
+-- user_id does not exist" — the exact 500 behind GET /pockets/:id/merchant-scope
+-- on a database that predates this column.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'merchant_classifications' AND column_name = 'user_id'
+  ) THEN
+    ALTER TABLE public.merchant_classifications ADD COLUMN user_id UUID REFERENCES public.users(id) ON DELETE CASCADE;
+  END IF;
+
+  -- The pre-user_id version of this table had a single global
+  -- UNIQUE(recipient_key) constraint. Replace it with the per-user version
+  -- so two different users classifying the same till/paybill number don't
+  -- collide with (or overwrite) each other's records.
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_recipient' AND conrelid = 'public.merchant_classifications'::regclass
+  ) THEN
+    ALTER TABLE public.merchant_classifications DROP CONSTRAINT unique_recipient;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_user_recipient' AND conrelid = 'public.merchant_classifications'::regclass
+  ) THEN
+    ALTER TABLE public.merchant_classifications ADD CONSTRAINT unique_user_recipient UNIQUE (user_id, recipient_key);
+  END IF;
+END $$;
+
 -- ============================================================================
 -- Behavior Events Table (per-user event log)
 -- ============================================================================
@@ -174,6 +217,46 @@ CREATE TABLE IF NOT EXISTS public.discipline_scores (
   -- upsert that targeted (user_id, period) — see BACKEND_FRONTEND_AUDIT.md).
   CONSTRAINT unique_user_period UNIQUE (user_id, period)
 );
+
+-- Belt-and-braces: a database migrated before this fix existed has this
+-- table shaped as `user_id UUID PRIMARY KEY` alone (no separate `id`
+-- column), which can hold only one row per user, ever. ReallocationsService
+-- and DisciplineScoreService both upsert with
+-- `onConflict: 'user_id,period'` (see supabase.repository.ts
+-- upsertDisciplineScore), which has no matching constraint on that shape —
+-- Postgres error 42P10, surfacing as a 500 on anything that touches
+-- discipline score (e.g. POST /pockets/:id/unlock). CREATE TABLE IF NOT
+-- EXISTS is a no-op here since the table already exists, so fix the shape
+-- explicitly.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'discipline_scores' AND column_name = 'id'
+  ) THEN
+    ALTER TABLE public.discipline_scores ADD COLUMN id UUID DEFAULT uuid_generate_v4();
+
+    -- Drop whatever the old `user_id UUID PRIMARY KEY` constraint was
+    -- named (Postgres's default naming for an inline column-level PK is
+    -- `<table>_pkey`) before user_id can be reused as a plain FK column
+    -- with repeat values across periods.
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint WHERE conname = 'discipline_scores_pkey' AND conrelid = 'public.discipline_scores'::regclass
+    ) THEN
+      ALTER TABLE public.discipline_scores DROP CONSTRAINT discipline_scores_pkey;
+    END IF;
+
+    UPDATE public.discipline_scores SET id = uuid_generate_v4() WHERE id IS NULL;
+    ALTER TABLE public.discipline_scores ALTER COLUMN id SET NOT NULL;
+    ALTER TABLE public.discipline_scores ADD PRIMARY KEY (id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'unique_user_period' AND conrelid = 'public.discipline_scores'::regclass
+  ) THEN
+    ALTER TABLE public.discipline_scores ADD CONSTRAINT unique_user_period UNIQUE (user_id, period);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- Notification Preferences Table (per user)

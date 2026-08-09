@@ -63,6 +63,7 @@ export class IncomeService {
         pocket_name: string;
         amount: number;
         percentage: number;
+        is_minimum?: boolean;
       }>;
       total_allocated: number;
       unallocated: number;
@@ -109,15 +110,24 @@ export class IncomeService {
       // reallocation outflows), so writing these rows is the only step
       // needed to make the funds appear in each pocket. monthly_allocation
       // is the planning ceiling set at onboarding and is never mutated.
-      const transactions: TransactionInsert[] = allocations.map(alloc => ({
-        pocket_id: alloc.pocket_id,
-        amount: alloc.amount,
-        type: 'allocation' as const,
-        merchant: null,
-        category: null,
-      }));
+      //
+      // Guard against calling insert() with an empty array: this happens
+      // whenever every pocket's monthly_allocation is 0 (proportional split
+      // has nothing to divide by), and PostgREST/supabase-js reject a
+      // zero-row insert payload, which surfaced to the client as an opaque
+      // 500 on POST /income/manual instead of the income event still being
+      // recorded.
+      if (allocations.length > 0) {
+        const transactions: TransactionInsert[] = allocations.map(alloc => ({
+          pocket_id: alloc.pocket_id,
+          amount: alloc.amount,
+          type: 'allocation' as const,
+          merchant: null,
+          category: null,
+        }));
 
-      await this.repository.createTransactions(transactions);
+        await this.repository.createTransactions(transactions);
+      }
 
       allocation = {
         triggered: true,
@@ -126,6 +136,7 @@ export class IncomeService {
           pocket_name: alloc.pocket_name,
           amount: alloc.amount,
           percentage: alloc.percentage,
+          is_minimum: alloc.is_minimum,
         })),
         total_allocated: allocations.reduce((sum, a) => sum + a.amount, 0),
         unallocated: dto.amount - allocations.reduce((sum, a) => sum + a.amount, 0),

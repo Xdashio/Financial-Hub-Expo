@@ -18,10 +18,30 @@ async function bootstrap() {
   const isProduction = process.env.NODE_ENV === 'production';
 
   app.setGlobalPrefix('api');
+
+  const staticOrigins = corsOrigins();
+
   app.enableCors({
-    origin: corsOrigins(),
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+
+      // Always allow statically configured origins
+      if (staticOrigins.includes(origin)) return callback(null, true);
+
+      // In development, also allow any localhost port and ngrok tunnels
+      if (!isProduction) {
+        const isLocalhost = /^https?:\/\/localhost(:\d+)?$/.test(origin);
+        const isNgrok = /^https:\/\/[a-zA-Z0-9\-]+\.ngrok(-free)?\.app$/.test(origin) ||
+                        /^https:\/\/[a-zA-Z0-9\-]+\.ngrok\.io$/.test(origin) ||
+                        /^https:\/\/[a-zA-Z0-9\-]+\.ngrok-free\.dev$/.test(origin);
+        if (isLocalhost || isNgrok) return callback(null, true);
+      }
+
+      callback(new Error(`CORS: origin "${origin}" not allowed`), false);
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'ngrok-skip-browser-warning'],
     credentials: true,
   });
 

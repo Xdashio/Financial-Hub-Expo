@@ -88,7 +88,7 @@ export default function ResultScreen() {
         // NOTE: this is a one-off verification fetch — for all other API
         // calls use the shared api.ts client which reads the same env var.
         const res = await fetch(`${API_BASE_URL}/pockets`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
+          headers: { Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': 'true' },
         });
         
         if (res.ok) {

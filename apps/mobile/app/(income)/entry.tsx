@@ -5,7 +5,6 @@ import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { incomeApi } from '@/services/api';
-import { useHomeStore } from '@/services/home-store';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react-native';
 
 type Source = 'client_payment' | 'cash' | 'other';
@@ -28,7 +27,6 @@ export default function IncomeEntryScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { alert, modal } = useAlertModal();
-  const refreshData = useHomeStore((s) => s.refreshData);
 
   const [amount, setAmount] = useState('');
   const [source, setSource] = useState<Source>('client_payment');
@@ -89,7 +87,7 @@ export default function IncomeEntryScreen() {
 
     try {
       setIsSubmitting(true);
-      await incomeApi.createManual({
+      const result = await incomeApi.createManual({
         amount: numericAmount,
         source,
         label: label || undefined,
@@ -97,11 +95,16 @@ export default function IncomeEntryScreen() {
         run_allocation: runAllocation,
       });
 
-      await refreshData();
-      await alert('Income added', runAllocation
-        ? 'Split into your pockets using your plan\u2019s rules.'
-        : 'Logged without allocating — you can allocate it later.');
-      router.replace('/(tabs)');
+      router.replace({
+        pathname: '/(income)/success',
+        params: {
+          amount: String(numericAmount),
+          triggered: String(result.allocation.triggered),
+          allocations: JSON.stringify(result.allocation.allocations),
+          totalAllocated: String(result.allocation.total_allocated),
+          unallocated: String(result.allocation.unallocated),
+        },
+      });
     } catch (error: any) {
       alert('Couldn\u2019t add income', error?.message || 'Please try again.');
     } finally {
