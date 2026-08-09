@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Image, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import {
@@ -103,6 +103,20 @@ export default function HomeScreen() {
   React.useEffect(() => {
     fetchHomeData();
   }, []);
+
+  // Home stays mounted across tab switches (Expo Router tabs don't unmount),
+  // so without this, balances go stale after logging a spend, income, or
+  // reallocation on another screen and navigating back — the ledger updates
+  // server-side immediately, but this screen keeps showing pre-change
+  // numbers until the app is fully reloaded. Mirrors the same pattern
+  // already used on the pocket detail screen.
+  const isFirstFocus = React.useRef(true);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isFirstFocus.current) { isFirstFocus.current = false; return; }
+      refreshData();
+    }, [refreshData])
+  );
 
   const formatCurrency = (amount: number) => {
     return `KES ${amount.toLocaleString()}`;
@@ -292,11 +306,11 @@ export default function HomeScreen() {
           <>
             <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
-            {dailyPockets.map((pocket, i) => {
+            {dailyPockets.map((pocket) => {
               const PocketIcon = getPocketIcon(pocket.category, 'spendable');
               return (
                 <TouchableOpacity
-                  key={i}
+                  key={pocket.id}
                   style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
@@ -333,13 +347,13 @@ export default function HomeScreen() {
           <>
             <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
-            {structuredSpendablePockets.map((pocket, i) => {
+            {structuredSpendablePockets.map((pocket) => {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
               return (
                 <TouchableOpacity
-                  key={i}
+                  key={pocket.id}
                   style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
@@ -379,13 +393,13 @@ export default function HomeScreen() {
           <>
             <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Fixed & Protected</Text>
 
-            {fixedPockets.map((pocket, i) => {
+            {fixedPockets.map((pocket) => {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
               return (
                 <TouchableOpacity
-                  key={i}
+                  key={pocket.id}
                   style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}

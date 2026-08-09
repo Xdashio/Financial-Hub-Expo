@@ -62,7 +62,7 @@ export default function LogSpendScreen() {
       }
 
       if (result.block_reason === 'unclassified_merchant') {
-        router.replace({
+        router.push({
           pathname: '/(classification)/classify',
           params: { recipientKey: merchant, amount: String(numericAmount) },
         });
@@ -70,7 +70,7 @@ export default function LogSpendScreen() {
       }
 
       if (result.block_reason === 'blocked_category') {
-        router.replace({
+        router.push({
           pathname: '/(blocked)/blocked-spend',
           params: {
             pocketId,

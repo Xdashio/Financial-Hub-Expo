@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, Pressable, Modal } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme, ThemeMode } from '@/theme/ThemeContext';
 import {
@@ -64,6 +64,30 @@ export default function ProfileScreen() {
       isMounted = false;
     };
   }, []);
+
+  // Editing fixed expenses or retaking the check-in happens on screens pushed
+  // on top of this tab; without refetching on focus, coming back here kept
+  // showing the pre-edit plan type and fixed-expense count until a full app
+  // reload. Same stale-tab pattern already fixed on Home and already
+  // avoided on Insights.
+  const isFirstFocus = React.useRef(true);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isFirstFocus.current) { isFirstFocus.current = false; return; }
+      let isMounted = true;
+      Promise.all([
+        profileApi.getPlan().catch(() => null),
+        profileApi.getFixedExpenses().catch(() => []),
+      ]).then(([planRes, expensesRes]) => {
+        if (!isMounted) return;
+        setPlan(planRes);
+        setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
+      });
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
 
   const planLabel = plan?.type === 'daily' ? 'Daily Budget' : 'Structured Salaried';
 
