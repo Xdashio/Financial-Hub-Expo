@@ -17,6 +17,13 @@ export class PocketsController {
     return this.pocketsService.getAllForUser(req.user.id);
   }
 
+  @Get('runway')
+  @ApiOperation({ summary: "Get the current user's freelancer runway summary (days until next expected payment)" })
+  @ApiResponse({ status: 200, description: 'Runway summary; { applicable: false } for salaried/mix or structured plans' })
+  getRunway(@Request() req: any) {
+    return this.pocketsService.getRunwaySummaryForUser(req.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single pocket by id' })
   @ApiResponse({ status: 200, description: 'The pocket' })

@@ -7,6 +7,9 @@ export declare const PocketCategorySchema: z.ZodEnum<["food", "transport", "leis
 export type PocketCategory = z.infer<typeof PocketCategorySchema>;
 export declare const IncomePatternSchema: z.ZodEnum<["salaried", "freelancer", "mix"]>;
 export type IncomePattern = z.infer<typeof IncomePatternSchema>;
+export declare const IncomeIntervalBandSchema: z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>;
+export type IncomeIntervalBand = z.infer<typeof IncomeIntervalBandSchema>;
+export declare const IncomeIntervalDaysByBand: Record<IncomeIntervalBand, number>;
 export declare const SpendingHabitSchema: z.ZodEnum<["tracker", "week3", "off_guard"]>;
 export type SpendingHabit = z.infer<typeof SpendingHabitSchema>;
 export declare const PlanNameSchema: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
@@ -60,6 +63,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         dueDay: number;
         category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
     }>, "many">>;
+    incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
 }, "strip", z.ZodTypeAny, {
     incomePattern: "salaried" | "freelancer" | "mix";
     spendingHabit: "tracker" | "week3" | "off_guard";
@@ -72,6 +76,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         dueDay: number;
         category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
     }[] | undefined;
+    incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
     spendingHabit: "tracker" | "week3" | "off_guard";
@@ -84,6 +89,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         dueDay: number;
         category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
     }[] | undefined;
+    incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
 }>;
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
@@ -184,6 +190,26 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
     }[];
 }>;
 export type OnboardingCommitResult = z.infer<typeof OnboardingCommitResultSchema>;
+export declare const RunwaySummarySchema: z.ZodObject<{
+    applicable: z.ZodBoolean;
+    runwayDays: z.ZodOptional<z.ZodNumber>;
+    expectedIntervalDays: z.ZodOptional<z.ZodNumber>;
+    daysSinceLastIncome: z.ZodOptional<z.ZodNumber>;
+    confidence: z.ZodOptional<z.ZodEnum<["estimate", "historical"]>>;
+}, "strip", z.ZodTypeAny, {
+    applicable: boolean;
+    runwayDays?: number | undefined;
+    expectedIntervalDays?: number | undefined;
+    daysSinceLastIncome?: number | undefined;
+    confidence?: "estimate" | "historical" | undefined;
+}, {
+    applicable: boolean;
+    runwayDays?: number | undefined;
+    expectedIntervalDays?: number | undefined;
+    daysSinceLastIncome?: number | undefined;
+    confidence?: "estimate" | "historical" | undefined;
+}>;
+export type RunwaySummary = z.infer<typeof RunwaySummarySchema>;
 export declare const UserSchema: z.ZodObject<{
     id: z.ZodString;
     email: z.ZodOptional<z.ZodNullable<z.ZodString>>;
@@ -209,6 +235,7 @@ export declare const PlanSchema: z.ZodObject<{
     userId: z.ZodString;
     type: z.ZodEnum<["structured", "daily"]>;
     incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+    incomeIntervalDays: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     status: z.ZodEnum<["active", "inactive", "reassigned"]>;
     createdAt: z.ZodString;
     reassignedAt: z.ZodOptional<z.ZodString>;
@@ -219,6 +246,7 @@ export declare const PlanSchema: z.ZodObject<{
     id: string;
     createdAt: string;
     userId: string;
+    incomeIntervalDays?: number | null | undefined;
     reassignedAt?: string | undefined;
 }, {
     type: "structured" | "daily";
@@ -227,6 +255,7 @@ export declare const PlanSchema: z.ZodObject<{
     id: string;
     createdAt: string;
     userId: string;
+    incomeIntervalDays?: number | null | undefined;
     reassignedAt?: string | undefined;
 }>;
 export type Plan = z.infer<typeof PlanSchema>;
@@ -517,6 +546,7 @@ export declare const schemas: {
             dueDay: number;
             category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
         }>, "many">>;
+        incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
     }, "strip", z.ZodTypeAny, {
         incomePattern: "salaried" | "freelancer" | "mix";
         spendingHabit: "tracker" | "week3" | "off_guard";
@@ -529,6 +559,7 @@ export declare const schemas: {
             dueDay: number;
             category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
         }[] | undefined;
+        incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
         spendingHabit: "tracker" | "week3" | "off_guard";
@@ -541,6 +572,7 @@ export declare const schemas: {
             dueDay: number;
             category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
         }[] | undefined;
+        incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
     }>;
     PlanAssignReason: z.ZodObject<{
         rule: z.ZodString;
@@ -661,6 +693,7 @@ export declare const schemas: {
         userId: z.ZodString;
         type: z.ZodEnum<["structured", "daily"]>;
         incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+        incomeIntervalDays: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         status: z.ZodEnum<["active", "inactive", "reassigned"]>;
         createdAt: z.ZodString;
         reassignedAt: z.ZodOptional<z.ZodString>;
@@ -671,6 +704,7 @@ export declare const schemas: {
         id: string;
         createdAt: string;
         userId: string;
+        incomeIntervalDays?: number | null | undefined;
         reassignedAt?: string | undefined;
     }, {
         type: "structured" | "daily";
@@ -679,6 +713,7 @@ export declare const schemas: {
         id: string;
         createdAt: string;
         userId: string;
+        incomeIntervalDays?: number | null | undefined;
         reassignedAt?: string | undefined;
     }>;
     Pocket: z.ZodObject<{

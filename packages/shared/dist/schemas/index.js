@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -18,6 +18,19 @@ exports.PocketCategorySchema = zod_1.z.enum([
     'other',
 ]);
 exports.IncomePatternSchema = zod_1.z.enum(['salaried', 'freelancer', 'mix']);
+// Freelancer-only, self-reported estimate of how far apart payments usually
+// land. Deliberately banded rather than an exact day count — freelancers
+// rarely know "23 days" but can usually say "about every 2 weeks". Mapped to
+// a day count in IncomeIntervalDaysByBand for use by the rules engine and
+// RunwayService. 'irregular' has no reliable estimate at all and falls back
+// to the same default as 'monthly' until real income history exists.
+exports.IncomeIntervalBandSchema = zod_1.z.enum(['weekly', 'biweekly', 'monthly', 'irregular']);
+exports.IncomeIntervalDaysByBand = {
+    weekly: 7,
+    biweekly: 14,
+    monthly: 30,
+    irregular: 30,
+};
 exports.SpendingHabitSchema = zod_1.z.enum(['tracker', 'week3', 'off_guard']);
 exports.PlanNameSchema = zod_1.z.enum([
     'Salaried — Structured',
@@ -75,6 +88,10 @@ exports.OnboardingInputSchema = zod_1.z.object({
     fixedTotal: zod_1.z.number().nonnegative(),
     sourceCount: zod_1.z.number().int().positive(),
     fixedExpenses: zod_1.z.array(exports.FixedExpenseInputSchema).optional(),
+    // Required (validated in validateOnboardingInput, not here, so the error
+    // message can be freelancer-specific) when incomePattern is 'freelancer'.
+    // Ignored for 'salaried'/'mix'.
+    incomeIntervalBand: exports.IncomeIntervalBandSchema.optional(),
 });
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
@@ -101,6 +118,21 @@ exports.OnboardingCommitResultSchema = zod_1.z.object({
     })),
 });
 // ============================================================================
+// Runway (freelancer adaptive daily budget) — see docs/FREELANCER_RUNWAY.md
+// ============================================================================
+exports.RunwaySummarySchema = zod_1.z.object({
+    // False for salaried/mix or structured plans — runway only applies to
+    // freelancer + daily plans. Callers should not render a runway UI when
+    // this is false.
+    applicable: zod_1.z.boolean(),
+    runwayDays: zod_1.z.number().nonnegative().optional(),
+    expectedIntervalDays: zod_1.z.number().positive().optional(),
+    daysSinceLastIncome: zod_1.z.number().nonnegative().optional(),
+    // 'estimate' = derived from the onboarding band, no income history yet.
+    // 'historical' = derived from actual income_events gaps (>= 2 events).
+    confidence: zod_1.z.enum(['estimate', 'historical']).optional(),
+});
+// ============================================================================
 // Core Domain Schemas - Pack 1 Specification
 // ============================================================================
 exports.UserSchema = zod_1.z.object({
@@ -115,6 +147,10 @@ exports.PlanSchema = zod_1.z.object({
     userId: zod_1.z.string().uuid(),
     type: exports.PlanTypeSchema, // 'structured' | 'daily'
     incomePattern: exports.IncomePatternSchema, // 'salaried' | 'freelancer'
+    // Freelancer-only. The onboarding band's day-count estimate, persisted so
+    // RunwayService has a fallback before enough income_events history exists.
+    // Null for salaried/mix plans.
+    incomeIntervalDays: zod_1.z.number().int().positive().nullable().optional(),
     status: exports.PlanStatusSchema, // 'active' | 'inactive' | 'reassigned'
     createdAt: zod_1.z.string().datetime(),
     reassignedAt: zod_1.z.string().datetime().optional(),

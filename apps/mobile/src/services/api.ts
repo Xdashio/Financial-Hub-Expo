@@ -55,6 +55,7 @@ import {
   OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
+  RunwaySummary,
 } from '@financial-hub/shared';
 
 export const onboardingApi = {
@@ -67,6 +68,9 @@ export const onboardingApi = {
 
 export const pocketsApi = {
   getAll: () => api.get<any[]>('/pockets'),
+  // { applicable: false } for salaried/mix/structured plans. See
+  // docs/FREELANCER_RUNWAY.md.
+  getRunway: () => api.get<RunwaySummary>('/pockets/runway'),
   getById: (id: string) => api.get<any>(`/pockets/${id}`),
   update: (id: string, data: any) => api.put<any>(`/pockets/${id}`, data),
   getSummary: (id: string) => api.get<any>(`/pockets/${id}/summary`),
