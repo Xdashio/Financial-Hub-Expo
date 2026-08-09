@@ -388,6 +388,7 @@ export interface MerchantReport {
   reviewed_at: string | null;
 }
 
+
 export interface MerchantReportInsert {
   id?: string;
   user_id: string;
