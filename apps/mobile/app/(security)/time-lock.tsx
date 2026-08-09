@@ -3,7 +3,7 @@ import { View, Text, ScrollView, SafeAreaView, Pressable, ActivityIndicator } fr
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Card } from '@/components/ui';
+import { Card, LoadingState, ErrorState } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketsApi } from '@/services/api';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -21,34 +21,79 @@ import {
 export default function TimeLockScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { pocketId } = useLocalSearchParams<{ pocketId: string }>();
-  
+  const { pocketId: pocketIdParam } = useLocalSearchParams<{ pocketId: string }>();
+
+  const [resolvedPocketId, setResolvedPocketId] = useState<string | null>(pocketIdParam ?? null);
   const [lockStatus, setLockStatus] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [reason, setReason] = useState('');
   const { alert, confirm, modal } = useAlertModal();
 
   useEffect(() => {
-    if (pocketId) {
-      loadLockStatus();
+    // This screen can be opened two ways: from a specific pocket's "Manage
+    // time-lock" button (pocketId is passed as a param), or from Profile's
+    // "Savings time-lock" row, which links here with no pocketId at all.
+    // The latter used to leave loadLockStatus() never called — isLoading
+    // stayed true forever and the screen just spun. Now, with no pocketId,
+    // we look up the user's pockets ourselves and find the locked one.
+    if (pocketIdParam) {
+      setResolvedPocketId(pocketIdParam);
+      loadLockStatus(pocketIdParam);
+    } else {
+      resolveAndLoad();
     }
-  }, [pocketId]);
+  }, [pocketIdParam]);
 
-  const loadLockStatus = async () => {
+  const resolveAndLoad = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
+      const pockets = await pocketsApi.getAll();
+      const locked = pockets.find((p: any) => p.kind === 'savings' && p.is_time_locked);
+      if (!locked) {
+        // No time-locked savings pocket exists — this is a legitimate
+        // state, not an error, so show it rather than a spinner or a
+        // generic failure message.
+        setResolvedPocketId(null);
+        setLockStatus(null);
+        setIsLoading(false);
+        return;
+      }
+      setResolvedPocketId(locked.id);
+      await loadLockStatus(locked.id);
+    } catch (error) {
+      console.error('Error resolving locked pocket:', error);
+      setLoadError('Failed to load your time-locked savings. Please try again.');
+      setIsLoading(false);
+    }
+  };
+
+  const loadLockStatus = async (pocketId: string) => {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
       const status = await pocketsApi.getLockStatus(pocketId);
       setLockStatus(status);
     } catch (error) {
       console.error('Error loading lock status:', error);
-      alert('Error', 'Failed to load lock status. Please try again.');
+      setLoadError('Failed to load lock status. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const retry = () => {
+    if (pocketIdParam) {
+      loadLockStatus(pocketIdParam);
+    } else {
+      resolveAndLoad();
+    }
+  };
+
   const handleUnlock = async () => {
+    if (!resolvedPocketId) return;
     if (!lockStatus?.can_unlock) {
       alert('Cannot Unlock', 'This pocket is not currently locked.');
       return;
@@ -66,6 +111,7 @@ export default function TimeLockScreen() {
 
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      let biometricConfirmed = false;
       if (hasHardware && isEnrolled) {
         const bioResult = await LocalAuthentication.authenticateAsync({
           promptMessage: 'Confirm early unlock',
@@ -74,11 +120,21 @@ export default function TimeLockScreen() {
           alert('Unlock Cancelled', 'Biometric confirmation was not completed.');
           return;
         }
+        biometricConfirmed = true;
+      } else {
+        // No biometric hardware/enrollment on this device — the backend
+        // requires biometric_confirmed to unlock, so without real hardware
+        // confirmation we can't honestly claim it happened.
+        alert(
+          'Biometric Unavailable',
+          'Early unlock requires biometric confirmation, and this device has no biometrics set up.'
+        );
+        return;
       }
 
-      const result = await pocketsApi.unlock(pocketId, {
+      const result = await pocketsApi.unlock(resolvedPocketId, {
         reason,
-        biometric_confirmed: true,
+        biometric_confirmed: biometricConfirmed,
       });
 
       await alert(
@@ -94,6 +150,7 @@ export default function TimeLockScreen() {
   };
 
   const handleExtendLock = async () => {
+    if (!resolvedPocketId) return;
     const confirmed = await confirm(
       'Extend Lock Period',
       'Extending your lock will earn you discipline bonus points for better security.',
@@ -102,7 +159,7 @@ export default function TimeLockScreen() {
     if (!confirmed) return;
 
     try {
-      const result = await pocketsApi.extendLock(pocketId, {
+      const result = await pocketsApi.extendLock(resolvedPocketId, {
         additional_days: 30,
         reason: 'Building emergency fund',
       });
@@ -111,7 +168,7 @@ export default function TimeLockScreen() {
         'Lock Extended',
         `Your lock has been extended by 30 days. Discipline score: ${result.discipline_bonus.previous_score} → ${result.discipline_bonus.new_score}.`
       );
-      loadLockStatus();
+      loadLockStatus(resolvedPocketId);
     } catch (error) {
       alert('Error', 'Failed to extend lock. Please try again.');
     }
@@ -124,8 +181,41 @@ export default function TimeLockScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ ...typography.body, color: colors.sage }}>Loading lock status...</Text>
+        <LoadingState label="Loading lock status…" />
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
+          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+          <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Time-Lock Savings</Text>
+        </View>
+        <ErrorState message={loadError} onRetry={retry} />
+      </SafeAreaView>
+    );
+  }
+
+  if (!resolvedPocketId || !lockStatus) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
+          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+          <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Time-Lock Savings</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md }}>
+          <View style={{ width: 48, height: 48, borderRadius: radius.md, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
+            <Lock size={22} color={colors.gold} strokeWidth={2} />
+          </View>
+          <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center' }}>
+            You don't have a time-locked savings pocket yet.
+          </Text>
         </View>
       </SafeAreaView>
     );

@@ -6,6 +6,7 @@ export { Divider } from './Divider';
 export { ConfirmModal } from './ConfirmModal';
 export { Text } from './Text';
 export { ScreenContainer, SafeScrollView, ProgressIndicator, BrandHeader, SectionTitle } from './Layout';
+export { LoadingState, ErrorState, InlineLoading } from './State';
 export {
   useMakeStyles,
   useCreateThemedStyle,

@@ -3,7 +3,10 @@ import { View, Text, Image, ScrollView, ActivityIndicator, RefreshControl, Touch
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock, ArrowLeftRight, Plus } from 'lucide-react-native';
+import {
+  Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock,
+  ArrowLeftRight, Plus, Lightbulb, HeartPulse, GraduationCap, Wifi, Package,
+} from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
 import { Button, ScreenContainer } from '@/components/ui';
@@ -17,22 +20,38 @@ const PocketIconGroceries = ShoppingBasket;
 const PocketIconPersonal = User;
 const PocketIconTransport = Car;
 const PocketIconLock = Lock;
+const PocketIconUtilities = Lightbulb;
+const PocketIconHealthcare = HeartPulse;
+const PocketIconEducation = GraduationCap;
+const PocketIconInternet = Wifi;
+const PocketIconOther = Package;
 
 const getPocketIcon = (category?: string, kind?: string) => {
   switch (kind) {
     case 'savings':
       return PocketIconSavings;
     case 'fixed':
-      // For fixed pockets, use category to determine icon
+      // For fixed pockets, use category to determine icon — previously every
+      // category fell through to the same House icon, making the "Fixed &
+      // Protected" list look like a row of identical pockets.
       switch (category) {
         case 'housing':
         case 'rent':
           return PocketIconRent;
         case 'utilities':
         case 'bills':
-          return PocketIconRent;
+          return PocketIconUtilities;
+        case 'internet':
+        case 'mobile_data':
+          return PocketIconInternet;
+        case 'transport':
+          return PocketIconTransport;
+        case 'healthcare':
+          return PocketIconHealthcare;
+        case 'education':
+          return PocketIconEducation;
         default:
-          return PocketIconRent;
+          return PocketIconOther;
       }
     case 'spendable':
       switch (category) {
@@ -71,6 +90,14 @@ export default function HomeScreen() {
   } = useHomeStore();
 
   const user = useAuthStore(s => s.user);
+  const initials = React.useMemo(() => {
+    const name = user?.fullName?.trim();
+    if (!name) return '—';
+    const parts = name.split(/\s+/);
+    const first = parts[0]?.[0] ?? '';
+    const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
+    return (first + last).toUpperCase() || '—';
+  }, [user?.fullName]);
   React.useEffect(() => {
     fetchHomeData();
   }, []);
@@ -188,9 +215,14 @@ export default function HomeScreen() {
             />
             <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }}>Financial Hub</Text>
           </View>
-          <View style={{ width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
-            <User size={18} color={colors.gold} strokeWidth={2.5} />
-          </View>
+          <TouchableOpacity
+            onPress={() => router.push('/(tabs)/profile')}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text style={{ ...typography.heading, color: colors.gold, fontSize: 14 }}>{initials}</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ marginTop: spacing.xl }}>
@@ -257,7 +289,7 @@ export default function HomeScreen() {
             <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
             {dailyPockets.map((pocket, i) => {
-              const PocketIcon = getPocketIcon(pocket.category);
+              const PocketIcon = getPocketIcon(pocket.category, 'spendable');
               return (
                 <TouchableOpacity
                   key={i}

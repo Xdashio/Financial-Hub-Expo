@@ -503,6 +503,47 @@ export class SupabaseRepository {
     return data || [];
   }
 
+  // Paginated variant for the Insights "recent activity" list (see
+  // getBehaviorEventsByUserId above, which is kept for callers that just
+  // want the latest N events with no page metadata).
+  async getBehaviorEventsByUserIdPaginated(
+    userId: string,
+    page: number = 1,
+    limit: number = 20
+  ): Promise<{ events: BehaviorEvent[]; total: number; totalPages: number }> {
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+
+    const { data, error, count } = await this.supabase
+      .from('behavior_events')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(from, to);
+
+    if (error) throw error;
+    const total = count || 0;
+    const totalPages = Math.ceil(total / limit);
+
+    return { events: data || [], total, totalPages };
+  }
+
+  // Every behavior event for the trailing `days` window, oldest first —
+  // used to build the Insights activity heatmap (one cell per calendar
+  // day). Unlike the paginated/limited variants above this is intentionally
+  // unbounded within the window since the heatmap needs every event, not
+  // just the latest page.
+  async getBehaviorEventsSince(userId: string, sinceIso: string): Promise<BehaviorEvent[]> {
+    const { data, error } = await this.supabase
+      .from('behavior_events')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
   // Discipline Scores
   async upsertDisciplineScore(score: DisciplineScoreInsert): Promise<DisciplineScore | null> {
     const { data, error } = await this.supabase
