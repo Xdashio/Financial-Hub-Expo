@@ -69,6 +69,7 @@ export interface AuthState {
   checkBiometricAvailability: () => Promise<boolean>;
   checkHasPlan: () => Promise<void>;
   restoreSession: () => Promise<void>;
+  updateFullName: (fullName: string) => Promise<void>;
 }
 
 function generateId(): string {
@@ -347,6 +348,29 @@ export const useAuthStore = create<AuthState>()(
         const hasHardware = await LocalAuthentication.hasHardwareAsync();
         const isEnrolled = await LocalAuthentication.isEnrolledAsync();
         return hasHardware && isEnrolled;
+      },
+
+      // Name is the only editable identity field — phone is the auth
+      // identifier (verified via OTP) and can't be changed from here, and
+      // email isn't collected/shown at all. Writes straight to Supabase's
+      // own user_metadata.full_name, same field verifyOtp() reads back, so
+      // this stays the single source of truth for the display name.
+      updateFullName: async (fullName: string) => {
+        const user = get().user;
+        if (!user) return;
+
+        const trimmed = fullName.trim();
+        const { data, error } = await supabase.auth.updateUser({
+          data: { full_name: trimmed },
+        });
+        if (error) throw error;
+
+        const updatedUser: User = {
+          ...user,
+          fullName: data.user?.user_metadata?.full_name || trimmed,
+        };
+        await storeUser(updatedUser);
+        set({ user: updatedUser });
       },
 
       restoreSession: async () => {

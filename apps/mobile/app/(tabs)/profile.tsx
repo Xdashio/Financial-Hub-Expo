@@ -99,6 +99,10 @@ export default function ProfileScreen() {
     router.push('/(security)/time-lock');
   };
 
+  const handlePersonalInfoPress = () => {
+    router.push('/(profile)/personal-info');
+  };
+
   const settingsGroups: SettingsGroup[] = [
     {
       label: 'Security',
@@ -116,7 +120,7 @@ export default function ProfileScreen() {
     {
       label: 'Account',
       items: [
-        { icon: User, title: 'Personal info', desc: 'Name, email, phone number', trailing: '' },
+        { icon: User, title: 'Personal info', desc: 'Name and phone number', trailing: '', onPress: handlePersonalInfoPress },
         { icon: Bell, title: 'Notifications', desc: 'Push and in-app alerts', trailing: 'On', onPress: handleNotificationsPress },
         { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: mode.charAt(0).toUpperCase() + mode.slice(1), onPress: handleThemePress },
       ],

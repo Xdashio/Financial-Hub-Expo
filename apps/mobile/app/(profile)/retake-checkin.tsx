@@ -8,9 +8,10 @@ import { Button, Input, LoadingState, SectionTitle } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { profileApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
+import { getExpenseIcon } from '@/utils/expenseIcon';
 import {
   ArrowLeft, RefreshCw, Wallet, ListChecks, CalendarClock, Building2, TrendingUp, Clock,
-  AlertCircle, Plus, Trash2, Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard, X, Check,
+  AlertCircle, Plus, Trash2, GraduationCap, Bus, CreditCard, X, Check,
 } from 'lucide-react-native';
 import { IncomePattern, IncomeIntervalBand, SpendingHabit, OnboardingInput } from '@financial-hub/shared';
 
@@ -60,10 +61,6 @@ const SUGGESTIONS = [
   { name: 'Transport pass', icon: Bus, category: 'transport' },
   { name: 'Subscriptions', icon: CreditCard, category: 'other' },
 ];
-
-const iconMap: Record<string, React.ComponentType<any>> = {
-  Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard,
-};
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
@@ -441,7 +438,7 @@ export default function RetakeCheckinScreen() {
           {fixedExpenses.length > 0 && (
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.sm, marginTop: spacing.md, marginBottom: spacing.md }}>
               {fixedExpenses.map((expense) => {
-                const IconComponent = iconMap[expense.icon as string] || CreditCard;
+                const IconComponent = getExpenseIcon(expense.name, expense.category);
                 return (
                   <View key={expense.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
                     <TouchableOpacity

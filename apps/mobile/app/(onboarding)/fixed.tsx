@@ -8,7 +8,8 @@ import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
-import { ChevronLeft, Plus, Trash2, Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard, X } from 'lucide-react-native';
+import { ChevronLeft, Plus, Trash2, GraduationCap, Bus, CreditCard, X } from 'lucide-react-native';
+import { getExpenseIcon } from '@/utils/expenseIcon';
 
 interface SuggestionItem {
   name: string;
@@ -32,18 +33,14 @@ const SUGGESTIONS: readonly SuggestionItem[] = [
 ];
 
 const DEFAULT_FIXED: FixedExpenseItem[] = [
-  { id: '1', name: 'Rent', amount: 15000, dueDay: 5, category: 'utilities', icon: 'Home' },
-  { id: '2', name: 'Electricity', amount: 2200, dueDay: 15, category: 'utilities', icon: 'Zap' },
-  { id: '3', name: 'Water', amount: 800, dueDay: 20, category: 'utilities', icon: 'Droplets' },
-  { id: '4', name: 'Internet', amount: 3000, dueDay: 25, category: 'utilities', icon: 'Wifi' },
+  { id: '1', name: 'Rent', amount: 15000, dueDay: 5, category: 'utilities' },
+  { id: '2', name: 'Electricity', amount: 2200, dueDay: 15, category: 'utilities' },
+  { id: '3', name: 'Water', amount: 800, dueDay: 20, category: 'utilities' },
+  { id: '4', name: 'Internet', amount: 3000, dueDay: 25, category: 'utilities' },
 ];
 
-const iconMap: Record<string, React.ComponentType<any>> = {
-  Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard,
-};
-
-function getIconComponent(iconName: string) {
-  return iconMap[iconName] || CreditCard;
+function getIconComponent(name: string, category: string) {
+  return getExpenseIcon(name, category);
 }
 
 export default function FixedScreen() {
@@ -208,13 +205,6 @@ export default function FixedScreen() {
   }
 };
 
-  const getIconComponent = (iconName: string) => {
-    const icons: Record<string, React.ComponentType<any>> = {
-      Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard,
-    };
-    return icons[iconName] || CreditCard;
-  };
-
   return (
     <ScreenContainer>
       <SafeScrollView>
@@ -232,7 +222,7 @@ export default function FixedScreen() {
         {fixedExpenses.length > 0 && (
           <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.lg }}>
             {fixedExpenses.map((expense, index) => {
-              const IconComponent = getIconComponent(expense.icon as string || 'CreditCard');
+              const IconComponent = getIconComponent(expense.name, expense.category);
               return (
                 <View key={expense.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
                   <TouchableOpacity
