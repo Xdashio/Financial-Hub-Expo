@@ -5,6 +5,8 @@ import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { Card } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
+import { pocketsApi } from '@/services/api';
+import * as LocalAuthentication from 'expo-local-authentication';
 import {
   ArrowLeft,
   Lock,
@@ -36,28 +38,11 @@ export default function TimeLockScreen() {
   const loadLockStatus = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call
-      // const status = await pocketsApi.getLockStatus(pocketId);
-      
-      // Mock data for now
-      setLockStatus({
-        pocket_id: pocketId,
-        pocket_name: 'Savings',
-        is_locked: true,
-        lock_status: {
-          locked_until: '2026-09-21T00:00:00Z',
-          locked_at: '2026-08-07T00:00:00Z',
-          total_lock_days: 45,
-          days_remaining: 43,
-          days_elapsed: 2,
-          percentage_complete: 4.4,
-        },
-        protected_amount: 8500,
-        early_unlock_cost: 10,
-        can_unlock: true,
-      });
+      const status = await pocketsApi.getLockStatus(pocketId);
+      setLockStatus(status);
     } catch (error) {
       console.error('Error loading lock status:', error);
+      alert('Error', 'Failed to load lock status. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -71,17 +56,35 @@ export default function TimeLockScreen() {
 
     const confirmed = await confirm(
       'Early Unlock Required',
-      `Unlocking will cost ${lockStatus.early_unlock_cost} discipline points. Your score will decrease from 85 to 75.`,
+      `Unlocking will cost approximately ${lockStatus.early_unlock_cost} discipline points.`,
       { confirmLabel: 'Unlock with Biometric', destructive: true }
     );
     if (!confirmed) return;
 
     try {
       setIsUnlocking(true);
-      // TODO: Replace with actual API call and biometric confirmation
-      // await pocketsApi.unlock(pocketId, { reason, biometric_confirmed: true });
 
-      await alert('Unlocked Successfully', 'Your pocket has been unlocked early.');
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (hasHardware && isEnrolled) {
+        const bioResult = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Confirm early unlock',
+        });
+        if (!bioResult.success) {
+          alert('Unlock Cancelled', 'Biometric confirmation was not completed.');
+          return;
+        }
+      }
+
+      const result = await pocketsApi.unlock(pocketId, {
+        reason,
+        biometric_confirmed: true,
+      });
+
+      await alert(
+        'Unlocked Successfully',
+        `Your pocket has been unlocked early. Discipline score: ${result.discipline_cost.previous_score} → ${result.discipline_cost.new_score}.`
+      );
       router.back();
     } catch (error) {
       alert('Error', 'Failed to unlock pocket. Please try again.');
@@ -99,10 +102,15 @@ export default function TimeLockScreen() {
     if (!confirmed) return;
 
     try {
-      // TODO: Replace with actual API call
-      // await pocketsApi.extendLock(pocketId, { additional_days: 30, reason: 'Building emergency fund' });
+      const result = await pocketsApi.extendLock(pocketId, {
+        additional_days: 30,
+        reason: 'Building emergency fund',
+      });
 
-      alert('Lock Extended', 'Your lock has been extended by 30 days.');
+      alert(
+        'Lock Extended',
+        `Your lock has been extended by 30 days. Discipline score: ${result.discipline_bonus.previous_score} → ${result.discipline_bonus.new_score}.`
+      );
       loadLockStatus();
     } catch (error) {
       alert('Error', 'Failed to extend lock. Please try again.');

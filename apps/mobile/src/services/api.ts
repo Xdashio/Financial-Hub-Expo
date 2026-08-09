@@ -64,10 +64,24 @@ export const pocketsApi = {
   getAll: () => api.get<any[]>('/pockets'),
   getById: (id: string) => api.get<any>(`/pockets/${id}`),
   update: (id: string, data: any) => api.put<any>(`/pockets/${id}`, data),
+  getSummary: (id: string) => api.get<any>(`/pockets/${id}/summary`),
+  getMerchantScope: (id: string) => api.get<any>(`/pockets/${id}/merchant-scope`),
+  getLockStatus: (id: string) => api.get<any>(`/pockets/${id}/lock-status`),
+  unlock: (id: string, data: { reason?: string; biometric_confirmed: boolean }) =>
+    api.post<any>(`/pockets/${id}/unlock`, data),
+  extendLock: (id: string, data: { additional_days: number; reason?: string }) =>
+    api.post<any>(`/pockets/${id}/extend-lock`, data),
 };
 
 export const transactionsApi = {
   getByPocketId: (pocketId: string) => api.get<any[]>(`/pockets/${pocketId}/transactions`),
+};
+
+export const spendApi = {
+  check: (data: { pocket_id: string; amount: number; merchant?: string; category?: string }) =>
+    api.post<any>('/spend/check', data),
+  getBlockedReasons: (pocketId: string) =>
+    api.get<any>(`/spend/blocked-reasons?pocket_id=${encodeURIComponent(pocketId)}`),
 };
 
 export const reallocationsApi = {
