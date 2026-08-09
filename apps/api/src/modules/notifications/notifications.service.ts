@@ -64,11 +64,15 @@ export class NotificationsService {
     user_id: string;
     updated_at: string;
   }> {
+<<<<<<< Updated upstream
     const updated = await this.repository.upsertNotificationPreferences(
       userId,
       dto,
       { user_id: userId, ...DEFAULT_PREFERENCES }
     );
+=======
+    const updated = await this.repository.upsertNotificationPreferences(userId, dto);
+>>>>>>> Stashed changes
 
     if (!updated) {
       throw new Error('Failed to update notification preferences');

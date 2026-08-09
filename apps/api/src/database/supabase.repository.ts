@@ -12,7 +12,11 @@ import {
   BehaviorEvent, BehaviorEventInsert,
   DisciplineScore, DisciplineScoreInsert,
   MerchantReport, MerchantReportInsert,
+<<<<<<< Updated upstream
   NotificationPreferences, NotificationPreferencesInsert, NotificationPreferencesUpdate,
+=======
+  NotificationPreferences, NotificationPreferencesUpdate,
+>>>>>>> Stashed changes
 } from '../database/database.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -515,6 +519,7 @@ export class SupabaseRepository {
 
   async upsertNotificationPreferences(
     userId: string,
+<<<<<<< Updated upstream
     updates: NotificationPreferencesUpdate,
     defaults: NotificationPreferencesInsert
   ): Promise<NotificationPreferences | null> {
@@ -528,5 +533,36 @@ export class SupabaseRepository {
       .single();
     if (error) throw error;
     return data;
+=======
+    updates: NotificationPreferencesUpdate
+  ): Promise<NotificationPreferences | null> {
+    const updatedAt = new Date().toISOString();
+
+    // Try UPDATE first so fields the caller didn't touch are preserved for
+    // an existing row. The previous single-upsert call always merged a full
+    // set of defaults underneath `updates`, which meant a partial update
+    // (e.g. only toggling reallocation_confirms) silently reset every other
+    // preference back to its default value.
+    const { data: updated, error: updateError } = await this.supabase
+      .from('notification_preferences')
+      .update({ ...updates, updated_at: updatedAt })
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle();
+    if (updateError) throw updateError;
+    if (updated) return updated;
+
+    // No existing row for this user — insert one. Fields not present in
+    // `updates` fall back to the column DEFAULT declared in the schema
+    // (see 001_initial_schema.sql), so no separate defaults object needs
+    // to be threaded through from the caller.
+    const { data: inserted, error: insertError } = await this.supabase
+      .from('notification_preferences')
+      .insert({ user_id: userId, ...updates, updated_at: updatedAt })
+      .select()
+      .single();
+    if (insertError) throw insertError;
+    return inserted;
+>>>>>>> Stashed changes
   }
 }
