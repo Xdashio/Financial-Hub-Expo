@@ -3,6 +3,7 @@ import { View, Text, ScrollView, SafeAreaView, Pressable, Alert, ActivityIndicat
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
+import { Card } from '@/components/ui';
 import {
   ArrowLeft,
   Lock,

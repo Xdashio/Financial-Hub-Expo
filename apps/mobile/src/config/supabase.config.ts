@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -66,4 +66,24 @@ export const supabase: SupabaseClient = createClient(
 
 export function getSupabaseClient(): SupabaseClient {
   return supabase;
+}
+
+// Supabase's autoRefreshToken option (set above) only queues the refresh
+// timer — on native it needs to be told when the app is actually in the
+// foreground or the refresh loop doesn't reliably run/pause, which is what
+// made sessions appear to "not persist" (silently expiring while
+// backgrounded, or failing to resume cleanly on return). This is the
+// pattern Supabase's own React Native docs prescribe:
+// https://supabase.com/docs/guides/auth/quickstarts/react-native
+// Web already gets this for free from the browser's tab-visibility
+// handling, so it's skipped there. Must only be registered once per app
+// lifetime — this module only ever runs once since ES modules are cached.
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
 }

@@ -59,6 +59,7 @@ export interface AuthState {
   // True while we're checking the server for an active plan (avoids routing flicker)
   isCheckingPlan: boolean;
   sendOtp: (phone: string, options?: { fullName?: string; allowSignup?: boolean }) => Promise<void>;
+  sendSignupOtp: (phone: string, fullName: string) => Promise<void>;
   verifyOtp: (phone: string, code: string, fullName?: string) => Promise<{ user: User | null; error?: string }>;
   signOut: () => Promise<void>;
   enableBiometrics: () => Promise<void>;
@@ -184,6 +185,53 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // Dedicated entry point for the "Create account" screen's initial
+      // submit. Bug this fixes: signInWithOtp with shouldCreateUser: true
+      // NEVER errors for a phone number that's already registered — it just
+      // silently reuses the existing account and sends it an OTP. That made
+      // "sign up" with an existing number quietly log the returning user
+      // into their old account instead of telling them they already have
+      // one, and the signup screen's "already registered" catch-block could
+      // never fire because Supabase never actually throws that error here.
+      //
+      // Fix: probe first with shouldCreateUser: false (same call sign-in
+      // uses). If that succeeds, the number is already registered — refuse
+      // to continue the signup flow and surface the same "already exists"
+      // error the UI already knows how to handle (redirect to sign in). Only
+      // if the probe fails with "signups not allowed" (i.e. no account
+      // exists yet) do we go ahead and actually create the account.
+      sendSignupOtp: async (phone: string, fullName: string) => {
+        const { error: probeError } = await supabase.auth.signInWithOtp({
+          phone,
+          options: { channel: 'sms', shouldCreateUser: false },
+        });
+
+        if (!probeError) {
+          // Succeeded => an account already exists for this number (an OTP
+          // was just sent to it, same as a normal sign-in). Don't create a
+          // second identity for it — send the user to sign in instead.
+          throw new Error('An account with this number already exists. Please sign in instead.');
+        }
+
+        if (!/signups not allowed/i.test(probeError.message)) {
+          // Some other failure (rate limit, invalid number, network, etc.)
+          // — surface it as-is rather than masking it as "no account".
+          throw probeError;
+        }
+
+        // No existing account — safe to actually create one and send the
+        // real signup OTP now.
+        const { error } = await supabase.auth.signInWithOtp({
+          phone,
+          options: {
+            channel: 'sms',
+            shouldCreateUser: true,
+            ...(fullName ? { data: { full_name: fullName } } : {}),
+          },
+        });
+        if (error) throw error;
+      },
+
       verifyOtp: async (phone: string, code: string, fullName?: string) => {
         const { data, error } = await supabase.auth.verifyOtp({
           phone,
@@ -230,18 +278,47 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: async () => {
-        // Clear local state first so the UI reflects "signed out" immediately —
-        // don't make the user wait on a network round-trip to Supabase before
-        // they can navigate away. The Supabase session revocation happens in
-        // the background; if it fails (e.g. offline), the local session is
-        // already gone and the stored refresh token can no longer be used to
-        // silently resume it, so we fail safe rather than leaving the user
-        // stuck mid-sign-out.
+        // Clear our own app-level cache/state first so the UI reflects
+        // "signed out" immediately regardless of what the network call
+        // below does.
         await clearStoredUser();
         set({ user: null, isAuthenticated: false, session: null, hasPlan: false });
-        supabase.auth.signOut().catch(() => {
-          // Best-effort: local state is already cleared, nothing more to do.
-        });
+
+        // BUG THIS FIXES: this call used to be fire-and-forget
+        // (`supabase.auth.signOut().catch(() => {})`, never awaited). The
+        // comment justifying it claimed the local session was "already
+        // gone" at that point — but that's only true of *our own* `user`
+        // cache above. The actual Supabase session (access + refresh
+        // token) lives in its own separate storage and is only removed
+        // once this call completes. Supabase's signOut() is documented to
+        // skip that local removal step entirely when the network request
+        // to revoke the session fails (e.g. the device is offline, or the
+        // access token was already stale) — see supabase/auth-js#1518 and
+        // supabase/gotrue-js#141. On a fire-and-forget call, the app had
+        // already navigated to the sign-in screen and considered the user
+        // signed out while a perfectly valid session token could still be
+        // sitting in storage. If the user reopened (or the OS relaunched)
+        // the app before that promise settled — very plausible on the
+        // patchy mobile networks this app's users are likely on — the next
+        // restoreSession() call would find that still-valid session and
+        // silently sign them back in, despite having explicitly signed out.
+        //
+        // scope: 'local' only revokes *this device's* session. The default
+        // ('global') revokes every session the user has on every device —
+        // surprising behaviour for a single "Sign out" button that most
+        // users signed in on multiple devices wouldn't expect.
+        try {
+          await supabase.auth.signOut({ scope: 'local' });
+        } catch (err) {
+          // Local app state is already cleared above either way, so the
+          // user is signed out of this app regardless — but the remote
+          // session may not have been revoked (e.g. no network). Surface
+          // this so the caller can let the user know, rather than silently
+          // swallowing it as before.
+          throw err instanceof Error
+            ? err
+            : new Error('Signed out locally, but could not confirm the remote session was closed.');
+        }
       },
 
       enableBiometrics: async () => {

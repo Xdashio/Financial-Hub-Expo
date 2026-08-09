@@ -6,12 +6,12 @@ import { radius, spacing, shadow, touchTarget, borderWidth, borderWidthThick } f
  * Theme-aware style factory - creates styles that respond to theme changes
  * 
  * Usage:
- *   const styles = makeStyles((colors) => ({
+ *   const styles = useMakeStyles((colors) => ({
  *     container: { backgroundColor: colors.surface },
  *     text: { color: colors.ink },
  *   }));
  */
-export function makeStyles<T extends Record<string, ViewStyle | TextStyle>>(
+export function useMakeStyles<T extends Record<string, ViewStyle | TextStyle>>(
   styleFactory: (colors: any) => T
 ): T {
   const { colors } = useTheme();
@@ -140,9 +140,9 @@ export const commonStyles = {
  * Helper to create theme-aware styles inline
  * 
  * Usage:
- *   <View style={{ backgroundColor: colors.surface, padding: spacing.md }} />
+ *   <View style={useCreateThemedStyle((colors) => ({ backgroundColor: colors.surface, padding: spacing.md }))} />
  */
-export const createThemedStyle = (
+export const useCreateThemedStyle = (
   styleFn: (colors: any) => ViewStyle | TextStyle
 ) => {
   const { colors } = useTheme();

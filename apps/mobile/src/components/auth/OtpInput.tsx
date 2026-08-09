@@ -1,7 +1,7 @@
 import { View, TextInput, Text, Pressable } from 'react-native';
 import { useRef } from 'react';
 import { useTheme } from '../../theme/ThemeContext';
-import { radius, spacing, typography, touchTarget } from '../../theme';
+import { spacing, typography } from '../../theme';
 
 interface OtpInputProps {
   value: string;

@@ -13,6 +13,7 @@ export interface Pocket {
 }
 
 export interface DailyPocket {
+  id: string;
   name: string;
   color: string;
   category?: string;
@@ -46,13 +47,14 @@ const POCKET_COLORS: Record<string, string> = {
 };
 
 // Note: transaction/spend tracking is out of scope for the MVP showcase, so
-// there's no real spend data to compute "remaining" against yet. Until that
+// there's no real spend data to compute "remaining" against yet. Until this
 // exists, the full daily cap is shown as remaining with 0% of it spent.
 function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
   const spendablePockets = pockets.filter(p => p.kind === 'spendable');
   return spendablePockets.map(pocket => {
     const dailyCap = pocket.dailyCap || 0;
     return {
+      id: pocket.id,
       name: pocket.name,
       color: POCKET_COLORS[pocket.category || 'food'] || POCKET_COLORS.food,
       category: pocket.category,

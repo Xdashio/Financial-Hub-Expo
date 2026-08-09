@@ -53,7 +53,7 @@ export function Badge({
 
   return (
     <View style={[baseStyle, variantStyles[variant], style]}>
-      <Text style={[typography.caption, textStyles[variant], fontSize: size === 'sm' ? 10 : 12]}>
+      <Text style={[typography.caption, textStyles[variant], { fontSize: size === 'sm' ? 10 : 12 }]}>
         {children}
       </Text>
     </View>

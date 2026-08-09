@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, Pressable, Alert, Modal } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, Pressable, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme, ThemeMode } from '@/theme/ThemeContext';
@@ -20,6 +20,8 @@ import {
 } from 'lucide-react-native';
 import { useAuthStore } from '@/services/auth';
 import { profileApi } from '@/services/api';
+import { ConfirmModal } from '@/components/ui';
+import { showAlert } from '@/utils/alert';
 
 interface SettingsItem {
   icon: LucideIcon;
@@ -40,6 +42,8 @@ export default function ProfileScreen() {
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
   const [showThemePicker, setShowThemePicker] = React.useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = React.useState(false);
+  const [isSigningOut, setIsSigningOut] = React.useState(false);
 
   const [plan, setPlan] = React.useState<any>(null);
   const [fixedExpenseCount, setFixedExpenseCount] = React.useState<number | null>(null);
@@ -125,24 +129,38 @@ export default function ProfileScreen() {
     },
   ];
 
-  const handleSignOut = () => {
-    Alert.alert(
-      'Sign out?',
-      'You\u2019ll need to sign in again to access your money plan.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign out',
-          style: 'destructive',
-          onPress: async () => {
-            // signOut() clears local session state synchronously and revokes
-            // the Supabase session in the background, so this resolves fast.
-            await signOut();
-            router.replace('/(auth)/signin');
-          },
-        },
-      ]
-    );
+  // Was previously wired straight to Alert.alert(), which is a documented
+  // no-op on react-native-web — tapping "Sign out" in a browser showed no
+  // dialog at all and, since the actual signOut() call only ever ran from
+  // inside the (never-fired) button callback, silently did nothing. Now
+  // handled by a real Modal-based ConfirmModal below, which works on every
+  // platform.
+  const handleSignOutPress = () => {
+    setShowSignOutConfirm(true);
+  };
+
+  const handleConfirmSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      // signOut() now awaits Supabase's own sign-out before resolving (see
+      // auth.ts) so we know the persisted session is actually gone before
+      // navigating away — previously this was fire-and-forget, so a slow or
+      // failed network call could leave a valid session token in storage
+      // and silently sign the user back in on next app launch.
+      await signOut();
+      setShowSignOutConfirm(false);
+      router.replace('/(auth)/signin');
+    } catch {
+      // signOut() is designed to always clear local state even if the
+      // remote Supabase call fails (see auth.ts), so the user is signed out
+      // locally either way — just let them know the device may still show
+      // as an active session in Supabase until it syncs.
+      setShowSignOutConfirm(false);
+      router.replace('/(auth)/signin');
+      showAlert('Signed out', 'You were signed out on this device. Some cleanup may finish once you\u2019re back online.');
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   return (
@@ -191,7 +209,7 @@ export default function ProfileScreen() {
           </View>
         ))}
 
-        <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md }} onPress={handleSignOut}>
+        <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md }} onPress={handleSignOutPress}>
           <View style={{ width: 34, height: 34, borderRadius: radius.xs, backgroundColor: colors.clayTint, alignItems: 'center', justifyContent: 'center' }}>
             <LogOut size={18} color={colors.clay} strokeWidth={2.5} />
           </View>
@@ -243,6 +261,18 @@ export default function ProfileScreen() {
           </View>
         </SafeAreaView>
       </Modal>
+
+      <ConfirmModal
+        visible={showSignOutConfirm}
+        title="Sign out?"
+        message="You’ll need to sign in again to access your money plan."
+        confirmLabel="Sign out"
+        cancelLabel="Cancel"
+        destructive
+        loading={isSigningOut}
+        onConfirm={handleConfirmSignOut}
+        onCancel={() => setShowSignOutConfirm(false)}
+      />
     </SafeAreaView>
   );
 }
