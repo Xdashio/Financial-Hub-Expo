@@ -1,5 +1,8 @@
 import { supabase } from '@/config/supabase.config';
 
+// In dev, set EXPO_PUBLIC_API_URL in .env.local to your ngrok URL.
+// Both web and native use the same URL — ngrok works for all platforms.
+// e.g. EXPO_PUBLIC_API_URL=https://abc123.ngrok-free.app/api
 const API_BASE_URL = __DEV__
   ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
   : 'https://api.financialhub.app/api';

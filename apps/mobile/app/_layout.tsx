@@ -58,6 +58,8 @@ function RootLayoutInner() {
           headerShown: false,
         }}
       >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="landing" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(tabs)" />
