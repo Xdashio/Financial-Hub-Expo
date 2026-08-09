@@ -5,6 +5,7 @@ import type {
   PlanType,
   IncomePattern,
 } from '@financial-hub/shared';
+import { IncomeIntervalDaysByBand } from '@financial-hub/shared';
 
 export interface PlanAssignment {
   plan: PlanName;
@@ -14,6 +15,9 @@ export interface PlanAssignment {
   remainingAfterFixed: number;
   savingsTarget: number;
   spendableAmount: number;
+  // Freelancer-only; undefined for salaried/mix. Day-count estimate derived
+  // from the onboarding band — see docs/FREELANCER_RUNWAY.md.
+  incomeIntervalDays?: number;
 }
 
 const MIN_SAVINGS_RATE = 0.10;
@@ -120,6 +124,11 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
 
   const reasons: PlanAssignReason[] = [patternReason, styleReason];
 
+  const incomeIntervalDays =
+    resolvedIncomePattern === 'freelancer' && input.incomeIntervalBand
+      ? IncomeIntervalDaysByBand[input.incomeIntervalBand]
+      : undefined;
+
   return {
     plan,
     planType,
@@ -128,6 +137,7 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
     remainingAfterFixed,
     savingsTarget,
     spendableAmount,
+    incomeIntervalDays,
   };
 }
 
@@ -148,6 +158,14 @@ export function validateOnboardingInput(input: OnboardingInput): string[] {
 
   if (input.fixedTotal >= input.incomeAmount) {
     errors.push('Fixed expenses cannot exceed or equal income');
+  }
+
+  // Freelancers need a pay-cadence estimate for the runway calculation
+  // (RunwaySummary falls back to this until real income_events history
+  // exists — see docs/FREELANCER_RUNWAY.md). Salaried/mix income is
+  // treated as a fixed monthly cycle and doesn't need this.
+  if (input.incomePattern === 'freelancer' && !input.incomeIntervalBand) {
+    errors.push('incomeIntervalBand is required when incomePattern is freelancer');
   }
 
   return errors;

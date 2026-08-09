@@ -61,6 +61,7 @@ export class OnboardingService {
       user_id: userId,
       type: assignment.planType,
       income_pattern: dbIncomePattern,
+      income_interval_days: assignment.incomeIntervalDays ?? null,
       status: 'active',
     });
 
@@ -181,7 +182,15 @@ export class OnboardingService {
         });
       }
     } else {
-      const daysInMonth = 30;
+      // Salaried daily plans assume a flat 30-day cycle. Freelancer daily
+      // plans size the *initial* cap against the onboarding pay-cadence
+      // estimate instead — this is overridden live on every /pockets read
+      // once real income history exists (RunwayService); see
+      // docs/FREELANCER_RUNWAY.md for why onboarding-time and read-time use
+      // different estimates.
+      const daysInMonth = assignment.incomePattern === 'freelancer' && assignment.incomeIntervalDays
+        ? assignment.incomeIntervalDays
+        : 30;
       const dailySpendable = assignment.spendableAmount / daysInMonth;
 
       for (const category of SPENDABLE_CATEGORIES) {
