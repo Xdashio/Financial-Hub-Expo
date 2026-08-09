@@ -1,201 +1,239 @@
-import { Injectable } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import {
-  OnboardingInput,
-  OnboardingAssignResult,
-  OnboardingCommitResult,
-  PocketKind,
-  PocketCategory,
-} from '@financial-hub/shared';
-import { assignPlan, PlanAssignment, validateOnboardingInput } from './rules-engine';
-import { SupabaseRepository } from '../../database/supabase.repository';
+import { BadRequestException } from '@nestjs/common';
+import { OnboardingService } from './onboarding.service';
+import type { SupabaseRepository } from '../../database/supabase.repository';
+import type { OnboardingInput } from '@financial-hub/shared';
 
-type SpendableCategory = 'food' | 'transport' | 'leisure';
+function makeRepository(overrides: Partial<jest.Mocked<SupabaseRepository>> = {}) {
+  return {
+    deactivateUserPlans: jest.fn().mockResolvedValue(undefined),
+    createPlan: jest.fn().mockImplementation((plan) => ({ ...plan })),
+    createPockets: jest.fn().mockImplementation((pockets) => pockets),
+    createFixedExpense: jest.fn().mockResolvedValue({ id: 'fe-1' }),
+    createTransactions: jest.fn().mockResolvedValue([]),
+    createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'event-1' }),
+    ...overrides,
+  } as unknown as jest.Mocked<SupabaseRepository>;
+}
 
-const SPENDABLE_CATEGORIES: SpendableCategory[] = ['food', 'transport', 'leisure'];
-const CATEGORY_NAMES: Record<SpendableCategory, string> = {
-  food: 'Food & Groceries',
-  transport: 'Transport',
-  leisure: 'Personal & Leisure',
+const SALARIED_TRACKER_INPUT: OnboardingInput = {
+  incomePattern: 'salaried',
+  spendingHabit: 'tracker',
+  incomeAmount: 50000,
+  fixedTotal: 15000, // remaining 35000, 20% of income = 10000, so 'structured' applies
+  sourceCount: 1,
 };
 
-// Default savings time-lock length applied at plan creation. Short locks
-// (30-60 days) are best for habit-building; 30 days is the floor.
-const DEFAULT_SAVINGS_LOCK_DAYS = 30;
+const FREELANCER_WEEK3_INPUT: OnboardingInput = {
+  incomePattern: 'freelancer',
+  spendingHabit: 'week3',
+  incomeAmount: 40000,
+  fixedTotal: 10000,
+  sourceCount: 3,
+};
 
-@Injectable()
-export class OnboardingService {
-  constructor(private readonly supabaseRepo: SupabaseRepository) {}
+describe('OnboardingService.assign', () => {
+  let service: OnboardingService;
 
-  assign(input: OnboardingInput): OnboardingAssignResult {
-    const validationErrors = validateOnboardingInput(input);
-    if (validationErrors.length > 0) {
-      throw new Error(validationErrors.join('; '));
-    }
+  beforeEach(() => {
+    service = new OnboardingService(makeRepository());
+  });
 
-    const assignment = assignPlan(input);
+  it('rejects input that fails schema validation, without evaluating rules', () => {
+    expect(() => service.assign({ incomeAmount: 'not-a-number' })).toThrow(BadRequestException);
+  });
 
-    return {
-      plan: assignment.plan,
-      planType: assignment.planType,
-      incomePattern: assignment.incomePattern,
-      reasons: assignment.reasons,
-      remainingAfterFixed: assignment.remainingAfterFixed,
-      savingsTarget: assignment.savingsTarget,
-      spendableAmount: assignment.spendableAmount,
+  it('rejects input that fails domain validation (fixed expenses >= income)', () => {
+    expect(() =>
+      service.assign({
+        incomePattern: 'salaried',
+        spendingHabit: 'tracker',
+        incomeAmount: 10000,
+        fixedTotal: 10000,
+        sourceCount: 1,
+      })
+    ).toThrow(BadRequestException);
+  });
+
+  it('assigns a structured, salaried plan for a tracker with healthy margin after fixed costs', () => {
+    const result = service.assign(SALARIED_TRACKER_INPUT);
+
+    expect(result.planType).toBe('structured');
+    expect(result.incomePattern).toBe('salaried');
+    expect(result.remainingAfterFixed).toBe(35000);
+    expect(result.savingsTarget).toBeCloseTo(3500); // 10% of remaining
+    expect(result.spendableAmount).toBeCloseTo(31500);
+    expect(result.reasons.length).toBeGreaterThan(0);
+  });
+
+  it('assigns a daily-budget plan for a "runs low by week 3" spender, regardless of margin', () => {
+    const result = service.assign(FREELANCER_WEEK3_INPUT);
+
+    expect(result.planType).toBe('daily');
+    expect(result.incomePattern).toBe('freelancer');
+  });
+
+  it('treats a "mix" income pattern as salaried for plan stability', () => {
+    const result = service.assign({ ...SALARIED_TRACKER_INPUT, incomePattern: 'mix' });
+
+    expect(result.incomePattern).toBe('salaried');
+  });
+
+  it('falls back to a daily-budget plan when a tracker has less than 20% of income remaining', () => {
+    const result = service.assign({
+      incomePattern: 'salaried',
+      spendingHabit: 'tracker',
+      incomeAmount: 50000,
+      fixedTotal: 45000, // remaining 5000, well under 20% of 50000
+      sourceCount: 1,
+    });
+
+    expect(result.planType).toBe('daily');
+  });
+});
+
+describe('OnboardingService.commit', () => {
+  let repository: ReturnType<typeof makeRepository>;
+  let service: OnboardingService;
+
+  beforeEach(() => {
+    repository = makeRepository();
+    service = new OnboardingService(repository);
+  });
+
+  it('rejects invalid input without touching the repository', async () => {
+    await expect(service.commit({ incomeAmount: -1 }, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.deactivateUserPlans).not.toHaveBeenCalled();
+    expect(repository.createPlan).not.toHaveBeenCalled();
+  });
+
+  it('deactivates existing plans before creating the new one', async () => {
+    await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
+
+    expect(repository.deactivateUserPlans).toHaveBeenCalledWith('user-1');
+    expect(repository.deactivateUserPlans.mock.invocationCallOrder[0]).toBeLessThan(
+      repository.createPlan.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('maps a "mix" income pattern to "salaried" when persisting the plan', async () => {
+    await service.commit({ ...SALARIED_TRACKER_INPUT, incomePattern: 'mix' }, 'user-1');
+
+    expect(repository.createPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'user-1', income_pattern: 'salaried', status: 'active' })
+    );
+  });
+
+  it('creates a Fixed Expenses pocket, a locked Savings pocket, and evenly-split spendable pockets for a structured plan', async () => {
+    await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
+
+    const pockets = repository.createPockets.mock.calls[0][0];
+    const kinds = pockets.map((p: any) => p.kind);
+    expect(kinds).toEqual(['fixed', 'savings', 'spendable', 'spendable', 'spendable']);
+
+    const fixedPocket = pockets.find((p: any) => p.kind === 'fixed');
+    expect(fixedPocket).toBeDefined();
+    expect(fixedPocket!.monthly_allocation).toBe(SALARIED_TRACKER_INPUT.fixedTotal);
+
+    const savingsPocket = pockets.find((p: any) => p.kind === 'savings');
+    expect(savingsPocket).toBeDefined();
+    expect(savingsPocket!.is_time_locked).toBe(true);
+    expect(savingsPocket!.lock_until).toBeTruthy();
+
+    const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
+    expect(spendablePockets.every((p: any) => p.daily_cap === null)).toBe(true);
+    const categories = spendablePockets.map((p: any) => p.category).sort();
+    expect(categories).toEqual(['food', 'leisure', 'transport']);
+
+    // Structured plans divide the spendable amount evenly across the three
+    // categories.
+    const total = spendablePockets.reduce((sum: number, p: any) => sum + p.monthly_allocation, 0);
+    const assignment = service.assign(SALARIED_TRACKER_INPUT);
+    expect(total).toBeCloseTo(assignment.spendableAmount);
+  });
+
+  it('sets a daily_cap on spendable pockets for a daily-budget plan', async () => {
+    await service.commit(FREELANCER_WEEK3_INPUT, 'user-1');
+
+    const pockets = repository.createPockets.mock.calls[0][0];
+    const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
+    expect(spendablePockets.every((p: any) => typeof p.daily_cap === 'number' && p.daily_cap > 0)).toBe(true);
+  });
+
+  it('creates one fixed expense row per submitted fixed expense', async () => {
+    const input: OnboardingInput = {
+      ...SALARIED_TRACKER_INPUT,
+      fixedExpenses: [
+        { name: 'Rent', amount: 10000, dueDay: 1, category: 'utilities' },
+        { name: 'Internet', amount: 2000, dueDay: 5, category: 'transport' },
+      ],
     };
-  }
 
-  async commit(input: OnboardingInput, userId: string): Promise<OnboardingCommitResult> {
-    const assignment = assignPlan(input);
-    const planId = uuidv4();
+    await service.commit(input, 'user-1');
 
-    // Deactivate any existing active plans for this user
-    await this.supabaseRepo.deactivateUserPlans(userId);
+    expect(repository.createFixedExpense).toHaveBeenCalledTimes(2);
+    expect(repository.createFixedExpense).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'user-1', name: 'Rent', amount: 10000, due_day: 1, category: 'utilities' })
+    );
+    expect(repository.createFixedExpense).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'user-1', name: 'Internet', amount: 2000, due_day: 5, category: 'transport' })
+    );
+  });
 
-    // Map income pattern: 'mix' -> 'salaried' for database
-    const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
+  it('creates no fixed expense rows when none were submitted', async () => {
+    await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    // Create the new plan
-    const plan = await this.supabaseRepo.createPlan({
-      id: planId,
-      user_id: userId,
-      type: assignment.planType,
-      income_pattern: dbIncomePattern,
-      status: 'active',
-    });
+    expect(repository.createFixedExpense).not.toHaveBeenCalled();
+  });
 
-    if (!plan) {
-      throw new Error('Failed to create plan');
+  it('creates an allocation transaction per created pocket', async () => {
+    await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
+
+    const pockets = repository.createPockets.mock.results[0].value;
+    const transactions = repository.createTransactions.mock.calls[0][0];
+
+    expect(transactions).toHaveLength(pockets.length);
+    expect(transactions.every((t: any) => t.type === 'allocation')).toBe(true);
+    for (const pocket of pockets) {
+      expect(transactions).toContainEqual(
+        expect.objectContaining({ pocket_id: pocket.id, amount: pocket.monthly_allocation })
+      );
     }
+  });
 
-    // Create pockets
-    const pocketInputs = this.createPocketInputs(planId, assignment, input.incomeAmount, input.fixedTotal);
-    const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
+  it('logs a plan_created behavior event', async () => {
+    await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    // Create fixed expenses
-    for (const expense of input.fixedExpenses || []) {
-      await this.supabaseRepo.createFixedExpense({
-        user_id: userId,
-        name: expense.name,
-        amount: expense.amount,
-        due_day: expense.dueDay,
-        category: expense.category,
-      });
+    expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'user-1',
+        type: 'plan_created',
+        payload: expect.objectContaining({ planType: 'structured', incomePattern: 'salaried' }),
+      })
+    );
+  });
+
+  it('throws when plan creation fails, without creating pockets', async () => {
+    repository.createPlan.mockResolvedValue(null);
+
+    await expect(service.commit(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toThrow('Failed to create plan');
+    expect(repository.createPockets).not.toHaveBeenCalled();
+  });
+
+  it('returns a planId and the created pockets mapped to the public shape', async () => {
+    const result = await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
+
+    expect(typeof result.planId).toBe('string');
+    expect(result.planId.length).toBeGreaterThan(0);
+    expect(result.pockets).toHaveLength(5);
+    for (const pocket of result.pockets) {
+      expect(pocket).toEqual(
+        expect.objectContaining({
+          id: expect.any(String),
+          name: expect.any(String),
+          kind: expect.any(String),
+          monthlyAllocation: expect.any(Number),
+        })
+      );
     }
-
-    // Create initial allocation transactions
-    const transactions = this.createAllocationTransactions(createdPockets, assignment);
-    await this.supabaseRepo.createTransactions(transactions);
-
-    // Create behavior event for plan creation
-    await this.supabaseRepo.createBehaviorEvent({
-      user_id: userId,
-      type: 'plan_created',
-      payload: {
-        planId,
-        planType: assignment.planType,
-        incomePattern: assignment.incomePattern,
-      },
-    });
-
-    return {
-      planId,
-      pockets: createdPockets.map(p => ({
-        id: p.id,
-        name: p.name,
-        kind: p.kind,
-        category: p.category || undefined,
-        monthlyAllocation: p.monthly_allocation,
-        dailyCap: p.daily_cap || undefined,
-      })),
-    };
-  }
-
-  private createPocketInputs(
-    planId: string,
-    assignment: PlanAssignment,
-    incomeAmount: number,
-    fixedTotal: number
-  ): any[] {
-    const pockets = [];
-
-    const fixedPocketId = uuidv4();
-    pockets.push({
-      id: fixedPocketId,
-      plan_id: planId,
-      name: 'Fixed Expenses',
-      kind: 'fixed' as PocketKind,
-      category: null,
-      is_time_locked: false,
-      lock_until: null,
-      monthly_allocation: fixedTotal,
-      daily_cap: null,
-    });
-
-    const savingsPocketId = uuidv4();
-    const lockUntil = new Date();
-    lockUntil.setDate(lockUntil.getDate() + DEFAULT_SAVINGS_LOCK_DAYS);
-    pockets.push({
-      id: savingsPocketId,
-      plan_id: planId,
-      name: 'Savings',
-      kind: 'savings' as PocketKind,
-      category: null,
-      is_time_locked: true,
-      lock_until: lockUntil.toISOString(),
-      monthly_allocation: assignment.savingsTarget,
-      daily_cap: null,
-    });
-
-    if (assignment.planType === 'structured') {
-      const spendableAmount = assignment.spendableAmount;
-      const perPocketAmount = spendableAmount / SPENDABLE_CATEGORIES.length;
-
-      for (const category of SPENDABLE_CATEGORIES) {
-        pockets.push({
-          id: uuidv4(),
-          plan_id: planId,
-          name: CATEGORY_NAMES[category],
-          kind: 'spendable' as PocketKind,
-          category: category as PocketCategory,
-          is_time_locked: false,
-          lock_until: null,
-          monthly_allocation: perPocketAmount,
-          daily_cap: null,
-        });
-      }
-    } else {
-      const daysInMonth = 30;
-      const dailySpendable = assignment.spendableAmount / daysInMonth;
-
-      for (const category of SPENDABLE_CATEGORIES) {
-        const dailyCap = dailySpendable / SPENDABLE_CATEGORIES.length;
-        pockets.push({
-          id: uuidv4(),
-          plan_id: planId,
-          name: CATEGORY_NAMES[category],
-          kind: 'spendable' as PocketKind,
-          category: category as PocketCategory,
-          is_time_locked: false,
-          lock_until: null,
-          monthly_allocation: dailyCap * daysInMonth,
-          daily_cap: Math.round(dailyCap * 100) / 100,
-        });
-      }
-    }
-
-    return pockets;
-  }
-
-  private createAllocationTransactions(
-    pockets: any[],
-    assignment: PlanAssignment
-  ): any[] {
-    return pockets.map(pocket => ({
-      pocket_id: pocket.id,
-      amount: pocket.monthly_allocation,
-      type: 'allocation' as const,
-    }));
-  }
-}
+  });
+});

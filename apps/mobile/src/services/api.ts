@@ -68,7 +68,6 @@ export const pocketsApi = {
 
 export const transactionsApi = {
   getByPocketId: (pocketId: string) => api.get<any[]>(`/pockets/${pocketId}/transactions`),
-  create: (data: any) => api.post<any>('/transactions', data),
 };
 
 export const reallocationsApi = {

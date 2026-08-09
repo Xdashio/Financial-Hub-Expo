@@ -16,6 +16,6 @@ export class ReportCreateDto {
   transaction_id?: string;
 
   @IsOptional()
-  @IsString()
-  suggested_category?: string;
+  @IsEnum(['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'gambling_betting', 'personal_care', 'other', 'unclassified'])
+  suggested_category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified';
 }

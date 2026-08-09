@@ -104,7 +104,7 @@ export class IncomeService {
     if (dto.run_allocation) {
       const allocations = this.calculateAllocationsBasedOnProportions(dto.amount, pockets);
 
-      // Create allocation transactions
+      // Create allocation transactions (ledger record of the event)...
       const transactions: TransactionInsert[] = allocations.map(alloc => ({
         pocket_id: alloc.pocket_id,
         amount: alloc.amount,
@@ -114,6 +114,26 @@ export class IncomeService {
       }));
 
       await this.repository.createTransactions(transactions);
+
+      // ...and actually move the balance. Every balance read in this app
+      // (PocketsService.getPocketSummary, SpendService.checkSpend,
+      // PocketsService.getLockStatus) treats `monthly_allocation` as the
+      // ceiling pockets are compared against, not a sum over the ledger —
+      // ReallocationsService.complete() already writes to it directly for
+      // the same reason. Without this, a second/third income event created
+      // an 'allocation' transaction row that nothing downstream ever read,
+      // so logging more income had no visible effect on any pocket's
+      // available balance (see BACKEND_FRONTEND_AUDIT.md §C5).
+      const pocketById = new Map(pockets.map(p => [p.id, p] as const));
+      await Promise.all(
+        allocations.map(alloc => {
+          const pocket = pocketById.get(alloc.pocket_id);
+          if (!pocket) return Promise.resolve(null);
+          return this.repository.updatePocket(alloc.pocket_id, {
+            monthly_allocation: (pocket.monthly_allocation || 0) + alloc.amount,
+          });
+        })
+      );
 
       allocation = {
         triggered: true,
