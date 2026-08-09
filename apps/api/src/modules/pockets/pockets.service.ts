@@ -168,10 +168,15 @@ export class PocketsService {
     }
     await this.assertOwnership(pocket, userId);
 
-    const classifications = await this.repository.getMerchantClassificationsByPocketId(pocketId);
-
     const allowedCategories = this.getAllowedCategoriesForPocket(pocket);
     const blockedCategories = this.getBlockedCategoriesForPocket(pocket);
+
+    // Classifications are stored per-user (by recipient), not per-pocket —
+    // there's no pocket_id column on merchant_classifications. "Relevant to
+    // this pocket" means: the user's saved classifications whose category
+    // this pocket kind actually accepts.
+    const allClassifications = await this.repository.getMerchantClassificationsByUserId(userId);
+    const classifications = allClassifications.filter(c => allowedCategories.includes(c.category));
 
     return {
       pocket_id: pocket.id,

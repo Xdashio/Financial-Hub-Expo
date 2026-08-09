@@ -1,5 +1,7 @@
 # Financial Hub - API Implementation Plan
 
+> **⚠️ Superseded 2026-08-09.** Written from the same docs-level "5 real / 2 stub" read corrected in `BACKEND_FRONTEND_AUDIT.md`. The DB migration SQL sketches below are useful (e.g. the `notification_preferences` and `merchant_reports` table definitions are still the right shape) but must be applied to `apps/api/src/database/migrations/001_initial_schema.sql`-style canonical schema, not treated standalone — see `ROADMAP.md` Phase A for the schema-drift fixes that need to land first. **Use `ROADMAP.md` for current sequencing.**
+
 ## Overview
 
 This plan outlines the steps to make all backend APIs fully functional and ready for the frontend integration. Based on the audit, we have 5 real implementations and 2 stub implementations that need database tables and real logic.

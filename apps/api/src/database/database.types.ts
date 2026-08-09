@@ -299,6 +299,7 @@ export interface Database {
       }
       discipline_scores: {
         Row: {
+          id: string
           user_id: string
           score: number
           delta: number
@@ -306,6 +307,7 @@ export interface Database {
           calculated_at: string
         }
         Insert: {
+          id?: string
           user_id: string
           score: number
           delta?: number
@@ -313,6 +315,7 @@ export interface Database {
           calculated_at?: string
         }
         Update: {
+          id?: string
           user_id?: string
           score?: number
           delta?: number

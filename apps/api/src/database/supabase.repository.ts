@@ -294,16 +294,6 @@ export class SupabaseRepository {
     return data;
   }
 
-  async getMerchantClassificationsByPocketId(pocketId: string): Promise<MerchantClassification[]> {
-    const { data, error } = await this.supabase
-      .from('merchant_classifications')
-      .select('*')
-      .eq('pocket_id', pocketId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    return data || [];
-  }
-
   async getPocketSummary(pocketId: string): Promise<{
     spent: number;
     available: number;

@@ -1,5 +1,7 @@
 # Financial Hub Backend Implementation Plan
 
+> **⚠️ Superseded 2026-08-09.** This plan was written from a docs-level read of the repo and its "current state" section is out of date — a code-level audit found several modules described here as further along than they actually are (schema drift causes some to fail at runtime). **Use `ROADMAP.md` (Phase A onward) for current sequencing, and `BACKEND_FRONTEND_AUDIT.md` for the up-to-date state.** This file is kept for its task breakdowns and endpoint sketches, which are still useful reference once Phase A's blockers are cleared — just don't treat the phase numbers or "current state" below as accurate.
+
 ## Current State Analysis
 
 ### ✅ Built & Wired to Real API (16 screens)
