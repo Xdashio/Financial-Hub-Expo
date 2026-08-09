@@ -345,20 +345,32 @@ export class SupabaseRepository {
 
   async getReallocationsByUserId(userId: string): Promise<Reallocation[]> {
     assertUuid(userId, 'user id');
+
+    // PostgREST's `.or()` logic-tree filter only supports referencing a
+    // *directly* embedded resource's own columns (e.g. `from_pocket.user_id`),
+    // not a resource nested two levels deep through another embed (
+    // `from_pocket.plan.user_id`). The previous version of this query used
+    // exactly that two-level path and failed at request time with
+    // `failed to parse logic tree` (see BACKEND_FRONTEND_AUDIT.md-style
+    // schema/query drift — this one wasn't caught because, like C6, nothing
+    // exercises this against real PostgREST/Supabase).
+    //
+    // Fix: resolve the user's own pocket ids first (via their active plan),
+    // then filter reallocations by direct `from_pocket_id`/`to_pocket_id`
+    // membership, which `.or(...)` supports natively.
+    const plan = await this.getActivePlanByUserId(userId);
+    if (!plan) return [];
+
+    const pockets = await this.getPocketsByPlanId(plan.id);
+    if (pockets.length === 0) return [];
+
+    const pocketIds = pockets.map(p => p.id);
+    const idList = pocketIds.join(',');
+
     const { data, error } = await this.supabase
       .from('reallocations')
-      .select(`
-        *,
-        from_pocket:pockets!from_pocket_id (
-          id,
-          plan:plans!plan_id (user_id)
-        ),
-        to_pocket:pockets!to_pocket_id (
-          id,
-          plan:plans!plan_id (user_id)
-        )
-      `)
-      .or(`from_pocket.plan.user_id.eq.${userId},to_pocket.plan.user_id.eq.${userId}`)
+      .select('*')
+      .or(`from_pocket_id.in.(${idList}),to_pocket_id.in.(${idList})`)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data || [];

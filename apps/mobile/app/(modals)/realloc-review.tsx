@@ -6,7 +6,7 @@ import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/th
 import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore } from '@/services/home-store';
 import { reallocationsApi } from '@/services/api';
-import { showAlert } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, Card, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
 
 type ReviewParams = {
@@ -38,6 +38,7 @@ export default function ReallocReviewScreen() {
   const params = useLocalSearchParams<ReviewParams>();
   const pockets = useHomeStore((s) => s.pockets);
   const { colors } = useTheme();
+  const { alert, modal } = useAlertModal();
 
   const fromPocket = pockets.find((p) => p.id === params.fromId) || null;
   const toPocket = pockets.find((p) => p.id === params.toId) || null;
@@ -112,7 +113,7 @@ export default function ReallocReviewScreen() {
         },
       });
     } catch (err) {
-      showAlert('Could not move that money', err instanceof Error ? err.message : 'Please try again.');
+      await alert('Could not move that money', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -323,6 +324,7 @@ export default function ReallocReviewScreen() {
           </Button>
         </View>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

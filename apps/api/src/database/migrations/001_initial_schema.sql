@@ -86,7 +86,10 @@ CREATE TABLE IF NOT EXISTS public.income_events (
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   amount NUMERIC NOT NULL CHECK (amount > 0),
   source TEXT NOT NULL CHECK (char_length(source) >= 1 AND char_length(source) <= 100),
-  label TEXT NOT NULL CHECK (char_length(label) <= 200),
+  -- Optional per API_SPECIFICATION.md §1.2 and CreateIncomeDto; was wrongly
+  -- NOT NULL, which crashed every manual income entry submitted without a
+  -- label with "null value in column label violates not-null constraint".
+  label TEXT CHECK (label IS NULL OR char_length(label) <= 200),
   date DATE NOT NULL,
   run_allocation BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

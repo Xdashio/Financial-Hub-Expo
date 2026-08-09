@@ -14,12 +14,16 @@ import {
 export default function BlockedSpendScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { pocketId, blockedCategory, amount, merchant } = useLocalSearchParams<{
+  const { pocketId, blockedCategory, amount, merchant, reviewAvailable } = useLocalSearchParams<{
     pocketId: string;
     blockedCategory: string;
     amount: string;
     merchant: string;
+    reviewAvailable?: string;
   }>();
+  // Absent for links generated before this param existed — default to
+  // showing the option rather than hiding it on a false negative.
+  const canReview = reviewAvailable !== 'false';
 
   const formatCurrency = (amount: string) => {
     return `KES ${parseFloat(amount).toLocaleString()}`;
@@ -137,6 +141,7 @@ export default function BlockedSpendScreen() {
               borderWidth: 1,
               borderColor: colors.line,
               marginBottom: spacing.md,
+              display: canReview ? 'flex' : 'none',
             }}
             onPress={handleReview}
           >

@@ -77,6 +77,7 @@ export default function LogSpendScreen() {
             blockedCategory: result.blocked_category,
             amount: String(numericAmount),
             merchant: merchant || 'Unknown payee',
+            reviewAvailable: String(result.review_available ?? true),
           },
         });
         return;
