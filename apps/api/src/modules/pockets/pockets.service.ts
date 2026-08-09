@@ -3,6 +3,7 @@ import { PocketUpdateInputSchema, RunwaySummary } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { RunwayService } from '../runway/runway.service';
+import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 import { Pocket, PocketUpdate, Transaction, MerchantClassification } from '../../database/database.types';
 
 @Injectable()
@@ -39,15 +40,11 @@ export class PocketsService {
     // docs/FREELANCER_RUNWAY.md.
     if (plan.income_pattern === 'freelancer' && plan.type === 'daily') {
       const runwaySummary = await this.runway.getRunwayForPlan(userId, plan);
-      if (runwaySummary.applicable && runwaySummary.runwayDays) {
-        const spendablePockets = enriched.filter(p => p.kind === 'spendable');
-        const totalMonthlySpendable = spendablePockets.reduce((sum, p) => sum + p.monthly_allocation, 0);
-        const totalDailySpendable = totalMonthlySpendable / runwaySummary.runwayDays;
-        const perPocketDailyCap = spendablePockets.length > 0 ? totalDailySpendable / spendablePockets.length : 0;
-        for (const pocket of enriched) {
-          if (pocket.kind === 'spendable') {
-            pocket.daily_cap = Math.round(perPocketDailyCap * 100) / 100;
-          }
+      const caps = computeSpendableDailyCaps(enriched, runwaySummary);
+      for (const pocket of enriched) {
+        const cap = caps.get(pocket.id);
+        if (cap !== undefined) {
+          pocket.daily_cap = cap;
         }
       }
     }

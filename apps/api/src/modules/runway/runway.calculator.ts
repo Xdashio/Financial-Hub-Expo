@@ -63,6 +63,40 @@ function daysBetween(later: Date, earlier: Date): number {
  * "full adaptive" adds on top of this later (seasonality, per-source
  * cadence tracking, confidence intervals feeding UI copy).
  */
+export interface RunwayCappablePocket {
+  id: string;
+  kind: string;
+  monthly_allocation: number;
+}
+
+/**
+ * Given the current runway and a plan's pockets, returns the new daily_cap
+ * for each spendable pocket. Shared by the read path (PocketsService —
+ * live, never persisted) and the income-event write path (IncomeService —
+ * persisted so the cap stays correct for any other reader) so the two
+ * don't drift apart. See docs/FREELANCER_RUNWAY.md.
+ */
+export function computeSpendableDailyCaps(
+  pockets: RunwayCappablePocket[],
+  runway: RunwaySummary
+): Map<string, number> {
+  const result = new Map<string, number>();
+  if (!runway.applicable || !runway.runwayDays) {
+    return result;
+  }
+  const spendablePockets = pockets.filter((p) => p.kind === 'spendable');
+  const totalMonthlySpendable = spendablePockets.reduce((sum, p) => sum + p.monthly_allocation, 0);
+  const totalDailySpendable = totalMonthlySpendable / runway.runwayDays;
+  const perPocketDailyCap = spendablePockets.length > 0 ? totalDailySpendable / spendablePockets.length : 0;
+  for (const pocket of spendablePockets) {
+    result.set(pocket.id, Math.round(perPocketDailyCap * 100) / 100);
+  }
+   return result;
+}
+
+/**
+ * Computes the freelancer's current runway.
+ */
 export function computeRunway(input: ComputeRunwayInput): RunwaySummary {
   const { incomeIntervalDaysEstimate, incomeEvents, today } = input;
 

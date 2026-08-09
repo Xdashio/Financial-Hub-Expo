@@ -3,10 +3,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { CreateIncomeDto, AllocatePreviewDto } from './dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { IncomeEventInsert, TransactionInsert, Pocket, Plan } from '../../database/database.types';
+import { RunwaySummary } from '@financial-hub/shared';
+import { RunwayService } from '../runway/runway.service';
+import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 
 @Injectable()
 export class IncomeService {
-  constructor(private readonly repository: SupabaseRepository) {}
+  constructor(
+    private readonly repository: SupabaseRepository,
+    private readonly runway: RunwayService,
+  ) {}
 
   async allocatePreview(dto: AllocatePreviewDto, userId: string): Promise<{
     preview: {
@@ -68,6 +74,12 @@ export class IncomeService {
       total_allocated: number;
       unallocated: number;
     };
+    // Recomputed against the just-created income event — freelancer +
+    // daily plans get their runway (and therefore daily_cap) refreshed on
+    // every new income event, not just lazily on the next /pockets read.
+    // { applicable: false } for salaried/mix/structured plans. See
+    // docs/FREELANCER_RUNWAY.md.
+    runway: RunwaySummary;
   }> {
     const plan = await this.repository.getActivePlanByUserId(userId);
     if (!plan) {
@@ -143,9 +155,29 @@ export class IncomeService {
       };
     }
 
+    // Recompute runway now that this income event exists, and — for
+    // freelancer + daily plans — persist the refreshed daily_cap onto each
+    // spendable pocket immediately rather than waiting for the next
+    // /pockets read. Deliberately happens regardless of run_allocation:
+    // the event's date shifts the runway/cadence estimate either way. See
+    // docs/FREELANCER_RUNWAY.md.
+    let runway: RunwaySummary = { applicable: false };
+    if (plan.income_pattern === 'freelancer' && plan.type === 'daily') {
+      runway = await this.runway.getRunwayForPlan(userId, plan);
+      const caps = computeSpendableDailyCaps(pockets, runway);
+      if (caps.size > 0) {
+        await Promise.all(
+          Array.from(caps.entries()).map(([pocketId, dailyCap]) =>
+            this.repository.updatePocket(pocketId, { daily_cap: dailyCap })
+          )
+        );
+      }
+    }
+
     return {
       income_event: createdIncomeEvent,
       allocation,
+      runway,
     };
   }
 
