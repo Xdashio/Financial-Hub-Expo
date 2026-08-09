@@ -53,6 +53,7 @@ export default function FixedExpensesScreen() {
   const [amount, setAmount] = useState('');
   const [dueDay, setDueDay] = useState('');
   const [category, setCategory] = useState('');
+  const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
 
   const categories = [
     { id: 'food', name: 'Food & Groceries', icon: ShoppingCart },
@@ -107,8 +108,16 @@ export default function FixedExpensesScreen() {
       alert('Missing Information', 'Please fill in all fields.');
       return;
     }
+    // Without this guard, a double-tap on "Add Expense" (slow network, or
+    // just an eager tap) fired profileApi.createFixedExpense twice —
+    // createFixedExpense always inserts unconditionally, so that produced
+    // two identical fixed-expense rows. This is a different code path from
+    // OnboardingService.commit's retake-checkin flow, which already guards
+    // against duplicates via delete-then-recreate.
+    if (isSubmittingExpense) return;
 
     try {
+      setIsSubmittingExpense(true);
       const created = await profileApi.createFixedExpense({
         name,
         amount: parseFloat(amount),
@@ -123,6 +132,8 @@ export default function FixedExpensesScreen() {
       alert('Success', 'Fixed expense added successfully.');
     } catch (error) {
       alert('Error', 'Failed to add expense. Please try again.');
+    } finally {
+      setIsSubmittingExpense(false);
     }
   };
 
@@ -130,8 +141,10 @@ export default function FixedExpensesScreen() {
     if (!editingExpense || !name || !amount || !dueDay || !category) {
       return;
     }
+    if (isSubmittingExpense) return;
 
     try {
+      setIsSubmittingExpense(true);
       const updated = await profileApi.updateFixedExpense(editingExpense.id, {
         name,
         amount: parseFloat(amount),
@@ -149,6 +162,8 @@ export default function FixedExpensesScreen() {
       alert('Success', 'Fixed expense updated successfully.');
     } catch (error) {
       alert('Error', 'Failed to update expense. Please try again.');
+    } finally {
+      setIsSubmittingExpense(false);
     }
   };
 
@@ -363,12 +378,14 @@ export default function FixedExpensesScreen() {
                   padding: spacing.md,
                   borderRadius: radius.md,
                   backgroundColor: colors.emeraldDeep,
+                  opacity: isSubmittingExpense ? 0.7 : 1,
                 }}
                 onPress={handleAddExpense}
+                disabled={isSubmittingExpense}
               >
                 <Plus size={20} color={colors.surface} strokeWidth={2} />
                 <Text style={{ ...typography.heading, color: colors.surface, marginLeft: spacing.sm }}>
-                  Add Expense
+                  {isSubmittingExpense ? 'Adding…' : 'Add Expense'}
                 </Text>
               </Pressable>
             </ScrollView>
@@ -500,12 +517,14 @@ export default function FixedExpensesScreen() {
                   padding: spacing.md,
                   borderRadius: radius.md,
                   backgroundColor: colors.emeraldDeep,
+                  opacity: isSubmittingExpense ? 0.7 : 1,
                 }}
                 onPress={handleUpdateExpense}
+                disabled={isSubmittingExpense}
               >
                 <Check size={20} color={colors.surface} strokeWidth={2} />
                 <Text style={{ ...typography.heading, color: colors.surface, marginLeft: spacing.sm }}>
-                  Update Expense
+                  {isSubmittingExpense ? 'Saving…' : 'Update Expense'}
                 </Text>
               </Pressable>
             </ScrollView>
