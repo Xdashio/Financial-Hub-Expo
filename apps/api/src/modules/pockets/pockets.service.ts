@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PocketUpdateInputSchema } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { Pocket, PocketUpdate, Transaction, MerchantClassification } from '../../database/database.types';
 
 @Injectable()
 export class PocketsService {
-  constructor(private readonly repository: SupabaseRepository) {}
+  constructor(
+    private readonly repository: SupabaseRepository,
+    private readonly disciplineScore: DisciplineScoreService,
+  ) {}
 
   async getAllForUser(userId: string): Promise<Pocket[]> {
     const plan = await this.repository.getActivePlanByUserId(userId);
@@ -43,7 +47,7 @@ export class PocketsService {
   private parseUpdate(input: unknown): PocketUpdate {
     const result = PocketUpdateInputSchema.safeParse(input);
     if (!result.success) {
-      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
     const { name, category, dailyCap } = result.data;
     const updates: PocketUpdate = {};
@@ -258,11 +262,6 @@ export class PocketsService {
     const daysRemaining = Math.ceil((lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     const disciplineCost = Math.ceil(daysRemaining * 0.5); // 0.5 points per day
 
-    // Get current discipline score
-    const behaviorEvents = await this.repository.getBehaviorEventsByUserId(userId, 100);
-    const currentScore = this.calculateDisciplineScore(behaviorEvents);
-    const newScore = Math.max(0, currentScore - disciplineCost);
-
     // Unlock the pocket
     const updatedPocket = await this.repository.updatePocket(pocketId, {
       is_time_locked: false,
@@ -273,7 +272,7 @@ export class PocketsService {
       throw new NotFoundException('Failed to unlock pocket');
     }
 
-    // Create discipline score event
+    // Create behavior event for the Insights activity log
     await this.repository.createBehaviorEvent({
       user_id: userId,
       type: 'early_unlock',
@@ -284,6 +283,12 @@ export class PocketsService {
         reason: body.reason,
       },
     });
+
+    // Apply the cost through the shared discipline-score service — the same
+    // `discipline_scores` table ReallocationsService/InsightsService use, so
+    // this unlock and a reallocation skip-cooldown both move the one score
+    // the user sees everywhere (see discipline-score.service.ts).
+    const { previousScore, newScore } = await this.disciplineScore.applyDelta(userId, -disciplineCost);
 
     // Create transaction record (use 'rollover' type as placeholder since 'early_unlock' is not in schema)
     const transaction = await this.repository.createTransaction({
@@ -304,7 +309,7 @@ export class PocketsService {
       },
       discipline_cost: {
         points_deducted: disciplineCost,
-        previous_score: currentScore,
+        previous_score: previousScore,
         new_score: newScore,
         reason: `early_unlock_${daysRemaining}_days`,
       },
@@ -421,11 +426,6 @@ export class PocketsService {
     // Calculate discipline bonus
     const disciplineBonus = Math.ceil(additionalDays * 0.2); // 0.2 points per day extended
 
-    // Get current discipline score
-    const behaviorEvents = await this.repository.getBehaviorEventsByUserId(userId, 100);
-    const currentScore = this.calculateDisciplineScore(behaviorEvents);
-    const newScore = currentScore + disciplineBonus;
-
     // Extend the lock
     const updatedPocket = await this.repository.updatePocket(pocketId, {
       lock_until: newLockUntil.toISOString(),
@@ -435,7 +435,7 @@ export class PocketsService {
       throw new NotFoundException('Failed to extend lock');
     }
 
-    // Create discipline score event
+    // Create behavior event for the Insights activity log
     await this.repository.createBehaviorEvent({
       user_id: userId,
       type: 'lock_extension',
@@ -447,6 +447,10 @@ export class PocketsService {
       },
     });
 
+    // Apply the bonus through the shared discipline-score service (see
+    // unlockPocket above and discipline-score.service.ts for why).
+    const { previousScore, newScore } = await this.disciplineScore.applyDelta(userId, disciplineBonus);
+
     return {
       extension: {
         pocket_id: pocket.id,
@@ -457,26 +461,10 @@ export class PocketsService {
       },
       discipline_bonus: {
         points_added: disciplineBonus,
-        previous_score: currentScore,
+        previous_score: previousScore,
         new_score: newScore,
         reason: `lock_extension_${additionalDays}_days`,
       },
     };
-  }
-
-  private calculateDisciplineScore(behaviorEvents: any[]): number {
-    // Simple calculation based on behavior events
-    // In a real implementation, this would be more sophisticated
-    let score = 100; // Starting score
-
-    for (const event of behaviorEvents) {
-      if (event.type === 'early_unlock') {
-        score -= event.payload?.points_deducted || 0;
-      } else if (event.type === 'lock_extension') {
-        score += event.payload?.points_added || 0;
-      }
-    }
-
-    return Math.max(0, Math.min(100, score));
   }
 }

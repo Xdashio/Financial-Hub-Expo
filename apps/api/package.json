@@ -14,7 +14,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "db:sync": "bash scripts/sync-supabase-migrations.sh",
+    "db:push": "npm run db:sync && supabase db push"
   },
   "dependencies": {
     "@financial-hub/shared": "file:../../packages/shared",
