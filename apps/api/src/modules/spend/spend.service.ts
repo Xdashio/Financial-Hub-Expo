@@ -35,11 +35,11 @@ export class SpendService {
     }
     await this.assertPocketOwnership(pocket, userId);
 
-    // Calculate available balance
-    const transactions = await this.repository.getTransactionsByPocketId(dto.pocket_id);
-    const spendTransactions = transactions.filter(t => t.type === 'spend');
-    const spent = spendTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const availableBalance = (pocket.monthly_allocation || 0) - spent;
+    // Available balance is derived purely from the ledger: allocation credits
+    // minus spend debits and reallocation outflows. monthly_allocation is the
+    // planning ceiling only and is never used for balance checks.
+    const summary = await this.repository.getPocketSummary(dto.pocket_id);
+    const availableBalance = summary.available;
 
     // Check if spend exceeds available balance
     if (dto.amount > availableBalance) {

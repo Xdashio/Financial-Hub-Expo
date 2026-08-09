@@ -6,7 +6,8 @@ export interface Pocket {
   name: string;
   kind: 'savings' | 'fixed' | 'spendable';
   category?: string;
-  monthlyAllocation: number;
+  monthlyAllocation: number; // planning ceiling set at onboarding — not a live balance
+  availableBalance: number;  // ledger-derived: allocation credits - spend debits - reallocation outflows
   dailyCap?: number;
   isTimeLocked?: boolean;
   lockUntil?: string;
@@ -46,26 +47,30 @@ const POCKET_COLORS: Record<string, string> = {
   fixed: '#B8873A',
 };
 
-// Note: transaction/spend tracking is out of scope for the MVP showcase, so
-// there's no real spend data to compute "remaining" against yet. Until this
-// exists, the full daily cap is shown as remaining with 0% of it spent.
+// Daily pockets show remaining available balance for the day.
+// For daily-plan pockets the cap is daily_cap; for structured-plan pockets
+// the cap is the monthly allocation ceiling. The remaining is always the
+// ledger-derived available_balance (real money in the pocket).
 function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
   const spendablePockets = pockets.filter(p => p.kind === 'spendable');
   return spendablePockets.map(pocket => {
-    const dailyCap = pocket.dailyCap || 0;
+    const cap = pocket.dailyCap ?? pocket.monthlyAllocation;
+    const remaining = pocket.availableBalance;
+    const progress = cap > 0 ? Math.max(0, Math.min(1, 1 - remaining / cap)) : 0;
     return {
       id: pocket.id,
       name: pocket.name,
       color: POCKET_COLORS[pocket.category || 'food'] || POCKET_COLORS.food,
       category: pocket.category,
-      remaining: Math.round(dailyCap),
-      cap: Math.round(dailyCap),
-      progress: 0, // No spend tracked yet — full cap available
+      remaining: Math.round(remaining),
+      cap: Math.round(cap),
+      progress,
     };
   });
 }
 
-// No spend tracking yet, so nothing has ever gone unspent to roll over.
+// Rollover is the sum of unspent spendable balance from the previous period.
+// This is a future feature — no period boundary logic exists yet.
 function calculateRollover(): number {
   return 0;
 }
@@ -78,28 +83,25 @@ function derivePlanType(pockets: Pocket[]): 'daily' | 'structured' {
   return hasDailyCap ? 'daily' : 'structured';
 }
 
+// Safe to spend is the total ledger-derived available balance across all
+// spendable pockets — i.e. real money the user can actually spend today.
 function calculateSafeToSpend(pockets: Pocket[]): number {
-  const spendablePockets = pockets.filter(p => p.kind === 'spendable');
-  const hasDailyCap = spendablePockets.some(p => (p.dailyCap ?? 0) > 0);
-
-  if (hasDailyCap) {
-    return spendablePockets.reduce((sum, p) => sum + (p.dailyCap || 0), 0);
-  }
-
-  // Structured plans don't set a daily_cap on spendable pockets (it's always
-  // null — see onboarding.service.ts), so summing dailyCap always came out
-  // to 0 and "Safe to spend" showed empty. For structured plans, fall back
-  // to the total spendable allocation instead.
-  return spendablePockets.reduce((sum, p) => sum + (p.monthlyAllocation || 0), 0);
+  return pockets
+    .filter(p => p.kind === 'spendable')
+    .reduce((sum, p) => sum + p.availableBalance, 0);
 }
 
+// Total balance is the sum of available_balance across all pockets — the
+// user's real money across fixed, savings, and spendable.
 function calculateTotalBalance(pockets: Pocket[]): number {
-  return pockets.reduce((sum, p) => sum + p.monthlyAllocation, 0);
+  return pockets.reduce((sum, p) => sum + p.availableBalance, 0);
 }
 
-// The API returns pocket rows straight from the DB in snake_case
-// (daily_cap, monthly_allocation, is_time_locked, lock_until); the store's
-// Pocket interface uses camelCase, so map between the two here.
+// The API returns enriched pocket rows in snake_case; map to camelCase here.
+// available_balance is the ledger-derived spendable balance (allocation
+// credits minus spend debits and reallocation outflows).
+// monthly_allocation is the planning ceiling set at onboarding — kept for
+// percentage displays and daily cap calculations, not for balance.
 function mapPocket(raw: any): Pocket {
   return {
     id: raw.id,
@@ -107,6 +109,7 @@ function mapPocket(raw: any): Pocket {
     kind: raw.kind,
     category: raw.category,
     monthlyAllocation: raw.monthly_allocation,
+    availableBalance: raw.available_balance ?? 0,
     dailyCap: raw.daily_cap ?? undefined,
     isTimeLocked: raw.is_time_locked,
     lockUntil: raw.lock_until ?? undefined,

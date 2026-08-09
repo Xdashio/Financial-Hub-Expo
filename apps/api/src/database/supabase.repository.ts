@@ -296,6 +296,7 @@ export class SupabaseRepository {
   }
 
   async getPocketSummary(pocketId: string): Promise<{
+    allocated: number;
     spent: number;
     available: number;
     transactionCount: number;
@@ -309,16 +310,38 @@ export class SupabaseRepository {
         .or(`from_pocket_id.eq.${pocketId},to_pocket_id.eq.${pocketId}`)
     ]);
 
-    const spendTransactions = transactions.filter(t => t.type === 'spend');
-    const spent = spendTransactions.reduce((sum, t) => sum + t.amount, 0);
+    // Ledger-based balance:
+    //   Credits  — allocation (income landed), reallocation_in (money moved in)
+    //   Debits   — spend (money out), reallocation_out (money moved out, stored as
+    //              negative amounts in the ledger so we sum them directly)
+    // monthly_allocation on the pocket row is a planning ceiling only and is
+    // never mutated after onboarding — balances are always derived from here.
+    const allocated = transactions
+      .filter(t => t.type === 'allocation' || t.type === 'reallocation_in')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const spent = transactions
+      .filter(t => t.type === 'spend')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // reallocation_out amounts are stored as negative values in the ledger
+    // (see reallocations.service.ts createTransactions call), so summing them
+    // reduces the balance correctly without a separate subtract step.
+    const reallocatedOut = transactions
+      .filter(t => t.type === 'reallocation_out')
+      .reduce((sum, t) => sum + t.amount, 0); // amounts are negative
+
+    const available = allocated + reallocatedOut - spent; // reallocatedOut is negative, so this is: allocated - |reallocatedOut| - spent
+
     const transactionCount = transactions.length;
     const reallocationCount = (reallocations.data || []).length;
 
     return {
+      allocated,
       spent,
-      available: 0, // Will be calculated in service layer
+      available: Math.max(0, available),
       transactionCount,
-      reallocationCount
+      reallocationCount,
     };
   }
 

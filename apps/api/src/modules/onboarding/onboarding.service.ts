@@ -69,6 +69,11 @@ export class OnboardingService {
     }
 
     // Create pockets
+    // monthly_allocation is a planning ceiling only — it tells the app how
+    // to split income when it actually arrives (via POST /income/manual).
+    // No allocation transactions are written here: the user's onboarding
+    // income figure is behavioural input, not a deposit. Real money only
+    // enters the ledger when the user logs an income event.
     const pocketInputs = this.createPocketInputs(planId, assignment, input.incomeAmount, input.fixedTotal);
     const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
 
@@ -82,10 +87,6 @@ export class OnboardingService {
         category: expense.category,
       });
     }
-
-    // Create initial allocation transactions
-    const transactions = this.createAllocationTransactions(createdPockets, assignment);
-    await this.supabaseRepo.createTransactions(transactions);
 
     // Create behavior event for plan creation
     await this.supabaseRepo.createBehaviorEvent({
@@ -202,14 +203,5 @@ export class OnboardingService {
     return pockets;
   }
 
-  private createAllocationTransactions(
-    pockets: any[],
-    assignment: PlanAssignment
-  ): any[] {
-    return pockets.map(pocket => ({
-      pocket_id: pocket.id,
-      amount: pocket.monthly_allocation,
-      type: 'allocation' as const,
-    }));
-  }
+
 }
