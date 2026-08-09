@@ -11,7 +11,7 @@ import React from 'react';
 export default function SignUpScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { sendOtp } = useAuthStore();
+  const { sendSignupOtp } = useAuthStore();
   const [phone, setPhone] = React.useState('');
   const [fullName, setFullName] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -78,8 +78,11 @@ export default function SignUpScreen() {
     setIsLoading(true);
     try {
       const fullPhone = `+254${phone.replace(/\s/g, '')}`;
-      await sendOtp(fullPhone, { fullName: fullName.trim(), allowSignup: true });
-      
+      // sendSignupOtp checks whether the number is already registered
+      // *before* creating anything — see auth.ts for why the plain
+      // sendOtp(allowSignup: true) call could never actually detect this.
+      await sendSignupOtp(fullPhone, fullName.trim());
+
       // Navigate to OTP verification with the phone and name
       router.push({
         pathname: '/(auth)/verify-otp',
@@ -90,7 +93,7 @@ export default function SignUpScreen() {
         },
       });
     } catch (error: any) {
-      console.log('sendOtp error:', JSON.stringify(error, null, 2));
+      console.log('sendSignupOtp error:', JSON.stringify(error, null, 2));
       // If user already exists, redirect to signin
       if (error?.message?.includes('already registered') || error?.message?.includes('already exists')) {
         showAlert('Account exists', 'An account with this number already exists. Redirecting to sign in...');
