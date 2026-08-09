@@ -4,7 +4,19 @@ import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { Bell, ToggleRight, LucideIcon } from 'lucide-react-native';
-import { Card, makeStyles } from '@/components/ui';
+import { Card, useMakeStyles } from '@/components/ui';
+
+// Define the theme shape if not imported from your UI library
+interface Theme {
+  surface: string;
+  line: string;
+  ink: string;
+  paper: string;
+  emeraldDeep: string;
+  emeraldTint: string;
+  lineSoft: string;
+  sage: string;
+}
 
 interface NotificationPreferences {
   reallocation_confirms: boolean;
@@ -22,7 +34,8 @@ export default function NotificationsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const styles = makeStyles((theme) => ({
+  // useMakeStyles returns the styles object directly, so we assign it to 'styles'
+  const styles = useMakeStyles((theme: Theme) => ({
     container: {
       flex: 1,
       backgroundColor: theme.surface,
