@@ -22,18 +22,18 @@ Phased from empty repo → MVP showcase → embeddable product with billing. Tim
 ## Phase A — Stabilize (do this before any further Phase 1 work)
 Goal: close the gap between what the code assumes and what the database actually enforces, so every module that already "works" keeps working once real data flows through it. Nothing in Phase 1 below should be picked up until this phase is done — several Phase 1 items depend on modules this phase fixes.
 
-- [ ] **Resolve the two diverged schema migrations** (`apps/api/src/database/migrations/` vs `apps/api/supabase/migrations/`) — pick one as canonical (the former; it has matching spec/test files and the auth signup trigger), delete or clearly deprecate the other, and wire up a real Supabase CLI project config so `supabase db push` can't silently apply the wrong one again
-- [ ] **Fix `merchant_classifications` schema drift** — add `user_id`, make the unique constraint `(user_id, recipient_key)` instead of a global `UNIQUE(recipient_key)`, and resolve the `pocket_id` filter used by `getMerchantScope` (no schema copy has this column — likely fix is to drop the filter and key off `pocket.kind` instead)
-- [ ] **Fix `discipline_scores` schema + onConflict drift** — needs a composite `(user_id, period)` key so per-period history can actually be stored, with the repository's `onConflict` target updated to match; this currently breaks the settled PRD §3.4 skip-cooldown feature at the DB layer
-- [ ] **Register `MerchantReportModule`** in `app.module.ts` (currently defined but never imported — the endpoints 404, not just stub) — pair with building the real `merchant_reports` table so the stub logic gets replaced at the same time
-- [ ] **Create `notification_preferences` table** and replace the notifications stub with real persistence
-- [ ] **Fix manual income entry not moving pocket balances** — decide once whether pocket balance is `monthly_allocation` (static, income tops it up) or fully ledger-derived (sum of all transaction types including `allocation`), and make every balance read consistent with that choice
-- [ ] **Write real tests for `OnboardingService`** — the current `.spec.ts` file is an accidental duplicate of the implementation, not tests; this is the most consequential single piece of business logic in the app and currently has zero coverage
-- [ ] **Unify the two disconnected discipline-score mechanisms** — `PocketsService.calculateDisciplineScore()` (derived locally from `behavior_events`, used only for time-lock unlock/extend) and the `discipline_scores` table (written by `ReallocationsService`, read by `InsightsService`) currently disagree with each other; pick one source of truth
-- [ ] **Fix the `fixed_expenses` status-update hack** — currently appends `" (inactive)"` to the expense `name` field instead of using a real `status` column, which corrupts user-entered data; add the column properly
-- [ ] Remove dead `transactionsApi.create()` client code in the mobile app (points at a `/transactions` endpoint that doesn't exist and is currently unused) — or build the endpoint if it turns out to be needed once ledger-vs-ceiling (above) is decided
+- [x] **Resolve the two diverged schema migrations** (`apps/api/src/database/migrations/` vs `apps/api/supabase/migrations/`) — `apps/api/src/database/migrations/` is canonical; `apps/api/supabase/migrations/` is now a generated copy (`npm run db:sync`) with a do-not-edit README
+- [x] **Fix `merchant_classifications` schema drift** — `user_id` column added, unique constraint is `(user_id, recipient_key)`, and `PocketsService.getMerchantScope` drops the `pocket_id` filter and keys off `pocket.kind` instead
+- [x] **Fix `discipline_scores` schema + onConflict drift** — composite `UNIQUE (user_id, period)` constraint added; repository's `upsertDisciplineScore` targets `onConflict: 'user_id,period'`
+- [x] **Register `MerchantReportModule`** in `app.module.ts`, paired with a real `merchant_reports` table
+- [x] **Create `notification_preferences` table** and replace the notifications stub with real persistence (update-then-insert in `SupabaseRepository.upsertNotificationPreferences`, preserving untouched fields)
+- [x] **Fix manual income entry not moving pocket balances** — decided `monthly_allocation` is the ceiling; `IncomeService.createManualIncome` now updates it directly on allocation, consistent with `ReallocationsService.complete()`
+- [x] **Write real tests for `OnboardingService`** — `onboarding.service.spec.ts` now mocks the repository and asserts on `assign()` behavior across plan-type/spending-habit combinations, not a duplicate of the implementation
+- [x] **Unify the two disconnected discipline-score mechanisms** — both `PocketsService` and `ReallocationsService` now go through a shared `DisciplineScoreService`, backed by the `discipline_scores` table, which `InsightsService` reads
+- [x] **Fix the `fixed_expenses` status-update hack** — real `status` column (`active`/`inactive`) added; `ProfileService.updateFixedExpenseStatus` writes to it instead of mangling `name`
+- [x] Remove dead `transactionsApi.create()` client code — `apps/mobile/src/services/api.ts`'s `transactionsApi` now only has `getByPocketId`
 
-**Exit criteria:** `npx jest` passes (already true, but now meaningfully — real `OnboardingService` tests included), and every module marked "✅ Real" in `BACKEND_FRONTEND_AUDIT.md` has been exercised against an actual local Supabase/Postgres instance running the canonical migration, not just against mocked repository tests. Full detail on every item above is in `BACKEND_FRONTEND_AUDIT.md`'s "Critical: Schema Drift & Runtime-Breaking Bugs" section.
+**Exit criteria:** `npx jest` passes (133 api tests + 25 shared tests, including real `OnboardingService` tests) and `pnpm typecheck` is clean across mobile/api/shared. Verified at the code level against `BACKEND_FRONTEND_AUDIT.md`'s "Critical: Schema Drift & Runtime-Breaking Bugs" section on 2026-08-09. **Caveat:** the "exercised against an actual local Supabase/Postgres instance" portion of this exit criterion was not independently re-verified in this pass (no local Postgres/Supabase CLI available) — confirm that leg separately before treating Phase A as fully closed in a strict CI sense.
 
 ## Phase 1 — MVP showcase (Individual segment only)
 Goal: a clickable, real (not fake-static) app that demonstrates the core thesis to potential SACCO/bank partners.
@@ -42,27 +42,27 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 - [x] Onboarding flow wired to real state — income, spending habits, fixed expenses; rules-engine plan assignment is deterministic and inspectable, matches PRD; **only remaining gap is Phase A's test-coverage item**
 - [x] Daily Budget mode — implemented as per-pocket daily caps with a rollup hero, matching the settled PRD §8 decision
 - [x] Home (both Daily and Structured variants) — wired to real pocket data via `pocketsApi`
-- [ ] Pocket detail — **backend summary/merchant-scope endpoints exist but merchant-scope is blocked on Phase A's C2 fix; screen itself is still mock data, not yet wired**
+- [x] Pocket detail — wired to `pocketsApi.getSummary`/`getTransactions`, including paginated "load more" and pull-to-refresh
 - [ ] Manual income entry screen — **no backend module gap (income API is real), but needs Phase A's C5 fix before the numbers it shows would be trustworthy, and the screen isn't built yet**
-- [ ] Merchant categorization / MCC-style spend restriction — **blocked on Phase A (C2); screen (`classify.tsx`) is mock, spend-check API itself is solid**
+- [x] Merchant categorization / MCC-style spend restriction — `classify.tsx` wired to `merchantApi.classify` and `pocketsApi.getAll` (real pocket list replacing the hardcoded 4-pocket array)
 - [x] Reallocation flow — pick/review/cooldown/success screens wired to a real API; **skip-cooldown discipline-cost path is blocked on Phase A's C3 fix**
 - [x] Insights screen — wired to real behavioral event log and discipline score; **will show inconsistent numbers vs. the time-lock screen until Phase A's discipline-score unification lands**
-- [x] Profile + fixed expenses — plan/profile CRUD is real and wired; **fixed-expenses screen itself (`fixed-expenses.tsx`) is still mock despite the backend being ready — pure frontend-wiring task, no backend blocker**
+- [x] Profile + fixed expenses — plan/profile CRUD is real and wired, including `fixed-expenses.tsx` (wired to `profileApi` — was mock, now real)
 - [ ] Notifications settings — blocked on Phase A (needs the new table + real service)
 - [ ] Report merchant — blocked on Phase A (needs the module registered + new table)
-- [ ] Time-lock screen — backend is solid and ready; screen itself (`time-lock.tsx`) is still mock, pure frontend-wiring task
-- [ ] Blocked-spend screen — backend is solid and ready; screen itself is still mock, pure frontend-wiring task
+- [x] Time-lock screen — wired to `pocketsApi.getLockStatus/unlock/extendLock`, with biometric confirmation via `expo-local-authentication` before unlock and real discipline-score numbers in the result message
+- [ ] Blocked-spend screen — **screen itself already had no mock data (pure display off route params); added `spendApi` client (`check`, `getBlockedReasons`), but no UI flow in the app currently calls `/spend/check` and navigates here on a block — this app has no PSP integration (manual income/spend only), so there's no natural "spend attempt" trigger point yet. Scoping question, not a wiring task — flagging for a decision rather than guessing at a fake entry point.**
 - [ ] One cohesive demo script/dataset (e.g. two seeded users — one Daily, one Structured — so the adaptive-shell story is demoable live)
 
 **Exit criteria:** you can hand a phone to a partner, walk through onboarding → plan → a week of simulated activity → a reallocation → insights, and every number on screen is real, not hardcoded.
 
 ### Phase 1 sequencing (screens ready to wire the moment Phase A lands)
 Once Phase A is done, these are pure frontend-wiring tasks with no backend blocker — safe to parallelize across however many people are available, roughly in this order (dependency-free ones first):
-1. Fixed expenses screen (`fixed-expenses.tsx`) — backend already solid today, doesn't even need to wait for Phase A
-2. Time-lock screen (`time-lock.tsx`) — backend already solid today, doesn't even need to wait for Phase A
-3. Blocked-spend screen (`blocked-spend.tsx`) — backend already solid today, doesn't even need to wait for Phase A
-4. Pocket detail screen — needs Phase A's C2 (merchant scope) fix first
-5. Merchant classification screen (`classify.tsx`) — needs Phase A's C2 fix first
+1. ~~Fixed expenses screen (`fixed-expenses.tsx`)~~ — done, wired to `profileApi`
+2. ~~Time-lock screen (`time-lock.tsx`)~~ — done, wired to `pocketsApi` with biometric confirmation
+3. Blocked-spend screen (`blocked-spend.tsx`) — screen has no mock to wire; `spendApi` client added but no UI flow triggers it yet (see Phase 1 checklist note)
+4. ~~Pocket detail screen~~ — done, wired to `pocketsApi`
+5. ~~Merchant classification screen (`classify.tsx`)~~ — done, wired to `merchantApi` + real pocket list
 6. Notifications screen — needs Phase A's new table + real service
 7. Report-merchant screen — needs Phase A's module registration + new table
 8. Manual income entry screen (new build, no mockup-to-screen gap listed above but referenced in PRD §3.8/§3.1) — needs Phase A's C5 fix first so the numbers are trustworthy

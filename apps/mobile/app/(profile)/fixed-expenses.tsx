@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
+import { profileApi } from '@/services/api';
 import {
   ArrowLeft,
   Plus,
@@ -81,32 +82,11 @@ export default function FixedExpensesScreen() {
   const loadExpenses = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call
-      // const data = await profileApi.getFixedExpenses();
-      
-      // Mock data for now
-      setExpenses([
-        {
-          id: '1',
-          name: 'Rent',
-          amount: 15000,
-          due_day: 1,
-          category: 'utilities',
-          user_id: 'user-id',
-          created_at: '2026-08-01T00:00:00Z',
-        },
-        {
-          id: '2',
-          name: 'Electricity',
-          amount: 2000,
-          due_day: 15,
-          category: 'utilities',
-          user_id: 'user-id',
-          created_at: '2026-08-01T00:00:00Z',
-        },
-      ]);
+      const data = await profileApi.getFixedExpenses();
+      setExpenses(data);
     } catch (error) {
       console.error('Error loading expenses:', error);
+      alert('Error', 'Failed to load fixed expenses. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -119,26 +99,14 @@ export default function FixedExpensesScreen() {
     }
 
     try {
-      // TODO: Replace with actual API call
-      // await profileApi.createFixedExpense({
-      //   name,
-      //   amount: parseFloat(amount),
-      //   dueDay: parseInt(dueDay),
-      //   category,
-      // });
+      const created = await profileApi.createFixedExpense({
+        name,
+        amount: parseFloat(amount),
+        dueDay: parseInt(dueDay),
+        category,
+      });
 
-      setExpenses([
-        ...expenses,
-        {
-          id: Date.now().toString(),
-          name,
-          amount: parseFloat(amount),
-          due_day: parseInt(dueDay),
-          category,
-          user_id: 'user-id',
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      setExpenses([...expenses, created]);
 
       setShowAddModal(false);
       resetForm();
@@ -154,26 +122,15 @@ export default function FixedExpensesScreen() {
     }
 
     try {
-      // TODO: Replace with actual API call
-      // await profileApi.updateFixedExpense(editingExpense.id, {
-      //   name,
-      //   amount: parseFloat(amount),
-      //   dueDay: parseInt(dueDay),
-      //   category,
-      // });
+      const updated = await profileApi.updateFixedExpense(editingExpense.id, {
+        name,
+        amount: parseFloat(amount),
+        dueDay: parseInt(dueDay),
+        category,
+      });
 
       setExpenses(
-        expenses.map((exp) =>
-          exp.id === editingExpense.id
-            ? {
-                ...exp,
-                name,
-                amount: parseFloat(amount),
-                due_day: parseInt(dueDay),
-                category,
-              }
-            : exp
-        )
+        expenses.map((exp) => (exp.id === editingExpense.id ? updated : exp))
       );
 
       setShowEditModal(false);
@@ -194,8 +151,7 @@ export default function FixedExpensesScreen() {
     if (!confirmed) return;
 
     try {
-      // TODO: Replace with actual API call
-      // await profileApi.deleteFixedExpense(expense.id);
+      await profileApi.deleteFixedExpense(expense.id);
 
       setExpenses(expenses.filter((exp) => exp.id !== expense.id));
       alert('Deleted', 'Fixed expense deleted successfully.');
