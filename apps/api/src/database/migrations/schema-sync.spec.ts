@@ -48,4 +48,12 @@ describe('canonical migrations vs generated supabase/migrations', () => {
     const generatedFiles = versionedSqlFiles(GENERATED_DIR);
     expect(generatedFiles.sort()).toEqual(canonicalFiles.sort());
   });
+
+  it('generated dir contains no .spec.sql or .test.sql files (dev-only, not for the Supabase CLI)', () => {
+    if (!fs.existsSync(GENERATED_DIR)) return;
+    const strayDevFiles = fs
+      .readdirSync(GENERATED_DIR)
+      .filter(f => f.endsWith('.spec.sql') || f.endsWith('.test.sql'));
+    expect(strayDevFiles).toEqual([]);
+  });
 });

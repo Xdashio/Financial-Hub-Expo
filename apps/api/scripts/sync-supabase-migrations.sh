@@ -24,11 +24,19 @@ TARGET_DIR="$API_DIR/supabase/migrations"
 
 mkdir -p "$TARGET_DIR"
 
+# Clean out previously-generated migration files first. Without this, a
+# migration renamed or removed in the canonical source would leave its old
+# copy behind in TARGET_DIR forever — db:sync would silently stop being a
+# true mirror, only ever adding files, never removing them.
+shopt -s nullglob
+for f in "$TARGET_DIR"/[0-9]*.sql; do
+  rm -f "$f"
+done
+
 # Only copy the versioned .sql migration files themselves — the .spec.sql /
 # .test.sql helper scripts and README.md are dev-only and don't belong in a
 # Supabase CLI migrations directory (the CLI applies every .sql file it finds
 # there, in filename order, on `supabase db push`).
-shopt -s nullglob
 copied_any=false
 for f in "$SOURCE_DIR"/[0-9]*.sql; do
   base="$(basename "$f")"
