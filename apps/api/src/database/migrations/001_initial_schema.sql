@@ -71,6 +71,9 @@ CREATE TABLE IF NOT EXISTS public.fixed_expenses (
   amount NUMERIC NOT NULL CHECK (amount > 0),
   due_day INTEGER NOT NULL CHECK (due_day >= 1 AND due_day <= 31),
   category TEXT NOT NULL CHECK (category IN ('food', 'transport', 'leisure', 'personal', 'utilities', 'healthcare', 'education', 'other')),
+  -- Real status column: previously simulated by appending " (inactive)" to
+  -- `name`, which corrupted user-entered data. See BACKEND_FRONTEND_AUDIT.md.
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -132,11 +135,14 @@ CREATE TABLE IF NOT EXISTS public.reallocations (
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.merchant_classifications (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   recipient_key TEXT NOT NULL, -- e.g. till number, paybill, phone number
   category TEXT NOT NULL CHECK (category IN ('grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'gambling_betting', 'personal_care', 'other', 'unclassified')),
   remember BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CONSTRAINT unique_recipient UNIQUE (recipient_key)
+  -- Scoped per-user: two different users classifying the same till/paybill
+  -- number must not collide with (or leak into) each other's records.
+  CONSTRAINT unique_user_recipient UNIQUE (user_id, recipient_key)
 );
 
 -- ============================================================================
@@ -154,11 +160,47 @@ CREATE TABLE IF NOT EXISTS public.behavior_events (
 -- Discipline Scores Table
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.discipline_scores (
-  user_id UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   score NUMERIC NOT NULL CHECK (score >= 0 AND score <= 100),
   delta NUMERIC NOT NULL,
   period TEXT NOT NULL, -- e.g. '2024-01', 'week-3'
-  calculated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  calculated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- One score row per user per period (was `user_id PRIMARY KEY` alone,
+  -- which could only ever hold one row per user total and broke every
+  -- upsert that targeted (user_id, period) — see BACKEND_FRONTEND_AUDIT.md).
+  CONSTRAINT unique_user_period UNIQUE (user_id, period)
+);
+
+-- ============================================================================
+-- Notification Preferences Table (per user)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.notification_preferences (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  reallocation_confirms BOOLEAN NOT NULL DEFAULT TRUE,
+  cooling_off_reminders BOOLEAN NOT NULL DEFAULT TRUE,
+  savings_milestones BOOLEAN NOT NULL DEFAULT TRUE,
+  monthly_insights BOOLEAN NOT NULL DEFAULT FALSE,
+  tips_nudges BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT unique_notification_preferences_user UNIQUE (user_id)
+);
+
+-- ============================================================================
+-- Merchant Reports Table (user-submitted classification disputes)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.merchant_reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  recipient_key TEXT NOT NULL,
+  report_type TEXT NOT NULL CHECK (report_type IN ('wrong_category', 'not_gambling', 'wrong_amount', 'unknown_payee')),
+  description TEXT,
+  suggested_category TEXT CHECK (suggested_category IS NULL OR suggested_category IN ('grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'gambling_betting', 'personal_care', 'other', 'unclassified')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ
 );
 
 -- ============================================================================
@@ -197,6 +239,7 @@ CREATE INDEX IF NOT EXISTS idx_reallocations_status ON public.reallocations(stat
 CREATE INDEX IF NOT EXISTS idx_reallocations_created_at ON public.reallocations(created_at);
 
 -- Merchant Classifications
+CREATE INDEX IF NOT EXISTS idx_merchant_classifications_user_id ON public.merchant_classifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_merchant_classifications_recipient_key ON public.merchant_classifications(recipient_key);
 CREATE INDEX IF NOT EXISTS idx_merchant_classifications_category ON public.merchant_classifications(category);
 
@@ -204,6 +247,17 @@ CREATE INDEX IF NOT EXISTS idx_merchant_classifications_category ON public.merch
 CREATE INDEX IF NOT EXISTS idx_behavior_events_user_id ON public.behavior_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_behavior_events_type ON public.behavior_events(type);
 CREATE INDEX IF NOT EXISTS idx_behavior_events_created_at ON public.behavior_events(created_at);
+
+-- Discipline Scores
+CREATE INDEX IF NOT EXISTS idx_discipline_scores_user_id ON public.discipline_scores(user_id);
+CREATE INDEX IF NOT EXISTS idx_discipline_scores_calculated_at ON public.discipline_scores(calculated_at);
+
+-- Notification Preferences
+CREATE INDEX IF NOT EXISTS idx_notification_preferences_user_id ON public.notification_preferences(user_id);
+
+-- Merchant Reports
+CREATE INDEX IF NOT EXISTS idx_merchant_reports_user_id ON public.merchant_reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_merchant_reports_status ON public.merchant_reports(status);
 
 -- ============================================================================
 -- Row Level Security (RLS) Policies
@@ -220,6 +274,8 @@ ALTER TABLE public.reallocations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.merchant_classifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.behavior_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.discipline_scores ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notification_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.merchant_reports ENABLE ROW LEVEL SECURITY;
 
 -- Users: Users can only read/write their own data
 CREATE POLICY "Users can view own profile" ON public.users
@@ -374,9 +430,20 @@ CREATE POLICY "Users can update own reallocations" ON public.reallocations
     )
   );
 
--- Merchant Classifications: Read-only for users, write via service layer
-CREATE POLICY "Anyone can view merchant classifications" ON public.merchant_classifications
-  FOR SELECT USING (true);
+-- Merchant Classifications: users can only read/write their own (this used
+-- to be `USING (true)`, i.e. every user could read every other user's
+-- merchant/recipient history — fixed now that user_id exists on the table)
+CREATE POLICY "Users can view own merchant classifications" ON public.merchant_classifications
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own merchant classifications" ON public.merchant_classifications
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own merchant classifications" ON public.merchant_classifications
+  FOR UPDATE USING (user_id = auth.uid());
+
+CREATE POLICY "Users can delete own merchant classifications" ON public.merchant_classifications
+  FOR DELETE USING (user_id = auth.uid());
 
 -- Behavior Events: users can only read their own; writes happen via service layer
 CREATE POLICY "Users can view own behavior events" ON public.behavior_events
@@ -391,6 +458,24 @@ CREATE POLICY "Users can insert own discipline scores" ON public.discipline_scor
 
 CREATE POLICY "Users can update own discipline scores" ON public.discipline_scores
   FOR UPDATE USING (user_id = auth.uid());
+
+-- Notification Preferences: users can only read/write their own row
+CREATE POLICY "Users can view own notification preferences" ON public.notification_preferences
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own notification preferences" ON public.notification_preferences
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+CREATE POLICY "Users can update own notification preferences" ON public.notification_preferences
+  FOR UPDATE USING (user_id = auth.uid());
+
+-- Merchant Reports: users can view/create their own reports; review status
+-- transitions are performed via the service layer (no client-side UPDATE policy)
+CREATE POLICY "Users can view own merchant reports" ON public.merchant_reports
+  FOR SELECT USING (user_id = auth.uid());
+
+CREATE POLICY "Users can insert own merchant reports" ON public.merchant_reports
+  FOR INSERT WITH CHECK (user_id = auth.uid());
 
 -- ============================================================================
 -- Functions and Triggers for Business Rules
@@ -413,6 +498,9 @@ CREATE TRIGGER update_pockets_updated_at BEFORE UPDATE ON public.pockets
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 CREATE TRIGGER update_fixed_expenses_updated_at BEFORE UPDATE ON public.fixed_expenses
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE TRIGGER update_notification_preferences_updated_at BEFORE UPDATE ON public.notification_preferences
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- ============================================================================

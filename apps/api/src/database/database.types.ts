@@ -119,6 +119,7 @@ export interface Database {
           amount: number
           due_day: number
           category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other'
+          status: 'active' | 'inactive'
           created_at: string
           updated_at: string
         }
@@ -129,6 +130,7 @@ export interface Database {
           amount: number
           due_day: number
           category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other'
+          status?: 'active' | 'inactive'
           created_at?: string
           updated_at?: string
         }
@@ -139,6 +141,7 @@ export interface Database {
           amount?: number
           due_day?: number
           category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other'
+          status?: 'active' | 'inactive'
           created_at?: string
           updated_at?: string
         }
@@ -383,6 +386,7 @@ export interface MerchantReport {
   recipient_key: string;
   report_type: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee';
   description: string | null;
+  suggested_category: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null;
   status: 'pending' | 'reviewed' | 'resolved';
   created_at: string;
   reviewed_at: string | null;
@@ -395,7 +399,42 @@ export interface MerchantReportInsert {
   recipient_key: string;
   report_type: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee';
   description?: string | null;
+  suggested_category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null;
   status?: 'pending' | 'reviewed' | 'resolved';
   created_at?: string;
   reviewed_at?: string | null;
+}
+
+// Notification Preferences (per-user notification settings)
+export interface NotificationPreferences {
+  id: string;
+  user_id: string;
+  reallocation_confirms: boolean;
+  cooling_off_reminders: boolean;
+  savings_milestones: boolean;
+  monthly_insights: boolean;
+  tips_nudges: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationPreferencesInsert {
+  id?: string;
+  user_id: string;
+  reallocation_confirms?: boolean;
+  cooling_off_reminders?: boolean;
+  savings_milestones?: boolean;
+  monthly_insights?: boolean;
+  tips_nudges?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface NotificationPreferencesUpdate {
+  reallocation_confirms?: boolean;
+  cooling_off_reminders?: boolean;
+  savings_milestones?: boolean;
+  monthly_insights?: boolean;
+  tips_nudges?: boolean;
+  updated_at?: string;
 }

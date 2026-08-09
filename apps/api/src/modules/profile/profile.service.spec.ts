@@ -178,4 +178,44 @@ describe('ProfileService', () => {
     await expect(service.retakePlan('user-123', { incomeAmount: -1 })).rejects.toBeInstanceOf(BadRequestException);
     expect(onboardingService.commit).not.toHaveBeenCalled();
   });
+
+  describe('updateFixedExpenseStatus', () => {
+    it('writes the real status column, leaving name untouched (C-fixed-expenses-status)', async () => {
+      supabaseRepo.getFixedExpenseById.mockResolvedValue({ id: 'fe-1', user_id: 'user-123', name: 'Rent' } as any);
+      supabaseRepo.updateFixedExpense.mockResolvedValue({ id: 'fe-1', user_id: 'user-123', name: 'Rent', status: 'inactive' } as any);
+
+      const result = await service.updateFixedExpenseStatus('user-123', 'fe-1', { status: 'inactive' });
+
+      expect(supabaseRepo.updateFixedExpense).toHaveBeenCalledWith('fe-1', { status: 'inactive' });
+      expect(result.name).toBe('Rent'); // name is never mangled
+      expect(result.status).toBe('inactive');
+    });
+
+    it('accepts "active" too', async () => {
+      supabaseRepo.getFixedExpenseById.mockResolvedValue({ id: 'fe-1', user_id: 'user-123', name: 'Rent' } as any);
+      supabaseRepo.updateFixedExpense.mockResolvedValue({ id: 'fe-1', user_id: 'user-123', name: 'Rent', status: 'active' } as any);
+
+      await service.updateFixedExpenseStatus('user-123', 'fe-1', { status: 'active' });
+
+      expect(supabaseRepo.updateFixedExpense).toHaveBeenCalledWith('fe-1', { status: 'active' });
+    });
+
+    it('rejects an invalid status value', async () => {
+      supabaseRepo.getFixedExpenseById.mockResolvedValue({ id: 'fe-1', user_id: 'user-123', name: 'Rent' } as any);
+
+      await expect(service.updateFixedExpenseStatus('user-123', 'fe-1', { status: 'paused' })).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(supabaseRepo.updateFixedExpense).not.toHaveBeenCalled();
+    });
+
+    it('rejects updating another user\'s fixed expense', async () => {
+      supabaseRepo.getFixedExpenseById.mockResolvedValue({ id: 'fe-1', user_id: 'someone-else', name: 'Rent' } as any);
+
+      await expect(
+        service.updateFixedExpenseStatus('user-123', 'fe-1', { status: 'inactive' }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(supabaseRepo.updateFixedExpense).not.toHaveBeenCalled();
+    });
+  });
 });

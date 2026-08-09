@@ -1,6 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
+
+const DEFAULT_PREFERENCES = {
+  reallocation_confirms: true,
+  cooling_off_reminders: true,
+  savings_milestones: true,
+  monthly_insights: false,
+  tips_nudges: false,
+};
 
 @Injectable()
 export class NotificationsService {
@@ -18,22 +26,30 @@ export class NotificationsService {
     updated_at: string | null;
     is_default?: boolean;
   }> {
-    // Stub implementation - notification_preferences table doesn't exist yet
-    // This will be implemented once the table is created in the database
-    console.log('Notification preferences fetch stub for user:', userId);
+    const existing = await this.repository.getNotificationPreferencesByUserId(userId);
 
-    // Return default preferences
+    if (!existing) {
+      // No row yet — the user hasn't changed anything from the defaults,
+      // so there's nothing to persist. Reflect that with is_default rather
+      // than silently writing a row on every read.
+      return {
+        preferences: { ...DEFAULT_PREFERENCES },
+        user_id: userId,
+        updated_at: null,
+        is_default: true,
+      };
+    }
+
     return {
       preferences: {
-        reallocation_confirms: true,
-        cooling_off_reminders: true,
-        savings_milestones: true,
-        monthly_insights: false,
-        tips_nudges: false,
+        reallocation_confirms: existing.reallocation_confirms,
+        cooling_off_reminders: existing.cooling_off_reminders,
+        savings_milestones: existing.savings_milestones,
+        monthly_insights: existing.monthly_insights,
+        tips_nudges: existing.tips_nudges,
       },
       user_id: userId,
-      updated_at: null,
-      is_default: true,
+      updated_at: existing.updated_at,
     };
   }
 
@@ -48,28 +64,26 @@ export class NotificationsService {
     user_id: string;
     updated_at: string;
   }> {
-    // Stub implementation - notification_preferences table doesn't exist yet
-    // This will be implemented once the table is created in the database
-    console.log('Notification preferences update stub for user:', userId, dto);
+    const updated = await this.repository.upsertNotificationPreferences(
+      userId,
+      dto,
+      { user_id: userId, ...DEFAULT_PREFERENCES }
+    );
 
-    // Return the updated preferences (merged with defaults)
-    const defaultPreferences = {
-      reallocation_confirms: true,
-      cooling_off_reminders: true,
-      savings_milestones: true,
-      monthly_insights: false,
-      tips_nudges: false,
-    };
-
-    const updatedPreferences = {
-      ...defaultPreferences,
-      ...dto,
-    };
+    if (!updated) {
+      throw new Error('Failed to update notification preferences');
+    }
 
     return {
-      preferences: updatedPreferences,
+      preferences: {
+        reallocation_confirms: updated.reallocation_confirms,
+        cooling_off_reminders: updated.cooling_off_reminders,
+        savings_milestones: updated.savings_milestones,
+        monthly_insights: updated.monthly_insights,
+        tips_nudges: updated.tips_nudges,
+      },
       user_id: userId,
-      updated_at: new Date().toISOString(),
+      updated_at: updated.updated_at,
     };
   }
 }

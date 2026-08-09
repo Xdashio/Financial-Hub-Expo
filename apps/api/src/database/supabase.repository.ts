@@ -12,6 +12,7 @@ import {
   BehaviorEvent, BehaviorEventInsert,
   DisciplineScore, DisciplineScoreInsert,
   MerchantReport, MerchantReportInsert,
+  NotificationPreferences, NotificationPreferencesInsert, NotificationPreferencesUpdate,
 } from '../database/database.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -424,19 +425,25 @@ export class SupabaseRepository {
     if (error) throw error;
   }
 
-  // Merchant Reports (stubs for now - table needs to be created in database)
+  // Merchant Reports
   async createMerchantReport(report: MerchantReportInsert): Promise<MerchantReport | null> {
-    // Stub implementation - table doesn't exist yet
-    // This will be implemented once the merchant_reports table is created
-    console.log('Merchant report creation stub:', report);
-    return report as MerchantReport;
+    const { data, error } = await this.supabase
+      .from('merchant_reports')
+      .insert(report)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
   }
 
   async getMerchantReportsByUserId(userId: string): Promise<MerchantReport[]> {
-    // Stub implementation - table doesn't exist yet
-    // This will be implemented once the merchant_reports table is created
-    console.log('Merchant reports fetch stub for user:', userId);
-    return [];
+    const { data, error } = await this.supabase
+      .from('merchant_reports')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
   }
 
   // Behavior Events
@@ -492,6 +499,34 @@ export class SupabaseRepository {
       .limit(1)
       .single();
     if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  // Notification Preferences
+  async getNotificationPreferencesByUserId(userId: string): Promise<NotificationPreferences | null> {
+    const { data, error } = await this.supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  async upsertNotificationPreferences(
+    userId: string,
+    updates: NotificationPreferencesUpdate,
+    defaults: NotificationPreferencesInsert
+  ): Promise<NotificationPreferences | null> {
+    const { data, error } = await this.supabase
+      .from('notification_preferences')
+      .upsert(
+        { ...defaults, ...updates, user_id: userId, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      )
+      .select()
+      .single();
+    if (error) throw error;
     return data;
   }
 }
