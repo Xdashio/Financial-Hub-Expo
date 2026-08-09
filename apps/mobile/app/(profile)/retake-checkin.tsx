@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Button, Input, LoadingState, SectionTitle } from '@/components/ui';
+import { Button, Input, LoadingState, SectionTitle, ProgressIndicator } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { profileApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
@@ -86,6 +86,9 @@ export default function RetakeCheckinScreen() {
   const insets = useSafeAreaInsets();
 
   const [showForm, setShowForm] = React.useState(false);
+  // The form is split into 2 slides: (1) income + habits, (2) fixed
+  // expenses + submit. Was previously one long scroll covering both.
+  const [formStep, setFormStep] = React.useState<1 | 2>(1);
   const [isPrefilling, setIsPrefilling] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
@@ -152,7 +155,21 @@ export default function RetakeCheckinScreen() {
 
   const handleStart = async () => {
     setShowForm(true);
+    setFormStep(1);
     await loadPrefill();
+  };
+
+  const handleContinueToStep2 = () => {
+    const amount = Number(incomeAmount.replace(/,/g, ''));
+    if (!amount || amount <= 0) {
+      alert('Error', 'Please enter your average monthly income');
+      return;
+    }
+    if (incomePattern === 'freelancer' && !incomeIntervalBand) {
+      alert('Error', 'Let us know roughly how often payments land');
+      return;
+    }
+    setFormStep(2);
   };
 
   const handleAddSuggestion = (suggestion: typeof SUGGESTIONS[0]) => {
@@ -280,11 +297,24 @@ export default function RetakeCheckinScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-        <Pressable onPress={() => (showForm ? setShowForm(false) : router.back())} style={{ padding: spacing.sm }}>
+        <Pressable
+          onPress={() => {
+            if (!showForm) { router.back(); return; }
+            if (formStep === 2) { setFormStep(1); return; }
+            setShowForm(false);
+          }}
+          style={{ padding: spacing.sm }}
+        >
           <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
         </Pressable>
         <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake Check-in</Text>
       </View>
+
+      {showForm && !isPrefilling && (
+        <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
+          <ProgressIndicator currentStep={formStep} totalSteps={2} />
+        </View>
+      )}
 
       {!showForm && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
@@ -325,7 +355,7 @@ export default function RetakeCheckinScreen() {
 
       {showForm && isPrefilling && <LoadingState label="Loading your current plan…" />}
 
-      {showForm && !isPrefilling && (
+      {showForm && !isPrefilling && formStep === 1 && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <SectionTitle>Income pattern</SectionTitle>
           <View style={{ marginTop: spacing.md, gap: spacing.md }}>
@@ -434,6 +464,14 @@ export default function RetakeCheckinScreen() {
             ))}
           </View>
 
+          <Button fullWidth size="lg" onPress={handleContinueToStep2} style={{ marginTop: spacing.md }}>
+            Continue
+          </Button>
+        </ScrollView>
+      )}
+
+      {showForm && !isPrefilling && formStep === 2 && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <SectionTitle>What repeats every month?</SectionTitle>
           {fixedExpenses.length > 0 && (
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.sm, marginTop: spacing.md, marginBottom: spacing.md }}>
