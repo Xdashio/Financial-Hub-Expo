@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, Pressable, RefreshControl } from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
@@ -11,6 +11,7 @@ import {
   RefreshCw,
   TrendingUp,
   TrendingDown,
+  ShoppingCart,
   LucideIcon,
 } from 'lucide-react-native';
 
@@ -68,6 +69,23 @@ export default function PocketDetailScreen() {
     }
   }, [id]);
 
+  // Refetch whenever this screen regains focus — e.g. coming back from
+  // "Log a spend", reallocation, or add money, all of which change this
+  // pocket's numbers elsewhere and would otherwise leave this screen
+  // showing stale data until a manual pull-to-refresh.
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      if (id) {
+        loadPocketData();
+      }
+    }, [id])
+  );
+
   const loadPocketData = async () => {
     try {
       setIsLoading(true);
@@ -119,6 +137,13 @@ export default function PocketDetailScreen() {
 
   const handleReallocate = () => {
     router.push('/(modals)/realloc-pick');
+  };
+
+  const handleLogSpend = () => {
+    router.push({
+      pathname: '/(pockets)/log-spend',
+      params: { pocketId: id, pocketName: pocketSummary?.pocket.name || '' },
+    });
   };
 
   const formatCurrency = (amount: number) => {
@@ -333,6 +358,28 @@ export default function PocketDetailScreen() {
                   </Text>
                 </Pressable>
               </View>
+
+              {pocketSummary.pocket.kind === 'spendable' && (
+                <Pressable
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: spacing.md,
+                    borderRadius: radius.md,
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.line,
+                    marginTop: spacing.md,
+                  }}
+                  onPress={handleLogSpend}
+                >
+                  <ShoppingCart size={18} color={colors.ink} strokeWidth={2} />
+                  <Text style={{ ...typography.heading, color: colors.ink, marginLeft: spacing.sm }}>
+                    Log a spend
+                  </Text>
+                </Pressable>
+              )}
             </View>
 
             {/* Recent Activity */}

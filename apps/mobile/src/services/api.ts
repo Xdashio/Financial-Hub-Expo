@@ -80,8 +80,10 @@ export const transactionsApi = {
 };
 
 export const spendApi = {
-  check: (data: { pocket_id: string; amount: number; merchant?: string; category?: string }) =>
+  check: (data: { pocket_id: string; amount: number; recipient_key?: string; category?: string }) =>
     api.post<any>('/spend/check', data),
+  commit: (data: { pocket_id: string; amount: number; recipient_key?: string; category?: string }) =>
+    api.post<any>('/spend/commit', data),
   getBlockedReasons: (pocketId: string) =>
     api.get<any>(`/spend/blocked-reasons?pocket_id=${encodeURIComponent(pocketId)}`),
 };
@@ -105,6 +107,52 @@ export const profileApi = {
   deleteFixedExpense: (id: string) => api.delete<void>(`/profile/fixed-expenses/${id}`),
   getPlan: () => api.get<any>('/profile/plan'),
   retakeBehaviorCheckin: () => api.post<any>('/profile/plan/retake', {}),
+};
+
+export interface NotificationPreferences {
+  reallocation_confirms: boolean;
+  cooling_off_reminders: boolean;
+  savings_milestones: boolean;
+  monthly_insights: boolean;
+  tips_nudges: boolean;
+}
+
+export const notificationsApi = {
+  getSettings: () =>
+    api.get<{ preferences: NotificationPreferences; user_id: string; updated_at: string | null; is_default?: boolean }>(
+      '/notifications/settings'
+    ),
+  updateSettings: (data: Partial<NotificationPreferences>) =>
+    api.put<{ preferences: NotificationPreferences; user_id: string; updated_at: string }>(
+      '/notifications/settings',
+      data
+    ),
+};
+
+export const merchantReportApi = {
+  createReport: (data: {
+    recipient_key: string;
+    report_type: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee';
+    description?: string;
+    transaction_id?: string;
+    suggested_category?: string;
+  }) => api.post<any>('/merchant/report', data),
+  getReports: (page = 1, limit = 20, status?: string) =>
+    api.get<any>(
+      `/merchant/reports?page=${page}&limit=${limit}${status ? `&status=${encodeURIComponent(status)}` : ''}`
+    ),
+};
+
+export const incomeApi = {
+  allocatePreview: (data: { amount: number; source: 'client_payment' | 'cash' | 'other' }) =>
+    api.post<any>('/income/manual/allocate-preview', data),
+  createManual: (data: {
+    amount: number;
+    source: 'client_payment' | 'cash' | 'other';
+    label?: string;
+    date: string;
+    run_allocation: boolean;
+  }) => api.post<any>('/income/manual', data),
 };
 
 export const merchantApi = {

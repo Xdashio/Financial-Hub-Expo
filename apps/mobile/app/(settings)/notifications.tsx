@@ -5,6 +5,7 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { Bell, ToggleRight, LucideIcon } from 'lucide-react-native';
 import { Card, useMakeStyles } from '@/components/ui';
+import { notificationsApi } from '@/services/api';
 
 // Define the theme shape if not imported from your UI library
 interface Theme {
@@ -88,17 +89,8 @@ export default function NotificationsScreen() {
   const loadPreferences = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call
-      // const prefs = await notificationsApi.getSettings();
-      
-      // Mock data for now
-      setPreferences({
-        reallocation_confirms: true,
-        cooling_off_reminders: true,
-        savings_milestones: true,
-        monthly_insights: false,
-        tips_nudges: false,
-      });
+      const { preferences: prefs } = await notificationsApi.getSettings();
+      setPreferences(prefs);
     } catch (error) {
       console.error('Error loading preferences:', error);
     } finally {
@@ -109,17 +101,18 @@ export default function NotificationsScreen() {
   const updatePreference = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!preferences) return;
 
+    const previous = preferences;
+    const updatedPreferences = { ...preferences, [key]: value };
+    setPreferences(updatedPreferences);
+
     try {
       setIsUpdating(true);
-      const updatedPreferences = { ...preferences, [key]: value };
-      setPreferences(updatedPreferences);
-
-      // TODO: Replace with actual API call
-      // await notificationsApi.updateSettings(updatedPreferences);
+      const { preferences: saved } = await notificationsApi.updateSettings({ [key]: value });
+      setPreferences(saved);
     } catch (error) {
       console.error('Error updating preference:', error);
       // Revert on error
-      setPreferences(preferences);
+      setPreferences(previous);
     } finally {
       setIsUpdating(false);
     }

@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
+import { merchantReportApi } from '@/services/api';
 import {
   ArrowLeft,
   Flag,
@@ -40,16 +41,15 @@ export default function ReportMerchantScreen() {
 
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call
-      // await merchantReportApi.createReport({
-      //   recipient_key: recipientKey,
-      //   report_type: selectedReportType,
-      //   description,
-      //   transaction_id: transactionId,
-      //   suggested_category: suggestedCategory || undefined,
-      // });
+      const { message } = await merchantReportApi.createReport({
+        recipient_key: recipientKey,
+        report_type: selectedReportType as 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee',
+        description: description || undefined,
+        transaction_id: transactionId || undefined,
+        suggested_category: suggestedCategory || undefined,
+      });
 
-      await alert('Report Submitted', 'Thank you for your report. We will review it and improve our classification.');
+      await alert('Report submitted', message || 'Thank you for your report. We will review it and improve our classification.');
       router.back();
     } catch (error) {
       alert('Error', 'Failed to submit report. Please try again.');

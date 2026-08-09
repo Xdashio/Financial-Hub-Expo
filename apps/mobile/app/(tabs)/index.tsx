@@ -3,7 +3,7 @@ import { View, Text, Image, ScrollView, SafeAreaView, ActivityIndicator, Refresh
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock, ArrowLeftRight } from 'lucide-react-native';
+import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock, ArrowLeftRight, Plus } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
 import { Button } from '@/components/ui';
@@ -221,6 +221,19 @@ export default function HomeScreen() {
               <ArrowLeftRight size={16} color={colors.plum} strokeWidth={2} />
             </View>
             <Text style={{ ...typography.body, color: colors.ink }}>Reallocate money between pockets</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(income)/entry')}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Plus size={16} color={colors.emeraldDeep} strokeWidth={2} />
+            </View>
+            <Text style={{ ...typography.body, color: colors.ink }}>Add income</Text>
           </View>
         </TouchableOpacity>
 
