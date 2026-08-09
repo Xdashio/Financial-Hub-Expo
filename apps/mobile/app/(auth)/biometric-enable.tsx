@@ -175,7 +175,7 @@ export default function BiometricEnableScreen() {
           size="lg"
           loading={isLoading}
           onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >
           Enable & continue
         </Button>

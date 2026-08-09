@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
   Tag,
@@ -24,6 +25,7 @@ export default function ClassificationScreen() {
   const [selectedPocket, setSelectedPocket] = useState<string | null>(null);
   const [remember, setRemember] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const { alert, modal } = useAlertModal();
 
   const categories = [
     { id: 'grocery', name: 'Groceries', icon: '🛒' },
@@ -46,7 +48,7 @@ export default function ClassificationScreen() {
 
   const handleSubmit = async () => {
     if (!selectedCategory || !selectedPocket) {
-      Alert.alert('Missing Information', 'Please select both a category and a pocket.');
+      alert('Missing Information', 'Please select both a category and a pocket.');
       return;
     }
 
@@ -62,11 +64,10 @@ export default function ClassificationScreen() {
       //   amount: amount ? parseFloat(amount) : undefined,
       // });
 
-      Alert.alert('Success', 'Classification saved successfully!', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      await alert('Success', 'Classification saved successfully!');
+      router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save classification. Please try again.');
+      alert('Error', 'Failed to save classification. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +145,7 @@ export default function ClassificationScreen() {
 
         {/* Category Selection */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             What is this for?
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
@@ -183,7 +184,7 @@ export default function ClassificationScreen() {
 
         {/* Pocket Selection */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             Which pocket?
           </Text>
           {pockets.map((pocket) => (
@@ -317,6 +318,7 @@ export default function ClassificationScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      {modal}
     </SafeAreaView>
   );
 }

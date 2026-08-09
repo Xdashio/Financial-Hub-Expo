@@ -205,7 +205,7 @@ export default function NotificationsScreen() {
           <>
             {/* Alert Section */}
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
-              <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
                 Alerts
               </Text>
               
@@ -236,7 +236,7 @@ export default function NotificationsScreen() {
 
             {/* Promotional Section */}
             <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-              <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
                 Promotional
               </Text>
               

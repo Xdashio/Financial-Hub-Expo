@@ -119,7 +119,7 @@ export default function InsightsScreen() {
           ))}
         </View>
 
-        <Text style={{ ...typography.eyebrow, marginTop: spacing.xxl, marginBottom: spacing.md }}>Recent activity</Text>
+        <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Recent activity</Text>
 
         {isLoading ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.xxxl }}>

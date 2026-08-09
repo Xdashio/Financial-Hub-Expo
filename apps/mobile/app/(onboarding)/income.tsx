@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { ChevronLeft, Building2, TrendingUp, Clock } from 'lucide-react-native';
 import { IncomePattern } from '@financial-hub/shared';
 
@@ -39,6 +40,7 @@ export default function IncomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { setIncomeData, input } = useOnboardingStore();
+  const { alert, modal } = useAlertModal();
   
   const [incomePattern, setIncomePattern] = React.useState<IncomePattern>('salaried');
   const [incomeAmount, setIncomeAmount] = React.useState('');
@@ -65,7 +67,7 @@ export default function IncomeScreen() {
     const amount = Number(incomeAmount.replace(/,/g, ''));
     
     if (!amount || amount <= 0) {
-      Alert.alert('Error', 'Please enter your average monthly income');
+      alert('Error', 'Please enter your average monthly income');
       return;
     }
 
@@ -118,7 +120,7 @@ export default function IncomeScreen() {
               </View>
               {incomePattern === option.id && (
                 <View style={{ width: 24, height: 24, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center' }}>
-                  <View style={{ width: 12, height: 12, borderWidth: 2, borderColor: '#fff', borderLeftWidth: 0, borderTopWidth: 0, transform: [{ rotate: '45deg' }] }} />
+                  <View style={{ width: 12, height: 12, borderWidth: 2, borderColor: colors.surface, borderLeftWidth: 0, borderTopWidth: 0, transform: [{ rotate: '45deg' }] }} />
                 </View>
               )}
             </TouchableOption>
@@ -154,7 +156,7 @@ export default function IncomeScreen() {
             >
               <Text style={[
                 { ...typography.caption, color: colors.ink, textAlign: 'center' },
-                sourceCount === option.id && { color: '#fff' },
+                sourceCount === option.id && { color: colors.surface },
               ]}>{option.label}</Text>
             </TouchableOpacity>
           ))}
@@ -164,11 +166,12 @@ export default function IncomeScreen() {
           fullWidth
           size="lg"
           onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >
           Continue
         </Button>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

@@ -130,7 +130,7 @@ export default function LandingScreen() {
                     fullWidth
                     size="lg"
                     onPress={handleGetStarted}
-                    rightIcon={<ArrowRight size={18} color="#fff" />}
+                    rightIcon={<ArrowRight size={18} color={colors.surface} />}
                   >
                     Get Started
                   </Button>

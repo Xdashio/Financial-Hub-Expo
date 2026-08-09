@@ -15,7 +15,12 @@ export interface ConfirmModalProps {
   /** Shows a spinner on the confirm button and disables both buttons. */
   loading?: boolean;
   onConfirm: () => void;
-  onCancel: () => void;
+  /**
+   * Omit for single-button "alert" mode (no Cancel button rendered).
+   * Back-button / Escape / backdrop-tap fall back to onConfirm in that case,
+   * since there's nothing to "cancel" — just dismiss.
+   */
+  onCancel?: () => void;
 }
 
 /**
@@ -55,7 +60,7 @@ export function ConfirmModal({
       // the user dismiss the dialog mid-sign-out and re-tap it, firing a
       // second concurrent sign-out).
       onRequestClose={() => {
-        if (!loading) onCancel();
+        if (!loading) (onCancel ?? onConfirm)();
       }}
     >
       <SafeAreaView style={{ flex: 1, backgroundColor: `${colors.ink}80` }}>
@@ -65,7 +70,7 @@ export function ConfirmModal({
             // card so it doesn't intercept taps on the card itself.
             style={StyleSheet.absoluteFill}
             onPress={() => {
-              if (!loading) onCancel();
+              if (!loading) (onCancel ?? onConfirm)();
             }}
           />
           <View
@@ -94,9 +99,11 @@ export function ConfirmModal({
             ) : null}
 
             <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
-              <Button variant="secondary" style={{ flex: 1 }} onPress={onCancel} disabled={loading}>
-                {cancelLabel}
-              </Button>
+              {onCancel && (
+                <Button variant="secondary" style={{ flex: 1 }} onPress={onCancel} disabled={loading}>
+                  {cancelLabel}
+                </Button>
+              )}
               <Button
                 variant="primary"
                 style={{ flex: 1, ...(destructive ? { backgroundColor: colors.clay, borderColor: colors.clay } : {}) }}

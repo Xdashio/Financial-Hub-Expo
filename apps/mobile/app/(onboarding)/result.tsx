@@ -166,7 +166,7 @@ export default function ResultScreen() {
           <View style={{ width, paddingHorizontal: spacing.xl, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
               <View style={{ width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
-                <Check size={26} color="#fff" strokeWidth={1.7} />
+                <Check size={26} color={colors.surface} strokeWidth={1.7} />
               </View>
               <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money plan is ready</Text>
               <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>{plan}</Text>
@@ -277,7 +277,7 @@ export default function ResultScreen() {
                   size="lg"
                   loading={isCommitting}
                   onPress={handleEnterPlan}
-                  rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+                  rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
                   accessibilityLabel="Enter my plan and create pockets"
                   accessibilityRole="button"
                 >

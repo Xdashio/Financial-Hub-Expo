@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
   Flag,
@@ -22,6 +23,7 @@ export default function ReportMerchantScreen() {
   const [description, setDescription] = useState('');
   const [suggestedCategory, setSuggestedCategory] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { alert, modal } = useAlertModal();
 
   const reportTypes = [
     { id: 'wrong_category', name: 'Wrong category', description: 'This payment was classified incorrectly' },
@@ -32,7 +34,7 @@ export default function ReportMerchantScreen() {
 
   const handleSubmit = async () => {
     if (!selectedReportType) {
-      Alert.alert('Missing Information', 'Please select a report type.');
+      alert('Missing Information', 'Please select a report type.');
       return;
     }
 
@@ -47,11 +49,10 @@ export default function ReportMerchantScreen() {
       //   suggested_category: suggestedCategory || undefined,
       // });
 
-      Alert.alert('Report Submitted', 'Thank you for your report. We will review it and improve our classification.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      await alert('Report Submitted', 'Thank you for your report. We will review it and improve our classification.');
+      router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to submit report. Please try again.');
+      alert('Error', 'Failed to submit report. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +105,7 @@ export default function ReportMerchantScreen() {
 
         {/* Report Type Selection */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             What's wrong?
           </Text>
           {reportTypes.map((type) => (
@@ -130,7 +131,7 @@ export default function ReportMerchantScreen() {
                 alignItems: 'center', 
                 justifyContent: 'center' 
               }}>
-                <Flag size={14} color={selectedReportType === type.id ? colors.emeraldDeep : colors.sage} strokeWidth={2} />
+                <Flag size={14} color={selectedReportType === type.id ? colors.surface : colors.sage} strokeWidth={2} />
               </View>
               <View style={{ marginLeft: spacing.md, flex: 1 }}>
                 <Text style={{ 
@@ -141,7 +142,7 @@ export default function ReportMerchantScreen() {
                 </Text>
                 <Text style={{ 
                   ...typography.caption, 
-                  color: selectedReportType === type.id ? colors.emeraldDeep + '80' : colors.sage,
+                  color: selectedReportType === type.id ? `${colors.surface}CC` : colors.sage,
                   marginTop: 2 
                 }}>
                   {type.description}
@@ -156,7 +157,7 @@ export default function ReportMerchantScreen() {
 
         {/* Description Field */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             Details (optional)
           </Text>
           <TextInput
@@ -181,7 +182,7 @@ export default function ReportMerchantScreen() {
 
         {/* Suggested Category */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, marginBottom: spacing.md }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             Suggested category (optional)
           </Text>
           <TextInput
@@ -243,6 +244,7 @@ export default function ReportMerchantScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      {modal}
     </SafeAreaView>
   );
 }

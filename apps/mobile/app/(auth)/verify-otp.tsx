@@ -160,7 +160,7 @@ export default function VerifyOtpScreen() {
           loading={isLoading}
           onPress={handleVerify}
           disabled={code.length !== 6}
-          rightIcon={<ChevronLeft size={18} color="#fff" style={{ transform: [{ rotate: '180deg' }] }} />}
+          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >
           Verify & continue
         </Button>
