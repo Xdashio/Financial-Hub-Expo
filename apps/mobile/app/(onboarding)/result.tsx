@@ -6,13 +6,14 @@ import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { useAuthStore } from '@/services/auth';
 import { supabase } from '@/config/supabase.config';
-import { showAlert } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight } from 'lucide-react-native';
 
 export default function ResultScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { alert, modal } = useAlertModal();
   const { assignResult, commitPlan, reset, input } = useOnboardingStore();
 
   const [isCommitting, setIsCommitting] = React.useState(false);
@@ -64,7 +65,7 @@ export default function ResultScreen() {
         reset();
       }, 0);
     } catch (error) {
-      showAlert('Error', 'Failed to create your plan. Please try again.');
+      await alert('Error', 'Failed to create your plan. Please try again.');
       // Ensure hasPlan is false on error
       useAuthStore.setState({ hasPlan: false, isCheckingPlan: false });
     } finally {
@@ -336,6 +337,7 @@ export default function ResultScreen() {
           </Pressable>
         </View>
       </View>
+      {modal}
     </ScreenContainer>
   );
 }

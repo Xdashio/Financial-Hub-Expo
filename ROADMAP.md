@@ -13,11 +13,7 @@ Phased from empty repo → MVP showcase → embeddable product with billing. Tim
 - [x] Confirmed: standalone MVP showcase first, Individual segment only, no wallet/PSP (manual income entry), clean new tech stack — existing Flutter/Supabase wallet codebase left untouched, not extended
 - [] Confirmed: company registration is on hold, blocked on funding — not started
 - [x] Repo scaffolded (frontend + backend skeletons, empty but structured)
-- [] Decide the open questions in `PRD.md` §8 before writing business logic — several are still genuinely open, not defaults to assume:
-  - Daily Budget mode (global vs per-pocket)
-  - Reallocation cooling-off timer design
-  - Merchant categorization / MCC blocking UX
-  - Revenue model (explicitly not agreed — do not build against it)
+- [x] Decide the open questions in `PRD.md` §8 before writing business logic — 3 of 4 original questions are now resolved (Daily Budget mode: per-pocket daily caps; cooling-off timer: 1–2h, skippable at 5-point cost; merchant categorization: soft block + self-classify). Still genuinely open, deferred to their respective later phases (not blockers for Phase 1): revenue model (Phase 5), fixed-expense detection sourcing and plan-reassignment trigger (both Phase 2), MSME segment shape (Phase 3), company registration (Phase 4, blocked on funding)
 
 ## Phase A — Stabilize (do this before any further Phase 1 work)
 Goal: close the gap between what the code assumes and what the database actually enforces, so every module that already "works" keeps working once real data flows through it. Nothing in Phase 1 below should be picked up until this phase is done — several Phase 1 items depend on modules this phase fixes.
@@ -33,7 +29,15 @@ Goal: close the gap between what the code assumes and what the database actually
 - [x] **Fix the `fixed_expenses` status-update hack** — real `status` column (`active`/`inactive`) added; `ProfileService.updateFixedExpenseStatus` writes to it instead of mangling `name`
 - [x] Remove dead `transactionsApi.create()` client code — `apps/mobile/src/services/api.ts`'s `transactionsApi` now only has `getByPocketId`
 
-**Exit criteria:** `npx jest` passes (133 api tests + 25 shared tests, including real `OnboardingService` tests) and `pnpm typecheck` is clean across mobile/api/shared. Verified at the code level against `BACKEND_FRONTEND_AUDIT.md`'s "Critical: Schema Drift & Runtime-Breaking Bugs" section on 2026-08-09. **Caveat:** the "exercised against an actual local Supabase/Postgres instance" portion of this exit criterion was not independently re-verified in this pass (no local Postgres/Supabase CLI available) — confirm that leg separately before treating Phase A as fully closed in a strict CI sense.
+**Exit criteria:** `npx jest` passes (137 api tests + 25 shared tests, including real `OnboardingService` tests) and `pnpm typecheck` is clean across mobile/api/shared. Verified at the code level against `BACKEND_FRONTEND_AUDIT.md`'s "Critical: Schema Drift & Runtime-Breaking Bugs" section on 2026-08-09. **Caveat:** the "exercised against an actual local Supabase/Postgres instance" portion of this exit criterion was not independently re-verified in this pass (no local Postgres/Supabase CLI available) — confirm that leg separately before treating Phase A as fully closed in a strict CI sense.
+
+> **2026-08-09 addendum (later same day):** two more runtime-breaking bugs were found and fixed via real device logs, neither caught by the original C1–C7 audit since both only surface against a live Postgres/PostgREST instance (the exact gap the caveat above flags):
+> - **`income_events.label` was `NOT NULL`** in the schema despite being documented and coded as optional (`API_SPECIFICATION.md` §1.2, `CreateIncomeDto`) — crashed every manual income entry submitted without a label. Fixed: column is now nullable.
+> - **`getReallocationsByUserId` used an unsupported two-level embedded-resource path in `.or()`** (`from_pocket.plan.user_id.eq...`) — PostgREST only supports one level, so the reallocations list endpoint threw `failed to parse logic tree` on every call. Fixed: resolves the user's pocket ids via their plan first, then filters `from_pocket_id`/`to_pocket_id` directly.
+>
+> Also fixed in the same pass: `@react-native-async-storage/async-storage` was pinned to `^3.1.1` in `apps/mobile/package.json`, a major version ahead of the `2.2.0` Expo SDK 57 actually bundles/expects (per `expo/bundledNativeModules.json`) — caused `Native module is null` crashes on physical devices. Pinned to the exact expected version. **Worth checking separately, not yet touched:** `react-native-gesture-handler` (`^3.1.0` installed vs `~2.32.0` expected) and `react-native-get-random-values` (`^2.0.0` vs `~1.11.0` expected) show the same kind of major-version drift.
+>
+> Separately (not a Phase A item, but same session): swept `Alert.alert()`-backed `showAlert`/`showConfirm` calls (device-native dialogs, ignore the app's theme) in favor of the existing `useAlertModal()` hook across the OTP/auth flow (`verify-otp.tsx`, `signup.tsx`, `signin.tsx`) and the reallocation/onboarding flows (`realloc-review.tsx`, `realloc-cooloff.tsx`, `result.tsx`, `fixed.tsx`). `app/(tabs)/profile.tsx`'s sign-out message intentionally still uses the native path — it fires after `router.replace()` unmounts the screen, so a hook-backed modal tied to that screen's own state would never render.
 
 ## Phase 1 — MVP showcase (Individual segment only)
 Goal: a clickable, real (not fake-static) app that demonstrates the core thesis to potential SACCO/bank partners.
@@ -43,29 +47,28 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 - [x] Daily Budget mode — implemented as per-pocket daily caps with a rollup hero, matching the settled PRD §8 decision
 - [x] Home (both Daily and Structured variants) — wired to real pocket data via `pocketsApi`
 - [x] Pocket detail — wired to `pocketsApi.getSummary`/`getTransactions`, including paginated "load more" and pull-to-refresh
-- [ ] Manual income entry screen — **no backend module gap (income API is real), but needs Phase A's C5 fix before the numbers it shows would be trustworthy, and the screen isn't built yet**
+- [x] Manual income entry screen — `app/(income)/entry.tsx` built and wired to `incomeApi.createManual`; trustworthy now that Phase A's C5 fix landed
 - [x] Merchant categorization / MCC-style spend restriction — `classify.tsx` wired to `merchantApi.classify` and `pocketsApi.getAll` (real pocket list replacing the hardcoded 4-pocket array)
 - [x] Reallocation flow — pick/review/cooldown/success screens wired to a real API; **skip-cooldown discipline-cost path is blocked on Phase A's C3 fix**
 - [x] Insights screen — wired to real behavioral event log and discipline score; **will show inconsistent numbers vs. the time-lock screen until Phase A's discipline-score unification lands**
 - [x] Profile + fixed expenses — plan/profile CRUD is real and wired, including `fixed-expenses.tsx` (wired to `profileApi` — was mock, now real)
-- [ ] Notifications settings — blocked on Phase A (needs the new table + real service)
-- [ ] Report merchant — blocked on Phase A (needs the module registered + new table)
+- [x] Notifications settings — `notifications.tsx` wired to `notificationsApi.getSettings`/`updateSettings`, backed by the real `notification_preferences` table
+- [x] Report merchant — `report.tsx` wired to `merchantReportApi.createReport`, backed by the registered `MerchantReportModule` + real `merchant_reports` table
 - [x] Time-lock screen — wired to `pocketsApi.getLockStatus/unlock/extendLock`, with biometric confirmation via `expo-local-authentication` before unlock and real discipline-score numbers in the result message
-- [ ] Blocked-spend screen — **screen itself already had no mock data (pure display off route params); added `spendApi` client (`check`, `getBlockedReasons`), but no UI flow in the app currently calls `/spend/check` and navigates here on a block — this app has no PSP integration (manual income/spend only), so there's no natural "spend attempt" trigger point yet. Scoping question, not a wiring task — flagging for a decision rather than guessing at a fake entry point.**
-- [ ] One cohesive demo script/dataset (e.g. two seeded users — one Daily, one Structured — so the adaptive-shell story is demoable live)
+- [x] Blocked-spend screen — full chain wired: `detail.tsx` → `log-spend.tsx` (`spendApi.commit`) → on `blocked_category`, navigates here with real block data; `review_available` now passed through so the "Review and classify" option only shows when the backend says it applies
 
 **Exit criteria:** you can hand a phone to a partner, walk through onboarding → plan → a week of simulated activity → a reallocation → insights, and every number on screen is real, not hardcoded.
 
 ### Phase 1 sequencing (screens ready to wire the moment Phase A lands)
-Once Phase A is done, these are pure frontend-wiring tasks with no backend blocker — safe to parallelize across however many people are available, roughly in this order (dependency-free ones first):
+All screens in the original sequencing list are now wired — kept below as a historical record only.
 1. ~~Fixed expenses screen (`fixed-expenses.tsx`)~~ — done, wired to `profileApi`
 2. ~~Time-lock screen (`time-lock.tsx`)~~ — done, wired to `pocketsApi` with biometric confirmation
-3. Blocked-spend screen (`blocked-spend.tsx`) — screen has no mock to wire; `spendApi` client added but no UI flow triggers it yet (see Phase 1 checklist note)
+3. ~~Blocked-spend screen (`blocked-spend.tsx`)~~ — done, full trigger chain wired via `log-spend.tsx`
 4. ~~Pocket detail screen~~ — done, wired to `pocketsApi`
 5. ~~Merchant classification screen (`classify.tsx`)~~ — done, wired to `merchantApi` + real pocket list
-6. Notifications screen — needs Phase A's new table + real service
-7. Report-merchant screen — needs Phase A's module registration + new table
-8. Manual income entry screen (new build, no mockup-to-screen gap listed above but referenced in PRD §3.8/§3.1) — needs Phase A's C5 fix first so the numbers are trustworthy
+6. ~~Notifications screen~~ — done, wired to `notificationsApi`
+7. ~~Report-merchant screen~~ — done, wired to `merchantReportApi`
+8. ~~Manual income entry screen~~ — done, `app/(income)/entry.tsx` wired to `incomeApi`
 
 ## Phase 2 — Depth on Individual segment
 - [ ] Freelancer income pattern support (irregular income handling, not just salaried)

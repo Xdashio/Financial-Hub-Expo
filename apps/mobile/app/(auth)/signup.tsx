@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
-import { showAlert } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
@@ -12,6 +12,7 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { sendSignupOtp } = useAuthStore();
+  const { alert, modal } = useAlertModal();
   const [phone, setPhone] = React.useState('');
   const [fullName, setFullName] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -96,12 +97,10 @@ export default function SignUpScreen() {
       console.log('sendSignupOtp error:', JSON.stringify(error, null, 2));
       // If user already exists, redirect to signin
       if (error?.message?.includes('already registered') || error?.message?.includes('already exists')) {
-        showAlert('Account exists', 'An account with this number already exists. Redirecting to sign in...');
-        setTimeout(() => {
-          router.replace('/(auth)/signin');
-        }, 1500);
+        await alert('Account exists', 'An account with this number already exists. Redirecting to sign in...');
+        router.replace('/(auth)/signin');
       } else {
-        showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
+        await alert('Error', error?.message || 'Failed to send verification code. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -164,6 +163,7 @@ export default function SignUpScreen() {
           </TouchableOpacity>
         </View>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

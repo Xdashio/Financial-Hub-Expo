@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
-import { showAlert } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { useAuthStore } from '@/services/auth';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Fingerprint, ScanFace } from 'lucide-react-native';
@@ -14,6 +14,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { user, checkBiometricAvailability, sendOtp } = useAuthStore();
+  const { alert, modal } = useAlertModal();
   const [phone, setPhone] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
   const [phoneError, setPhoneError] = React.useState('');
@@ -81,12 +82,10 @@ export default function SignInScreen() {
       console.log('sendOtp error:', JSON.stringify(error, null, 2));
       // If user doesn't exist, redirect to signup
       if (error?.message?.includes('No account found') || error?.message?.includes('signups not allowed')) {
-        showAlert('Account not found', 'No account found for this number. Redirecting to sign up...');
-        setTimeout(() => {
-          router.replace('/(auth)/signup');
-        }, 1500);
+        await alert('Account not found', 'No account found for this number. Redirecting to sign up...');
+        router.replace('/(auth)/signup');
       } else {
-        showAlert('Error', error?.message || 'Failed to send verification code. Please try again.');
+        await alert('Error', error?.message || 'Failed to send verification code. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -177,6 +176,7 @@ export default function SignInScreen() {
           </TouchableOpacity>
         </View>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

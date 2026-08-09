@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAuthStore } from '@/services/auth';
-import { showAlert } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
 import { OtpInput } from '@/components/auth/OtpInput';
 import { ChevronLeft } from 'lucide-react-native';
@@ -21,6 +21,7 @@ export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<VerifyOtpParams>();
   const { colors } = useTheme();
   const { verifyOtp } = useAuthStore();
+  const { alert, modal } = useAlertModal();
   
   const [code, setCode] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -91,7 +92,7 @@ export default function VerifyOtpScreen() {
         router.replace('/');
       }
     } catch (err) {
-      showAlert('Error', 'Verification failed. Please try again.');
+      await alert('Error', 'Verification failed. Please try again.');
       setIsLoading(false);
     }
   };
@@ -105,7 +106,7 @@ export default function VerifyOtpScreen() {
       setResendTimer(60);
       setCanResend(false);
     } catch {
-      showAlert('Error', 'Failed to resend code. Please try again.');
+      await alert('Error', 'Failed to resend code. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -172,6 +173,7 @@ export default function VerifyOtpScreen() {
           </TouchableOpacity>
         </View>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

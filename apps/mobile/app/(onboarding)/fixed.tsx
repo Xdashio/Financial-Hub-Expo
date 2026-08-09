@@ -6,7 +6,7 @@ import React from 'react';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
-import { showAlert } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Plus, Trash2, Home, Zap, Droplets, Wifi, GraduationCap, Bus, CreditCard, X } from 'lucide-react-native';
 
@@ -50,6 +50,7 @@ export default function FixedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { alert, modal } = useAlertModal();
   const { 
     fixedExpenses, 
     addFixedExpense, 
@@ -120,16 +121,16 @@ export default function FixedScreen() {
       // Update existing
       const amount = Number(editAmount.replace(/,/g, ''));
       if (!amount || amount <= 0) {
-        showAlert('Error', 'Please enter a valid amount');
+        alert('Error', 'Please enter a valid amount');
         return;
       }
       if (!editName.trim()) {
-        showAlert('Error', 'Please enter a name');
+        alert('Error', 'Please enter a name');
         return;
       }
       const dueDay = Number(editDueDay);
       if (!dueDay || dueDay < 1 || dueDay > 31) {
-        showAlert('Error', 'Please enter a valid due day (1-31)');
+        alert('Error', 'Please enter a valid due day (1-31)');
         return;
       }
       
@@ -142,16 +143,16 @@ export default function FixedScreen() {
       // Add new
       const amount = Number(newAmount.replace(/,/g, ''));
       if (!amount || amount <= 0) {
-        showAlert('Error', 'Please enter a valid amount');
+        alert('Error', 'Please enter a valid amount');
         return;
       }
       if (!newName.trim()) {
-        showAlert('Error', 'Please enter a name');
+        alert('Error', 'Please enter a name');
         return;
       }
       const dueDay = Number(newDueDay);
       if (!dueDay || dueDay < 1 || dueDay > 31) {
-        showAlert('Error', 'Please enter a valid due day (1-31)');
+        alert('Error', 'Please enter a valid due day (1-31)');
         return;
       }
       
@@ -201,7 +202,7 @@ export default function FixedScreen() {
   } catch (error) {
     // error is already set in store, but show the real message here too
     const message = error instanceof Error ? error.message : 'Please try again.';
-    showAlert('Could not generate your plan', message);
+    await alert('Could not generate your plan', message);
   } finally {
     setIsLoading(false);
   }
@@ -423,6 +424,7 @@ export default function FixedScreen() {
           </View>
         </Modal>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

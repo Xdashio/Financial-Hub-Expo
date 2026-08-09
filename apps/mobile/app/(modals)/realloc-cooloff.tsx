@@ -6,7 +6,7 @@ import { radius, spacing, typography, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { reallocationsApi } from '@/services/api';
 import { useHomeStore } from '@/services/home-store';
-import { showAlert, showConfirm } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
 
 type CooloffParams = {
@@ -37,6 +37,7 @@ export default function ReallocCooloffScreen() {
   const params = useLocalSearchParams<CooloffParams>();
   const refreshData = useHomeStore((s) => s.refreshData);
   const { colors } = useTheme();
+  const { alert, confirm, modal } = useAlertModal();
 
   const endsAt = React.useMemo(() => new Date(params.coolingOffEndsAt).getTime(), [params.coolingOffEndsAt]);
   const startedAt = React.useMemo(() => Date.now(), []);
@@ -72,7 +73,7 @@ export default function ReallocCooloffScreen() {
       } catch (err) {
         resolvedRef.current = false;
         setIsResolving(false);
-        showAlert('Could not complete this move', err instanceof Error ? err.message : 'Please try again.');
+        await alert('Could not complete this move', err instanceof Error ? err.message : 'Please try again.');
       }
     },
     [params.reallocationId, refreshData, goToSuccess]
@@ -104,11 +105,10 @@ export default function ReallocCooloffScreen() {
   }, [endsAt, complete]);
 
   const handleSkip = async () => {
-    const confirmed = await showConfirm(
+    const confirmed = await confirm(
       'Move it now anyway?',
       'This costs 5 discipline points. Your choice — the pause is support, not a trap.',
-      'Skip the wait',
-      'Keep waiting'
+      { confirmLabel: 'Skip the wait', cancelLabel: 'Keep waiting' }
     );
     if (confirmed) {
       complete(true);
@@ -227,6 +227,7 @@ export default function ReallocCooloffScreen() {
           trap.
         </Text>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }
