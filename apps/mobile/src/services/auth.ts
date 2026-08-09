@@ -124,7 +124,7 @@ export const useAuthStore = create<AuthState>()(
           
           for (let i = 0; i < maxRetries; i++) {
             const res = await fetch(`${API_BASE_URL}/pockets`, {
-              headers: { Authorization: `Bearer ${session.access_token}` },
+              headers: { Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': 'true' },
             });
             
             if (res.ok) {

@@ -68,19 +68,44 @@ describe('IncomeService.createManualIncome', () => {
     expect(result.allocation.triggered).toBe(false);
   });
 
-  it('increments each pocket monthly_allocation by its proportional share (C5 fix)', async () => {
+  it('splits income across pockets by their proportional share (C5 fix)', async () => {
     const repository = makeRepository();
     const service = new IncomeService(repository);
 
     // Pre-existing total monthly_allocation across pockets is 4000
-    // (1000 savings + 3000 food), so a 4000 income event should double
-    // each pocket's allocation exactly.
+    // (1000 savings + 3000 food), so a 4000 income event should split
+    // 25% / 75% between them. Balances are ledger-derived (see
+    // supabase.repository.ts getPocketSummary), so the fix is writing
+    // 'allocation' transactions — monthly_allocation itself is never
+    // mutated after onboarding.
     const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
-    expect(repository.updatePocket).toHaveBeenCalledWith('pocket-savings', { monthly_allocation: 2000 });
-    expect(repository.updatePocket).toHaveBeenCalledWith('pocket-food', { monthly_allocation: 6000 });
+    expect(repository.updatePocket).not.toHaveBeenCalled();
     expect(result.allocation.triggered).toBe(true);
     expect(result.allocation.total_allocated).toBeCloseTo(4000);
+    expect(result.allocation.allocations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ pocket_id: 'pocket-savings', amount: 1000 }),
+        expect.objectContaining({ pocket_id: 'pocket-food', amount: 3000 }),
+      ])
+    );
+  });
+
+  it('does not call createTransactions when no pocket has a monthly_allocation to split by', async () => {
+    const repository = makeRepository({
+      getPocketsByPlanId: jest.fn().mockResolvedValue(
+        POCKETS.map(p => ({ ...p, monthly_allocation: 0 }))
+      ),
+    });
+    const service = new IncomeService(repository);
+
+    const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+    // Regression guard: calling supabase-js .insert([]) with a zero-row
+    // array is what produced the opaque 500 on POST /income/manual.
+    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(result.allocation.triggered).toBe(true);
+    expect(result.allocation.allocations).toEqual([]);
   });
 
   it('still creates ledger transactions for the allocation event', async () => {

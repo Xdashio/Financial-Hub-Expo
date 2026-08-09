@@ -302,7 +302,12 @@ export default function HomeScreen() {
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
               return (
-                <View key={i} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
+                <TouchableOpacity
+                  key={i}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
+                  activeOpacity={0.8}
+                  onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+                >
                   <View style={{ borderTopWidth: 1.5, borderTopColor: pocketColor, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
@@ -328,7 +333,7 @@ export default function HomeScreen() {
                     <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{status.label}</Text>
                     <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>Available</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </>
