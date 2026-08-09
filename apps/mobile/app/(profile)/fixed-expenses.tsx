@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { profileApi } from '@/services/api';
+import { LoadingState, ErrorState } from '@/components/ui';
 import {
   ArrowLeft,
   Plus,
@@ -40,6 +41,7 @@ export default function FixedExpensesScreen() {
   
   const [expenses, setExpenses] = useState<FixedExpense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<FixedExpense | null>(null);
@@ -82,11 +84,12 @@ export default function FixedExpensesScreen() {
   const loadExpenses = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       const data = await profileApi.getFixedExpenses();
       setExpenses(data);
     } catch (error) {
       console.error('Error loading expenses:', error);
-      alert('Error', 'Failed to load fixed expenses. Please try again.');
+      setLoadError('Failed to load fixed expenses. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -508,9 +511,15 @@ export default function FixedExpensesScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.emeraldDeep} />
-        </View>
+        <LoadingState label="Loading fixed expenses…" />
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+        <ErrorState message={loadError} onRetry={loadExpenses} />
       </SafeAreaView>
     );
   }

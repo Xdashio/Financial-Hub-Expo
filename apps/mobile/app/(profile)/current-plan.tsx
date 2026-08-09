@@ -1,0 +1,177 @@
+import React from 'react';
+import { View, Text, ScrollView, SafeAreaView, Pressable } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { radius, spacing, typography } from '../../src/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { LoadingState, ErrorState } from '@/components/ui';
+import { profileApi, pocketsApi } from '@/services/api';
+import { ArrowLeft, BarChart3, Calendar, Briefcase, PiggyBank, House, ShoppingBasket } from 'lucide-react-native';
+
+function fmt(amount: number) {
+  return `KES ${Math.round(amount).toLocaleString()}`;
+}
+
+const KIND_ICON: Record<string, any> = {
+  savings: PiggyBank,
+  fixed: House,
+  spendable: ShoppingBasket,
+};
+
+const KIND_LABEL: Record<string, string> = {
+  savings: 'Savings',
+  fixed: 'Fixed & protected',
+  spendable: 'Spendable',
+};
+
+export default function CurrentPlanScreen() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const [plan, setPlan] = React.useState<any>(null);
+  const [pockets, setPockets] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+
+  const load = React.useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setLoadError(null);
+      const [planRes, pocketsRes] = await Promise.all([
+        profileApi.getPlan(),
+        pocketsApi.getAll().catch(() => []),
+      ]);
+      setPlan(planRes);
+      setPockets(Array.isArray(pocketsRes) ? pocketsRes : []);
+    } catch (e) {
+      console.error('CurrentPlan load error:', e);
+      setLoadError('Failed to load your plan. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const totalAllocated = pockets.reduce((sum, p) => sum + (p.monthly_allocation ?? 0), 0);
+  const grouped: Record<string, any[]> = { savings: [], fixed: [], spendable: [] };
+  for (const p of pockets) {
+    if (grouped[p.kind]) grouped[p.kind].push(p);
+  }
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
+        <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+        </Pressable>
+        <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Current Plan</Text>
+      </View>
+
+      {isLoading ? (
+        <LoadingState label="Loading your plan…" />
+      ) : loadError ? (
+        <ErrorState message={loadError} onRetry={load} />
+      ) : !plan ? (
+        <ErrorState message="You don't have an active plan yet." />
+      ) : (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+          <View
+            style={{
+              padding: spacing.xl,
+              borderRadius: radius.md,
+              backgroundColor: colors.ink,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ width: 40, height: 40, borderRadius: radius.xs, backgroundColor: `${colors.surface}1A`, alignItems: 'center', justifyContent: 'center' }}>
+                <BarChart3 size={18} color={colors.surface} strokeWidth={2} />
+              </View>
+              <View>
+                <Text style={{ ...typography.title, color: colors.surface, fontSize: 18 }}>
+                  {plan.type === 'daily' ? 'Daily Budget' : 'Structured Salaried'}
+                </Text>
+                <Text style={{ ...typography.caption, color: `${colors.surface}99`, marginTop: 2 }}>
+                  {plan.income_pattern === 'freelancer' ? 'Freelancer income' : 'Salaried income'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg }}>
+              <View>
+                <Text style={{ ...typography.caption, color: `${colors.surface}88` }}>Total allocated</Text>
+                <Text style={{ ...typography.heading, color: colors.surface, marginTop: 2 }}>{fmt(totalAllocated)}</Text>
+              </View>
+              <View>
+                <Text style={{ ...typography.caption, color: `${colors.surface}88` }}>Started</Text>
+                <Text style={{ ...typography.heading, color: colors.surface, marginTop: 2 }}>
+                  {new Date(plan.created_at).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {(['savings', 'fixed', 'spendable'] as const).map(kind =>
+            grouped[kind].length > 0 ? (
+              <View key={kind} style={{ marginTop: spacing.xl }}>
+                <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>{KIND_LABEL[kind]}</Text>
+                {grouped[kind].map(pocket => {
+                  const Icon = KIND_ICON[kind];
+                  return (
+                    <Pressable
+                      key={pocket.id}
+                      onPress={() => router.push({ pathname: '/(pockets)/detail', params: { id: pocket.id } })}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        padding: spacing.md,
+                        borderRadius: radius.md,
+                        backgroundColor: colors.surface,
+                        borderWidth: 1,
+                        borderColor: colors.line,
+                        marginBottom: spacing.sm,
+                      }}
+                    >
+                      <View style={{ width: 36, height: 36, borderRadius: radius.xs, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon size={16} color={colors.ink} strokeWidth={2} />
+                      </View>
+                      <View style={{ marginLeft: spacing.md, flex: 1 }}>
+                        <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
+                        {pocket.category && (
+                          <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, textTransform: 'capitalize' }}>{pocket.category}</Text>
+                        )}
+                      </View>
+                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>
+                        {fmt(pocket.monthly_allocation ?? 0)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null
+          )}
+
+          <Pressable
+            onPress={() => router.push('/(profile)/retake-checkin')}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.sm,
+              marginTop: spacing.xl,
+              padding: spacing.md,
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: colors.line,
+            }}
+          >
+            <Briefcase size={16} color={colors.ink} strokeWidth={2} />
+            <Text style={{ ...typography.heading, color: colors.ink }}>Retake behavior check-in</Text>
+          </Pressable>
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}

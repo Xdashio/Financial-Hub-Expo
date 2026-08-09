@@ -5,7 +5,7 @@ import { CalendarCheck, ArrowLeftRight, Target, Timer } from 'lucide-react-nativ
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi } from '@/services/api';
-import { LoadingState, InlineLoading } from '@/components/ui';
+import { LoadingState, ErrorState, InlineLoading } from '@/components/ui';
 import { StreakHeatmap } from '@/components/insights/StreakHeatmap';
 
 interface DisplayEvent {
@@ -79,9 +79,12 @@ export default function InsightsScreen() {
   const [hasMore, setHasMore] = React.useState(false);
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     try {
+      setIsLoading(true);
+      setLoadError(null);
       const [scoreRes, eventsRes, reallocRes] = await Promise.all([
         insightsApi.getDisciplineScore(),
         insightsApi.getBehaviorEventsPaginated(1, 20),
@@ -101,8 +104,7 @@ export default function InsightsScreen() {
       setCoolingOffSkips(completedThisMonth.filter((r: any) => (r.discipline_cost ?? 0) > 0).length);
     } catch (e) {
       console.error('Insights load error:', e);
-      setScore(null);
-      setEvents([]);
+      setLoadError('Failed to load your insights. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -147,6 +149,14 @@ export default function InsightsScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <LoadingState label="Loading insights…" />
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+        <ErrorState message={loadError} onRetry={load} />
       </SafeAreaView>
     );
   }
