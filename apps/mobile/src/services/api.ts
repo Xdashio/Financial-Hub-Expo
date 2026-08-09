@@ -65,6 +65,8 @@ export const pocketsApi = {
   getById: (id: string) => api.get<any>(`/pockets/${id}`),
   update: (id: string, data: any) => api.put<any>(`/pockets/${id}`, data),
   getSummary: (id: string) => api.get<any>(`/pockets/${id}/summary`),
+  getTransactions: (id: string, page = 1, limit = 20) =>
+    api.get<any>(`/pockets/${id}/transactions?page=${page}&limit=${limit}`),
   getMerchantScope: (id: string) => api.get<any>(`/pockets/${id}/merchant-scope`),
   getLockStatus: (id: string) => api.get<any>(`/pockets/${id}/lock-status`),
   unlock: (id: string, data: { reason?: string; biometric_confirmed: boolean }) =>
@@ -103,4 +105,21 @@ export const profileApi = {
   deleteFixedExpense: (id: string) => api.delete<void>(`/profile/fixed-expenses/${id}`),
   getPlan: () => api.get<any>('/profile/plan'),
   retakeBehaviorCheckin: () => api.post<any>('/profile/plan/retake', {}),
+};
+
+export const merchantApi = {
+  classify: (data: {
+    recipient_key: string;
+    category: string;
+    pocket_id: string;
+    remember: boolean;
+    transaction_id?: string;
+    amount?: number;
+    description?: string;
+  }) => api.post<any>('/merchant/classify', data),
+  getClassifications: (page = 1, limit = 50, search?: string) =>
+    api.get<any>(
+      `/merchant/classifications?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`
+    ),
+  deleteClassification: (id: string) => api.delete<void>(`/merchant/classifications/${id}`),
 };

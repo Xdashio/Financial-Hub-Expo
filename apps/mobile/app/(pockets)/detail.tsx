@@ -3,6 +3,7 @@ import { View, Text, ScrollView, SafeAreaView, ActivityIndicator, Pressable, Ref
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
+import { pocketsApi } from '@/services/api';
 import {
   ArrowLeft,
   Wallet,
@@ -70,56 +71,14 @@ export default function PocketDetailScreen() {
   const loadPocketData = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API calls
-      // const summary = await fetchPocketSummary(id);
-      // const txs = await fetchTransactions(id, page);
-      
-      // Mock data for now
-      setPocketSummary({
-        pocket: {
-          id: id || '',
-          name: 'Groceries & food',
-          kind: 'spendable',
-          category: 'food',
-          monthly_allocation: 6240,
-          daily_cap: 208,
-          is_time_locked: false,
-          lock_until: null,
-        },
-        summary: {
-          available: 3660,
-          spent: 2580,
-          remaining: 3660,
-          percentage_remaining: 59,
-          monthly_allocation: 6240,
-          days_remaining: 18,
-          daily_average_spend: 143.33,
-        },
-        recent_activity: {
-          last_transaction: '2026-08-09T13:24:00Z',
-          transaction_count: 15,
-          reallocation_count: 3,
-        },
-      });
-      
-      setTransactions([
-        {
-          id: '1',
-          amount: 500,
-          type: 'spend',
-          merchant: 'Naivas Supermarket',
-          category: 'grocery',
-          created_at: '2026-08-09T13:24:00Z',
-        },
-        {
-          id: '2',
-          amount: 200,
-          type: 'spend',
-          merchant: 'Uber Eats',
-          category: 'food',
-          created_at: '2026-08-08T18:30:00Z',
-        },
+      const [summary, txPage] = await Promise.all([
+        pocketsApi.getSummary(id),
+        pocketsApi.getTransactions(id, 1, 20),
       ]);
+      setPocketSummary(summary);
+      setTransactions(txPage.transactions);
+      setPage(1);
+      setHasMore(txPage.pagination.page < txPage.pagination.totalPages);
     } catch (error) {
       console.error('Error loading pocket data:', error);
     } finally {
@@ -135,14 +94,14 @@ export default function PocketDetailScreen() {
 
   const loadMoreTransactions = async () => {
     if (!hasMore || isRefreshing) return;
-    
+
     try {
       setIsRefreshing(true);
       const nextPage = page + 1;
-      // TODO: Replace with actual API call
-      // const moreTransactions = await fetchTransactions(id, nextPage);
-      // setTransactions([...transactions, ...moreTransactions]);
+      const txPage = await pocketsApi.getTransactions(id, nextPage, 20);
+      setTransactions([...transactions, ...txPage.transactions]);
       setPage(nextPage);
+      setHasMore(txPage.pagination.page < txPage.pagination.totalPages);
     } catch (error) {
       console.error('Error loading more transactions:', error);
     } finally {

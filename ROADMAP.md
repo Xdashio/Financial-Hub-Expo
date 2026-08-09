@@ -42,9 +42,9 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 - [x] Onboarding flow wired to real state — income, spending habits, fixed expenses; rules-engine plan assignment is deterministic and inspectable, matches PRD; **only remaining gap is Phase A's test-coverage item**
 - [x] Daily Budget mode — implemented as per-pocket daily caps with a rollup hero, matching the settled PRD §8 decision
 - [x] Home (both Daily and Structured variants) — wired to real pocket data via `pocketsApi`
-- [ ] Pocket detail — **backend summary/merchant-scope endpoints exist but merchant-scope is blocked on Phase A's C2 fix; screen itself is still mock data, not yet wired**
+- [x] Pocket detail — wired to `pocketsApi.getSummary`/`getTransactions`, including paginated "load more" and pull-to-refresh
 - [ ] Manual income entry screen — **no backend module gap (income API is real), but needs Phase A's C5 fix before the numbers it shows would be trustworthy, and the screen isn't built yet**
-- [ ] Merchant categorization / MCC-style spend restriction — **blocked on Phase A (C2); screen (`classify.tsx`) is mock, spend-check API itself is solid**
+- [x] Merchant categorization / MCC-style spend restriction — `classify.tsx` wired to `merchantApi.classify` and `pocketsApi.getAll` (real pocket list replacing the hardcoded 4-pocket array)
 - [x] Reallocation flow — pick/review/cooldown/success screens wired to a real API; **skip-cooldown discipline-cost path is blocked on Phase A's C3 fix**
 - [x] Insights screen — wired to real behavioral event log and discipline score; **will show inconsistent numbers vs. the time-lock screen until Phase A's discipline-score unification lands**
 - [x] Profile + fixed expenses — plan/profile CRUD is real and wired, including `fixed-expenses.tsx` (wired to `profileApi` — was mock, now real)
@@ -61,8 +61,8 @@ Once Phase A is done, these are pure frontend-wiring tasks with no backend block
 1. ~~Fixed expenses screen (`fixed-expenses.tsx`)~~ — done, wired to `profileApi`
 2. ~~Time-lock screen (`time-lock.tsx`)~~ — done, wired to `pocketsApi` with biometric confirmation
 3. Blocked-spend screen (`blocked-spend.tsx`) — screen has no mock to wire; `spendApi` client added but no UI flow triggers it yet (see Phase 1 checklist note)
-4. Pocket detail screen — needs Phase A's C2 (merchant scope) fix first
-5. Merchant classification screen (`classify.tsx`) — needs Phase A's C2 fix first
+4. ~~Pocket detail screen~~ — done, wired to `pocketsApi`
+5. ~~Merchant classification screen (`classify.tsx`)~~ — done, wired to `merchantApi` + real pocket list
 6. Notifications screen — needs Phase A's new table + real service
 7. Report-merchant screen — needs Phase A's module registration + new table
 8. Manual income entry screen (new build, no mockup-to-screen gap listed above but referenced in PRD §3.8/§3.1) — needs Phase A's C5 fix first so the numbers are trustworthy
