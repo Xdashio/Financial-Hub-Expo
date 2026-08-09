@@ -1,0 +1,338 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { View, Text, ScrollView, SafeAreaView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { useRouter } from 'expo-router';
+import { radius, spacing, typography, shadow } from '../../src/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { useAlertModal } from '@/hooks/useAlertModal';
+import { incomeApi } from '@/services/api';
+import { useHomeStore } from '@/services/home-store';
+import { ArrowLeft, Plus, Calendar } from 'lucide-react-native';
+
+type Source = 'client_payment' | 'cash' | 'other';
+
+const SOURCES: { id: Source; label: string }[] = [
+  { id: 'client_payment', label: 'Client payment' },
+  { id: 'cash', label: 'Cash' },
+  { id: 'other', label: 'Other' },
+];
+
+interface ProjectedAllocation {
+  pocket_id: string;
+  pocket_name: string;
+  amount: number;
+  percentage: number;
+  is_minimum?: boolean;
+}
+
+export default function IncomeEntryScreen() {
+  const { colors } = useTheme();
+  const router = useRouter();
+  const { alert, modal } = useAlertModal();
+  const refreshData = useHomeStore((s) => s.refreshData);
+
+  const [amount, setAmount] = useState('');
+  const [source, setSource] = useState<Source>('client_payment');
+  const [label, setLabel] = useState('');
+  const [runAllocation, setRunAllocation] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [preview, setPreview] = useState<{
+    projected_allocations: ProjectedAllocation[];
+    total_allocated: number;
+    unallocated: number;
+  } | null>(null);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const previewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const today = new Date();
+  const dateLabel = today.toLocaleDateString('en-KE', { weekday: 'long', day: 'numeric', month: 'short' });
+  const isoDate = today.toISOString().slice(0, 10);
+
+  const formatAmountInput = (text: string) => {
+    const cleaned = text.replace(/[^\d]/g, '');
+    if (!cleaned) return '';
+    return Number(cleaned).toLocaleString();
+  };
+
+  const numericAmount = Number(amount.replace(/,/g, '')) || 0;
+
+  const loadPreview = useCallback((amt: number, src: Source) => {
+    if (!amt || amt <= 0) {
+      setPreview(null);
+      return;
+    }
+    setIsPreviewLoading(true);
+    incomeApi
+      .allocatePreview({ amount: amt, source: src })
+      .then((res) => setPreview(res.preview))
+      .catch(() => setPreview(null))
+      .finally(() => setIsPreviewLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (previewTimer.current) clearTimeout(previewTimer.current);
+    if (!runAllocation) {
+      setPreview(null);
+      return;
+    }
+    previewTimer.current = setTimeout(() => loadPreview(numericAmount, source), 400);
+    return () => {
+      if (previewTimer.current) clearTimeout(previewTimer.current);
+    };
+  }, [numericAmount, source, runAllocation, loadPreview]);
+
+  const handleSubmit = async () => {
+    if (!numericAmount || numericAmount <= 0) {
+      alert('Missing amount', 'Enter how much income you received.');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await incomeApi.createManual({
+        amount: numericAmount,
+        source,
+        label: label || undefined,
+        date: isoDate,
+        run_allocation: runAllocation,
+      });
+
+      await refreshData();
+      await alert('Income added', runAllocation
+        ? 'Split into your pockets using your plan\u2019s rules.'
+        : 'Logged without allocating — you can allocate it later.');
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      alert('Couldn\u2019t add income', error?.message || 'Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const formatCurrency = (value: number) => `KES ${Math.round(value).toLocaleString()}`;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }} keyboardShouldPersistTaps="handled">
+          <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
+            <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+              <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+            </Pressable>
+            <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>
+              Add income
+            </Text>
+          </View>
+
+          <View style={{ paddingHorizontal: spacing.lg }}>
+            <Text style={{ ...typography.body, color: colors.sage }}>
+              Log income that wasn't captured automatically — a client payment, cash, or a side income source.
+            </Text>
+
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                marginTop: spacing.xl,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.line,
+                borderRadius: radius.md,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+              }}
+            >
+              <Text style={{ ...typography.title, color: colors.sage, marginRight: spacing.sm }}>KSh</Text>
+              <TextInput
+                value={amount}
+                onChangeText={(text) => setAmount(formatAmountInput(text))}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor={colors.sage}
+                style={{
+                  flex: 1,
+                  ...typography.display,
+                  fontSize: 28,
+                  color: colors.ink,
+                  paddingVertical: spacing.xs,
+                  outlineStyle: 'none',
+                } as any}
+                accessibilityLabel="Income amount"
+              />
+            </View>
+
+            <View style={{ marginTop: spacing.xl }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.sm }}>Source</Text>
+              <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                {SOURCES.map((s) => {
+                  const selected = source === s.id;
+                  return (
+                    <Pressable
+                      key={s.id}
+                      onPress={() => setSource(s.id)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: spacing.sm,
+                        borderRadius: radius.sm,
+                        alignItems: 'center',
+                        backgroundColor: selected ? colors.emeraldDeep : colors.surface,
+                        borderWidth: 1,
+                        borderColor: selected ? colors.emeraldDeep : colors.line,
+                      }}
+                    >
+                      <Text style={{ ...typography.caption, color: selected ? colors.surface : colors.ink }}>
+                        {s.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={{ marginTop: spacing.xl }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.sm }}>Label (optional)</Text>
+              <TextInput
+                value={label}
+                onChangeText={setLabel}
+                placeholder="e.g. Website project — Kito Ltd"
+                placeholderTextColor={colors.sage}
+                style={{
+                  ...typography.body,
+                  color: colors.ink,
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.line,
+                  borderRadius: radius.md,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.md,
+                } as any}
+              />
+            </View>
+
+            <View style={{ marginTop: spacing.xl }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.sm }}>Date received</Text>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.line,
+                  borderRadius: radius.md,
+                  paddingHorizontal: spacing.md,
+                  paddingVertical: spacing.md,
+                }}
+              >
+                <Text style={{ ...typography.body, color: colors.ink }}>Today, {dateLabel}</Text>
+                <Calendar size={16} color={colors.sage} strokeWidth={1.7} />
+              </View>
+            </View>
+
+            <Pressable
+              onPress={() => setRunAllocation((v) => !v)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginTop: spacing.xl,
+                paddingVertical: spacing.md,
+              }}
+            >
+              <View style={{ flex: 1, marginRight: spacing.md }}>
+                <Text style={{ ...typography.heading, color: colors.ink }}>Run allocation now</Text>
+                <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                  Split this into your pockets immediately using your plan's rules
+                </Text>
+              </View>
+              <View
+                style={{
+                  width: 48,
+                  height: 28,
+                  borderRadius: 14,
+                  padding: 2,
+                  backgroundColor: runAllocation ? colors.emeraldDeep : colors.lineSoft,
+                }}
+              >
+                <View
+                  style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    backgroundColor: colors.surface,
+                    transform: [{ translateX: runAllocation ? 20 : 0 }],
+                  }}
+                />
+              </View>
+            </Pressable>
+
+            {runAllocation && (
+              <View
+                style={{
+                  marginTop: spacing.md,
+                  padding: spacing.lg,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.emeraldTint,
+                }}
+              >
+                <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginBottom: spacing.sm }}>
+                  {isPreviewLoading ? 'Calculating…' : 'If allocated now'}
+                </Text>
+                {preview && preview.projected_allocations.length > 0 ? (
+                  <>
+                    {preview.projected_allocations.map((a) => (
+                      <View
+                        key={a.pocket_id}
+                        style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}
+                      >
+                        <Text style={{ ...typography.body, color: colors.ink }}>
+                          {a.pocket_name}{a.is_minimum ? ' (10% min)' : ''}
+                        </Text>
+                        <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                          {formatCurrency(a.amount)}
+                        </Text>
+                      </View>
+                    ))}
+                    <View style={{ borderTopWidth: 1, borderTopColor: colors.emeraldDeep + '33', marginTop: spacing.sm, paddingTop: spacing.sm, flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={{ ...typography.heading, color: colors.emeraldDeep }}>Total allocated</Text>
+                      <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
+                        {formatCurrency(preview.total_allocated)}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                    Enter an amount to see how it would be split.
+                  </Text>
+                )}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        <View style={{ padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.paper }}>
+          <Pressable
+            onPress={handleSubmit}
+            disabled={isSubmitting}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: spacing.sm,
+              backgroundColor: colors.emeraldDeep,
+              borderRadius: radius.md,
+              paddingVertical: spacing.md,
+              opacity: isSubmitting ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ ...typography.heading, color: colors.surface }}>
+              {isSubmitting ? 'Adding…' : 'Add income'}
+            </Text>
+            {!isSubmitting && <Plus size={16} color={colors.surface} strokeWidth={2} />}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+      {modal}
+    </SafeAreaView>
+  );
+}

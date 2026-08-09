@@ -127,6 +127,36 @@ export class SpendService {
     };
   }
 
+  // Records a simulated spend attempt. There's no PSP in this MVP, so this
+  // is the closest thing to a real "spend" event: it re-runs the same
+  // checkSpend validation, and only if the result is allowed does it write
+  // a 'spend' transaction (the type already exists in the schema — see
+  // transactions.type). This is what gives the blocked-spend screen and
+  // the merchant self-classify prompt a real trigger point instead of the
+  // dead-end the roadmap flagged (no UI flow ever called /spend/check).
+  async commitSpend(dto: SpendCheckDto, userId: string): Promise<
+    Awaited<ReturnType<SpendService['checkSpend']>> & { transaction_id?: string }
+  > {
+    const result = await this.checkSpend(dto, userId);
+
+    if (!result.allowed) {
+      return result;
+    }
+
+    const transaction = await this.repository.createTransaction({
+      pocket_id: dto.pocket_id,
+      amount: dto.amount,
+      type: 'spend',
+      merchant: dto.recipient_key || null,
+      category: dto.category || null,
+    });
+
+    return {
+      ...result,
+      transaction_id: transaction?.id,
+    };
+  }
+
   async getBlockedReasons(pocketId: string, userId: string): Promise<{
     pocket_id: string;
     pocket_name: string;

@@ -21,6 +21,15 @@ export class SpendController {
     return this.spendService.checkSpend(dto, req.user.id);
   }
 
+  @Post('commit')
+  @ApiOperation({ summary: 'Record a simulated spend attempt; only writes a transaction if allowed' })
+  @ApiResponse({ status: 200, description: 'Spend result, with transaction_id set when allowed' })
+  @ApiResponse({ status: 404, description: 'Pocket not found' })
+  @ApiResponse({ status: 403, description: 'You do not have access to this pocket' })
+  commitSpend(@Body() dto: SpendCheckDto, @Request() req: any) {
+    return this.spendService.commitSpend(dto, req.user.id);
+  }
+
   @Get('blocked-reasons')
   @ApiOperation({ summary: 'Get list of blocked categories for a specific pocket' })
   @ApiResponse({ status: 200, description: 'Blocked categories list' })
