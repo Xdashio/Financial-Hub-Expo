@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { profileApi } from '@/services/api';
 import { LoadingState, ErrorState } from '@/components/ui';
+import { getExpenseIcon } from '@/utils/expenseIcon';
 import {
   ArrowLeft,
   Plus,
@@ -68,6 +69,12 @@ export default function FixedExpensesScreen() {
     const category = categories.find((c) => c.id === categoryId);
     return category?.icon || Package;
   };
+
+  // Preferred over getCategoryIcon() wherever the item's own name is
+  // available — see apps/mobile/src/utils/expenseIcon.ts for why category
+  // alone isn't distinctive enough (e.g. Electricity and Water are both
+  // 'utilities').
+  const getIconFor = (name: string, categoryId: string) => getExpenseIcon(name, categoryId);
 
   const suggestions = [
     { name: 'Rent', category: 'utilities', amount: 15000, dueDay: 1 },
@@ -225,7 +232,7 @@ export default function FixedExpensesScreen() {
                 <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick Add</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   {suggestions.map((suggestion) => {
-                    const CategoryIcon = getCategoryIcon(suggestion.category);
+                    const CategoryIcon = getIconFor(suggestion.name, suggestion.category);
                     return (
                       <Pressable
                         key={suggestion.name}
@@ -604,7 +611,7 @@ export default function FixedExpensesScreen() {
             </View>
           ) : (
             expenses.map((expense) => {
-              const CategoryIcon = getCategoryIcon(expense.category);
+              const CategoryIcon = getIconFor(expense.name, expense.category);
               return (
                 <View 
                   key={expense.id} 

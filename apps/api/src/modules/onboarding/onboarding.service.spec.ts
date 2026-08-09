@@ -9,6 +9,7 @@ function makeRepository(overrides: Partial<jest.Mocked<SupabaseRepository>> = {}
     createPlan: jest.fn().mockImplementation((plan) => ({ ...plan })),
     createPockets: jest.fn().mockImplementation((pockets) => pockets),
     createFixedExpense: jest.fn().mockResolvedValue({ id: 'fe-1' }),
+    deleteFixedExpensesByUserId: jest.fn().mockResolvedValue(undefined),
     createTransactions: jest.fn().mockResolvedValue([]),
     createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'event-1' }),
     ...overrides,
@@ -182,6 +183,43 @@ describe('OnboardingService.commit', () => {
   it('creates no fixed expense rows when none were submitted', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
+    expect(repository.createFixedExpense).not.toHaveBeenCalled();
+  });
+
+  // Regression test for the duplication bug: retake-checkin.tsx prefills
+  // the form with the user's *existing* fixed expenses, then resubmits
+  // that full list on save. Without clearing first, every retake
+  // re-inserted the same rows on top of what was already there (visibly,
+  // "Electricity" appearing 5x after a few retakes). commit() must give
+  // full-replace semantics whenever fixedExpenses is provided at all.
+  it('clears existing fixed expenses before inserting the submitted set (full replace, not append)', async () => {
+    const input: OnboardingInput = {
+      ...SALARIED_TRACKER_INPUT,
+      fixedExpenses: [{ name: 'Rent', amount: 10000, dueDay: 1, category: 'utilities' }],
+    };
+
+    await service.commit(input, 'user-1');
+
+    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1');
+    // Delete must happen before the new rows are inserted, not after.
+    const deleteOrder = (repository.deleteFixedExpensesByUserId as jest.Mock).mock.invocationCallOrder[0];
+    const createOrder = (repository.createFixedExpense as jest.Mock).mock.invocationCallOrder[0];
+    expect(deleteOrder).toBeLessThan(createOrder);
+  });
+
+  it('clears existing fixed expenses when an explicit empty array is submitted', async () => {
+    const input: OnboardingInput = { ...SALARIED_TRACKER_INPUT, fixedExpenses: [] };
+
+    await service.commit(input, 'user-1');
+
+    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1');
+    expect(repository.createFixedExpense).not.toHaveBeenCalled();
+  });
+
+  it('leaves existing fixed expenses untouched when the field is omitted entirely', async () => {
+    await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
+
+    expect(repository.deleteFixedExpensesByUserId).not.toHaveBeenCalled();
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 

@@ -208,6 +208,19 @@ export class SupabaseRepository {
     if (error) throw error;
   }
 
+  // Deletes every fixed expense row for a user. Used by
+  // OnboardingService.commit() to give onboarding/retake submissions
+  // full-replace semantics instead of appending on top of whatever was
+  // already there — see BACKEND_FRONTEND_AUDIT.md-style note in
+  // onboarding.service.ts commit().
+  async deleteFixedExpensesByUserId(userId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('fixed_expenses')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  }
+
   // Income Events
   async createIncomeEvent(event: IncomeEventInsert): Promise<IncomeEvent | null> {
     const { data, error } = await this.supabase
