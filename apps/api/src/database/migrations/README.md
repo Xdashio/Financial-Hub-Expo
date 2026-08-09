@@ -4,18 +4,26 @@
 
 This migration creates the core data model for Financial Hub with all entities defined in the Pack 1 specification.
 
+> **This directory (`apps/api/src/database/migrations/`) is the single canonical source for the schema.**
+> The previous `apps/api/supabase/migrations/001_initial_schema.sql` copy has been removed — it had
+> diverged from this one (see `BACKEND_FRONTEND_AUDIT.md` §C1). If you use the Supabase CLI, run
+> `npm run db:sync` from `apps/api/` first to regenerate `apps/api/supabase/migrations/` from this
+> file before `supabase db push`; never hand-edit the generated copy.
+
 ### Tables Created
 
 1. **users** - User profiles (extends Supabase Auth)
 2. **plans** - One plan per user (structured/daily, salaried/freelancer)
 3. **pockets** - Per plan pockets (savings/fixed/spendable)
-4. **fixed_expenses** - Per user fixed expenses
+4. **fixed_expenses** - Per user fixed expenses (includes a real `status` column)
 5. **income_events** - Manual income entry
 6. **transactions** - Transaction ledger
 7. **reallocations** - Money reallocation records
-8. **merchant_classifications** - Merchant category memory
+8. **merchant_classifications** - Merchant category memory, scoped per-user
 9. **behavior_events** - Single event log
-10. **discipline_scores** - User discipline scores
+10. **discipline_scores** - User discipline scores, one row per `(user_id, period)`
+11. **notification_preferences** - Per-user notification settings
+12. **merchant_reports** - User-submitted merchant classification disputes
 
 ### Key Features
 
@@ -37,7 +45,8 @@ This migration creates the core data model for Financial Hub with all entities d
 #### Method 2: Via CLI (if using Supabase CLI)
 
 ```bash
-supabase db push
+npm run db:sync   # regenerates apps/api/supabase/migrations/ from this canonical directory
+npm run db:push   # runs db:sync then `supabase db push`
 ```
 
 ### Testing the Migration
@@ -83,6 +92,8 @@ All tables have Row Level Security policies ensuring:
 If needed, you can rollback by dropping the tables:
 
 ```sql
+DROP TABLE IF EXISTS public.merchant_reports CASCADE;
+DROP TABLE IF EXISTS public.notification_preferences CASCADE;
 DROP TABLE IF EXISTS public.discipline_scores CASCADE;
 DROP TABLE IF EXISTS public.behavior_events CASCADE;
 DROP TABLE IF EXISTS public.merchant_classifications CASCADE;

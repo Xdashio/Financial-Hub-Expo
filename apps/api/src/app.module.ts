@@ -9,6 +9,7 @@ import { InsightsModule } from './modules/insights/insights.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { IncomeModule } from './modules/income/income.module';
 import { MerchantModule } from './modules/merchant/merchant.module';
+import { MerchantReportModule } from './modules/merchant-report/merchant-report.module';
 import { SpendModule } from './modules/spend/spend.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 
@@ -27,6 +28,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     ProfileModule,
     IncomeModule,
     MerchantModule,
+    MerchantReportModule,
     SpendModule,
     NotificationsModule,
   ],

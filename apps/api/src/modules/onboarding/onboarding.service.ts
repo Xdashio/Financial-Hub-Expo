@@ -117,7 +117,7 @@ export class OnboardingService {
   private parseInput(input: unknown): OnboardingInput {
     const result = OnboardingInputSchema.safeParse(input);
     if (!result.success) {
-      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
     const errors = validateOnboardingInput(result.data);
     if (errors.length > 0) {

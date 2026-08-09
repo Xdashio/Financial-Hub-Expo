@@ -1,0 +1,12 @@
+# Supabase CLI project config.
+#
+# Migrations in this directory (supabase/migrations/) are GENERATED — see
+# supabase/migrations/README.md. Always run `npm run db:sync` (from
+# apps/api/) before `supabase db push` so this can't drift from the
+# canonical source at src/database/migrations/ again. `npm run db:push`
+# does this for you.
+project_id = "financial-hub"
+
+[db]
+port = 54322
+major_version = 15

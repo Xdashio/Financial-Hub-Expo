@@ -67,7 +67,7 @@ export class ProfileService {
   async retakePlan(userId: string, input: unknown): Promise<OnboardingCommitResult> {
     const result = OnboardingInputSchema.safeParse(input);
     if (!result.success) {
-      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
     // Re-runs the same rules engine + provisioning path as initial onboarding:
     // deactivates the current plan, creates a fresh one from the updated
@@ -94,7 +94,7 @@ export class ProfileService {
       : input;
     const result = FixedExpenseInputSchema.safeParse(candidate);
     if (!result.success) {
-      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
     return result.data;
   }
@@ -185,7 +185,7 @@ export class ProfileService {
   }> {
     const result = FixedExpenseInputSchema.array().safeParse(input);
     if (!result.success) {
-      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
 
     const expenses = result.data;
@@ -221,19 +221,15 @@ export class ProfileService {
   }
 
   async updateFixedExpenseStatus(userId: string, id: string, input: unknown): Promise<FixedExpense> {
-    const existing = await this.getOwnedFixedExpense(id, userId);
-    
+    await this.getOwnedFixedExpense(id, userId);
+
     // Parse status from input
     const status = (input as { status?: string }).status;
     if (!status || (status !== 'active' && status !== 'inactive')) {
       throw new BadRequestException('Invalid status. Must be "active" or "inactive"');
     }
 
-    // Note: Status field doesn't exist in current schema, so we'll simulate it by storing in the name or category
-    // In a real implementation, we'd add a status field to the database schema
-    const updated = await this.supabaseRepo.updateFixedExpense(id, {
-      name: status === 'active' ? existing.name : `${existing.name} (inactive)`,
-    });
+    const updated = await this.supabaseRepo.updateFixedExpense(id, { status });
 
     if (!updated) {
       throw new NotFoundException('Fixed expense not found');

@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PocketsService } from './pockets.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
+import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 
 const POCKET = {
   id: 'pocket-1',
@@ -18,6 +19,7 @@ const POCKET = {
 
 describe('PocketsService.updateForUser', () => {
   let repository: jest.Mocked<Pick<SupabaseRepository, 'getPocketById' | 'getPlanById' | 'updatePocket'>>;
+  let disciplineScore: jest.Mocked<DisciplineScoreService>;
   let service: PocketsService;
 
   beforeEach(() => {
@@ -26,7 +28,11 @@ describe('PocketsService.updateForUser', () => {
       getPlanById: jest.fn().mockResolvedValue({ id: 'plan-1', user_id: 'user-1' }),
       updatePocket: jest.fn().mockImplementation((id, updates) => ({ ...POCKET, ...updates })),
     } as any;
-    service = new PocketsService(repository as unknown as SupabaseRepository);
+    disciplineScore = {
+      getCurrentScore: jest.fn(),
+      applyDelta: jest.fn(),
+    } as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore);
   });
 
   it('applies whitelisted fields', async () => {
@@ -55,5 +61,57 @@ describe('PocketsService.updateForUser', () => {
       ForbiddenException,
     );
     expect(repository.updatePocket).not.toHaveBeenCalled();
+  });
+});
+
+describe('PocketsService discipline-score unification', () => {
+  const LOCKED_POCKET = {
+    ...POCKET,
+    lock_until: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
+  };
+
+  let repository: jest.Mocked<
+    Pick<
+      SupabaseRepository,
+      'getPocketById' | 'getPlanById' | 'updatePocket' | 'createBehaviorEvent' | 'createTransaction' | 'getTransactionsByPocketId'
+    >
+  >;
+  let disciplineScore: jest.Mocked<DisciplineScoreService>;
+  let service: PocketsService;
+
+  beforeEach(() => {
+    repository = {
+      getPocketById: jest.fn().mockResolvedValue(LOCKED_POCKET),
+      getPlanById: jest.fn().mockResolvedValue({ id: 'plan-1', user_id: 'user-1' }),
+      updatePocket: jest.fn().mockImplementation((id, updates) => ({ ...LOCKED_POCKET, ...updates })),
+      createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'event-1' }),
+      createTransaction: jest.fn().mockResolvedValue({ id: 'txn-1' }),
+      getTransactionsByPocketId: jest.fn().mockResolvedValue([]),
+    } as any;
+    disciplineScore = {
+      getCurrentScore: jest.fn(),
+      applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 95 }),
+    } as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore);
+  });
+
+  it('unlockPocket applies the cost through the shared DisciplineScoreService, not a local calculation', async () => {
+    const result = await service.unlockPocket('pocket-1', 'user-1', { biometric_confirmed: true, reason: 'emergency' });
+
+    expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', expect.any(Number));
+    const [, delta] = disciplineScore.applyDelta.mock.calls[0];
+    expect(delta).toBeLessThan(0); // unlock is a cost, never a bonus
+    expect(result.discipline_cost.previous_score).toBe(100);
+    expect(result.discipline_cost.new_score).toBe(95);
+  });
+
+  it('extendLock applies a positive bonus through the shared DisciplineScoreService', async () => {
+    const result = await service.extendLock('pocket-1', 'user-1', { additional_days: 10, reason: 'staying disciplined' });
+
+    expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', expect.any(Number));
+    const [, delta] = disciplineScore.applyDelta.mock.calls[0];
+    expect(delta).toBeGreaterThan(0); // extension is a bonus, never a cost
+    expect(result.discipline_bonus.previous_score).toBe(100);
+    expect(result.discipline_bonus.new_score).toBe(95);
   });
 });

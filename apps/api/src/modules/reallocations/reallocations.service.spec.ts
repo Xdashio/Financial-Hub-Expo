@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ReallocationsService } from './reallocations.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 
 jest.mock('../../database/supabase.repository');
 jest.mock('../../config/supabase.config');
@@ -78,7 +79,11 @@ describe('ReallocationsService', () => {
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReallocationsService, { provide: SupabaseRepository, useValue: repo }],
+      providers: [
+        ReallocationsService,
+        DisciplineScoreService,
+        { provide: SupabaseRepository, useValue: repo },
+      ],
     }).compile();
 
     service = module.get<ReallocationsService>(ReallocationsService);

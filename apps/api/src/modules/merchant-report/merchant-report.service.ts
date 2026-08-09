@@ -18,12 +18,12 @@ export class MerchantReportService {
       recipient_key: dto.recipient_key,
       report_type: dto.report_type,
       description: dto.description || null,
+      suggested_category: dto.suggested_category || null,
       status: 'pending',
       created_at: new Date().toISOString(),
       reviewed_at: null,
     };
 
-    // Note: This is a stub implementation. The merchant_reports table needs to be created in the database.
     const createdReport = await this.repository.createMerchantReport(report);
     if (!createdReport) {
       throw new Error('Failed to create merchant report');
@@ -46,6 +46,7 @@ export class MerchantReportService {
       recipient_key: string;
       report_type: string;
       description: string | null;
+      suggested_category: string | null;
       status: string;
       created_at: string;
       reviewed_at: string | null;

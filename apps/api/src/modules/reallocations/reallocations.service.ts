@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { Pocket, Reallocation } from '../../database/database.types';
 import {
   ReallocationInputSchema,
@@ -22,14 +23,12 @@ const COOLING_OFF_HOURS = 1;
 // Discipline-score cost of skipping the cooling-off wait (PRD §3.4).
 const SKIP_COOLING_OFF_COST = 5;
 
-// A freshly onboarded user has no scoring history yet, so skips are scored
-// against a full-marks baseline until real history exists — mirrors
-// InsightsService.DEFAULT_DISCIPLINE_SCORE.
-const DEFAULT_SCORE = 100;
-
 @Injectable()
 export class ReallocationsService {
-  constructor(private readonly repo: SupabaseRepository) {}
+  constructor(
+    private readonly repo: SupabaseRepository,
+    private readonly disciplineScore: DisciplineScoreService,
+  ) {}
 
   async create(userId: string, input: unknown): Promise<Reallocation> {
     const parsed = this.parseCreateInput(input);
@@ -182,22 +181,7 @@ export class ReallocationsService {
   }
 
   private async applyDisciplineCost(userId: string, cost: number): Promise<void> {
-    const latest = await this.repo.getLatestDisciplineScore(userId);
-    const currentScore = latest?.score ?? DEFAULT_SCORE;
-    const nextScore = Math.max(0, currentScore - cost);
-    await this.repo.upsertDisciplineScore({
-      user_id: userId,
-      score: nextScore,
-      delta: -cost,
-      period: this.currentPeriod(),
-      calculated_at: new Date().toISOString(),
-    });
-  }
-
-  private currentPeriod(): string {
-    // Monthly period key, e.g. '2026-08' — consistent with how plan/score
-    // history is expected to be bucketed elsewhere in the app.
-    return new Date().toISOString().slice(0, 7);
+    await this.disciplineScore.applyDelta(userId, -cost);
   }
 
   private isEssential(pocket: Pocket): boolean {
@@ -224,7 +208,7 @@ export class ReallocationsService {
   private parseCreateInput(input: unknown): ReallocationInput {
     const result = ReallocationInputSchema.safeParse(input);
     if (!result.success) {
-      throw new BadRequestException(result.error.issues.map(i => i.message).join('; '));
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
     return result.data;
   }
