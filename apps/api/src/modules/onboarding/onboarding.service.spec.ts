@@ -30,6 +30,9 @@ const FREELANCER_WEEK3_INPUT: OnboardingInput = {
   incomeAmount: 40000,
   fixedTotal: 10000,
   sourceCount: 3,
+  // Required for freelancer plans — see rules-engine.ts
+  // validateOnboardingInput and docs/FREELANCER_RUNWAY.md.
+  incomeIntervalBand: 'biweekly',
 };
 
 describe('OnboardingService.assign', () => {
@@ -223,19 +226,15 @@ describe('OnboardingService.commit', () => {
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 
-  it('creates an allocation transaction per created pocket', async () => {
+  // As of e9924bb ("Fix Phantom money at onboarding"), onboarding no longer
+  // writes allocation transactions itself. monthly_allocation on the created
+  // pockets is a planning ceiling only; real ledger money only lands when
+  // the user logs an actual income event (see IncomeService.allocateIncome),
+  // which is what previously double-counted against the onboarding figure.
+  it('does not write allocation transactions at onboarding time — monthly_allocation is a planning ceiling only', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    const pockets = repository.createPockets.mock.results[0].value;
-    const transactions = repository.createTransactions.mock.calls[0][0];
-
-    expect(transactions).toHaveLength(pockets.length);
-    expect(transactions.every((t: any) => t.type === 'allocation')).toBe(true);
-    for (const pocket of pockets) {
-      expect(transactions).toContainEqual(
-        expect.objectContaining({ pocket_id: pocket.id, amount: pocket.monthly_allocation })
-      );
-    }
+    expect(repository.createTransactions).not.toHaveBeenCalled();
   });
 
   it('logs a plan_created behavior event', async () => {

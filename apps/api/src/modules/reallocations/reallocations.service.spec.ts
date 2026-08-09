@@ -67,6 +67,12 @@ describe('ReallocationsService', () => {
       getActivePlanByUserId: jest.fn(),
       getPlanById: jest.fn(),
       getPocketById: jest.fn(),
+      // Balance checks are ledger-derived via getPocketSummary, not
+      // monthly_allocation — see supabase.repository.ts getPocketSummary
+      // and e9924bb "Ledger balance calculation in repository". Default to
+      // a large available balance; tests that care about the boundary
+      // override this explicitly.
+      getPocketSummary: jest.fn().mockResolvedValue({ allocated: 100000, spent: 0, available: 100000, transactionCount: 0, reallocationCount: 0 }),
       updatePocket: jest.fn(),
       createTransactions: jest.fn(),
       createReallocation: jest.fn(),
@@ -166,12 +172,14 @@ describe('ReallocationsService', () => {
         if (id === FOOD_POCKET.id) return FOOD_POCKET as any;
         return TRANSPORT_POCKET as any;
       });
+      // Ledger-derived available balance, not monthly_allocation.
+      repo.getPocketSummary.mockResolvedValue({ allocated: 500, spent: 0, available: 500, transactionCount: 0, reallocationCount: 0 });
 
       await expect(
         service.create('user-123', {
           fromPocketId: FOOD_POCKET.id,
           toPocketId: TRANSPORT_POCKET.id,
-          amount: FOOD_POCKET.monthly_allocation + 1,
+          amount: 501,
           reason: 'other',
         })
       ).rejects.toBeInstanceOf(BadRequestException);
@@ -289,8 +297,10 @@ describe('ReallocationsService', () => {
 
       const result = await service.complete('user-123', 'realloc-1', {});
 
-      expect(repo.updatePocket).toHaveBeenCalledWith(TRANSPORT_POCKET.id, { monthly_allocation: 180 });
-      expect(repo.updatePocket).toHaveBeenCalledWith(LEISURE_POCKET.id, { monthly_allocation: 1140 });
+      // monthly_allocation is the planning ceiling and is never mutated for
+      // balance movement — see reallocations.service.ts complete(). Balance
+      // moves only through the ledger transactions below.
+      expect(repo.updatePocket).not.toHaveBeenCalled();
       expect(repo.createTransactions).toHaveBeenCalledWith([
         { pocket_id: TRANSPORT_POCKET.id, amount: -100, type: 'reallocation_out' },
         { pocket_id: LEISURE_POCKET.id, amount: 100, type: 'reallocation_in' },
@@ -327,7 +337,7 @@ describe('ReallocationsService', () => {
         expect.objectContaining({ discipline_cost: 5 })
       );
       expect(repo.upsertDisciplineScore).toHaveBeenCalledWith(
-        expect.objectContaining({ user_id: 'user-123', score: 82, delta: -5 })
+        expect.objectContaining({ user_id: 'user-123', score: 95, delta: -5 })
       );
     });
 

@@ -189,4 +189,100 @@ describe('IncomeService.createManualIncome', () => {
     expect(runway.getRunwayForPlan).toHaveBeenCalled();
     expect(repository.updatePocket).toHaveBeenCalledWith('pocket-food', { daily_cap: expect.any(Number) });
   });
+
+  // The fixture POCKETS above give savings a 25% proportional share (1000 of
+  // 4000 total monthly_allocation), which is already above the 10%
+  // MIN_SAVINGS_RATE floor — so every test above it exercises only the
+  // proportional-split path and never the top-up branch added for the
+  // "fix the savings 10% min" change. These tests use a pocket mix where
+  // savings' proportional share falls under 10%, to actually cover it.
+  describe('minimum savings rate enforcement', () => {
+    const LOW_SAVINGS_POCKETS = [
+      { id: 'pocket-savings', plan_id: 'plan-1', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 200, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3800, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    ];
+
+    it('tops up a savings pocket to the 10% floor when its proportional share falls short', async () => {
+      // Proportional split of a 4000 income event would give savings only
+      // 200 (5%), under the 400 (10%) floor. Shortfall of 200 should be
+      // pulled proportionally from non-savings pockets.
+      const repository = makeRepository({
+        getPocketsByPlanId: jest.fn().mockResolvedValue(LOW_SAVINGS_POCKETS.map(p => ({ ...p }))),
+      });
+      const service = new IncomeService(repository, makeRunway());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      expect(result.allocation.total_allocated).toBeCloseTo(4000);
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'pocket-savings', amount: 400, is_minimum: true }),
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 3600 }),
+        ])
+      );
+      // Allocated amounts must still sum to the full income amount.
+      const total = result.allocation.allocations.reduce((sum: number, a: any) => sum + a.amount, 0);
+      expect(total).toBeCloseTo(4000);
+    });
+
+    it('does not touch allocations when there is no savings pocket at all', async () => {
+      const NO_SAVINGS_POCKETS = [
+        { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3800, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-fun', plan_id: 'plan-1', name: 'Fun', kind: 'spendable', category: 'fun', is_time_locked: false, lock_until: null, monthly_allocation: 200, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      ];
+      const repository = makeRepository({
+        getPocketsByPlanId: jest.fn().mockResolvedValue(NO_SAVINGS_POCKETS.map(p => ({ ...p }))),
+      });
+      const service = new IncomeService(repository, makeRunway());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 3800 }),
+          expect.objectContaining({ pocket_id: 'pocket-fun', amount: 200 }),
+        ])
+      );
+    });
+
+    it('does not reduce a savings pocket that is already above the 10% floor', async () => {
+      // Default POCKETS fixture: savings is 25% proportionally, well above
+      // the floor, so its amount should be untouched by the top-up branch.
+      const repository = makeRepository();
+      const service = new IncomeService(repository, makeRunway());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'pocket-savings', amount: 1000 }),
+        ])
+      );
+    });
+
+    it('splits the floor proportionally across multiple savings pockets', async () => {
+      const MULTI_SAVINGS_POCKETS = [
+        { id: 'pocket-savings-a', plan_id: 'plan-1', name: 'Emergency Fund', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 150, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-savings-b', plan_id: 'plan-1', name: 'Goal Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 50, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3800, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      ];
+      const repository = makeRepository({
+        getPocketsByPlanId: jest.fn().mockResolvedValue(MULTI_SAVINGS_POCKETS.map(p => ({ ...p }))),
+      });
+      const service = new IncomeService(repository, makeRunway());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      // Floor is 400 total, split 150:50 (75%/25%) between the two savings
+      // pockets, same ratio as their proportional shares.
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'pocket-savings-a', amount: 300 }),
+          expect.objectContaining({ pocket_id: 'pocket-savings-b', amount: 100 }),
+        ])
+      );
+      const total = result.allocation.allocations.reduce((sum: number, a: any) => sum + a.amount, 0);
+      expect(total).toBeCloseTo(4000);
+    });
+  });
 });
