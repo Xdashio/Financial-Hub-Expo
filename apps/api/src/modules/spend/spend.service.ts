@@ -35,6 +35,24 @@ export class SpendService {
     }
     await this.assertPocketOwnership(pocket, userId);
 
+    // Time-locked pockets (e.g. a savings pocket the user locked to resist
+    // impulse spending) must block spend the same way ReallocationsService
+    // already blocks using one as a reallocation source. Without this check
+    // spend completely bypassed the lock — the lock/unlock endpoints existed
+    // and updated is_time_locked/lock_until, but nothing here ever read them.
+    if (this.isTimeLocked(pocket)) {
+      return {
+        allowed: false,
+        block_reason: 'pocket_time_locked',
+        message: `${pocket.name} is time-locked and can't be spent from until it unlocks.`,
+        pocket: {
+          id: pocket.id,
+          name: pocket.name,
+          available_balance: (await this.repository.getPocketSummary(dto.pocket_id)).available,
+        },
+      };
+    }
+
     // Available balance is derived purely from the ledger: allocation credits
     // minus spend debits and reallocation outflows. monthly_allocation is the
     // planning ceiling only and is never used for balance checks.
@@ -195,6 +213,16 @@ export class SpendService {
     if (!plan || plan.user_id !== userId) {
       throw new ForbiddenException('You do not have access to this pocket');
     }
+  }
+
+  // Mirrors ReallocationsService.isTimeLocked — kept as a private duplicate
+  // rather than shared for now since these two services already duplicate
+  // getBlockedCategoriesForPocket the same way; worth extracting both into
+  // a shared pocket-rules helper in a follow-up.
+  private isTimeLocked(pocket: Pocket): boolean {
+    if (!pocket.is_time_locked) return false;
+    if (!pocket.lock_until) return true;
+    return new Date(pocket.lock_until).getTime() > Date.now();
   }
 
   private getBlockedCategoriesForPocket(pocket: Pocket): string[] {

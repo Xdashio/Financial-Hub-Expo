@@ -85,13 +85,18 @@ export function computeSpendableDailyCaps(
     return result;
   }
   const spendablePockets = pockets.filter((p) => p.kind === 'spendable');
-  const totalMonthlySpendable = spendablePockets.reduce((sum, p) => sum + p.monthly_allocation, 0);
-  const totalDailySpendable = totalMonthlySpendable / runway.runwayDays;
-  const perPocketDailyCap = spendablePockets.length > 0 ? totalDailySpendable / spendablePockets.length : 0;
+  // Each pocket's daily cap is its own monthly_allocation stretched across
+  // the runway — proportional to how much of the total spendable budget
+  // that pocket actually holds. This previously divided the combined
+  // spendable total evenly across pocket *count* instead, so e.g. a Food
+  // pocket funded at 30,000 and a Personal pocket funded at 3,000 got the
+  // exact same daily cap, silently contradicting the proportional split
+  // IncomeService uses everywhere else money is divided between pockets.
   for (const pocket of spendablePockets) {
-    result.set(pocket.id, Math.round(perPocketDailyCap * 100) / 100);
+    const dailyCap = pocket.monthly_allocation / runway.runwayDays;
+    result.set(pocket.id, Math.round(dailyCap * 100) / 100);
   }
-   return result;
+  return result;
 }
 
 /**

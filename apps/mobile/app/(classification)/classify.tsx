@@ -30,6 +30,21 @@ export default function ClassificationScreen() {
   const [isLoadingPockets, setIsLoadingPockets] = useState(true);
   const { alert, modal } = useAlertModal();
 
+  // Mirrors SpendService.getBlockedCategoriesForPocket on the API: fixed
+  // (essential) pockets block gambling + entertainment, every other pocket
+  // kind still blocks gambling. Keeps the picker from ever offering a
+  // pocket the backend would reject the classification for.
+  const getBlockedCategoriesForPocket = (kind: string): string[] => {
+    if (kind === 'fixed') {
+      return ['gambling_betting', 'entertainment'];
+    }
+    return ['gambling_betting'];
+  };
+
+  const selectablePockets = selectedCategory
+    ? pockets.filter((p) => !getBlockedCategoriesForPocket(p.kind).includes(selectedCategory))
+    : pockets;
+
   const categories = [
     { id: 'grocery', name: 'Groceries', icon: '🛒' },
     { id: 'landlord_rent', name: 'Rent', icon: '🏠' },
@@ -173,7 +188,20 @@ export default function ClassificationScreen() {
                   borderColor: selectedCategory === category.id ? colors.emeraldDeep : colors.line,
                   minWidth: 120,
                 }}
-                onPress={() => setSelectedCategory(category.id)}
+                onPress={() => {
+                  setSelectedCategory(category.id);
+                  // Deselect the pocket if it's no longer eligible for the
+                  // newly picked category (e.g. switching to Entertainment
+                  // after picking an essential/fixed pocket).
+                  if (
+                    selectedPocket &&
+                    getBlockedCategoriesForPocket(
+                      pockets.find((p) => p.id === selectedPocket)?.kind || ''
+                    ).includes(category.id)
+                  ) {
+                    setSelectedPocket(null);
+                  }
+                }}
               >
                 <Text style={{ fontSize: 20, marginRight: spacing.sm }}>
                   {category.icon}
@@ -203,7 +231,12 @@ export default function ClassificationScreen() {
               Loading pockets…
             </Text>
           )}
-          {pockets.map((pocket) => (
+          {!isLoadingPockets && selectedCategory && selectablePockets.length < pockets.length && (
+            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
+              Some pockets are hidden because they block this category.
+            </Text>
+          )}
+          {selectablePockets.map((pocket) => (
             <Pressable
               key={pocket.id}
               style={{

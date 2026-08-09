@@ -169,7 +169,10 @@ function TxRow({ tx, colors }: { tx: Transaction; colors: any }) {
           fontVariant: ['tabular-nums'],
         }}
       >
-        {isDebit ? '−' : '+'}{fmt(tx.amount)}
+        {/* reallocation_out rows are stored with a negative ledger amount
+            (see ReallocationsService), so without Math.abs here this rendered
+            as a double negative, e.g. "−KES -500" instead of "−KES 500". */}
+        {isDebit ? '−' : '+'}{fmt(Math.abs(tx.amount))}
       </Text>
     </View>
   );

@@ -18,6 +18,20 @@ export class MerchantService {
     }
     await this.assertPocketOwnership(pocket, userId);
 
+    // Guard against classifying a merchant into a category that this pocket
+    // blocks (e.g. gambling/entertainment into a fixed/essential pocket).
+    // Without this, the "sort, don't block" flow could silently save a
+    // classification that contradicts the pocket's own block rules — the
+    // classification would still be caught at spend time by SpendService,
+    // but only if the same pocket is used again, so this closes the gap
+    // where the classify screen itself never enforced it.
+    const blockedCategories = this.getBlockedCategoriesForPocket(pocket);
+    if (blockedCategories.includes(dto.category)) {
+      throw new BadRequestException(
+        `${dto.category} payments can't be classified into ${pocket.name} — this pocket blocks that category.`
+      );
+    }
+
     // Create or update classification (note: pocket_id not in current schema, will be stored in context or updated separately)
     const classification = await this.repository.upsertMerchantClassification({
       user_id: userId,
@@ -129,6 +143,16 @@ export class MerchantService {
     if (!plan || plan.user_id !== userId) {
       throw new ForbiddenException('You do not have access to this pocket');
     }
+  }
+
+  // Kept in sync with the identical rule in SpendService/PocketsService.
+  // fixed pockets are "essential" (rent, bills) and block gambling +
+  // entertainment; every other pocket kind still blocks gambling.
+  private getBlockedCategoriesForPocket(pocket: Pocket): string[] {
+    if (pocket.kind === 'fixed') {
+      return ['gambling_betting', 'entertainment'];
+    }
+    return ['gambling_betting'];
   }
 
   private async getTransactionForUser(transactionId: string, userId: string): Promise<any | null> {
