@@ -1,12 +1,12 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, SafeAreaView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { Shield, RefreshCw, ChevronLeft, PiggyBank, House, ShoppingBasket, User, Car, Lock, ArrowLeftRight, Plus } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useAuthStore } from '@/services/auth';
-import { Button } from '@/components/ui';
+import { Button, ScreenContainer } from '@/components/ui';
 
 // Pocket icons — using lucide-react-native so pocket icons stay visually
 // consistent (same stroke weight/family) with the rest of the app instead
@@ -101,20 +101,20 @@ export default function HomeScreen() {
 
   if (isLoading && pockets.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: spacing.xxxl }}>
             <ActivityIndicator size="large" color={colors.emeraldDeep} />
             <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>Loading your financial hub...</Text>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
             <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
@@ -127,13 +127,13 @@ export default function HomeScreen() {
             </Button>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (pockets.length === 0) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
             <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
@@ -159,7 +159,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
@@ -171,7 +171,7 @@ export default function HomeScreen() {
   const isDaily = planType === 'daily';
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
@@ -395,6 +395,6 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
