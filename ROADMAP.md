@@ -50,8 +50,8 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 - [x] Profile + fixed expenses — plan/profile CRUD is real and wired, including `fixed-expenses.tsx` (wired to `profileApi` — was mock, now real)
 - [ ] Notifications settings — blocked on Phase A (needs the new table + real service)
 - [ ] Report merchant — blocked on Phase A (needs the module registered + new table)
-- [ ] Time-lock screen — backend is solid and ready; screen itself (`time-lock.tsx`) is still mock, pure frontend-wiring task
-- [ ] Blocked-spend screen — backend is solid and ready; screen itself is still mock, pure frontend-wiring task
+- [x] Time-lock screen — wired to `pocketsApi.getLockStatus/unlock/extendLock`, with biometric confirmation via `expo-local-authentication` before unlock and real discipline-score numbers in the result message
+- [ ] Blocked-spend screen — **screen itself already had no mock data (pure display off route params); added `spendApi` client (`check`, `getBlockedReasons`), but no UI flow in the app currently calls `/spend/check` and navigates here on a block — this app has no PSP integration (manual income/spend only), so there's no natural "spend attempt" trigger point yet. Scoping question, not a wiring task — flagging for a decision rather than guessing at a fake entry point.**
 - [ ] One cohesive demo script/dataset (e.g. two seeded users — one Daily, one Structured — so the adaptive-shell story is demoable live)
 
 **Exit criteria:** you can hand a phone to a partner, walk through onboarding → plan → a week of simulated activity → a reallocation → insights, and every number on screen is real, not hardcoded.
@@ -59,8 +59,8 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 ### Phase 1 sequencing (screens ready to wire the moment Phase A lands)
 Once Phase A is done, these are pure frontend-wiring tasks with no backend blocker — safe to parallelize across however many people are available, roughly in this order (dependency-free ones first):
 1. ~~Fixed expenses screen (`fixed-expenses.tsx`)~~ — done, wired to `profileApi`
-2. Time-lock screen (`time-lock.tsx`) — backend already solid today, doesn't even need to wait for Phase A
-3. Blocked-spend screen (`blocked-spend.tsx`) — backend already solid today, doesn't even need to wait for Phase A
+2. ~~Time-lock screen (`time-lock.tsx`)~~ — done, wired to `pocketsApi` with biometric confirmation
+3. Blocked-spend screen (`blocked-spend.tsx`) — screen has no mock to wire; `spendApi` client added but no UI flow triggers it yet (see Phase 1 checklist note)
 4. Pocket detail screen — needs Phase A's C2 (merchant scope) fix first
 5. Merchant classification screen (`classify.tsx`) — needs Phase A's C2 fix first
 6. Notifications screen — needs Phase A's new table + real service
