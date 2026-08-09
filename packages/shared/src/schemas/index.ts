@@ -25,6 +25,22 @@ export type PocketCategory = z.infer<typeof PocketCategorySchema>;
 export const IncomePatternSchema = z.enum(['salaried', 'freelancer', 'mix']);
 export type IncomePattern = z.infer<typeof IncomePatternSchema>;
 
+// Freelancer-only, self-reported estimate of how far apart payments usually
+// land. Deliberately banded rather than an exact day count — freelancers
+// rarely know "23 days" but can usually say "about every 2 weeks". Mapped to
+// a day count in IncomeIntervalDaysByBand for use by the rules engine and
+// RunwayService. 'irregular' has no reliable estimate at all and falls back
+// to the same default as 'monthly' until real income history exists.
+export const IncomeIntervalBandSchema = z.enum(['weekly', 'biweekly', 'monthly', 'irregular']);
+export type IncomeIntervalBand = z.infer<typeof IncomeIntervalBandSchema>;
+
+export const IncomeIntervalDaysByBand: Record<IncomeIntervalBand, number> = {
+  weekly: 7,
+  biweekly: 14,
+  monthly: 30,
+  irregular: 30,
+};
+
 export const SpendingHabitSchema = z.enum(['tracker', 'week3', 'off_guard']);
 export type SpendingHabit = z.infer<typeof SpendingHabitSchema>;
 
@@ -99,6 +115,10 @@ export const OnboardingInputSchema = z.object({
   fixedTotal: z.number().nonnegative(),
   sourceCount: z.number().int().positive(),
   fixedExpenses: z.array(FixedExpenseInputSchema).optional(),
+  // Required (validated in validateOnboardingInput, not here, so the error
+  // message can be freelancer-specific) when incomePattern is 'freelancer'.
+  // Ignored for 'salaried'/'mix'.
+  incomeIntervalBand: IncomeIntervalBandSchema.optional(),
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 
@@ -133,6 +153,24 @@ export const OnboardingCommitResultSchema = z.object({
 export type OnboardingCommitResult = z.infer<typeof OnboardingCommitResultSchema>;
 
 // ============================================================================
+// Runway (freelancer adaptive daily budget) — see docs/FREELANCER_RUNWAY.md
+// ============================================================================
+
+export const RunwaySummarySchema = z.object({
+  // False for salaried/mix or structured plans — runway only applies to
+  // freelancer + daily plans. Callers should not render a runway UI when
+  // this is false.
+  applicable: z.boolean(),
+  runwayDays: z.number().nonnegative().optional(),
+  expectedIntervalDays: z.number().positive().optional(),
+  daysSinceLastIncome: z.number().nonnegative().optional(),
+  // 'estimate' = derived from the onboarding band, no income history yet.
+  // 'historical' = derived from actual income_events gaps (>= 2 events).
+  confidence: z.enum(['estimate', 'historical']).optional(),
+});
+export type RunwaySummary = z.infer<typeof RunwaySummarySchema>;
+
+// ============================================================================
 // Core Domain Schemas - Pack 1 Specification
 // ============================================================================
 
@@ -150,6 +188,10 @@ export const PlanSchema = z.object({
   userId: z.string().uuid(),
   type: PlanTypeSchema, // 'structured' | 'daily'
   incomePattern: IncomePatternSchema, // 'salaried' | 'freelancer'
+  // Freelancer-only. The onboarding band's day-count estimate, persisted so
+  // RunwayService has a fallback before enough income_events history exists.
+  // Null for salaried/mix plans.
+  incomeIntervalDays: z.number().int().positive().nullable().optional(),
   status: PlanStatusSchema, // 'active' | 'inactive' | 'reassigned'
   createdAt: z.string().datetime(),
   reassignedAt: z.string().datetime().optional(),

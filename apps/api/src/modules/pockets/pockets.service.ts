@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PocketUpdateInputSchema } from '@financial-hub/shared';
+import { PocketUpdateInputSchema, RunwaySummary } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import { RunwayService } from '../runway/runway.service';
 import { Pocket, PocketUpdate, Transaction, MerchantClassification } from '../../database/database.types';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class PocketsService {
   constructor(
     private readonly repository: SupabaseRepository,
     private readonly disciplineScore: DisciplineScoreService,
+    private readonly runway: RunwayService,
   ) {}
 
   async getAllForUser(userId: string): Promise<(Pocket & { available_balance: number })[]> {
@@ -28,7 +30,38 @@ export class PocketsService {
       })
     );
 
+    // Freelancer + daily plans get their spendable daily_cap recomputed
+    // live against the current runway (days until next expected payment)
+    // instead of the flat 30-day assumption baked in at onboarding. This is
+    // the only place the adaptive cap is applied — everything downstream
+    // (home hero, per-pocket progress bars) already reads daily_cap, so no
+    // other screen needs to know runway exists. See
+    // docs/FREELANCER_RUNWAY.md.
+    if (plan.income_pattern === 'freelancer' && plan.type === 'daily') {
+      const runwaySummary = await this.runway.getRunwayForPlan(userId, plan);
+      if (runwaySummary.applicable && runwaySummary.runwayDays) {
+        const spendablePockets = enriched.filter(p => p.kind === 'spendable');
+        const totalMonthlySpendable = spendablePockets.reduce((sum, p) => sum + p.monthly_allocation, 0);
+        const totalDailySpendable = totalMonthlySpendable / runwaySummary.runwayDays;
+        const perPocketDailyCap = spendablePockets.length > 0 ? totalDailySpendable / spendablePockets.length : 0;
+        for (const pocket of enriched) {
+          if (pocket.kind === 'spendable') {
+            pocket.daily_cap = Math.round(perPocketDailyCap * 100) / 100;
+          }
+        }
+      }
+    }
+
     return enriched;
+  }
+
+  /** See docs/FREELANCER_RUNWAY.md. Returns { applicable: false } for non-freelancer or non-daily plans. */
+  async getRunwaySummaryForUser(userId: string): Promise<RunwaySummary> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      return { applicable: false };
+    }
+    return this.runway.getRunwayForPlan(userId, plan);
   }
 
   async getByIdForUser(id: string, userId: string): Promise<Pocket> {

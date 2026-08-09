@@ -45,6 +45,7 @@ export interface Database {
           user_id: string
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
+          income_interval_days: number | null
           status: 'active' | 'inactive' | 'reassigned'
           created_at: string
           reassigned_at: string | null
@@ -54,6 +55,7 @@ export interface Database {
           user_id: string
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
+          income_interval_days?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
           created_at?: string
           reassigned_at?: string | null
@@ -63,6 +65,7 @@ export interface Database {
           user_id?: string
           type?: 'structured' | 'daily'
           income_pattern?: 'salaried' | 'freelancer'
+          income_interval_days?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
           created_at?: string
           reassigned_at?: string | null
