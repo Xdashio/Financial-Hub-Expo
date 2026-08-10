@@ -364,6 +364,15 @@ export default function HomeScreen() {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
+              // Bar and headline number must reflect real ledger money
+              // (availableBalance), not the onboarding-time planning ceiling
+              // (monthlyAllocation) — otherwise every pocket looks "full"
+              // the instant a plan is created, before any income has ever
+              // been logged. See home-store.ts: availableBalance is the
+              // only field derived from actual transactions.
+              const pocketProgress = pocket.monthlyAllocation > 0
+                ? Math.max(0, Math.min(1, pocket.availableBalance / pocket.monthlyAllocation))
+                : 0;
               return (
                 <TouchableOpacity
                   key={pocket.id}
@@ -378,8 +387,9 @@ export default function HomeScreen() {
                       <PocketIcon color={pocketColor} size={14} />
                       <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.monthlyAllocation)}</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.availableBalance)}</Text>
+                      <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2, fontVariant: ['tabular-nums'] }}>of {formatCurrency(pocket.monthlyAllocation)} planned</Text>
                     </View>
                   </View>
                   <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
@@ -388,13 +398,13 @@ export default function HomeScreen() {
                         height: '100%',
                         borderRadius: radius.pill,
                         backgroundColor: pocketColor,
-                        width: '100%',
+                        width: `${pocketProgress * 100}%`,
                       }}
                     />
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
                     <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{status.label}</Text>
-                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>Available</Text>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{pocket.availableBalance > 0 ? 'Available' : 'Awaiting income'}</Text>
                   </View>
                 </TouchableOpacity>
               );
@@ -410,6 +420,13 @@ export default function HomeScreen() {
               const pocketColor = getPocketColor(pocket.kind, pocket.category);
               const status = getPocketStatus(pocket);
               const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
+              // Same ledger-derived rule as the spendable cards above:
+              // monthlyAllocation is the plan's target for this pocket,
+              // availableBalance is what's actually been funded via a
+              // logged income event.
+              const pocketProgress = pocket.monthlyAllocation > 0
+                ? Math.max(0, Math.min(1, pocket.availableBalance / pocket.monthlyAllocation))
+                : 0;
               return (
                 <TouchableOpacity
                   key={pocket.id}
@@ -424,11 +441,14 @@ export default function HomeScreen() {
                       <PocketIcon color={pocketColor} size={14} />
                       <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      {pocket.isTimeLocked && (
-                        <PocketIconLock color={colors.sage} size={13} />
-                      )}
-                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.monthlyAllocation)}</Text>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {pocket.isTimeLocked && (
+                          <PocketIconLock color={colors.sage} size={13} />
+                        )}
+                        <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.availableBalance)}</Text>
+                      </View>
+                      <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2, fontVariant: ['tabular-nums'] }}>of {formatCurrency(pocket.monthlyAllocation)} planned</Text>
                     </View>
                   </View>
                   <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
@@ -437,13 +457,13 @@ export default function HomeScreen() {
                         height: '100%',
                         borderRadius: radius.pill,
                         backgroundColor: pocketColor,
-                        width: '100%',
+                        width: `${pocketProgress * 100}%`,
                       }}
                     />
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
                     <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{status.label}</Text>
-                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{pocket.isTimeLocked ? 'Locked' : 'Available'}</Text>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{pocket.isTimeLocked ? 'Locked' : pocket.availableBalance > 0 ? 'Available' : 'Awaiting income'}</Text>
                   </View>
                 </TouchableOpacity>
               );

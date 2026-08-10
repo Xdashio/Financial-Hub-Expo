@@ -20,19 +20,37 @@ const RANGE_LABELS: Record<Range, string> = {
 
 // Cell colour is driven entirely by real event counts/points returned by
 // the backend (see /insights/activity-heatmap) — no placeholder or made-up
-// values. Zero-activity days render as a neutral empty cell; days with
-// activity shade from light to dark by count, and get a red tint if net
-// points went down that day (e.g. an early unlock) rather than up.
+// values. Zero-activity days render as a neutral empty cell.
+//
+// Both branches key off `points`, not a mix of `count` and `points` — a
+// day used to shade green by count/4 while a bad day shaded by
+// abs(points)/10, so two axes that mean different things ("how many
+// things happened" vs "how much it moved your score") were being drawn on
+// the same scale. A day with one big win and a day with four small ones
+// rendered identically, and there was no way to tell from color alone
+// whether a day helped or barely mattered. Using points consistently
+// means a cell's darkness always answers "how much did this day move the
+// needle", with color (green vs clay) answering "which direction" and the
+// per-day tooltip still surfacing the raw event count for "how many
+// actions" detail that color alone can't carry.
+const POSITIVE_POINTS_SCALE = 20; // points/day considered "fully saturated" green
+const NEGATIVE_POINTS_SCALE = 15; // points/day considered "fully saturated" clay
+
 function cellColor(day: HeatmapDay, colors: any) {
   if (day.count === 0) return colors.lineSoft;
   if (day.points < 0) {
-    // Negative day — shade of clay by severity.
-    const intensity = Math.min(1, Math.abs(day.points) / 10);
-    return intensity > 0.6 ? colors.clay : colors.clay + '99';
+    const intensity = Math.min(1, Math.abs(day.points) / NEGATIVE_POINTS_SCALE);
+    if (intensity > 0.66) return colors.clay;
+    if (intensity > 0.33) return colors.clay + 'CC';
+    return colors.clay + '80';
   }
-  const intensity = Math.min(1, day.count / 4);
-  if (intensity > 0.75) return colors.emeraldDeep;
-  if (intensity > 0.4) return colors.emerald;
+  // Positive but zero net points (e.g. neutral logging activity) still
+  // gets the lightest green tint rather than looking identical to a
+  // no-activity day — showing something happened, even if it didn't
+  // move the score.
+  const intensity = day.points === 0 ? 0 : Math.min(1, day.points / POSITIVE_POINTS_SCALE);
+  if (intensity > 0.66) return colors.emeraldDeep;
+  if (intensity > 0.33) return colors.emerald;
   return colors.emeraldTint;
 }
 
@@ -149,17 +167,20 @@ export function StreakHeatmap() {
             </View>
           </ScrollView>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.md }}>
+          <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage }}>Less</Text>
+              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, width: 60 }}>Points up</Text>
               {[colors.lineSoft, colors.emeraldTint, colors.emerald, colors.emeraldDeep].map((c, i) => (
                 <View key={i} style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: c }} />
               ))}
-              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage }}>More</Text>
+              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, marginLeft: 2 }}>more</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-              <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: colors.clay }} />
-              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage }}>Points lost</Text>
+              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, width: 60 }}>Points down</Text>
+              {[colors.lineSoft, colors.clay + '80', colors.clay + 'CC', colors.clay].map((c, i) => (
+                <View key={i} style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: c }} />
+              ))}
+              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, marginLeft: 2 }}>more</Text>
             </View>
           </View>
 

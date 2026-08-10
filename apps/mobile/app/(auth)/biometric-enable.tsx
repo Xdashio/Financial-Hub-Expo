@@ -19,7 +19,13 @@ export default function BiometricEnableScreen() {
   const { colors } = useTheme();
   const { enableBiometrics, disableBiometrics, user, checkBiometricAvailability, checkHasPlan } = useAuthStore();
   
-  const [isEnabled, setIsEnabled] = React.useState(false);
+  // user?.biometricEnabled reflects what's actually persisted (see auth.ts
+  // getBiometricEnabled/setBiometricEnabled). Previously this always
+  // started at false, which was harmless during signup (a brand-new user
+  // is never already enabled) but broke the moment this screen was reused
+  // from Settings — opening it to check your current status showed the
+  // toggle off even when biometrics were on.
+  const [isEnabled, setIsEnabled] = React.useState(!!user?.biometricEnabled);
   const [isLoading, setIsLoading] = React.useState(false);
   const [biometricType, setBiometricType] = React.useState<'face' | 'fingerprint' | null>(null);
   const [biometricAvailable, setBiometricAvailable] = React.useState(false);
@@ -45,9 +51,12 @@ export default function BiometricEnableScreen() {
     checkBiometrics();
   }, [checkBiometricAvailability]);
 
-  // Handle skip if biometrics not available
+  // Auto-skip only applies to the signup flow (there's nothing to manage
+  // if the device has no biometric hardware and the user is mid-onboarding).
+  // From Settings, hardware being unavailable is itself the useful thing
+  // to show the person, not a reason to silently bounce them back to Home.
   useEffect(() => {
-    if (isReady && !biometricAvailable) {
+    if (fromSignup && isReady && !biometricAvailable) {
       const handleSkip = async () => {
         await checkHasPlan();
         await new Promise<void>((resolve) => setTimeout(resolve, 100));
@@ -55,7 +64,7 @@ export default function BiometricEnableScreen() {
       };
       handleSkip();
     }
-  }, [isReady, biometricAvailable, checkHasPlan, router]);
+  }, [fromSignup, isReady, biometricAvailable, checkHasPlan, router]);
 
   const toggleBiometric = async () => {
     if (!biometricAvailable) return;
@@ -86,10 +95,16 @@ export default function BiometricEnableScreen() {
   };
 
   const handleContinue = async () => {
-    // Always route through index so it can apply the plan gate correctly.
-    // index.tsx will read hasPlan from the store (set during verifyOtp) and
-    // send the user to onboarding or home as appropriate.
-    // Ensure plan check completes before redirecting
+    if (!fromSignup) {
+      // Opened from Settings — just return to Profile, there's no plan
+      // gate to apply here.
+      router.back();
+      return;
+    }
+    // Signup flow: always route through index so it can apply the plan
+    // gate correctly. index.tsx will read hasPlan from the store (set
+    // during verifyOtp) and send the user to onboarding or home as
+    // appropriate. Ensure plan check completes before redirecting.
     await checkHasPlan();
     await new Promise<void>((resolve) => setTimeout(resolve, 100));
     router.replace('/');
@@ -106,9 +121,31 @@ export default function BiometricEnableScreen() {
     );
   }
 
-  // Don't render the UI if biometrics are not available (skip already handled)
+  // During signup, an unavailable device silently skips this step (handled
+  // above). From Settings, silently rendering nothing left the "Biometric
+  // unlock" row looking broken — show an explanation instead.
   if (!biometricAvailable) {
-    return null;
+    if (fromSignup) return null;
+    return (
+      <ScreenContainer>
+        <SafeScrollView contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
+          <View style={{ alignItems: 'center', paddingTop: spacing.xxxl }}>
+            <View style={{ width: 64, height: 64, borderRadius: radius.lg, backgroundColor: colors.clayTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
+              <Fingerprint size={28} color={colors.clay} strokeWidth={2.5} />
+            </View>
+            <Text style={{ ...typography.display, color: colors.ink, textAlign: 'center' }}>No biometrics set up</Text>
+            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md, textAlign: 'center', lineHeight: 22 }}>
+              This device doesn&apos;t have Face ID or a fingerprint enrolled. Set one up in your device settings, then come back here to turn it on for Financial Hub.
+            </Text>
+          </View>
+          <View style={{ marginTop: spacing.xxl }}>
+            <Button fullWidth size="lg" onPress={() => router.back()}>
+              Back to Settings
+            </Button>
+          </View>
+        </SafeScrollView>
+      </ScreenContainer>
+    );
   }
 
   return (
@@ -175,16 +212,18 @@ export default function BiometricEnableScreen() {
           size="lg"
           loading={isLoading}
           onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
+          rightIcon={fromSignup ? <ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} /> : undefined}
         >
-          Enable & continue
+          {fromSignup ? 'Enable & continue' : 'Done'}
         </Button>
 
-        <View style={{ marginTop: spacing.md }}>
-          <Button variant="ghost" onPress={handleContinue}>
-            Not now
-          </Button>
-        </View>
+        {fromSignup && (
+          <View style={{ marginTop: spacing.md }}>
+            <Button variant="ghost" onPress={handleContinue}>
+              Not now
+            </Button>
+          </View>
+        )}
       </SafeScrollView>
     </ScreenContainer>
   );
