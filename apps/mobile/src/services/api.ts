@@ -1,11 +1,7 @@
 import { supabase } from '@/config/supabase.config';
+import { API_BASE_URL } from '@/config/api';
 
-// In dev, set EXPO_PUBLIC_API_URL in .env.local to your ngrok URL.
-// Both web and native use the same URL — ngrok works for all platforms.
-// e.g.
-const API_BASE_URL = __DEV__
-  ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
-  : 'https://api.financialhub.app/api';
+// Set EXPO_PUBLIC_API_URL in .env.local (dev) or eas.json (EAS builds).
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
