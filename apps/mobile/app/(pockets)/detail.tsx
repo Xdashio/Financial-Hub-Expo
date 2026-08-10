@@ -179,6 +179,22 @@ function TxRow({ tx, colors }: { tx: Transaction; colors: any }) {
   );
 }
 
+// Mirrors SpendService.getCategoryDisplayName on the API (and the copy in
+// (blocked)/blocked-spend.tsx) — the merchant-scope endpoint returns raw
+// category ids like "landlord_rent", which read poorly as chip labels.
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  grocery: 'Groceries',
+  landlord_rent: 'Rent',
+  utility: 'Utilities',
+  transport: 'Transport',
+  healthcare: 'Healthcare',
+  education: 'Education',
+  entertainment: 'Entertainment',
+  gambling_betting: 'Betting & gambling',
+  personal_care: 'Personal care',
+  other: 'Other',
+};
+
 function CategoryChip({ label, blocked, colors }: { label: string; blocked?: boolean; colors: any }) {
   return (
     <View
@@ -199,7 +215,7 @@ function CategoryChip({ label, blocked, colors }: { label: string; blocked?: boo
           color: blocked ? colors.clay : colors.emeraldDeep,
         }}
       >
-        {label}
+        {CATEGORY_DISPLAY_NAMES[label] || label}
       </Text>
     </View>
   );
