@@ -9,51 +9,13 @@ import { insightsApi, reallocationsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { LoadingState, ErrorState, InlineLoading } from '@/components/ui';
 import { StreakHeatmap } from '@/components/insights/StreakHeatmap';
+import { mapBehaviorEvent } from '@/utils/behaviorEvent';
 
 interface DisplayEvent {
   title: string;
   desc: string;
   time: string;
   color: string;
-}
-
-function formatRelativeTime(iso: string): string {
-  const date = new Date(iso);
-  const diffDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return 'Today';
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  const diffWeeks = Math.floor(diffDays / 7);
-  return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
-}
-
-// Maps a raw behavior_events row (type + payload) to something displayable.
-function mapBehaviorEvent(event: any, colors: any): DisplayEvent {
-  const payload = event.payload || {};
-  const time = formatRelativeTime(event.created_at);
-
-  if (event.type === 'plan_created') {
-    return { title: 'Plan assigned', desc: 'Your money plan is ready', time, color: colors.gold };
-  }
-  if (event.type === 'reallocation_completed') {
-    const desc = payload.amount && payload.fromPocket && payload.toPocket
-      ? `Moved ${payload.amount} from ${payload.fromPocket} → ${payload.toPocket}`
-      : 'Funds moved between pockets';
-    return { title: payload.disciplineCost > 0 ? 'Reallocation (skipped cooling-off)' : 'Reallocation', desc, time, color: colors.plum };
-  }
-  if (event.type === 'early_unlock') {
-    const desc = payload.points_deducted ? `−${payload.points_deducted} discipline points` : 'Savings unlocked early';
-    return { title: 'Early unlock', desc, time, color: colors.clay };
-  }
-  if (event.type === 'lock_extended') {
-    const desc = payload.points_added ? `+${payload.points_added} discipline points` : 'Lock extended';
-    return { title: 'Lock extended', desc, time, color: colors.emerald };
-  }
-  if (typeof event.type === 'string' && event.type.startsWith('savings_streak')) {
-    const desc = payload.days ? `${payload.days} days without touching Savings pocket` : 'Savings streak continues';
-    return { title: 'Savings streak', desc, time, color: colors.emerald };
-  }
-  return { title: String(event.type ?? 'Activity').replace(/_/g, ' '), desc: '', time, color: colors.sage };
 }
 
 function isSameMonth(iso: string) {

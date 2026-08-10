@@ -3,6 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, ScrollView } from 'react-nati
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography, radius } from '@/theme';
 import { insightsApi } from '@/services/api';
+import { mapBehaviorEvent } from '@/utils/behaviorEvent';
 
 type Range = 'week' | 'month' | 'year';
 
@@ -65,6 +66,29 @@ export function StreakHeatmap() {
   const [days, setDays] = React.useState<HeatmapDay[] | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [selected, setSelected] = React.useState<HeatmapDay | null>(null);
+  const [selectedEvents, setSelectedEvents] = React.useState<any[] | null>(null);
+  const [loadingSelected, setLoadingSelected] = React.useState(false);
+
+  // Tapping a cell used to only be able to show the aggregate count/points
+  // that day carried, because that's all getActivityHeatmap() ever
+  // returned — there was no way to know what actually happened. This fetches
+  // the real events for that calendar day from the new /day endpoint so the
+  // panel can show what caused the movement, not just that it happened.
+  const selectDay = async (day: HeatmapDay) => {
+    setSelected(day);
+    setSelectedEvents(null);
+    if (day.count === 0) return;
+    setLoadingSelected(true);
+    try {
+      const events = await insightsApi.getActivityHeatmapDay(day.date);
+      setSelectedEvents(Array.isArray(events) ? events : []);
+    } catch (e) {
+      console.error('StreakHeatmap day-detail load error:', e);
+      setSelectedEvents([]);
+    } finally {
+      setLoadingSelected(false);
+    }
+  };
 
   const load = React.useCallback(async (r: Range) => {
     setIsLoading(true);
@@ -72,6 +96,7 @@ export function StreakHeatmap() {
       const data = await insightsApi.getActivityHeatmap(r);
       setDays(data);
       setSelected(null);
+      setSelectedEvents(null);
     } catch (e) {
       console.error('StreakHeatmap load error:', e);
       setDays([]);
@@ -151,7 +176,7 @@ export function StreakHeatmap() {
                   {week.map(day => (
                     <Pressable
                       key={day.date}
-                      onPress={() => setSelected(day)}
+                      onPress={() => selectDay(day)}
                       style={{
                         width: cellSize,
                         height: cellSize,
@@ -192,6 +217,31 @@ export function StreakHeatmap() {
                   ? 'No activity'
                   : `${selected.count} event${selected.count === 1 ? '' : 's'}${selected.points !== 0 ? ` · ${selected.points > 0 ? '+' : ''}${selected.points} pts` : ''}`}
               </Text>
+
+              {selected.count > 0 && (
+                loadingSelected ? (
+                  <View style={{ paddingVertical: spacing.sm }}>
+                    <ActivityIndicator size="small" color={colors.emeraldDeep} />
+                  </View>
+                ) : (
+                  <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
+                    {(selectedEvents ?? []).map((event, i) => {
+                      const display = mapBehaviorEvent(event, colors);
+                      return (
+                        <View key={event.id ?? i} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' }}>
+                          <View style={{ width: 6, height: 6, borderRadius: 3, marginTop: 5, backgroundColor: display.color }} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ ...typography.caption, color: colors.ink, fontWeight: '600' }}>{display.title}</Text>
+                            {display.desc ? (
+                              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 1 }}>{display.desc}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )
+              )}
             </View>
           )}
         </>

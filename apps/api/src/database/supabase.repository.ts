@@ -557,6 +557,21 @@ export class SupabaseRepository {
     return data || [];
   }
 
+  // Powers the heatmap's tap-to-expand day detail (InsightsService.getEventsForDay)
+  // — the events for one calendar day, oldest first, bounded on both ends so
+  // it stays cheap regardless of how much history the user has.
+  async getBehaviorEventsBetween(userId: string, startIso: string, endIsoExclusive: string): Promise<BehaviorEvent[]> {
+    const { data, error } = await this.supabase
+      .from('behavior_events')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', startIso)
+      .lt('created_at', endIsoExclusive)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
   // Discipline Scores
   async upsertDisciplineScore(score: DisciplineScoreInsert): Promise<DisciplineScore | null> {
     const { data, error } = await this.supabase
