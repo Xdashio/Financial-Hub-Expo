@@ -42,6 +42,15 @@ export interface HomeState {
   
   fetchHomeData: () => Promise<void>;
   refreshData: () => Promise<void>;
+  // Applies a same-tick local balance change (e.g. "-500 from Food,
+  // +500 to Savings") so Home reflects a reallocation/income event the
+  // instant the user confirms it, rather than waiting on the round trip.
+  // Returns a snapshot the caller should pass to rollbackOptimisticUpdate
+  // if the request ends up failing — data-sync's bump() (which triggers a
+  // real refetch on success) remains the source of truth; this is purely
+  // a perceived-latency bridge until that refetch lands.
+  applyOptimisticDelta: (deltas: Record<string, number>) => HomeState['pockets'];
+  rollbackOptimisticUpdate: (snapshot: HomeState['pockets']) => void;
 }
 
 const POCKET_COLORS: Record<string, string> = {
@@ -183,6 +192,28 @@ export const useHomeStore = create<HomeState>()(
 
     refreshData: async () => {
       await get().fetchHomeData();
+    },
+
+    applyOptimisticDelta: (deltas) => {
+      const previous = get().pockets;
+      const pockets = previous.map((p) =>
+        deltas[p.id] !== undefined
+          ? { ...p, availableBalance: Math.max(0, p.availableBalance + deltas[p.id]) }
+          : p
+      );
+      const dailyPockets = calculateDailyPockets(pockets);
+      const safeToSpendToday = calculateSafeToSpend(pockets);
+      const totalBalance = calculateTotalBalance(pockets);
+      set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
+      return previous;
+    },
+
+    rollbackOptimisticUpdate: (snapshot) => {
+      const pockets = snapshot;
+      const dailyPockets = calculateDailyPockets(pockets);
+      const safeToSpendToday = calculateSafeToSpend(pockets);
+      const totalBalance = calculateTotalBalance(pockets);
+      set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
     },
   })
 );

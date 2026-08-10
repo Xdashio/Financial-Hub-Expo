@@ -76,9 +76,24 @@ export default function ReallocReviewScreen() {
     (fromPocket.kind === 'fixed' || fromPocket.category === 'food') &&
     toPocket.category === 'leisure';
 
+  const applyOptimisticDelta = useHomeStore((s) => s.applyOptimisticDelta);
+  const rollbackOptimisticUpdate = useHomeStore((s) => s.rollbackOptimisticUpdate);
+
   const handleConfirm = async () => {
     if (!fromPocket || !toPocket || isSubmitting) return;
     setIsSubmitting(true);
+
+    // Optimistic move: reflect the transfer on Home immediately so the
+    // user isn't staring at stale numbers while the request is in
+    // flight. If this turns out to be a cooling-off reallocation (money
+    // not actually moved yet) or the request fails, we roll it straight
+    // back — nothing here is treated as authoritative, the eventual
+    // bump()-triggered refetch is.
+    const snapshot = applyOptimisticDelta({
+      [fromPocket.id]: -amount,
+      [toPocket.id]: amount,
+    });
+
     try {
       const created = await reallocationsApi.create({
         fromPocketId: fromPocket.id,
@@ -88,6 +103,9 @@ export default function ReallocReviewScreen() {
       });
 
       if (created.status === 'cooling_off') {
+        // Money hasn't actually moved yet — undo the optimistic update so
+        // Home doesn't show a transfer that's still pending approval.
+        rollbackOptimisticUpdate(snapshot);
         router.replace({
           pathname: '/(modals)/realloc-cooloff',
           params: {
@@ -111,10 +129,15 @@ export default function ReallocReviewScreen() {
           toName: toPocket.name,
           amount: String(amount),
           reasonLabel: REASONS.find((r) => r.value === reason)?.label || 'Other',
-          newFromBalance: String(Math.max(0, fromPocket.monthlyAllocation - amount)),
+          // Ledger-derived balance, not the onboarding planning ceiling —
+          // monthlyAllocation never changes after onboarding, so this
+          // previously showed a number with no relationship to what was
+          // actually left in the pocket.
+          newFromBalance: String(Math.max(0, fromPocket.availableBalance - amount)),
         },
       });
     } catch (err) {
+      rollbackOptimisticUpdate(snapshot);
       await alert('Could not move that money', err instanceof Error ? err.message : 'Please try again.');
     } finally {
       setIsSubmitting(false);

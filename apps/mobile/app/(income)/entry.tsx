@@ -6,6 +6,8 @@ import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { incomeApi } from '@/services/api';
+import { useHomeStore } from '@/services/home-store';
+import { useDataSync } from '@/services/data-sync';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react-native';
 
 type Source = 'client_payment' | 'cash' | 'other';
@@ -80,10 +82,29 @@ export default function IncomeEntryScreen() {
     };
   }, [numericAmount, source, runAllocation, loadPreview]);
 
+  const applyOptimisticDelta = useHomeStore((s) => s.applyOptimisticDelta);
+  const rollbackOptimisticUpdate = useHomeStore((s) => s.rollbackOptimisticUpdate);
+
   const handleSubmit = async () => {
     if (!numericAmount || numericAmount <= 0) {
       alert('Missing amount', 'Enter how much income you received.');
       return;
+    }
+
+    // If a preview has already loaded for this amount/source, apply it to
+    // Home right away — the split almost always matches what the server
+    // will actually allocate (same proportional-split rules run on both
+    // sides), so the user sees their pockets fill up the moment they hit
+    // submit instead of after a round trip plus a full refetch. Falls
+    // back to no optimistic update if run_allocation is off or no preview
+    // has resolved yet — better to show nothing than a guess.
+    let snapshot: ReturnType<typeof applyOptimisticDelta> | null = null;
+    if (runAllocation && preview && preview.projected_allocations.length > 0) {
+      const deltas: Record<string, number> = {};
+      for (const a of preview.projected_allocations) {
+        deltas[a.pocket_id] = (deltas[a.pocket_id] || 0) + a.amount;
+      }
+      snapshot = applyOptimisticDelta(deltas);
     }
 
     try {
@@ -96,6 +117,11 @@ export default function IncomeEntryScreen() {
         run_allocation: runAllocation,
       });
 
+      // Reconcile with the server's actual allocation (source of truth —
+      // the preview can drift from it, e.g. if pockets changed between
+      // preview and submit) rather than trusting the optimistic guess.
+      useDataSync.getState().bump();
+
       router.replace({
         pathname: '/(income)/success',
         params: {
@@ -107,6 +133,7 @@ export default function IncomeEntryScreen() {
         },
       });
     } catch (error: any) {
+      if (snapshot) rollbackOptimisticUpdate(snapshot);
       alert('Couldn\u2019t add income', error?.message || 'Please try again.');
     } finally {
       setIsSubmitting(false);

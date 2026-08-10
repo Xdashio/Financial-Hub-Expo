@@ -128,6 +128,10 @@ export default function ProfileScreen() {
     router.push('/(profile)/personal-info');
   };
 
+  const handleBiometricPress = () => {
+    router.push('/(auth)/biometric-enable');
+  };
+
   const settingsGroups: SettingsGroup[] = [
     {
       label: 'Security',
@@ -137,6 +141,7 @@ export default function ProfileScreen() {
           title: 'Biometric unlock',
           desc: 'Require Face ID to open app',
           trailing: user?.biometricEnabled ? 'On' : 'Off',
+          onPress: handleBiometricPress,
         },
         { icon: Timer, title: 'Savings time-lock', desc: '7-day delay on withdrawals', trailing: 'Active', onPress: handleTimeLockPress },
       ],

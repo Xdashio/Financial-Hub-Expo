@@ -245,9 +245,31 @@ export class IncomeService {
       }
     }
 
+    // Round each pocket's share independently first...
+    const roundedRows = raw.map(row => ({
+      row,
+      amount: Math.round(row.amount * 100) / 100,
+    }));
+
+    // ...then reconcile: rounding every pocket to the nearest cent on its
+    // own means the sum of the rounded amounts can drift a cent or two
+    // away from totalAmount (e.g. an income of 500 split three ways as
+    // 166.67 + 166.67 + 166.67 = 500.01, or three-way splits that land a
+    // cent short). Left unreconciled, that drift is money the user logged
+    // but which never lands in any pocket — it just vanishes from the
+    // ledger's perspective. Apply the leftover cents to the single
+    // largest allocation so the pockets always sum to exactly what was
+    // deposited, and the discrepancy is invisible (a fraction of a
+    // shilling on the biggest pocket) rather than an unexplained gap.
+    const roundedTotal = roundedRows.reduce((sum, r) => sum + r.amount, 0);
+    const remainder = Math.round((totalAmount - roundedTotal) * 100) / 100;
+    if (remainder !== 0 && roundedRows.length > 0) {
+      const largest = roundedRows.reduce((max, r) => (r.amount > max.amount ? r : max), roundedRows[0]);
+      largest.amount = Math.round((largest.amount + remainder) * 100) / 100;
+    }
+
     const allocations = [];
-    for (const row of raw) {
-      const amount = Math.round(row.amount * 100) / 100;
+    for (const { row, amount } of roundedRows) {
       if (amount > 0) {
         allocations.push({
           pocket_id: row.pocket.id,
