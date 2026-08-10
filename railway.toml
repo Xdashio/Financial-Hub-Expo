@@ -1,0 +1,20 @@
+# Financial Hub API — Railway config (monorepo root = Docker build context)
+# Dashboard: leave Root Directory empty so packages/shared is available.
+# Docs: https://docs.railway.com/reference/config-as-code
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/api/Dockerfile"
+watchPatterns = [
+  "apps/api/**",
+  "packages/shared/**",
+  "pnpm-lock.yaml",
+  "package.json",
+  "pnpm-workspace.yaml",
+]
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10

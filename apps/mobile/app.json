@@ -58,9 +58,13 @@
     "scheme": "financialhub",
     "extra": {
       "eas": {
-        "projectId": ""
+        "projectId": "4e053d97-d6cb-4662-8fe5-faa1767e47cc"
       },
-      "sentryDsn": ""
-    }
+      "sentryDsn": "",
+      "router": {
+        "unstable_useServerMiddleware": false
+      }
+    },
+    "owner": "lululug"
   }
 }
