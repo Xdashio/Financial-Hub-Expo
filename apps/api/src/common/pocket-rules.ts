@@ -24,19 +24,30 @@ export const ALL_MERCHANT_CATEGORIES = [
 ] as const;
 
 /**
- * "Essential" = the catch-all Fixed Expenses pocket, plus category-scoped
- * food/transport pockets. Essential pockets get a hard block on blacklisted
- * categories (no override); everything else is discretionary and gets a
- * soft warning the user can review past.
+ * "Essential" = any Fixed Expenses pocket, plus category-scoped
+ * food/transport/housing/family pockets. Essential pockets get a hard block
+ * on blacklisted categories (no override); everything else is discretionary
+ * and gets a soft warning the user can review past.
  */
 export function isEssentialPocket(pocket: Pocket): boolean {
-  return pocket.kind === 'fixed' || pocket.category === 'food' || pocket.category === 'transport';
+  if (pocket.kind === 'fixed') return true;
+  return (
+    pocket.category === 'food' ||
+    pocket.category === 'transport' ||
+    pocket.category === 'housing' ||
+    pocket.category === 'family'
+  );
 }
 
-/** Merchant categories this pocket is allowed to pay out to. */
+/**
+ * Merchant categories this pocket is allowed to pay out to.
+ * Itemized fixed pockets (Batch 3) are single-purpose: their own category
+ * maps to a tight merchant allow-list instead of the old catch-all Fixed
+ * Expenses allowance.
+ */
 export function getAllowedCategoriesForPocket(pocket: Pocket): string[] {
   if (pocket.kind === 'fixed') {
-    return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education'];
+    return allowedMerchantsForFixedCategory(pocket.category);
   }
   if (pocket.category === 'food') {
     return ['grocery'];
@@ -44,10 +55,43 @@ export function getAllowedCategoriesForPocket(pocket: Pocket): string[] {
   if (pocket.category === 'transport') {
     return ['transport'];
   }
+  if (pocket.category === 'family') {
+    return ['education', 'healthcare', 'grocery', 'other'];
+  }
+  if (pocket.category === 'housing') {
+    return ['landlord_rent', 'utility'];
+  }
   // Leisure/other discretionary spendable pockets, and savings: broad,
   // never-gambling allowance (gambling_betting is excluded here and
   // therefore always ends up in getBlockedCategoriesForPocket()).
   return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'other'];
+}
+
+function allowedMerchantsForFixedCategory(category: string | null): string[] {
+  switch (category) {
+    case 'housing':
+      return ['landlord_rent'];
+    case 'utilities':
+      return ['utility'];
+    case 'education':
+      return ['education'];
+    case 'transport':
+      return ['transport'];
+    case 'healthcare':
+      return ['healthcare'];
+    case 'food':
+      return ['grocery'];
+    case 'family':
+      return ['education', 'healthcare', 'other'];
+    case 'leisure':
+      return ['entertainment', 'personal_care', 'other'];
+    case 'personal':
+      return ['personal_care', 'other'];
+    // Legacy lump "Fixed Expenses" pocket (category null) keeps the broad
+    // essential allow-list so existing plans keep working until retake.
+    default:
+      return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education'];
+  }
 }
 
 /** Merchant categories this pocket is blocked from paying out to — the complement of the allowed set. */

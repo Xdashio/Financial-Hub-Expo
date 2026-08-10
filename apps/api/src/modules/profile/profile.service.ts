@@ -6,7 +6,8 @@ import {
   FixedExpenseInput,
   OnboardingInputSchema,
   OnboardingInput,
-  OnboardingCommitResult,
+  PlanRetakeResult,
+  RetakeEligibility,
 } from '@financial-hub/shared';
 import { OnboardingService } from '../onboarding/onboarding.service';
 
@@ -64,15 +65,19 @@ export class ProfileService {
     await this.supabaseRepo.deleteFixedExpense(id);
   }
 
-  async retakePlan(userId: string, input: unknown): Promise<OnboardingCommitResult> {
+  async retakePlan(userId: string, input: unknown): Promise<PlanRetakeResult> {
     const result = OnboardingInputSchema.safeParse(input);
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
-    // Re-runs the same rules engine + provisioning path as initial onboarding:
-    // deactivates the current plan, creates a fresh one from the updated
-    // answers, and logs a behavior event — see OnboardingService.commit.
-    return this.onboardingService.commit(result.data as OnboardingInput, userId);
+    // Money-preserving retake: re-runs the rules engine, creates a new plan
+    // + pockets, migrates ledger balances from the previous active plan, and
+    // enforces the once-per-calendar-month gate. See OnboardingService.retake.
+    return this.onboardingService.retake(result.data as OnboardingInput, userId);
+  }
+
+  async getRetakeEligibility(userId: string): Promise<RetakeEligibility> {
+    return this.onboardingService.getRetakeEligibility(userId);
   }
 
   private async getOwnedFixedExpense(id: string, userId: string): Promise<FixedExpense> {
@@ -109,12 +114,12 @@ export class ProfileService {
     }>;
     total_monthly_suggestion: number;
   }> {
-    // Common fixed expense suggestions based on typical Kenyan spending patterns
-    // Using categories that match the PocketCategorySchema
+    // Common fixed expense suggestions based on typical Kenyan spending patterns.
+    // Categories must match PocketCategorySchema (housing/family added in Batch 2).
     const suggestions = [
       {
         name: 'Rent',
-        category: 'utilities',
+        category: 'housing',
         suggested_amount: 15000,
         suggested_due_day: 1,
         description: 'Monthly rent payment',
@@ -135,14 +140,14 @@ export class ProfileService {
       },
       {
         name: 'Internet',
-        category: 'transport',
+        category: 'utilities',
         suggested_amount: 1500,
         suggested_due_day: 10,
         description: 'Monthly internet subscription',
       },
       {
         name: 'Mobile Data',
-        category: 'transport',
+        category: 'utilities',
         suggested_amount: 1000,
         suggested_due_day: 1,
         description: 'Monthly mobile data bundle',
@@ -163,7 +168,7 @@ export class ProfileService {
       },
       {
         name: 'School Fees',
-        category: 'healthcare',
+        category: 'education',
         suggested_amount: 5000,
         suggested_due_day: 5,
         description: 'Monthly school fees installment',

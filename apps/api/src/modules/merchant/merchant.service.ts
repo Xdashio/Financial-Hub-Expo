@@ -1,7 +1,8 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ClassifyDto } from './dto/classify.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { MerchantClassification, Pocket } from '../../database/database.types';
+import { MerchantClassification, Pocket, Transaction } from '../../database/database.types';
+import { getBlockedCategoriesForPocket } from '../../common/pocket-rules';
 
 @Injectable()
 export class MerchantService {
@@ -9,49 +10,32 @@ export class MerchantService {
 
   async classify(dto: ClassifyDto, userId: string): Promise<{
     classification: MerchantClassification;
-    transaction_updated?: { id: string; category: string };
+    transaction_updated?: { id: string; category: string; pocket_id: string };
   }> {
-    // Verify pocket ownership
     const pocket = await this.repository.getPocketById(dto.pocket_id);
     if (!pocket) {
       throw new NotFoundException('Pocket not found');
     }
     await this.assertPocketOwnership(pocket, userId);
 
-    // Guard against classifying a merchant into a category that this pocket
-    // blocks (e.g. gambling/entertainment into a fixed/essential pocket).
-    // Without this, the "sort, don't block" flow could silently save a
-    // classification that contradicts the pocket's own block rules — the
-    // classification would still be caught at spend time by SpendService,
-    // but only if the same pocket is used again, so this closes the gap
-    // where the classify screen itself never enforced it.
-    const blockedCategories = this.getBlockedCategoriesForPocket(pocket);
+    const blockedCategories = getBlockedCategoriesForPocket(pocket);
     if (blockedCategories.includes(dto.category)) {
       throw new BadRequestException(
-        `${dto.category} payments can't be classified into ${pocket.name} — this pocket blocks that category.`
+        `${dto.category} payments can't be classified into ${pocket.name} — this pocket blocks that category.`,
       );
     }
 
-    // Create or update classification (note: pocket_id not in current schema, will be stored in context or updated separately)
     const classification = await this.repository.upsertMerchantClassification({
       user_id: userId,
       recipient_key: dto.recipient_key,
       category: dto.category,
+      pocket_id: dto.pocket_id,
       remember: dto.remember,
     });
 
-    // Update transaction if provided
-    let transactionUpdated;
+    let transactionUpdated: { id: string; category: string; pocket_id: string } | undefined;
     if (dto.transaction_id) {
-      const transaction = await this.getTransactionForUser(dto.transaction_id, userId);
-      if (transaction) {
-        // Note: In a real implementation, you'd update the transaction category
-        // For now, we'll just return the transaction reference
-        transactionUpdated = {
-          id: transaction.id,
-          category: dto.category,
-        };
-      }
+      transactionUpdated = await this.reclassifyTransaction(dto, userId, pocket);
     }
 
     return {
@@ -64,7 +48,7 @@ export class MerchantService {
     userId: string,
     page: number = 1,
     limit: number = 50,
-    search?: string
+    search?: string,
   ): Promise<{
     classifications: Array<{
       id: string;
@@ -86,27 +70,37 @@ export class MerchantService {
   }> {
     let classifications = await this.repository.getMerchantClassificationsByUserId(userId);
 
-    // Filter by search if provided
     if (search) {
-      classifications = classifications.filter(c =>
-        c.recipient_key.toLowerCase().includes(search.toLowerCase())
+      classifications = classifications.filter((c) =>
+        c.recipient_key.toLowerCase().includes(search.toLowerCase()),
       );
     }
 
-    // Pagination
     const from = (page - 1) * limit;
     const to = from + limit;
     const paginatedClassifications = classifications.slice(from, to);
 
-    // Enrich with pocket names (note: pocket_id not in current schema, so we'll omit for now)
+    const pocketIds = [
+      ...new Set(paginatedClassifications.map((c) => c.pocket_id).filter((id): id is string => !!id)),
+    ];
+    const pocketNameById = new Map<string, string>();
+    await Promise.all(
+      pocketIds.map(async (id) => {
+        const pocket = await this.repository.getPocketById(id);
+        if (pocket) pocketNameById.set(id, pocket.name);
+      }),
+    );
+
     const enrichedClassifications = paginatedClassifications.map((c) => ({
       id: c.id,
       recipient_key: c.recipient_key,
       category: c.category,
-      pocket_id: null, // Not in current schema
-      pocket_name: 'Not assigned', // Not in current schema
+      pocket_id: c.pocket_id,
+      pocket_name: c.pocket_id
+        ? pocketNameById.get(c.pocket_id) ?? 'Pocket removed'
+        : 'Not assigned',
       remember: c.remember,
-      usage_count: 0, // Would need to track usage in a real implementation
+      usage_count: 0,
       last_used: c.created_at,
       created_at: c.created_at,
     }));
@@ -138,6 +132,52 @@ export class MerchantService {
     await this.repository.deleteMerchantClassification(id);
   }
 
+  /**
+   * Persist category (and pocket when the user picked a different one) onto
+   * an existing ledger row. Balances are ledger-derived, so moving a spend
+   * to another pocket_id is enough to re-home the debit — no separate
+   * reallocation rows needed.
+   */
+  private async reclassifyTransaction(
+    dto: ClassifyDto,
+    userId: string,
+    targetPocket: Pocket,
+  ): Promise<{ id: string; category: string; pocket_id: string }> {
+    const transaction = await this.getTransactionForUser(dto.transaction_id!, userId);
+    if (!transaction) {
+      throw new NotFoundException('Transaction not found');
+    }
+
+    if (transaction.type !== 'spend') {
+      throw new BadRequestException('Only spend transactions can be reclassified');
+    }
+
+    const movingPocket = transaction.pocket_id !== targetPocket.id;
+    if (movingPocket) {
+      const summary = await this.repository.getPocketSummary(targetPocket.id);
+      if (summary.available < transaction.amount) {
+        throw new BadRequestException(
+          `${targetPocket.name} only has KES ${Math.round(summary.available).toLocaleString()} available — not enough to take this KES ${Math.round(transaction.amount).toLocaleString()} spend.`,
+        );
+      }
+    }
+
+    const updated = await this.repository.updateTransaction(transaction.id, {
+      category: dto.category,
+      pocket_id: targetPocket.id,
+    });
+
+    if (!updated) {
+      throw new BadRequestException('Failed to update transaction');
+    }
+
+    return {
+      id: updated.id,
+      category: updated.category ?? dto.category,
+      pocket_id: updated.pocket_id,
+    };
+  }
+
   private async assertPocketOwnership(pocket: Pocket, userId: string): Promise<void> {
     const plan = await this.repository.getPlanById(pocket.plan_id);
     if (!plan || plan.user_id !== userId) {
@@ -145,23 +185,15 @@ export class MerchantService {
     }
   }
 
-  // Kept in sync with the identical rule in SpendService/PocketsService.
-  // fixed pockets are "essential" (rent, bills) and block gambling +
-  // entertainment; every other pocket kind still blocks gambling.
-  private getBlockedCategoriesForPocket(pocket: Pocket): string[] {
-    if (pocket.kind === 'fixed') {
-      return ['gambling_betting', 'entertainment'];
-    }
-    return ['gambling_betting'];
-  }
-
-  private async getTransactionForUser(transactionId: string, userId: string): Promise<any | null> {
+  private async getTransactionForUser(
+    transactionId: string,
+    userId: string,
+  ): Promise<Transaction | null> {
     const transaction = await this.repository.getTransactionById(transactionId);
     if (!transaction) {
       return null;
     }
 
-    // Verify user owns the transaction by checking pocket ownership
     const pocket = await this.repository.getPocketById(transaction.pocket_id);
     if (!pocket) {
       return null;

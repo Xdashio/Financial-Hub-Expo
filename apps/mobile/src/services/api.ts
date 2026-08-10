@@ -106,6 +106,15 @@ export const reallocationsApi = {
 
 export const insightsApi = {
   getDisciplineScore: () => api.get<any>('/insights/discipline-score'),
+  getStreak: () =>
+    api.get<{
+      currentStreak: number;
+      longestStreak: number;
+      nextMilestone: number | null;
+      hitMilestone: number | null;
+      freezesRemaining: number;
+      todayCounted: boolean;
+    }>('/insights/streak'),
   getBehaviorEvents: () => api.get<any[]>('/insights/behavior-events'),
   getBehaviorEventsPaginated: (page = 1, limit = 20) =>
     api.get<any>(`/insights/behavior-events/paginated?page=${page}&limit=${limit}`),
@@ -117,13 +126,66 @@ export const insightsApi = {
     api.get<any[]>(`/insights/activity-heatmap/day?date=${date}`),
 };
 
+export const rolloverApi = {
+  run: () =>
+    api.post<{
+      days: Array<{ date: string; skipped: boolean; amount: number }>;
+      totalAmount: number;
+      latestAmount: number;
+      streak: {
+        currentStreak: number;
+        longestStreak: number;
+        nextMilestone: number | null;
+        hitMilestone: number | null;
+        freezesRemaining: number;
+        todayCounted: boolean;
+      };
+      milestoneAwarded: number | null;
+    }>('/income/rollover/run'),
+  status: () =>
+    api.get<{
+      streak: {
+        currentStreak: number;
+        longestStreak: number;
+        nextMilestone: number | null;
+        hitMilestone: number | null;
+        freezesRemaining: number;
+        todayCounted: boolean;
+      };
+      monthToDateAmount: number;
+    }>('/income/rollover/status'),
+};
+
 export const profileApi = {
   getFixedExpenses: () => api.get<any[]>('/profile/fixed-expenses'),
   createFixedExpense: (data: any) => api.post<any>('/profile/fixed-expenses', data),
   updateFixedExpense: (id: string, data: any) => api.put<any>(`/profile/fixed-expenses/${id}`, data),
   deleteFixedExpense: (id: string) => api.delete<void>(`/profile/fixed-expenses/${id}`),
   getPlan: () => api.get<any>('/profile/plan'),
-  retakeBehaviorCheckin: (data: any) => api.post<any>('/profile/plan/retake', data),
+  getRetakeEligibility: () =>
+    api.get<{
+      allowed: boolean;
+      nextRetakeAvailableOn: string | null;
+      lastRetakenAt: string | null;
+      message?: string;
+    }>('/profile/plan/retake-eligibility'),
+  retakeBehaviorCheckin: (data: any) =>
+    api.post<{
+      planId: string;
+      pockets: any[];
+      redistribution: {
+        totalMoved: number;
+        movements: Array<{
+          fromPocketName: string;
+          toPocketName: string;
+          amount: number;
+          reason: string;
+        }>;
+        previousPlanType: string;
+        newPlanType: string;
+        nextRetakeAvailableOn: string;
+      };
+    }>('/profile/plan/retake', data),
 };
 
 export interface NotificationPreferences {

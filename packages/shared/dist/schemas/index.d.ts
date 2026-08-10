@@ -3,7 +3,7 @@ export declare const PlanTypeSchema: z.ZodEnum<["structured", "daily"]>;
 export type PlanType = z.infer<typeof PlanTypeSchema>;
 export declare const PocketKindSchema: z.ZodEnum<["savings", "fixed", "spendable"]>;
 export type PocketKind = z.infer<typeof PocketKindSchema>;
-export declare const PocketCategorySchema: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>;
+export declare const PocketCategorySchema: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
 export type PocketCategory = z.infer<typeof PocketCategorySchema>;
 export declare const IncomePatternSchema: z.ZodEnum<["salaried", "freelancer", "mix"]>;
 export type IncomePattern = z.infer<typeof IncomePatternSchema>;
@@ -24,21 +24,30 @@ export declare const MerchantCategorySchema: z.ZodEnum<["grocery", "landlord_ren
 export type MerchantCategory = z.infer<typeof MerchantCategorySchema>;
 export declare const PlanStatusSchema: z.ZodEnum<["active", "inactive", "reassigned"]>;
 export type PlanStatus = z.infer<typeof PlanStatusSchema>;
+export declare const LifeStageSchema: z.ZodEnum<["student", "working_adult", "self_employed"]>;
+export type LifeStage = z.infer<typeof LifeStageSchema>;
+export declare const EmergencyBufferSchema: z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>;
+export type EmergencyBuffer = z.infer<typeof EmergencyBufferSchema>;
+/** Behavioral self-check — modifier layer, not a plan-type driver (§2.3). */
+export declare const MoneyPersonalitySchema: z.ZodEnum<["spender", "saver", "avoider"]>;
+export type MoneyPersonality = z.infer<typeof MoneyPersonalitySchema>;
+export declare const NeedsBandSchema: z.ZodEnum<["high", "mid", "low"]>;
+export type NeedsBand = z.infer<typeof NeedsBandSchema>;
 export declare const FixedExpenseInputSchema: z.ZodObject<{
     name: z.ZodString;
     amount: z.ZodNumber;
     dueDay: z.ZodNumber;
-    category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>;
+    category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
 }, "strip", z.ZodTypeAny, {
     name: string;
     amount: number;
     dueDay: number;
-    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
 }, {
     name: string;
     amount: number;
     dueDay: number;
-    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
 }>;
 export type FixedExpenseInput = z.infer<typeof FixedExpenseInputSchema>;
 export declare const OnboardingInputSchema: z.ZodObject<{
@@ -51,19 +60,23 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         name: z.ZodString;
         amount: z.ZodNumber;
         dueDay: z.ZodNumber;
-        category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>;
+        category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
     }, "strip", z.ZodTypeAny, {
         name: string;
         amount: number;
         dueDay: number;
-        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     }, {
         name: string;
         amount: number;
         dueDay: number;
-        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     }>, "many">>;
     incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
+    lifeStage: z.ZodOptional<z.ZodEnum<["student", "working_adult", "self_employed"]>>;
+    hasDependents: z.ZodOptional<z.ZodBoolean>;
+    emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
+    moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
 }, "strip", z.ZodTypeAny, {
     incomePattern: "salaried" | "freelancer" | "mix";
     spendingHabit: "tracker" | "week3" | "off_guard";
@@ -74,9 +87,13 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         name: string;
         amount: number;
         dueDay: number;
-        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     }[] | undefined;
     incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
+    lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
+    hasDependents?: boolean | undefined;
+    emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
+    moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
     spendingHabit: "tracker" | "week3" | "off_guard";
@@ -87,20 +104,30 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         name: string;
         amount: number;
         dueDay: number;
-        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     }[] | undefined;
     incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
+    lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
+    hasDependents?: boolean | undefined;
+    emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
+    moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
 }>;
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
     rule: z.ZodString;
     reason: z.ZodString;
+    needsRatio: z.ZodOptional<z.ZodNumber>;
+    needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
 }, "strip", z.ZodTypeAny, {
     rule: string;
     reason: string;
+    needsRatio?: number | undefined;
+    needsBand?: "high" | "mid" | "low" | undefined;
 }, {
     rule: string;
     reason: string;
+    needsRatio?: number | undefined;
+    needsBand?: "high" | "mid" | "low" | undefined;
 }>;
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 export declare const OnboardingAssignResultSchema: z.ZodObject<{
@@ -110,34 +137,50 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
     reasons: z.ZodArray<z.ZodObject<{
         rule: z.ZodString;
         reason: z.ZodString;
+        needsRatio: z.ZodOptional<z.ZodNumber>;
+        needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
     }, "strip", z.ZodTypeAny, {
         rule: string;
         reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
     }, {
         rule: string;
         reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
     }>, "many">;
     remainingAfterFixed: z.ZodNumber;
     savingsTarget: z.ZodNumber;
     spendableAmount: z.ZodNumber;
+    needsRatio: z.ZodNumber;
+    needsBand: z.ZodEnum<["high", "mid", "low"]>;
 }, "strip", z.ZodTypeAny, {
     incomePattern: "salaried" | "freelancer" | "mix";
+    needsRatio: number;
+    needsBand: "high" | "mid" | "low";
     plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
     planType: "structured" | "daily";
     reasons: {
         rule: string;
         reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
     }[];
     remainingAfterFixed: number;
     savingsTarget: number;
     spendableAmount: number;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
+    needsRatio: number;
+    needsBand: "high" | "mid" | "low";
     plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
     planType: "structured" | "daily";
     reasons: {
         rule: string;
         reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
     }[];
     remainingAfterFixed: number;
     savingsTarget: number;
@@ -150,7 +193,7 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
         id: z.ZodString;
         name: z.ZodString;
         kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
-        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
         monthlyAllocation: z.ZodNumber;
         dailyCap: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
@@ -158,14 +201,14 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
         id: string;
         kind: "savings" | "fixed" | "spendable";
         monthlyAllocation: number;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }, {
         name: string;
         id: string;
         kind: "savings" | "fixed" | "spendable";
         monthlyAllocation: number;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }>, "many">;
 }, "strip", z.ZodTypeAny, {
@@ -175,7 +218,7 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
         id: string;
         kind: "savings" | "fixed" | "spendable";
         monthlyAllocation: number;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }[];
 }, {
@@ -185,11 +228,210 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
         id: string;
         kind: "savings" | "fixed" | "spendable";
         monthlyAllocation: number;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }[];
 }>;
 export type OnboardingCommitResult = z.infer<typeof OnboardingCommitResultSchema>;
+/** Why a balance moved from an old pocket to a new one during plan retake. */
+export declare const RedistributionReasonSchema: z.ZodEnum<["category_match", "kind_match", "proportional", "spillover"]>;
+export type RedistributionReason = z.infer<typeof RedistributionReasonSchema>;
+export declare const RedistributionMovementSchema: z.ZodObject<{
+    fromPocketName: z.ZodString;
+    toPocketName: z.ZodString;
+    amount: z.ZodNumber;
+    reason: z.ZodEnum<["category_match", "kind_match", "proportional", "spillover"]>;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    reason: "category_match" | "kind_match" | "proportional" | "spillover";
+    fromPocketName: string;
+    toPocketName: string;
+}, {
+    amount: number;
+    reason: "category_match" | "kind_match" | "proportional" | "spillover";
+    fromPocketName: string;
+    toPocketName: string;
+}>;
+export type RedistributionMovement = z.infer<typeof RedistributionMovementSchema>;
+export declare const PlanRedistributionSchema: z.ZodObject<{
+    totalMoved: z.ZodNumber;
+    movements: z.ZodArray<z.ZodObject<{
+        fromPocketName: z.ZodString;
+        toPocketName: z.ZodString;
+        amount: z.ZodNumber;
+        reason: z.ZodEnum<["category_match", "kind_match", "proportional", "spillover"]>;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        reason: "category_match" | "kind_match" | "proportional" | "spillover";
+        fromPocketName: string;
+        toPocketName: string;
+    }, {
+        amount: number;
+        reason: "category_match" | "kind_match" | "proportional" | "spillover";
+        fromPocketName: string;
+        toPocketName: string;
+    }>, "many">;
+    previousPlanType: z.ZodEnum<["structured", "daily"]>;
+    newPlanType: z.ZodEnum<["structured", "daily"]>;
+    nextRetakeAvailableOn: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    totalMoved: number;
+    movements: {
+        amount: number;
+        reason: "category_match" | "kind_match" | "proportional" | "spillover";
+        fromPocketName: string;
+        toPocketName: string;
+    }[];
+    previousPlanType: "structured" | "daily";
+    newPlanType: "structured" | "daily";
+    nextRetakeAvailableOn: string;
+}, {
+    totalMoved: number;
+    movements: {
+        amount: number;
+        reason: "category_match" | "kind_match" | "proportional" | "spillover";
+        fromPocketName: string;
+        toPocketName: string;
+    }[];
+    previousPlanType: "structured" | "daily";
+    newPlanType: "structured" | "daily";
+    nextRetakeAvailableOn: string;
+}>;
+export type PlanRedistribution = z.infer<typeof PlanRedistributionSchema>;
+/** Result of POST /profile/plan/retake — commit shape plus money-migration summary. */
+export declare const PlanRetakeResultSchema: z.ZodObject<{
+    planId: z.ZodString;
+    pockets: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+        monthlyAllocation: z.ZodNumber;
+        dailyCap: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable";
+        monthlyAllocation: number;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+    }, {
+        name: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable";
+        monthlyAllocation: number;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+    }>, "many">;
+} & {
+    redistribution: z.ZodObject<{
+        totalMoved: z.ZodNumber;
+        movements: z.ZodArray<z.ZodObject<{
+            fromPocketName: z.ZodString;
+            toPocketName: z.ZodString;
+            amount: z.ZodNumber;
+            reason: z.ZodEnum<["category_match", "kind_match", "proportional", "spillover"]>;
+        }, "strip", z.ZodTypeAny, {
+            amount: number;
+            reason: "category_match" | "kind_match" | "proportional" | "spillover";
+            fromPocketName: string;
+            toPocketName: string;
+        }, {
+            amount: number;
+            reason: "category_match" | "kind_match" | "proportional" | "spillover";
+            fromPocketName: string;
+            toPocketName: string;
+        }>, "many">;
+        previousPlanType: z.ZodEnum<["structured", "daily"]>;
+        newPlanType: z.ZodEnum<["structured", "daily"]>;
+        nextRetakeAvailableOn: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        totalMoved: number;
+        movements: {
+            amount: number;
+            reason: "category_match" | "kind_match" | "proportional" | "spillover";
+            fromPocketName: string;
+            toPocketName: string;
+        }[];
+        previousPlanType: "structured" | "daily";
+        newPlanType: "structured" | "daily";
+        nextRetakeAvailableOn: string;
+    }, {
+        totalMoved: number;
+        movements: {
+            amount: number;
+            reason: "category_match" | "kind_match" | "proportional" | "spillover";
+            fromPocketName: string;
+            toPocketName: string;
+        }[];
+        previousPlanType: "structured" | "daily";
+        newPlanType: "structured" | "daily";
+        nextRetakeAvailableOn: string;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    planId: string;
+    pockets: {
+        name: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable";
+        monthlyAllocation: number;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+    }[];
+    redistribution: {
+        totalMoved: number;
+        movements: {
+            amount: number;
+            reason: "category_match" | "kind_match" | "proportional" | "spillover";
+            fromPocketName: string;
+            toPocketName: string;
+        }[];
+        previousPlanType: "structured" | "daily";
+        newPlanType: "structured" | "daily";
+        nextRetakeAvailableOn: string;
+    };
+}, {
+    planId: string;
+    pockets: {
+        name: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable";
+        monthlyAllocation: number;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+    }[];
+    redistribution: {
+        totalMoved: number;
+        movements: {
+            amount: number;
+            reason: "category_match" | "kind_match" | "proportional" | "spillover";
+            fromPocketName: string;
+            toPocketName: string;
+        }[];
+        previousPlanType: "structured" | "daily";
+        newPlanType: "structured" | "daily";
+        nextRetakeAvailableOn: string;
+    };
+}>;
+export type PlanRetakeResult = z.infer<typeof PlanRetakeResultSchema>;
+/** GET /profile/plan/retake-eligibility — gates the Profile retake CTA. */
+export declare const RetakeEligibilitySchema: z.ZodObject<{
+    allowed: z.ZodBoolean;
+    nextRetakeAvailableOn: z.ZodNullable<z.ZodString>;
+    lastRetakenAt: z.ZodNullable<z.ZodString>;
+    message: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    nextRetakeAvailableOn: string | null;
+    allowed: boolean;
+    lastRetakenAt: string | null;
+    message?: string | undefined;
+}, {
+    nextRetakeAvailableOn: string | null;
+    allowed: boolean;
+    lastRetakenAt: string | null;
+    message?: string | undefined;
+}>;
+export type RetakeEligibility = z.infer<typeof RetakeEligibilitySchema>;
 export declare const RunwaySummarySchema: z.ZodObject<{
     applicable: z.ZodBoolean;
     runwayDays: z.ZodOptional<z.ZodNumber>;
@@ -264,7 +506,7 @@ export declare const PocketSchema: z.ZodObject<{
     planId: z.ZodString;
     name: z.ZodString;
     kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
-    category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+    category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
     isTimeLocked: z.ZodDefault<z.ZodBoolean>;
     lockUntil: z.ZodOptional<z.ZodString>;
     monthlyAllocation: z.ZodNumber;
@@ -280,7 +522,7 @@ export declare const PocketSchema: z.ZodObject<{
     createdAt: string;
     updatedAt: string;
     isTimeLocked: boolean;
-    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     dailyCap?: number | undefined;
     lockUntil?: string | undefined;
 }, {
@@ -291,7 +533,7 @@ export declare const PocketSchema: z.ZodObject<{
     monthlyAllocation: number;
     createdAt: string;
     updatedAt: string;
-    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     dailyCap?: number | undefined;
     isTimeLocked?: boolean | undefined;
     lockUntil?: string | undefined;
@@ -299,15 +541,15 @@ export declare const PocketSchema: z.ZodObject<{
 export type Pocket = z.infer<typeof PocketSchema>;
 export declare const PocketUpdateInputSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
-    category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+    category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
     dailyCap: z.ZodOptional<z.ZodNumber>;
 }, "strict", z.ZodTypeAny, {
     name?: string | undefined;
-    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     dailyCap?: number | undefined;
 }, {
     name?: string | undefined;
-    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     dailyCap?: number | undefined;
 }>;
 export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
@@ -317,14 +559,14 @@ export declare const FixedExpenseSchema: z.ZodObject<{
     name: z.ZodString;
     amount: z.ZodNumber;
     dueDay: z.ZodNumber;
-    category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>;
+    category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
     name: string;
     amount: number;
     dueDay: number;
-    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     id: string;
     createdAt: string;
     updatedAt: string;
@@ -333,7 +575,7 @@ export declare const FixedExpenseSchema: z.ZodObject<{
     name: string;
     amount: number;
     dueDay: number;
-    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     id: string;
     createdAt: string;
     updatedAt: string;
@@ -515,9 +757,13 @@ export type DisciplineScore = z.infer<typeof DisciplineScoreSchema>;
 export declare const schemas: {
     PlanType: z.ZodEnum<["structured", "daily"]>;
     PocketKind: z.ZodEnum<["savings", "fixed", "spendable"]>;
-    PocketCategory: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>;
+    PocketCategory: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
     IncomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
     SpendingHabit: z.ZodEnum<["tracker", "week3", "off_guard"]>;
+    LifeStage: z.ZodEnum<["student", "working_adult", "self_employed"]>;
+    EmergencyBuffer: z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>;
+    MoneyPersonality: z.ZodEnum<["spender", "saver", "avoider"]>;
+    NeedsBand: z.ZodEnum<["high", "mid", "low"]>;
     PlanName: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
     TransactionType: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
     ReallocationStatus: z.ZodEnum<["pending", "cooling_off", "completed", "skipped"]>;
@@ -534,19 +780,23 @@ export declare const schemas: {
             name: z.ZodString;
             amount: z.ZodNumber;
             dueDay: z.ZodNumber;
-            category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>;
+            category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
         }, "strip", z.ZodTypeAny, {
             name: string;
             amount: number;
             dueDay: number;
-            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         }, {
             name: string;
             amount: number;
             dueDay: number;
-            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         }>, "many">>;
         incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
+        lifeStage: z.ZodOptional<z.ZodEnum<["student", "working_adult", "self_employed"]>>;
+        hasDependents: z.ZodOptional<z.ZodBoolean>;
+        emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
+        moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
     }, "strip", z.ZodTypeAny, {
         incomePattern: "salaried" | "freelancer" | "mix";
         spendingHabit: "tracker" | "week3" | "off_guard";
@@ -557,9 +807,13 @@ export declare const schemas: {
             name: string;
             amount: number;
             dueDay: number;
-            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         }[] | undefined;
         incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
+        lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
+        hasDependents?: boolean | undefined;
+        emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
+        moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
         spendingHabit: "tracker" | "week3" | "off_guard";
@@ -570,19 +824,29 @@ export declare const schemas: {
             name: string;
             amount: number;
             dueDay: number;
-            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+            category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         }[] | undefined;
         incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
+        lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
+        hasDependents?: boolean | undefined;
+        emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
+        moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
     }>;
     PlanAssignReason: z.ZodObject<{
         rule: z.ZodString;
         reason: z.ZodString;
+        needsRatio: z.ZodOptional<z.ZodNumber>;
+        needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
     }, "strip", z.ZodTypeAny, {
         rule: string;
         reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
     }, {
         rule: string;
         reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
     }>;
     OnboardingAssignResult: z.ZodObject<{
         plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
@@ -591,34 +855,50 @@ export declare const schemas: {
         reasons: z.ZodArray<z.ZodObject<{
             rule: z.ZodString;
             reason: z.ZodString;
+            needsRatio: z.ZodOptional<z.ZodNumber>;
+            needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
         }, "strip", z.ZodTypeAny, {
             rule: string;
             reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
         }, {
             rule: string;
             reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
         }>, "many">;
         remainingAfterFixed: z.ZodNumber;
         savingsTarget: z.ZodNumber;
         spendableAmount: z.ZodNumber;
+        needsRatio: z.ZodNumber;
+        needsBand: z.ZodEnum<["high", "mid", "low"]>;
     }, "strip", z.ZodTypeAny, {
         incomePattern: "salaried" | "freelancer" | "mix";
+        needsRatio: number;
+        needsBand: "high" | "mid" | "low";
         plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
         planType: "structured" | "daily";
         reasons: {
             rule: string;
             reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
         }[];
         remainingAfterFixed: number;
         savingsTarget: number;
         spendableAmount: number;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
+        needsRatio: number;
+        needsBand: "high" | "mid" | "low";
         plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
         planType: "structured" | "daily";
         reasons: {
             rule: string;
             reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
         }[];
         remainingAfterFixed: number;
         savingsTarget: number;
@@ -630,7 +910,7 @@ export declare const schemas: {
             id: z.ZodString;
             name: z.ZodString;
             kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
-            category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+            category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
             monthlyAllocation: z.ZodNumber;
             dailyCap: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
@@ -638,14 +918,14 @@ export declare const schemas: {
             id: string;
             kind: "savings" | "fixed" | "spendable";
             monthlyAllocation: number;
-            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }, {
             name: string;
             id: string;
             kind: "savings" | "fixed" | "spendable";
             monthlyAllocation: number;
-            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }>, "many">;
     }, "strip", z.ZodTypeAny, {
@@ -655,7 +935,7 @@ export declare const schemas: {
             id: string;
             kind: "savings" | "fixed" | "spendable";
             monthlyAllocation: number;
-            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }[];
     }, {
@@ -665,9 +945,139 @@ export declare const schemas: {
             id: string;
             kind: "savings" | "fixed" | "spendable";
             monthlyAllocation: number;
-            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }[];
+    }>;
+    PlanRetakeResult: z.ZodObject<{
+        planId: z.ZodString;
+        pockets: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+            category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+            monthlyAllocation: z.ZodNumber;
+            dailyCap: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            name: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable";
+            monthlyAllocation: number;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+        }, {
+            name: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable";
+            monthlyAllocation: number;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+        }>, "many">;
+    } & {
+        redistribution: z.ZodObject<{
+            totalMoved: z.ZodNumber;
+            movements: z.ZodArray<z.ZodObject<{
+                fromPocketName: z.ZodString;
+                toPocketName: z.ZodString;
+                amount: z.ZodNumber;
+                reason: z.ZodEnum<["category_match", "kind_match", "proportional", "spillover"]>;
+            }, "strip", z.ZodTypeAny, {
+                amount: number;
+                reason: "category_match" | "kind_match" | "proportional" | "spillover";
+                fromPocketName: string;
+                toPocketName: string;
+            }, {
+                amount: number;
+                reason: "category_match" | "kind_match" | "proportional" | "spillover";
+                fromPocketName: string;
+                toPocketName: string;
+            }>, "many">;
+            previousPlanType: z.ZodEnum<["structured", "daily"]>;
+            newPlanType: z.ZodEnum<["structured", "daily"]>;
+            nextRetakeAvailableOn: z.ZodString;
+        }, "strip", z.ZodTypeAny, {
+            totalMoved: number;
+            movements: {
+                amount: number;
+                reason: "category_match" | "kind_match" | "proportional" | "spillover";
+                fromPocketName: string;
+                toPocketName: string;
+            }[];
+            previousPlanType: "structured" | "daily";
+            newPlanType: "structured" | "daily";
+            nextRetakeAvailableOn: string;
+        }, {
+            totalMoved: number;
+            movements: {
+                amount: number;
+                reason: "category_match" | "kind_match" | "proportional" | "spillover";
+                fromPocketName: string;
+                toPocketName: string;
+            }[];
+            previousPlanType: "structured" | "daily";
+            newPlanType: "structured" | "daily";
+            nextRetakeAvailableOn: string;
+        }>;
+    }, "strip", z.ZodTypeAny, {
+        planId: string;
+        pockets: {
+            name: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable";
+            monthlyAllocation: number;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+        }[];
+        redistribution: {
+            totalMoved: number;
+            movements: {
+                amount: number;
+                reason: "category_match" | "kind_match" | "proportional" | "spillover";
+                fromPocketName: string;
+                toPocketName: string;
+            }[];
+            previousPlanType: "structured" | "daily";
+            newPlanType: "structured" | "daily";
+            nextRetakeAvailableOn: string;
+        };
+    }, {
+        planId: string;
+        pockets: {
+            name: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable";
+            monthlyAllocation: number;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+        }[];
+        redistribution: {
+            totalMoved: number;
+            movements: {
+                amount: number;
+                reason: "category_match" | "kind_match" | "proportional" | "spillover";
+                fromPocketName: string;
+                toPocketName: string;
+            }[];
+            previousPlanType: "structured" | "daily";
+            newPlanType: "structured" | "daily";
+            nextRetakeAvailableOn: string;
+        };
+    }>;
+    RetakeEligibility: z.ZodObject<{
+        allowed: z.ZodBoolean;
+        nextRetakeAvailableOn: z.ZodNullable<z.ZodString>;
+        lastRetakenAt: z.ZodNullable<z.ZodString>;
+        message: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        nextRetakeAvailableOn: string | null;
+        allowed: boolean;
+        lastRetakenAt: string | null;
+        message?: string | undefined;
+    }, {
+        nextRetakeAvailableOn: string | null;
+        allowed: boolean;
+        lastRetakenAt: string | null;
+        message?: string | undefined;
     }>;
     User: z.ZodObject<{
         id: z.ZodString;
@@ -721,7 +1131,7 @@ export declare const schemas: {
         planId: z.ZodString;
         name: z.ZodString;
         kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
-        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
         isTimeLocked: z.ZodDefault<z.ZodBoolean>;
         lockUntil: z.ZodOptional<z.ZodString>;
         monthlyAllocation: z.ZodNumber;
@@ -737,7 +1147,7 @@ export declare const schemas: {
         createdAt: string;
         updatedAt: string;
         isTimeLocked: boolean;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
         lockUntil?: string | undefined;
     }, {
@@ -748,22 +1158,22 @@ export declare const schemas: {
         monthlyAllocation: number;
         createdAt: string;
         updatedAt: string;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
     }>;
     PocketUpdateInput: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
-        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>>;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
         dailyCap: z.ZodOptional<z.ZodNumber>;
     }, "strict", z.ZodTypeAny, {
         name?: string | undefined;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }, {
         name?: string | undefined;
-        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other" | undefined;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }>;
     FixedExpense: z.ZodObject<{
@@ -772,14 +1182,14 @@ export declare const schemas: {
         name: z.ZodString;
         amount: z.ZodNumber;
         dueDay: z.ZodNumber;
-        category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "other"]>;
+        category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
         name: string;
         amount: number;
         dueDay: number;
-        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         id: string;
         createdAt: string;
         updatedAt: string;
@@ -788,7 +1198,7 @@ export declare const schemas: {
         name: string;
         amount: number;
         dueDay: number;
-        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "other";
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         id: string;
         createdAt: string;
         updatedAt: string;

@@ -9,14 +9,20 @@ import type { PlanAssignment } from './rules-engine';
 import { assignPlan, validateOnboardingInput } from './rules-engine';
 
 describe('Rules Engine — Plan Assignment', () => {
-  const createInput = (overrides: Partial<OnboardingInput> = {}): OnboardingInput => ({
-    incomePattern: 'salaried',
-    spendingHabit: 'tracker',
-    incomeAmount: 100000,
-    fixedTotal: 30000,
-    sourceCount: 1,
-    ...overrides,
-  });
+  const createInput = (overrides: Partial<OnboardingInput> = {}): OnboardingInput => {
+    const base: OnboardingInput = {
+      incomePattern: 'salaried',
+      spendingHabit: 'tracker',
+      incomeAmount: 100000,
+      fixedTotal: 30000,
+      sourceCount: 1,
+      ...overrides,
+    };
+    if (base.incomePattern === 'freelancer' && !base.incomeIntervalBand) {
+      base.incomeIntervalBand = 'monthly';
+    }
+    return base;
+  };
 
   const expectPlan = (
     result: PlanAssignment,
@@ -27,10 +33,12 @@ describe('Rules Engine — Plan Assignment', () => {
     expect(result.plan).toBe(expectedPlan);
     expect(result.planType).toBe(expectedPlanType);
     expect(result.incomePattern).toBe(expectedIncomePattern);
-    expect(result.reasons).toHaveLength(2);
+    expect(result.reasons.length).toBeGreaterThanOrEqual(2);
     expect(result.remainingAfterFixed).toBeGreaterThan(0);
     expect(result.savingsTarget).toBeGreaterThanOrEqual(0);
     expect(result.spendableAmount).toBeGreaterThanOrEqual(0);
+    expect(result.needsRatio).toBeGreaterThanOrEqual(0);
+    expect(['high', 'mid', 'low']).toContain(result.needsBand);
   };
 
   describe('validateOnboardingInput', () => {
@@ -223,7 +231,7 @@ describe('Rules Engine — Plan Assignment', () => {
     it('includes allocation style reason with rule ID', () => {
       const result = assignPlan(createInput({ spendingHabit: 'week3' }));
       const styleReason = result.reasons[1];
-      expect(styleReason.rule).toBe('allocation_style_daily_budget');
+      expect(styleReason.rule).toBe('allocation_style_daily_habit_override');
       expect(styleReason.reason).toContain('week 3');
     });
 
@@ -244,16 +252,37 @@ describe('Rules Engine — Plan Assignment', () => {
     it('tracker with meaningful remainder mentions tracking and meaningful division', () => {
       const result = assignPlan(createInput({ spendingHabit: 'tracker', incomeAmount: 100000, fixedTotal: 30000 }));
       const styleReason = result.reasons[1];
-      expect(styleReason.rule).toBe('allocation_style_structured');
-      expect(styleReason.reason).toContain('track');
-      expect(styleReason.reason).toContain('meaningfully');
+      expect(styleReason.rule).toBe('allocation_style_structured_low_needs');
+      expect(styleReason.reason).toMatch(/category pockets|meaningfully/i);
     });
 
     it('off_guard mentions guardrails', () => {
       const result = assignPlan(createInput({ spendingHabit: 'off_guard' }));
       const styleReason = result.reasons[1];
-      expect(styleReason.rule).toBe('allocation_style_daily_budget');
+      expect(styleReason.rule).toBe('allocation_style_daily_habit_override');
       expect(styleReason.reason).toContain('guardrails');
+    });
+
+    it('high needs ratio forces daily with percent explanation', () => {
+      const result = assignPlan(createInput({ spendingHabit: 'tracker', incomeAmount: 50000, fixedTotal: 40000 }));
+      expect(result.planType).toBe('daily');
+      expect(result.needsBand).toBe('high');
+      expect(result.reasons[1].rule).toBe('allocation_style_daily_high_needs');
+      expect(result.reasons[1].reason).toContain('80%');
+    });
+
+    it('mid-band spender leans daily', () => {
+      const result = assignPlan(
+        createInput({
+          spendingHabit: 'tracker',
+          moneyPersonality: 'spender',
+          incomeAmount: 100000,
+          fixedTotal: 50000,
+        }),
+      );
+      expect(result.needsBand).toBe('mid');
+      expect(result.planType).toBe('daily');
+      expect(result.reasons[1].rule).toBe('allocation_style_daily_mid_spender');
     });
   });
 
@@ -266,6 +295,13 @@ describe('Rules Engine — Plan Assignment', () => {
     it('calculates savings target as 10% of remaining', () => {
       const result = assignPlan(createInput({ incomeAmount: 100000, fixedTotal: 30000 }));
       expect(result.savingsTarget).toBe(7000);
+    });
+
+    it('raises savings rate when emergency buffer is none', () => {
+      const result = assignPlan(
+        createInput({ incomeAmount: 100000, fixedTotal: 30000, emergencyBuffer: 'none' }),
+      );
+      expect(result.savingsTarget).toBe(8400);
     });
 
     it('calculates spendable as remaining minus savings', () => {
@@ -294,14 +330,14 @@ describe('Rules Engine — Plan Assignment', () => {
       );
     });
 
-    it('returns exactly 2 reasons always', () => {
+    it('returns at least 2 reasons always', () => {
       const incomePatterns: IncomePattern[] = ['salaried', 'freelancer', 'mix'];
       const spendingHabits: SpendingHabit[] = ['tracker', 'week3', 'off_guard'];
 
       for (const incomePattern of incomePatterns) {
         for (const spendingHabit of spendingHabits) {
           const result = assignPlan(createInput({ incomePattern, spendingHabit }));
-          expect(result.reasons).toHaveLength(2);
+          expect(result.reasons.length).toBeGreaterThanOrEqual(2);
         }
       }
     });

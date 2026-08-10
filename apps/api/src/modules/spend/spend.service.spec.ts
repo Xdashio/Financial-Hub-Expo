@@ -55,8 +55,12 @@ describe('SpendService.commitSpend', () => {
       | 'getPocketSummary'
       | 'getMerchantClassification'
       | 'createTransaction'
+      | 'getBehaviorEventsByTypesSince'
+      | 'getSpendTotalsByPocketBetween'
+      | 'createBehaviorEvent'
     >
   >;
+  let disciplineScore: { applyDelta: jest.Mock };
   let service: SpendService;
 
   beforeEach(() => {
@@ -66,8 +70,15 @@ describe('SpendService.commitSpend', () => {
       getPocketSummary: jest.fn().mockResolvedValue(makePocketSummary()),
       getMerchantClassification: jest.fn().mockResolvedValue(null),
       createTransaction: jest.fn().mockImplementation((tx) => ({ id: 'tx-1', ...tx })),
+      getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
+      getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([['pocket-1', 500]])),
+      createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'evt-1' }),
     } as any;
-    service = new SpendService(repository as unknown as SupabaseRepository);
+    disciplineScore = { applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 100 }) };
+    service = new SpendService(
+      repository as unknown as SupabaseRepository,
+      disciplineScore as any,
+    );
   });
 
   it('writes a spend transaction when the check allows it', async () => {

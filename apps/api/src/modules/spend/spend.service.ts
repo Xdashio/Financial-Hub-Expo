@@ -1,12 +1,22 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { Pocket, MerchantClassification } from '../../database/database.types';
+import { Pocket } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
+import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import {
+  CAP_DAILY_OVERSPEND,
+  EVENT_DAILY_OVERSPEND,
+  POINTS_DAILY_OVERSPEND,
+} from '../rollover/rollover.constants';
+import { utcDayBounds } from '../rollover/rollover-planner';
 
 @Injectable()
 export class SpendService {
-  constructor(private readonly repository: SupabaseRepository) {}
+  constructor(
+    private readonly repository: SupabaseRepository,
+    private readonly disciplineScore: DisciplineScoreService,
+  ) {}
 
   async checkSpend(dto: SpendCheckDto, userId: string): Promise<{
     allowed: boolean;
@@ -176,6 +186,14 @@ export class SpendService {
     // modal) gets the true post-spend balance instead of a stale figure.
     const postSpendSummary = await this.repository.getPocketSummary(dto.pocket_id);
 
+    // Batch 6: if this push a spendable pocket over its daily cap, emit
+    // daily_overspend immediately so the heatmap/streak don't wait for
+    // tomorrow's rollover catch-up.
+    const pocket = await this.repository.getPocketById(dto.pocket_id);
+    if (pocket) {
+      await this.maybeRecordDailyOverspend(pocket, userId);
+    }
+
     return {
       ...result,
       pocket: {
@@ -184,6 +202,58 @@ export class SpendService {
       },
       transaction_id: transaction?.id,
     };
+  }
+
+  private async maybeRecordDailyOverspend(pocket: Pocket, userId: string): Promise<void> {
+    if (pocket.kind !== 'spendable') return;
+    const cap = pocket.daily_cap;
+    if (cap == null || cap <= 0) return;
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
+    const existing = await this.repository.getBehaviorEventsByTypesSince(
+      userId,
+      [EVENT_DAILY_OVERSPEND],
+      startIso,
+    );
+    if (existing.some((e) => (e.payload as any)?.date === todayIso)) return;
+
+    const totals = await this.repository.getSpendTotalsByPocketBetween(
+      [pocket.id],
+      startIso,
+      endIsoExclusive,
+    );
+    const spentToday = totals.get(pocket.id) || 0;
+    if (spentToday <= cap) return;
+
+    // Cap monthly penalty the same way rollover does.
+    const monthStart = `${todayIso.slice(0, 7)}-01T00:00:00.000Z`;
+    const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
+      userId,
+      [EVENT_DAILY_OVERSPEND],
+      monthStart,
+    );
+    let earned = 0;
+    for (const event of monthEvents) {
+      const deducted = (event.payload as any)?.points_deducted;
+      if (typeof deducted === 'number') earned -= deducted;
+    }
+    const apply = Math.max(POINTS_DAILY_OVERSPEND, Math.min(0, CAP_DAILY_OVERSPEND - earned));
+    if (apply !== 0) {
+      await this.disciplineScore.applyDelta(userId, apply);
+    }
+
+    await this.repository.createBehaviorEvent({
+      user_id: userId,
+      type: EVENT_DAILY_OVERSPEND,
+      payload: {
+        date: todayIso,
+        pocket_id: pocket.id,
+        spent: spentToday,
+        daily_cap: cap,
+        points_deducted: apply < 0 ? -apply : 0,
+      },
+    });
   }
 
   async getBlockedReasons(pocketId: string, userId: string): Promise<{

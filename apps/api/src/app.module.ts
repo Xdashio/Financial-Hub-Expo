@@ -12,6 +12,7 @@ import { MerchantModule } from './modules/merchant/merchant.module';
 import { MerchantReportModule } from './modules/merchant-report/merchant-report.module';
 import { SpendModule } from './modules/spend/spend.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { RolloverModule } from './modules/rollover/rollover.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     MerchantReportModule,
     SpendModule,
     NotificationsModule,
+    RolloverModule,
   ],
 })
 export class AppModule {}

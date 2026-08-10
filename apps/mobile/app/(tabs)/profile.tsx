@@ -49,22 +49,32 @@ export default function ProfileScreen() {
   const [plan, setPlan] = React.useState<any>(null);
   const [fixedExpenseCount, setFixedExpenseCount] = React.useState<number | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
+  const [retakeEligibility, setRetakeEligibility] = React.useState<{
+    allowed: boolean;
+    nextRetakeAvailableOn: string | null;
+    message?: string;
+  } | null>(null);
+
+  const loadProfileMeta = React.useCallback(async () => {
+    const [planRes, expensesRes, eligibility] = await Promise.all([
+      profileApi.getPlan().catch(() => null),
+      profileApi.getFixedExpenses().catch(() => []),
+      profileApi.getRetakeEligibility().catch(() => null),
+    ]);
+    setPlan(planRes);
+    setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
+    setRetakeEligibility(eligibility);
+  }, []);
 
   React.useEffect(() => {
     let isMounted = true;
-    Promise.all([
-      profileApi.getPlan().catch(() => null),
-      profileApi.getFixedExpenses().catch(() => []),
-    ]).then(([planRes, expensesRes]) => {
-      if (!isMounted) return;
-      setPlan(planRes);
-      setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
-      setIsLoadingPlan(false);
+    loadProfileMeta().finally(() => {
+      if (isMounted) setIsLoadingPlan(false);
     });
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadProfileMeta]);
 
   // Editing fixed expenses or retaking the check-in happens on screens pushed
   // on top of this tab; without refetching on focus, coming back here kept
@@ -76,18 +86,13 @@ export default function ProfileScreen() {
     React.useCallback(() => {
       if (isFirstFocus.current) { isFirstFocus.current = false; return; }
       let isMounted = true;
-      Promise.all([
-        profileApi.getPlan().catch(() => null),
-        profileApi.getFixedExpenses().catch(() => []),
-      ]).then(([planRes, expensesRes]) => {
+      loadProfileMeta().finally(() => {
         if (!isMounted) return;
-        setPlan(planRes);
-        setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
       });
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [loadProfileMeta])
   );
 
   const planLabel = plan?.type === 'daily' ? 'Daily Budget' : 'Structured Salaried';
@@ -115,6 +120,16 @@ export default function ProfileScreen() {
   };
 
   const handleRetakeCheckinPress = () => {
+    if (retakeEligibility && !retakeEligibility.allowed) {
+      const next = retakeEligibility.nextRetakeAvailableOn
+        ? ` Next available on ${retakeEligibility.nextRetakeAvailableOn}.`
+        : '';
+      showAlert(
+        'Retake unavailable',
+        (retakeEligibility.message ?? 'You can only retake the behavior check-in once per month.') + next,
+      );
+      return;
+    }
     router.push('/(profile)/retake-checkin');
   };
 
@@ -158,7 +173,17 @@ export default function ProfileScreen() {
       label: 'Plan',
       items: [
         { icon: BarChart3, title: 'Current plan', desc: planLabel, trailing: '', onPress: handleCurrentPlanPress },
-        { icon: RefreshCw, title: 'Retake behavior check-in', desc: 'Update plan if habits changed', trailing: '', onPress: handleRetakeCheckinPress },
+        {
+          icon: RefreshCw,
+          title: 'Retake behavior check-in',
+          desc: retakeEligibility && !retakeEligibility.allowed
+            ? (retakeEligibility.nextRetakeAvailableOn
+              ? `Available again ${retakeEligibility.nextRetakeAvailableOn}`
+              : 'Once per month')
+            : 'Update plan if habits changed',
+          trailing: retakeEligibility && !retakeEligibility.allowed ? 'Locked' : '',
+          onPress: handleRetakeCheckinPress,
+        },
         {
           icon: List,
           title: 'Fixed expenses',

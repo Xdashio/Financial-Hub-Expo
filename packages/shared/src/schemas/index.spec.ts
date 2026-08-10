@@ -4,6 +4,7 @@ import {
   PlanSchema, 
   PocketKindSchema, 
   PlanTypeSchema,
+  PocketCategorySchema,
   TransactionSchema,
   ReallocationSchema,
   ReallocationInputSchema,
@@ -12,6 +13,18 @@ import {
 } from '../index';
 
 describe('Shared Schemas - Pack 1', () => {
+  describe('PocketCategorySchema', () => {
+    it('accepts housing and family (Batch 2 category expansion)', () => {
+      expect(PocketCategorySchema.parse('housing')).toBe('housing');
+      expect(PocketCategorySchema.parse('family')).toBe('family');
+      expect(PocketCategorySchema.parse('education')).toBe('education');
+    });
+
+    it('rejects unknown categories', () => {
+      expect(() => PocketCategorySchema.parse('rent')).toThrow();
+    });
+  });
+
   describe('UserSchema', () => {
     it('validates a correct user', () => {
       const user = {

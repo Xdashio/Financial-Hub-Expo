@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { spendApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
+import { Button } from '@/components/ui';
 import { ArrowLeft, ShoppingCart } from 'lucide-react-native';
 
 const CATEGORIES: { id: string; name: string }[] = [
@@ -67,7 +68,11 @@ export default function LogSpendScreen() {
       if (result.block_reason === 'unclassified_merchant') {
         router.push({
           pathname: '/(classification)/classify',
-          params: { recipientKey: merchant, amount: String(numericAmount) },
+          params: {
+            recipientKey: merchant,
+            amount: String(numericAmount),
+            preferredPocketId: pocketId,
+          },
         });
         return;
       }
@@ -199,25 +204,14 @@ export default function LogSpendScreen() {
         </ScrollView>
 
         <View style={{ padding: spacing.lg, borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.paper }}>
-          <Pressable
+          <Button
+            fullWidth
+            loading={isSubmitting}
+            leftIcon={<ShoppingCart size={16} color={colors.surface} strokeWidth={2} />}
             onPress={handleSubmit}
-            disabled={isSubmitting}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: spacing.sm,
-              backgroundColor: colors.emeraldDeep,
-              borderRadius: radius.md,
-              paddingVertical: spacing.md,
-              opacity: isSubmitting ? 0.7 : 1,
-            }}
           >
-            <ShoppingCart size={16} color={colors.surface} strokeWidth={2} />
-            <Text style={{ ...typography.heading, color: colors.surface }}>
-              {isSubmitting ? 'Checking…' : 'Log spend'}
-            </Text>
-          </Pressable>
+            Log spend
+          </Button>
         </View>
       </KeyboardAvoidingView>
       {modal}

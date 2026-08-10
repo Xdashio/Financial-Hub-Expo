@@ -19,6 +19,13 @@ export class InsightsController {
     return this.insightsService.getDisciplineScore(userId);
   }
 
+  @Get('streak')
+  @ApiOperation({ summary: "Get the current user's under-cap rollover streak (with grace/freeze)" })
+  @ApiResponse({ status: 200, description: 'Current/longest streak and freeze inventory' })
+  getStreak(@Request() req: any) {
+    return this.insightsService.getStreak(req.user.id);
+  }
+
   @Get('behavior-events')
   @ApiOperation({ summary: "Get the current user's most recent behavior events" })
   @ApiResponse({ status: 200, description: 'List of recent behavior events, newest first' })

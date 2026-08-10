@@ -68,6 +68,7 @@ export function StreakHeatmap() {
   const [selected, setSelected] = React.useState<HeatmapDay | null>(null);
   const [selectedEvents, setSelectedEvents] = React.useState<any[] | null>(null);
   const [loadingSelected, setLoadingSelected] = React.useState(false);
+  const [apiStreak, setApiStreak] = React.useState<number | null>(null);
 
   // Tapping a cell used to only be able to show the aggregate count/points
   // that day carried, because that's all getActivityHeatmap() ever
@@ -93,8 +94,12 @@ export function StreakHeatmap() {
   const load = React.useCallback(async (r: Range) => {
     setIsLoading(true);
     try {
-      const data = await insightsApi.getActivityHeatmap(r);
+      const [data, streak] = await Promise.all([
+        insightsApi.getActivityHeatmap(r),
+        insightsApi.getStreak().catch(() => null),
+      ]);
       setDays(data);
+      if (streak) setApiStreak(streak.currentStreak);
       setSelected(null);
       setSelectedEvents(null);
     } catch (e) {
@@ -109,11 +114,9 @@ export function StreakHeatmap() {
     load(range);
   }, [range, load]);
 
-  // Longest streak of consecutive days with at least one non-negative
-  // (i.e. not a point-losing) event, computed from the same real data the
-  // grid renders — this is the number the app should show instead of a
-  // hardcoded "N days untouched" figure.
-  const currentStreak = React.useMemo(() => {
+  // Prefer the backend under-cap streak (rollover successes + grace/freeze).
+  // Fall back to a heatmap-derived streak if the streak endpoint fails.
+  const heatmapStreak = React.useMemo(() => {
     if (!days || days.length === 0) return 0;
     let streak = 0;
     for (let i = days.length - 1; i >= 0; i--) {
@@ -122,6 +125,7 @@ export function StreakHeatmap() {
     }
     return streak;
   }, [days]);
+  const currentStreak = apiStreak ?? heatmapStreak;
 
   // Lay the days out into week columns (7 rows) so year/month views read
   // as a GitHub-style contribution grid rather than a single long strip.
@@ -141,7 +145,7 @@ export function StreakHeatmap() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>
         <View>
           <Text style={{ ...typography.heading, color: colors.ink }}>{currentStreak} day{currentStreak === 1 ? '' : 's'} active streak</Text>
-          <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>Based on your logged activity</Text>
+          <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>Under-cap days (with grace)</Text>
         </View>
         <View style={{ flexDirection: 'row', backgroundColor: colors.paper, borderRadius: radius.pill, padding: 3 }}>
           {(['week', 'month', 'year'] as Range[]).map(r => (

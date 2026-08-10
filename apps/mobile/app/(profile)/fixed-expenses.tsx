@@ -25,6 +25,8 @@ import {
   GraduationCap,
   MoreHorizontal,
   Package,
+  Home,
+  Users,
 } from 'lucide-react-native';
 
 interface FixedExpense {
@@ -62,6 +64,8 @@ export default function FixedExpensesScreen() {
     { id: 'leisure', name: 'Personal & Leisure', icon: Film },
     { id: 'personal', name: 'Personal Care', icon: Scissors },
     { id: 'utilities', name: 'Utilities', icon: Lightbulb },
+    { id: 'housing', name: 'Housing', icon: Home },
+    { id: 'family', name: 'Family & dependents', icon: Users },
     { id: 'healthcare', name: 'Healthcare', icon: HeartPulse },
     { id: 'education', name: 'Education', icon: GraduationCap },
     { id: 'other', name: 'Other', icon: MoreHorizontal },
@@ -79,11 +83,11 @@ export default function FixedExpensesScreen() {
   const getIconFor = (name: string, categoryId: string) => getExpenseIcon(name, categoryId);
 
   const suggestions = [
-    { name: 'Rent', category: 'utilities', amount: 15000, dueDay: 1 },
+    { name: 'Rent', category: 'housing', amount: 15000, dueDay: 1 },
     { name: 'Electricity', category: 'utilities', amount: 2000, dueDay: 15 },
     { name: 'Water', category: 'utilities', amount: 500, dueDay: 15 },
-    { name: 'Internet', category: 'transport', amount: 1500, dueDay: 10 },
-    { name: 'Mobile Data', category: 'transport', amount: 1000, dueDay: 1 },
+    { name: 'Internet', category: 'utilities', amount: 1500, dueDay: 10 },
+    { name: 'Mobile Data', category: 'utilities', amount: 1000, dueDay: 1 },
   ];
 
   useEffect(() => {

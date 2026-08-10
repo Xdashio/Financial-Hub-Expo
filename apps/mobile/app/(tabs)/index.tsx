@@ -324,9 +324,11 @@ export default function HomeScreen() {
               return (
                 <TouchableOpacity
                   key={pocket.id}
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${pocket.name} pocket, ${pocket.remaining} left of ${pocket.cap} cap`}
                 >
                   <View style={{ borderTopWidth: 1.5, borderTopColor: pocket.color, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocket.color }} />
@@ -376,9 +378,11 @@ export default function HomeScreen() {
               return (
                 <TouchableOpacity
                   key={pocket.id}
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${pocket.name} pocket, ${formatCurrency(pocket.availableBalance)} of ${formatCurrency(pocket.monthlyAllocation)} planned`}
                 >
                   <View style={{ borderTopWidth: 1.5, borderTopColor: pocketColor, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
@@ -388,7 +392,7 @@ export default function HomeScreen() {
                       <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.availableBalance)}</Text>
+                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatCurrency(pocket.availableBalance)}</Text>
                       <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2, fontVariant: ['tabular-nums'] }}>of {formatCurrency(pocket.monthlyAllocation)} planned</Text>
                     </View>
                   </View>
@@ -430,9 +434,11 @@ export default function HomeScreen() {
               return (
                 <TouchableOpacity
                   key={pocket.id}
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
                   activeOpacity={0.8}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${pocket.name} pocket, ${formatCurrency(pocket.availableBalance)} of ${formatCurrency(pocket.monthlyAllocation)} planned`}
                 >
                   <View style={{ borderTopWidth: 1.5, borderTopColor: pocketColor, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
@@ -446,7 +452,7 @@ export default function HomeScreen() {
                         {pocket.isTimeLocked && (
                           <PocketIconLock color={colors.sage} size={13} />
                         )}
-                        <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>{formatCurrency(pocket.availableBalance)}</Text>
+                        <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatCurrency(pocket.availableBalance)}</Text>
                       </View>
                       <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2, fontVariant: ['tabular-nums'] }}>of {formatCurrency(pocket.monthlyAllocation)} planned</Text>
                     </View>
@@ -469,18 +475,6 @@ export default function HomeScreen() {
               );
             })}
           </>
-        )}
-
-        {pockets.length === 0 && (
-          <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl }}>
-            <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
-              <Shield size={32} color={colors.emeraldDeep} strokeWidth={2} />
-            </View>
-            <Text style={{ ...typography.title, color: colors.ink }}>No plan yet</Text>
-            <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
-              Complete onboarding to see your personalized money plan with pockets for savings, fixed costs, and daily spending.
-            </Text>
-          </View>
         )}
       </ScrollView>
     </ScreenContainer>

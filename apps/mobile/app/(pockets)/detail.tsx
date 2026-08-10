@@ -3,25 +3,21 @@ import {
   View,
   Text,
   ScrollView,
-  ActivityIndicator,
   Pressable,
   RefreshControl,
-  TouchableOpacity,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { ScreenContainer, LoadingState, ErrorState, InlineLoading } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button } from '@/components/ui';
 import {
-  ChevronLeft,
+  ArrowLeft,
   ArrowLeftRight,
   ShoppingCart,
   Lock,
   TrendingUp,
-  TrendingDown,
-  RefreshCw,
   Wallet,
   Store,
   AlertTriangle,
@@ -236,7 +232,9 @@ export default function PocketDetailScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scopeFailed, setScopeFailed] = useState(false);
 
   const isFirstFocus = useRef(true);
 
@@ -246,16 +244,26 @@ export default function PocketDetailScreen() {
     if (!id) return;
     try {
       setError(null);
+      setScopeFailed(false);
       const [s, txPage, sc] = await Promise.all([
         pocketsApi.getSummary(id),
         pocketsApi.getTransactions(id, 1, 20),
-        pocketsApi.getMerchantScope(id).catch(() => null), // non-fatal
+        pocketsApi.getMerchantScope(id).then(
+          (result) => ({ ok: true as const, result }),
+          () => ({ ok: false as const, result: null })
+        ),
       ]);
       setSummary(s);
       setTransactions(txPage.transactions ?? []);
       setPage(1);
       setHasMore((txPage.pagination?.page ?? 1) < (txPage.pagination?.totalPages ?? 1));
-      if (sc) setScope(sc);
+      setLoadMoreError(false);
+      if (sc.ok) {
+        setScope(sc.result);
+      } else {
+        setScope(null);
+        setScopeFailed(true);
+      }
     } catch (e) {
       console.error('PocketDetail load error:', e);
       const errorMessage = e instanceof Error ? e.message : 'Failed to load pocket data';
@@ -299,6 +307,7 @@ export default function PocketDetailScreen() {
   const loadMore = async () => {
     if (!hasMore || loadingMore || !id) return;
     setLoadingMore(true);
+    setLoadMoreError(false);
     try {
       const next = page + 1;
       const txPage = await pocketsApi.getTransactions(id, next, 20);
@@ -307,8 +316,17 @@ export default function PocketDetailScreen() {
       setHasMore(next < (txPage.pagination?.totalPages ?? 1));
     } catch (e) {
       console.error('loadMore error:', e);
+      setLoadMoreError(true);
     } finally {
       setLoadingMore(false);
+    }
+  };
+
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
     }
   };
 
@@ -336,6 +354,26 @@ export default function PocketDetailScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.sm,
+          }}
+        >
+          <Pressable
+            onPress={goBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: spacing.xs, marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+          <Text style={{ ...typography.title, color: colors.ink }}>Pocket</Text>
+        </View>
         <LoadingState label="Loading pocket…" />
       </ScreenContainer>
     );
@@ -344,6 +382,26 @@ export default function PocketDetailScreen() {
   if (!summary) {
     return (
       <ScreenContainer>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.sm,
+          }}
+        >
+          <Pressable
+            onPress={goBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: spacing.xs, marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+          <Text style={{ ...typography.title, color: colors.ink }}>Pocket</Text>
+        </View>
         <ErrorState message={error || "Couldn't load pocket data."} onRetry={onRefresh} />
       </ScreenContainer>
     );
@@ -376,17 +434,13 @@ export default function PocketDetailScreen() {
           }}
         >
           <Pressable
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace('/(tabs)');
-              }
-            }}
+            onPress={goBack}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{ padding: spacing.xs, marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            <ChevronLeft size={24} color={colors.ink} strokeWidth={2} />
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, flex: 1 }} numberOfLines={1}>
             {pocket?.name}
@@ -414,7 +468,7 @@ export default function PocketDetailScreen() {
           <View
             style={{
               backgroundColor: colors.ink,
-              borderRadius: radius.lg,
+              borderRadius: radius.sm,
               padding: spacing.lg,
               paddingTop: spacing.xl,
               overflow: 'hidden',
@@ -468,7 +522,7 @@ export default function PocketDetailScreen() {
             {/* Progress bar */}
             <View
               style={{
-                height: 4,
+                height: 6,
                 backgroundColor: colors.surface + '22',
                 borderRadius: radius.pill,
                 marginTop: spacing.lg,
@@ -516,51 +570,25 @@ export default function PocketDetailScreen() {
             difference from the user's point of view, and a source of
             confusion. Reallocate now covers both directions from this
             pocket; the destination is preset when there's an obvious one. */}
-        <View
-          style={{
-            flexDirection: 'row',
-            gap: spacing.sm,
-            paddingHorizontal: spacing.lg,
-            marginTop: spacing.md,
-          }}
-        >
-          <TouchableOpacity
-            style={{
-              flex: 1,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: spacing.xs,
-              backgroundColor: colors.emeraldDeep,
-              borderRadius: radius.md,
-              paddingVertical: spacing.md,
-            }}
-            activeOpacity={0.8}
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md }}>
+          <Button
+            fullWidth
+            leftIcon={<ArrowLeftRight size={16} color={colors.surface} strokeWidth={2} />}
             onPress={() =>
               router.push({ pathname: '/(modals)/realloc-pick', params: { destinationPocketId: id } })
             }
           >
-            <ArrowLeftRight size={16} color={colors.surface} strokeWidth={2} />
-            <Text style={{ ...typography.heading, color: colors.surface }}>Reallocate</Text>
-          </TouchableOpacity>
+            Reallocate
+          </Button>
         </View>
 
         {/* Log spend button — spendable pockets only */}
         {pocket?.kind === 'spendable' && (
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
-            <TouchableOpacity
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: spacing.sm,
-                backgroundColor: colors.surface,
-                borderRadius: radius.md,
-                paddingVertical: spacing.md,
-                borderWidth: borderWidth,
-                borderColor: colors.line,
-              }}
-              activeOpacity={0.8}
+            <Button
+              fullWidth
+              variant="secondary"
+              leftIcon={<ShoppingCart size={16} color={colors.ink} strokeWidth={2} />}
               onPress={() =>
                 router.push({
                   pathname: '/(pockets)/log-spend',
@@ -568,31 +596,31 @@ export default function PocketDetailScreen() {
                 })
               }
             >
-              <ShoppingCart size={16} color={colors.ink} strokeWidth={2} />
-              <Text style={{ ...typography.heading, color: colors.ink }}>Log a spend</Text>
-            </TouchableOpacity>
+              Log a spend
+            </Button>
           </View>
         )}
 
         {/* Time-lock entry — savings pockets that are locked */}
         {pocket?.is_time_locked && (
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
-            <TouchableOpacity
+            <Pressable
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: spacing.md,
                 backgroundColor: colors.goldTint,
-                borderRadius: radius.md,
+                borderRadius: radius.sm,
                 paddingVertical: spacing.md,
                 paddingHorizontal: spacing.lg,
                 borderWidth: borderWidth,
                 borderColor: colors.gold + '40',
               }}
-              activeOpacity={0.8}
               onPress={() =>
                 router.push({ pathname: '/(security)/time-lock', params: { pocketId: id } })
               }
+              accessibilityRole="button"
+              accessibilityLabel="Manage time-lock"
             >
               <Lock size={16} color={colors.gold} strokeWidth={2} />
               <View style={{ flex: 1 }}>
@@ -603,8 +631,8 @@ export default function PocketDetailScreen() {
                   </Text>
                 )}
               </View>
-              <ChevronLeft size={16} color={colors.gold} style={{ transform: [{ rotate: '180deg' }] }} />
-            </TouchableOpacity>
+              <ArrowLeft size={16} color={colors.gold} style={{ transform: [{ rotate: '180deg' }] }} />
+            </Pressable>
           </View>
         )}
 
@@ -618,7 +646,7 @@ export default function PocketDetailScreen() {
               alignItems: 'flex-start',
               gap: spacing.sm,
               backgroundColor: colors.clayTint,
-              borderRadius: radius.md,
+              borderRadius: radius.sm,
               padding: spacing.md,
               borderWidth: borderWidth,
               borderColor: colors.clay + '30',
@@ -637,7 +665,7 @@ export default function PocketDetailScreen() {
             <View
               style={{
                 backgroundColor: colors.surface,
-                borderRadius: radius.md,
+                borderRadius: radius.sm,
                 borderWidth: borderWidth,
                 borderColor: colors.line,
                 padding: spacing.lg,
@@ -666,7 +694,9 @@ export default function PocketDetailScreen() {
                 </>
               ) : (
                 <Text style={{ ...typography.caption, color: colors.sage }}>
-                  No merchant rules set yet — all categories are open.
+                  {scopeFailed
+                    ? "Couldn't load spending rules for this pocket. Pull to refresh and try again."
+                    : 'No merchant rules set yet — all categories are open.'}
                 </Text>
               )}
             </View>
@@ -683,7 +713,7 @@ export default function PocketDetailScreen() {
               alignItems: 'flex-start',
               gap: spacing.sm,
               backgroundColor: colors.emeraldTint,
-              borderRadius: radius.md,
+              borderRadius: radius.sm,
               padding: spacing.md,
             }}
           >
@@ -703,7 +733,7 @@ export default function PocketDetailScreen() {
             style={{
               flexDirection: 'row',
               backgroundColor: colors.surface,
-              borderRadius: radius.md,
+              borderRadius: radius.sm,
               borderWidth: borderWidth,
               borderColor: colors.line,
               overflow: 'hidden',
@@ -741,7 +771,7 @@ export default function PocketDetailScreen() {
             <View
               style={{
                 padding: spacing.xl,
-                borderRadius: radius.md,
+                borderRadius: radius.sm,
                 backgroundColor: colors.surface,
                 borderWidth: borderWidth,
                 borderColor: colors.line,
@@ -757,7 +787,7 @@ export default function PocketDetailScreen() {
             <View
               style={{
                 backgroundColor: colors.surface,
-                borderRadius: radius.md,
+                borderRadius: radius.sm,
                 borderWidth: borderWidth,
                 borderColor: colors.line,
                 paddingHorizontal: spacing.md,
@@ -766,20 +796,22 @@ export default function PocketDetailScreen() {
               {transactions.map(tx => (
                 <TxRow key={tx.id} tx={tx} colors={colors} />
               ))}
-              {hasMore && (
-                <TouchableOpacity
+              {(hasMore || loadMoreError) && (
+                <Pressable
                   onPress={loadMore}
                   disabled={loadingMore}
                   style={{ paddingVertical: spacing.md, alignItems: 'center' }}
+                  accessibilityRole="button"
+                  accessibilityLabel={loadMoreError ? 'Retry loading more transactions' : 'Load more transactions'}
                 >
                   {loadingMore ? (
                     <InlineLoading />
                   ) : (
-                    <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-                      Load more
+                    <Text style={{ ...typography.caption, color: loadMoreError ? colors.clay : colors.emeraldDeep }}>
+                      {loadMoreError ? 'Couldn’t load more — tap to retry' : 'Load more'}
                     </Text>
                   )}
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           )}

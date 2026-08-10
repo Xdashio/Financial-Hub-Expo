@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { DEFAULT_SCORE } from './discipline-score.constants';
 
 // Previously there were two independent, disconnected discipline-score
 // mechanisms in the codebase:
@@ -19,9 +20,9 @@ import { SupabaseRepository } from '../../database/supabase.repository';
 // this service, whether the change originates from a reallocation
 // cooling-off skip, an early pocket unlock, or a lock extension.
 
-// A freshly onboarded user has no scoring history yet, so changes are
-// scored against a full-marks baseline until real history exists.
-const DEFAULT_SCORE = 100;
+// Re-export so existing `import { DEFAULT_SCORE } from '...service'` call
+// sites keep working; new code should import from the constants module.
+export { DEFAULT_SCORE } from './discipline-score.constants';
 
 export interface DisciplineScoreChange {
   previousScore: number;

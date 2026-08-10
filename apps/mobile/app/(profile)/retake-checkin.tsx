@@ -9,12 +9,20 @@ import { Button, Input, LoadingState, SectionTitle, ProgressIndicator } from '@/
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { profileApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
+import { useDataSync } from '@/services/data-sync';
 import { getExpenseIcon } from '@/utils/expenseIcon';
 import {
   ArrowLeft, RefreshCw, Wallet, ListChecks, CalendarClock, Building2, TrendingUp, Clock,
   AlertCircle, Plus, Trash2, GraduationCap, Bus, CreditCard, X, Check,
 } from 'lucide-react-native';
-import { IncomePattern, IncomeIntervalBand, SpendingHabit, OnboardingInput } from '@financial-hub/shared';
+import { IncomePattern, IncomeIntervalBand, SpendingHabit, OnboardingInput, LifeStage, EmergencyBuffer, MoneyPersonality } from '@financial-hub/shared';
+
+type RetakeResult = Awaited<ReturnType<typeof profileApi.retakeBehaviorCheckin>>;
+type Redistribution = RetakeResult['redistribution'];
+
+function fmtKes(amount: number) {
+  return `KES ${Math.round(amount).toLocaleString()}`;
+}
 
 const REASONS = [
   { icon: Wallet, title: 'Income changed', desc: 'New job, raise, or a shift in how you get paid' },
@@ -89,10 +97,16 @@ export default function RetakeCheckinScreen() {
   const [showForm, setShowForm] = React.useState(false);
   // The form is split into 2 slides: (1) income + habits, (2) fixed
   // expenses + submit. Was previously one long scroll covering both.
-  const [formStep, setFormStep] = React.useState<1 | 2>(1);
+  const [formStep, setFormStep] = React.useState<1 | 2 | 3>(1);
   const [isPrefilling, setIsPrefilling] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitted, setSubmitted] = React.useState(false);
+  const [redistribution, setRedistribution] = React.useState<Redistribution | null>(null);
+  const [newPockets, setNewPockets] = React.useState<RetakeResult['pockets']>([]);
+  const [eligibilityBlocked, setEligibilityBlocked] = React.useState<{
+    message: string;
+    nextRetakeAvailableOn: string | null;
+  } | null>(null);
 
   // Form state — same fields OnboardingInput needs, prefilled where the
   // backend actually persists them (plan + fixed expenses); the rest start
@@ -102,6 +116,10 @@ export default function RetakeCheckinScreen() {
   const [incomeAmount, setIncomeAmount] = React.useState('');
   const [sourceCount, setSourceCount] = React.useState(1);
   const [spendingHabit, setSpendingHabit] = React.useState<SpendingHabit>('tracker');
+  const [lifeStage, setLifeStage] = React.useState<LifeStage>('working_adult');
+  const [hasDependents, setHasDependents] = React.useState(false);
+  const [emergencyBuffer, setEmergencyBuffer] = React.useState<EmergencyBuffer>('under_month');
+  const [moneyPersonality, setMoneyPersonality] = React.useState<MoneyPersonality>('saver');
   const [fixedExpenses, setFixedExpenses] = React.useState<FixedExpenseItem[]>([]);
 
   const [showAddModal, setShowAddModal] = React.useState(false);
@@ -121,10 +139,19 @@ export default function RetakeCheckinScreen() {
   const loadPrefill = React.useCallback(async () => {
     setIsPrefilling(true);
     try {
-      const [planRes, fixedRes] = await Promise.all([
+      const [planRes, fixedRes, eligibility] = await Promise.all([
         profileApi.getPlan().catch(() => null),
         profileApi.getFixedExpenses().catch(() => []),
+        profileApi.getRetakeEligibility().catch(() => ({ allowed: true, nextRetakeAvailableOn: null, lastRetakenAt: null })),
       ]);
+      if (!eligibility.allowed) {
+        setEligibilityBlocked({
+          message: eligibility.message ?? 'You can only retake the behavior check-in once per month.',
+          nextRetakeAvailableOn: eligibility.nextRetakeAvailableOn,
+        });
+      } else {
+        setEligibilityBlocked(null);
+      }
       if (planRes) {
         if (planRes.income_pattern) setIncomePattern(planRes.income_pattern);
         // income_interval_days is only ever persisted for freelancer plans
@@ -171,6 +198,10 @@ export default function RetakeCheckinScreen() {
       return;
     }
     setFormStep(2);
+  };
+
+  const handleContinueToStep3 = () => {
+    setFormStep(3);
   };
 
   const handleAddSuggestion = (suggestion: typeof SUGGESTIONS[0]) => {
@@ -257,15 +288,21 @@ export default function RetakeCheckinScreen() {
         category: e.category as any,
       })),
       incomeIntervalBand: incomePattern === 'freelancer' ? incomeIntervalBand ?? undefined : undefined,
+      lifeStage,
+      hasDependents,
+      emergencyBuffer,
+      moneyPersonality,
     };
 
     setIsSubmitting(true);
     try {
-      // Hits /profile/plan/retake directly — this replaces the active plan
-      // in place. No navigation to (onboarding)/*, so the user never
-      // leaves this stack.
-      await profileApi.retakeBehaviorCheckin(payload);
+      // Hits /profile/plan/retake — preserves existing balances and returns
+      // a redistribution summary. No navigation into (onboarding)/*.
+      const result = await profileApi.retakeBehaviorCheckin(payload);
       useAuthStore.setState({ hasPlan: true });
+      useDataSync.getState().bump();
+      setRedistribution(result.redistribution);
+      setNewPockets(result.pockets ?? []);
       setSubmitted(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Please try again.';
@@ -275,21 +312,118 @@ export default function RetakeCheckinScreen() {
     }
   };
 
+  if (eligibilityBlocked && !submitted) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
+          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+          <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake Check-in</Text>
+        </View>
+        <View style={{ flex: 1, paddingHorizontal: spacing.xl, justifyContent: 'center' }}>
+          <View style={{ width: 64, height: 64, borderRadius: radius.pill, backgroundColor: colors.line, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg, alignSelf: 'center' }}>
+            <CalendarClock size={28} color={colors.ink} strokeWidth={2} />
+          </View>
+          <Text style={{ ...typography.title, color: colors.ink, textAlign: 'center' }}>Already retaken this month</Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
+            {eligibilityBlocked.message}
+          </Text>
+          {eligibilityBlocked.nextRetakeAvailableOn ? (
+            <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.md, textAlign: 'center' }}>
+              Next available: {eligibilityBlocked.nextRetakeAvailableOn}
+            </Text>
+          ) : null}
+          <Button fullWidth size="lg" style={{ marginTop: spacing.xl }} onPress={() => router.back()}>
+            Back
+          </Button>
+        </View>
+        {modal}
+      </SafeAreaView>
+    );
+  }
+
   if (submitted) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl }}>
-          <View style={{ width: 64, height: 64, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, paddingTop: spacing.xl }}>
+          <View style={{ width: 64, height: 64, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg, alignSelf: 'center' }}>
             <Check size={28} color={colors.emeraldDeep} strokeWidth={2.5} />
           </View>
           <Text style={{ ...typography.title, color: colors.ink, textAlign: 'center' }}>Your plan is updated</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
-            Your pockets now match how you actually earn and spend today.
+            {redistribution && redistribution.totalMoved > 0
+              ? `${fmtKes(redistribution.totalMoved)} from your previous pockets was kept and redistributed into the new plan.`
+              : 'Your pockets now match how you actually earn and spend today. No existing balance needed moving.'}
           </Text>
+
+          {redistribution && redistribution.previousPlanType !== redistribution.newPlanType ? (
+            <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.md, textAlign: 'center' }}>
+              Plan type: {redistribution.previousPlanType} → {redistribution.newPlanType}
+            </Text>
+          ) : null}
+
+          {redistribution && redistribution.movements.length > 0 ? (
+            <View style={{ marginTop: spacing.xl }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>How money moved</Text>
+              {redistribution.movements.map((m, idx) => (
+                <View
+                  key={`${m.fromPocketName}-${m.toPocketName}-${idx}`}
+                  style={{
+                    paddingVertical: spacing.sm,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.line,
+                  }}
+                >
+                  <Text style={{ ...typography.heading, color: colors.ink }}>
+                    {m.fromPocketName} → {m.toPocketName}
+                  </Text>
+                  <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                    {fmtKes(m.amount)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {newPockets.length > 0 ? (
+            <View style={{ marginTop: spacing.xl }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>New pockets</Text>
+              {newPockets.map((p) => (
+                <View
+                  key={p.id}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    paddingVertical: spacing.sm,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.line,
+                  }}
+                >
+                  <View style={{ flex: 1, paddingRight: spacing.md }}>
+                    <Text style={{ ...typography.heading, color: colors.ink }}>{p.name}</Text>
+                    <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, textTransform: 'capitalize' }}>
+                      {p.kind}{p.category ? ` · ${p.category}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                    {fmtKes(p.monthlyAllocation)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {redistribution?.nextRetakeAvailableOn ? (
+            <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.lg, textAlign: 'center' }}>
+              You can retake again from {redistribution.nextRetakeAvailableOn}.
+            </Text>
+          ) : null}
+
           <Button fullWidth size="lg" style={{ marginTop: spacing.xl }} onPress={() => router.replace('/(tabs)')}>
             Back to home
           </Button>
-        </View>
+        </ScrollView>
         {modal}
       </SafeAreaView>
     );
@@ -301,6 +435,7 @@ export default function RetakeCheckinScreen() {
         <Pressable
           onPress={() => {
             if (!showForm) { router.back(); return; }
+            if (formStep === 3) { setFormStep(2); return; }
             if (formStep === 2) { setFormStep(1); return; }
             setShowForm(false);
           }}
@@ -313,7 +448,7 @@ export default function RetakeCheckinScreen() {
 
       {showForm && !isPrefilling && (
         <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
-          <ProgressIndicator currentStep={formStep} totalSteps={2} />
+          <ProgressIndicator currentStep={formStep} totalSteps={3} />
         </View>
       )}
 
@@ -472,6 +607,102 @@ export default function RetakeCheckinScreen() {
       )}
 
       {showForm && !isPrefilling && formStep === 2 && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+          <SectionTitle>Life stage</SectionTitle>
+          <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.sm }}>
+            {([
+              { id: 'student' as const, label: 'Student' },
+              { id: 'working_adult' as const, label: 'Working adult' },
+              { id: 'self_employed' as const, label: 'Self-employed' },
+            ]).map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
+                  lifeStage === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                ]}
+                onPress={() => setLifeStage(option.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: lifeStage === option.id }}
+              >
+                <Text style={[{ ...typography.heading, color: colors.ink }, lifeStage === option.id && { color: colors.surface }]}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <SectionTitle>Do you regularly support others?</SectionTitle>
+          <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.sm }}>
+            {([
+              { id: true, label: 'Yes — school fees, family, dependents' },
+              { id: false, label: 'No — mainly myself' },
+            ]).map((option) => (
+              <TouchableOpacity
+                key={String(option.id)}
+                style={[
+                  { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
+                  hasDependents === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                ]}
+                onPress={() => setHasDependents(option.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: hasDependents === option.id }}
+              >
+                <Text style={[{ ...typography.heading, color: colors.ink }, hasDependents === option.id && { color: colors.surface }]}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <SectionTitle>Emergency buffer</SectionTitle>
+          <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.sm }}>
+            {([
+              { id: 'none' as const, label: 'Nothing set aside' },
+              { id: 'under_month' as const, label: 'Less than a month' },
+              { id: '1_to_3_months' as const, label: '1–3 months' },
+              { id: '3_plus_months' as const, label: '3+ months' },
+            ]).map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
+                  emergencyBuffer === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                ]}
+                onPress={() => setEmergencyBuffer(option.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: emergencyBuffer === option.id }}
+              >
+                <Text style={[{ ...typography.heading, color: colors.ink }, emergencyBuffer === option.id && { color: colors.surface }]}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <SectionTitle>When you get unexpected money</SectionTitle>
+          <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.sm }}>
+            {([
+              { id: 'spender' as const, label: 'I treat myself or spend it' },
+              { id: 'saver' as const, label: 'I put it aside' },
+              { id: 'avoider' as const, label: 'I leave it alone for a while' },
+            ]).map((option) => (
+              <TouchableOpacity
+                key={option.id}
+                style={[
+                  { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
+                  moneyPersonality === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                ]}
+                onPress={() => setMoneyPersonality(option.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: moneyPersonality === option.id }}
+              >
+                <Text style={[{ ...typography.heading, color: colors.ink }, moneyPersonality === option.id && { color: colors.surface }]}>{option.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Button fullWidth size="lg" onPress={handleContinueToStep3}>
+            Continue
+          </Button>
+        </ScrollView>
+      )}
+
+      {showForm && !isPrefilling && formStep === 3 && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
           <SectionTitle>What repeats every month?</SectionTitle>
           {fixedExpenses.length > 0 && (

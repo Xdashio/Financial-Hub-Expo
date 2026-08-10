@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { pocketsApi, insightsApi } from '@/services/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { pocketsApi, insightsApi, rolloverApi } from '@/services/api';
 import { RunwaySummary } from '@financial-hub/shared';
 
 export interface Pocket {
@@ -7,8 +8,8 @@ export interface Pocket {
   name: string;
   kind: 'savings' | 'fixed' | 'spendable';
   category?: string;
-  monthlyAllocation: number; // planning ceiling set at onboarding — not a live balance
-  availableBalance: number;  // ledger-derived: allocation credits - spend debits - reallocation outflows
+  monthlyAllocation: number;
+  availableBalance: number;
   dailyCap?: number;
   isTimeLocked?: boolean;
   lockUntil?: string;
@@ -33,22 +34,13 @@ export interface HomeState {
   totalBalance: number;
   disciplineScore: number;
   scoreDelta: number;
-  // { applicable: false } for salaried/mix/structured plans — home screen
-  // should only render runway UI when applicable is true. See
-  // docs/FREELANCER_RUNWAY.md.
+  currentStreak: number;
   runway: RunwaySummary;
   isLoading: boolean;
   error: string | null;
-  
+
   fetchHomeData: () => Promise<void>;
   refreshData: () => Promise<void>;
-  // Applies a same-tick local balance change (e.g. "-500 from Food,
-  // +500 to Savings") so Home reflects a reallocation/income event the
-  // instant the user confirms it, rather than waiting on the round trip.
-  // Returns a snapshot the caller should pass to rollbackOptimisticUpdate
-  // if the request ends up failing — data-sync's bump() (which triggers a
-  // real refetch on success) remains the source of truth; this is purely
-  // a perceived-latency bridge until that refetch lands.
   applyOptimisticDelta: (deltas: Record<string, number>) => HomeState['pockets'];
   rollbackOptimisticUpdate: (snapshot: HomeState['pockets']) => void;
 }
@@ -61,13 +53,11 @@ const POCKET_COLORS: Record<string, string> = {
   fixed: '#B8873A',
 };
 
-// Daily pockets show remaining available balance for the day.
-// For daily-plan pockets the cap is daily_cap; for structured-plan pockets
-// the cap is the monthly allocation ceiling. The remaining is always the
-// ledger-derived available_balance (real money in the pocket).
+const ROLLOVER_THROTTLE_KEY = 'rollover:lastRunUtcDate';
+
 function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
-  const spendablePockets = pockets.filter(p => p.kind === 'spendable');
-  return spendablePockets.map(pocket => {
+  const spendablePockets = pockets.filter((p) => p.kind === 'spendable');
+  return spendablePockets.map((pocket) => {
     const cap = pocket.dailyCap ?? pocket.monthlyAllocation;
     const remaining = pocket.availableBalance;
     const progress = cap > 0 ? Math.max(0, Math.min(1, 1 - remaining / cap)) : 0;
@@ -83,39 +73,21 @@ function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
   });
 }
 
-// Rollover is the sum of unspent spendable balance from the previous period.
-// This is a future feature — no period boundary logic exists yet.
-function calculateRollover(): number {
-  return 0;
-}
-
-// Daily-plan pockets carry a positive daily_cap; structured-plan pockets
-// have daily_cap === null. If any spendable pocket has a cap, treat the
-// whole plan as "daily".
 function derivePlanType(pockets: Pocket[]): 'daily' | 'structured' {
-  const hasDailyCap = pockets.some(p => p.kind === 'spendable' && (p.dailyCap ?? 0) > 0);
+  const hasDailyCap = pockets.some((p) => p.kind === 'spendable' && (p.dailyCap ?? 0) > 0);
   return hasDailyCap ? 'daily' : 'structured';
 }
 
-// Safe to spend is the total ledger-derived available balance across all
-// spendable pockets — i.e. real money the user can actually spend today.
 function calculateSafeToSpend(pockets: Pocket[]): number {
   return pockets
-    .filter(p => p.kind === 'spendable')
+    .filter((p) => p.kind === 'spendable')
     .reduce((sum, p) => sum + p.availableBalance, 0);
 }
 
-// Total balance is the sum of available_balance across all pockets — the
-// user's real money across fixed, savings, and spendable.
 function calculateTotalBalance(pockets: Pocket[]): number {
   return pockets.reduce((sum, p) => sum + p.availableBalance, 0);
 }
 
-// The API returns enriched pocket rows in snake_case; map to camelCase here.
-// available_balance is the ledger-derived spendable balance (allocation
-// credits minus spend debits and reallocation outflows).
-// monthly_allocation is the planning ceiling set at onboarding — kept for
-// percentage displays and daily cap calculations, not for balance.
 function mapPocket(raw: any): Pocket {
   return {
     id: raw.id,
@@ -130,90 +102,121 @@ function mapPocket(raw: any): Pocket {
   };
 }
 
-export const useHomeStore = create<HomeState>()(
-  (set, get) => ({
-    pockets: [],
-    dailyPockets: [],
-    planType: 'daily',
-    rolloverAmount: 0,
-    safeToSpendToday: 0,
-    totalBalance: 0,
-    // Matches the backend's DEFAULT_DISCIPLINE_SCORE (insights.service.ts) —
-    // every user starts at 100 and loses points for things like skipping a
-    // cooling-off or unlocking savings early. The old placeholder (87/3)
-    // wasn't the real base value, and using `||` below meant a genuinely
-    // earned score of 0 would incorrectly redisplay as that placeholder.
-    disciplineScore: 100,
-    scoreDelta: 0,
-    runway: { applicable: false },
-    isLoading: false,
-    error: null,
+async function runRolloverIfNeeded(): Promise<{
+  latestAmount: number;
+  monthToDateAmount: number;
+  currentStreak: number;
+}> {
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  try {
+    const lastRun = await AsyncStorage.getItem(ROLLOVER_THROTTLE_KEY);
+    if (lastRun !== todayUtc) {
+      const result = await rolloverApi.run();
+      await AsyncStorage.setItem(ROLLOVER_THROTTLE_KEY, todayUtc);
+      const status = await rolloverApi.status().catch(() => null);
+      return {
+        latestAmount: result.latestAmount ?? 0,
+        monthToDateAmount: status?.monthToDateAmount ?? result.totalAmount ?? 0,
+        currentStreak: result.streak?.currentStreak ?? 0,
+      };
+    }
+    const status = await rolloverApi.status();
+    return {
+      latestAmount: 0,
+      monthToDateAmount: status.monthToDateAmount ?? 0,
+      currentStreak: status.streak?.currentStreak ?? 0,
+    };
+  } catch {
+    try {
+      const status = await rolloverApi.status();
+      return {
+        latestAmount: 0,
+        monthToDateAmount: status.monthToDateAmount ?? 0,
+        currentStreak: status.streak?.currentStreak ?? 0,
+      };
+    } catch {
+      return { latestAmount: 0, monthToDateAmount: 0, currentStreak: 0 };
+    }
+  }
+}
 
-    fetchHomeData: async () => {
-      set({ isLoading: true, error: null });
-      try {
-        const [pocketsRes, insightsRes, runwayRes] = await Promise.all([
-          pocketsApi.getAll(),
-          insightsApi.getDisciplineScore(),
-          // Cheap for salaried/mix/structured plans (returns { applicable:
-          // false } immediately) so it's safe to always fetch rather than
-          // branching on plan type client-side. See docs/FREELANCER_RUNWAY.md.
-          pocketsApi.getRunway().catch(() => ({ applicable: false } as RunwaySummary)),
-        ]);
-        
-        const pockets = (pocketsRes || []).map(mapPocket);
-        const dailyPockets = calculateDailyPockets(pockets);
-        const planType = derivePlanType(pockets);
-        const rolloverAmount = calculateRollover();
-        const safeToSpendToday = calculateSafeToSpend(pockets);
-        const totalBalance = calculateTotalBalance(pockets);
-        
-        set({
-          pockets,
-          dailyPockets,
-          planType,
-          rolloverAmount,
-          safeToSpendToday,
-          totalBalance,
-          // `??` not `||` — a real score/delta of 0 is a valid value and
-          // must not be silently replaced by the fallback.
-          disciplineScore: insightsRes?.score ?? 100,
-          scoreDelta: insightsRes?.delta ?? 0,
-          runway: runwayRes || { applicable: false },
-          isLoading: false,
-        });
-      } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : 'Failed to load home data', 
-          isLoading: false 
-        });
-      }
-    },
+export const useHomeStore = create<HomeState>()((set, get) => ({
+  pockets: [],
+  dailyPockets: [],
+  planType: 'daily',
+  rolloverAmount: 0,
+  safeToSpendToday: 0,
+  totalBalance: 0,
+  disciplineScore: 100,
+  scoreDelta: 0,
+  currentStreak: 0,
+  runway: { applicable: false },
+  isLoading: false,
+  error: null,
 
-    refreshData: async () => {
-      await get().fetchHomeData();
-    },
+  fetchHomeData: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const rollover = await runRolloverIfNeeded();
 
-    applyOptimisticDelta: (deltas) => {
-      const previous = get().pockets;
-      const pockets = previous.map((p) =>
-        deltas[p.id] !== undefined
-          ? { ...p, availableBalance: Math.max(0, p.availableBalance + deltas[p.id]) }
-          : p
-      );
+      const [pocketsRes, insightsRes, runwayRes] = await Promise.all([
+        pocketsApi.getAll(),
+        insightsApi.getDisciplineScore(),
+        pocketsApi.getRunway().catch(() => ({ applicable: false } as RunwaySummary)),
+      ]);
+
+      const pockets = (pocketsRes || []).map(mapPocket);
       const dailyPockets = calculateDailyPockets(pockets);
+      const planType = derivePlanType(pockets);
+      const rolloverAmount =
+        rollover.latestAmount > 0 ? rollover.latestAmount : rollover.monthToDateAmount;
       const safeToSpendToday = calculateSafeToSpend(pockets);
       const totalBalance = calculateTotalBalance(pockets);
-      set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
-      return previous;
-    },
 
-    rollbackOptimisticUpdate: (snapshot) => {
-      const pockets = snapshot;
-      const dailyPockets = calculateDailyPockets(pockets);
-      const safeToSpendToday = calculateSafeToSpend(pockets);
-      const totalBalance = calculateTotalBalance(pockets);
-      set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
-    },
-  })
-);
+      set({
+        pockets,
+        dailyPockets,
+        planType,
+        rolloverAmount,
+        safeToSpendToday,
+        totalBalance,
+        disciplineScore: insightsRes?.score ?? 100,
+        scoreDelta: insightsRes?.delta ?? 0,
+        currentStreak: rollover.currentStreak,
+        runway: runwayRes || { applicable: false },
+        isLoading: false,
+      });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load home data',
+        isLoading: false,
+      });
+    }
+  },
+
+  refreshData: async () => {
+    await get().fetchHomeData();
+  },
+
+  applyOptimisticDelta: (deltas) => {
+    const previous = get().pockets;
+    const pockets = previous.map((p) =>
+      deltas[p.id] !== undefined
+        ? { ...p, availableBalance: Math.max(0, p.availableBalance + deltas[p.id]) }
+        : p,
+    );
+    const dailyPockets = calculateDailyPockets(pockets);
+    const safeToSpendToday = calculateSafeToSpend(pockets);
+    const totalBalance = calculateTotalBalance(pockets);
+    set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
+    return previous;
+  },
+
+  rollbackOptimisticUpdate: (snapshot) => {
+    const pockets = snapshot;
+    const dailyPockets = calculateDailyPockets(pockets);
+    const safeToSpendToday = calculateSafeToSpend(pockets);
+    const totalBalance = calculateTotalBalance(pockets);
+    set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
+  },
+}));
