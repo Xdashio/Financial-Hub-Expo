@@ -1,13 +1,11 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { IncomeService } from './income.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import { CreateIncomeDto } from './dto/create-income.dto';
 import { AllocatePreviewDto } from './dto/allocate-preview.dto';
 
 @ApiTags('Income')
 @Controller('income')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class IncomeController {
   constructor(private readonly incomeService: IncomeService) {}

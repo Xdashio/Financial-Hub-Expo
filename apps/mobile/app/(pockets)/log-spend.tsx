@@ -5,10 +5,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { spendApi } from '@/services/api';
+import { spendApi, createIdempotencyKey } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { Button } from '@/components/ui';
 import { ArrowLeft, ShoppingCart } from 'lucide-react-native';
+import { enqueueWrite } from '@/services/offline-queue';
 
 const CATEGORIES: { id: string; name: string }[] = [
   { id: '', name: "Don't know yet" },
@@ -49,14 +50,17 @@ export default function LogSpendScreen() {
       return;
     }
 
+    const idempotencyKey = createIdempotencyKey('spend');
     try {
       setIsSubmitting(true);
-      const result = await spendApi.commit({
+      const payload = {
         pocket_id: pocketId,
         amount: numericAmount,
         recipient_key: merchant || undefined,
         category: category || undefined,
-      });
+        idempotency_key: idempotencyKey,
+      };
+      const result = await spendApi.commit(payload);
 
       if (result.allowed) {
         useDataSync.getState().bump();
@@ -95,7 +99,24 @@ export default function LogSpendScreen() {
       // to, so surface it inline instead of dead-ending the flow.
       alert("Can't log this spend", result.message || 'This payment was not allowed.');
     } catch (error: any) {
-      alert('Something went wrong', error?.message || 'Please try again.');
+      const message = error?.message || 'Please try again.';
+      const looksNetwork =
+        /network|fetch|timeout|failed to fetch|network request failed/i.test(String(message));
+      if (looksNetwork && pocketId && numericAmount > 0) {
+        await enqueueWrite('/spend/commit', {
+          pocket_id: pocketId,
+          amount: numericAmount,
+          recipient_key: merchant || undefined,
+          category: category || undefined,
+          idempotency_key: idempotencyKey,
+        });
+        alert(
+          'Saved offline',
+          'We could not reach the server. This spend will retry automatically when you are back online.',
+        );
+      } else {
+        alert('Something went wrong', message);
+      }
     } finally {
       setIsSubmitting(false);
     }

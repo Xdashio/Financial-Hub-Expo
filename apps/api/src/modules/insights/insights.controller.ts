@@ -1,12 +1,10 @@
-import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { InsightsService, DisciplineScoreResult, PaginatedBehaviorEvents, HeatmapDay } from './insights.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import { BehaviorEvent } from '../../database/database.types';
 
 @ApiTags('Insights')
 @Controller('insights')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class InsightsController {
   constructor(private readonly insightsService: InsightsService) {}

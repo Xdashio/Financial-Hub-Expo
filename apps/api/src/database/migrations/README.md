@@ -24,6 +24,9 @@ This migration creates the core data model for Financial Hub with all entities d
 10. **discipline_scores** - User discipline scores, one row per `(user_id, period)`
 11. **notification_preferences** - Per-user notification settings
 12. **merchant_reports** - User-submitted merchant classification disputes
+13. **push_tokens** - Expo push device tokens (Batch 7)
+14. **notification_deliveries** - Idempotent delivery log for push/scheduler (Batch 7)
+15. **idempotency_records** - Client idempotency keys for income/spend retries
 
 ### Key Features
 

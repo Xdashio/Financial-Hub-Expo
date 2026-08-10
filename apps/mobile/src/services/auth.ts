@@ -303,6 +303,15 @@ export const useAuthStore = create<AuthState>()(
       },
 
       signOut: async () => {
+        // Best-effort: drop this device's Expo push token before clearing
+        // auth so the Authorization header is still valid for the DELETE.
+        try {
+          const { unregisterPushToken } = await import('@/services/notifications');
+          await unregisterPushToken();
+        } catch {
+          // Never block sign-out on push cleanup.
+        }
+
         // Clear our own app-level cache/state first so the UI reflects
         // "signed out" immediately regardless of what the network call
         // below does.

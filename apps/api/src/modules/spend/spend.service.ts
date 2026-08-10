@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { Pocket } from '../../database/database.types';
@@ -164,8 +165,25 @@ export class SpendService {
   // the merchant self-classify prompt a real trigger point instead of the
   // dead-end the roadmap flagged (no UI flow ever called /spend/check).
   async commitSpend(dto: SpendCheckDto, userId: string): Promise<
-    Awaited<ReturnType<SpendService['checkSpend']>> & { transaction_id?: string }
+    Awaited<ReturnType<SpendService['checkSpend']>> & {
+      transaction_id?: string;
+      idempotent_replay?: boolean;
+    }
   > {
+    if (dto.idempotency_key) {
+      const existing = await this.repository.getIdempotencyRecord(
+        userId,
+        'spend',
+        dto.idempotency_key,
+      );
+      if (existing?.response) {
+        return {
+          ...(existing.response as any),
+          idempotent_replay: true,
+        };
+      }
+    }
+
     const result = await this.checkSpend(dto, userId);
 
     if (!result.allowed) {
@@ -194,7 +212,7 @@ export class SpendService {
       await this.maybeRecordDailyOverspend(pocket, userId);
     }
 
-    return {
+    const response = {
       ...result,
       pocket: {
         ...result.pocket,
@@ -202,6 +220,29 @@ export class SpendService {
       },
       transaction_id: transaction?.id,
     };
+
+    if (dto.idempotency_key) {
+      const saved = await this.repository.saveIdempotencyRecord({
+        id: uuidv4(),
+        user_id: userId,
+        scope: 'spend',
+        idempotency_key: dto.idempotency_key,
+        resource_id: transaction?.id ?? null,
+        response: response as unknown as Record<string, unknown>,
+      });
+      if (!saved) {
+        const raced = await this.repository.getIdempotencyRecord(
+          userId,
+          'spend',
+          dto.idempotency_key,
+        );
+        if (raced?.response) {
+          return { ...(raced.response as any), idempotent_replay: true };
+        }
+      }
+    }
+
+    return response;
   }
 
   private async maybeRecordDailyOverspend(pocket: Pocket, userId: string): Promise<void> {

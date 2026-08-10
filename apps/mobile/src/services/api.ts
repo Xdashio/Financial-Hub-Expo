@@ -20,6 +20,11 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return headers;
 }
 
+/** Client idempotency key for money-moving writes (income / spend). */
+export function createIdempotencyKey(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+}
+
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -91,8 +96,17 @@ export const transactionsApi = {
 export const spendApi = {
   check: (data: { pocket_id: string; amount: number; recipient_key?: string; category?: string }) =>
     api.post<any>('/spend/check', data),
-  commit: (data: { pocket_id: string; amount: number; recipient_key?: string; category?: string }) =>
-    api.post<any>('/spend/commit', data),
+  commit: (data: {
+    pocket_id: string;
+    amount: number;
+    recipient_key?: string;
+    category?: string;
+    idempotency_key?: string;
+  }) =>
+    api.post<any>('/spend/commit', {
+      ...data,
+      idempotency_key: data.idempotency_key || createIdempotencyKey('spend'),
+    }),
   getBlockedReasons: (pocketId: string) =>
     api.get<any>(`/spend/blocked-reasons?pocket_id=${encodeURIComponent(pocketId)}`),
 };
@@ -141,7 +155,7 @@ export const rolloverApi = {
         todayCounted: boolean;
       };
       milestoneAwarded: number | null;
-    }>('/income/rollover/run'),
+    }>('/income/rollover/run', {}),
   status: () =>
     api.get<{
       streak: {
@@ -206,6 +220,15 @@ export const notificationsApi = {
       '/notifications/settings',
       data
     ),
+  registerPushToken: (data: {
+    token: string;
+    platform: 'ios' | 'android' | 'web';
+    device_id?: string;
+  }) => api.post<{ token: string; platform: string }>('/notifications/push-token', data),
+  unregisterPushToken: (token: string) =>
+    api.delete<{ removed: boolean }>(
+      `/notifications/push-token?token=${encodeURIComponent(token)}`
+    ),
 };
 
 export const merchantReportApi = {
@@ -231,7 +254,12 @@ export const incomeApi = {
     label?: string;
     date: string;
     run_allocation: boolean;
-  }) => api.post<any>('/income/manual', data),
+    idempotency_key?: string;
+  }) =>
+    api.post<any>('/income/manual', {
+      ...data,
+      idempotency_key: data.idempotency_key || createIdempotencyKey('income'),
+    }),
 };
 
 export const merchantApi = {

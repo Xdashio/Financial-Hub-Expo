@@ -1,4 +1,4 @@
-import { RunwaySummary } from '@financial-hub/shared';
+import type { RunwaySummary } from '@financial-hub/shared';
 
 // ============================================================================
 // Freelancer adaptive runway — "medium" tier calculation.

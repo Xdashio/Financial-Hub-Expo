@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PocketsService } from './pockets.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
-import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import type { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import type { RunwayService } from '../runway/runway.service';
 
 const POCKET = {

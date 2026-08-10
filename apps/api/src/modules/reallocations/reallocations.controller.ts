@@ -1,11 +1,9 @@
-import { Controller, Get, Post, Param, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ReallocationsService } from './reallocations.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 
 @ApiTags('Reallocations')
 @Controller('reallocations')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class ReallocationsController {
   constructor(private readonly reallocationsService: ReallocationsService) {}

@@ -1,7 +1,6 @@
-import { Controller, Post, Get, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MerchantReportService } from './merchant-report.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import { ReportCreateDto } from './dto/report-create.dto';
 
 // Mounted at `merchant` (not `merchant-report`) so the live routes match the
@@ -12,7 +11,6 @@ import { ReportCreateDto } from './dto/report-create.dto';
 // controllers racing to register the same paths.
 @ApiTags('Merchant Report')
 @Controller('merchant')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class MerchantReportController {
   constructor(private readonly merchantReportService: MerchantReportService) {}

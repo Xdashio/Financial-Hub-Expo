@@ -8,21 +8,34 @@
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 
-import { useEffect, useState } from 'react';
-import { Stack } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, View, ActivityIndicator } from 'react-native';
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { initializeAuth } from '@/services/auth';
+import * as Notifications from 'expo-notifications';
+import { initializeAuth, useAuthStore } from '@/services/auth';
 import { ThemeProvider, useTheme } from '@/theme/ThemeContext';
+import { registerForPushNotifications } from '@/services/notifications';
+import { initSentry, Sentry } from '@/services/sentry';
+import { flushWriteQueue } from '@/services/offline-queue';
 
-// Themed status bar — theme-aware icon colour.
-// On Android (edge-to-edge by default in this Expo SDK) the status bar is
-// always transparent and `backgroundColor`/`translucent` are no longer
-// supported props on expo-status-bar. The status bar area instead takes its
-// colour from whatever renders beneath it: the root View's `paper` background
-// plus each screen's `ScreenContainer` safe-area top inset. So here we only
-// pick the icon style ('dark' vs 'light') to contrast against that background.
+initSentry();
+
+function routeFromNotificationData(data: unknown, router: ReturnType<typeof useRouter>) {
+  const screen =
+    data && typeof data === 'object' && 'screen' in data
+      ? (data as { screen?: unknown }).screen
+      : undefined;
+  if (typeof screen === 'string' && screen.length > 0) {
+    try {
+      router.push(screen as any);
+    } catch {
+      // Ignore unknown routes — better than crashing on a bad payload.
+    }
+  }
+}
+
 function ThemedStatusBar() {
   const { scheme } = useTheme();
   return <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />;
@@ -31,13 +44,47 @@ function ThemedStatusBar() {
 function RootLayoutInner() {
   const [isReady, setIsReady] = useState(false);
   const { colors: themeColors } = useTheme();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const router = useRouter();
+  const handledColdStart = useRef(false);
 
   useEffect(() => {
-    // Restore any persisted Supabase session before we route to (auth) vs
-    // (tabs); without this, a previously signed-in user would still get
-    // bounced to sign-in on every cold start.
     initializeAuth().finally(() => setIsReady(true));
   }, []);
+
+  useEffect(() => {
+    if (!isReady || !isAuthenticated) return;
+    void registerForPushNotifications();
+    void flushWriteQueue();
+  }, [isReady, isAuthenticated]);
+
+  // Flush offline money writes when the app returns to the foreground.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && useAuthStore.getState().isAuthenticated) {
+        void flushWriteQueue();
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Live taps + cold-start (app launched from a killed state via notification).
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      routeFromNotificationData(response.notification.request.content.data, router);
+    });
+
+    if (!handledColdStart.current) {
+      handledColdStart.current = true;
+      void Notifications.getLastNotificationResponseAsync().then((response) => {
+        if (response) {
+          routeFromNotificationData(response.notification.request.content.data, router);
+        }
+      });
+    }
+
+    return () => sub.remove();
+  }, [router]);
 
   if (!isReady) {
     return (
@@ -70,7 +117,7 @@ function RootLayoutInner() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
@@ -79,3 +126,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

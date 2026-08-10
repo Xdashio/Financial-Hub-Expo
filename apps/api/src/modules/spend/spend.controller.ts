@@ -1,12 +1,10 @@
-import { Controller, Post, Get, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { SpendService } from './spend.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import { SpendCheckDto } from './dto/spend-check.dto';
 
 @ApiTags('Spend')
 @Controller('spend')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class SpendController {
   constructor(private readonly spendService: SpendService) {}

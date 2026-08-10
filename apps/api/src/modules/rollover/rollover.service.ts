@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import { PushDeliveryService } from '../notifications/push-delivery.service';
 import {
   CAP_DAILY_OVERSPEND,
   CAP_DAILY_ROLLOVER_SUCCESS,
@@ -58,9 +59,12 @@ export interface RolloverRunResult {
 
 @Injectable()
 export class RolloverService {
+  private readonly logger = new Logger(RolloverService.name);
+
   constructor(
     private readonly repository: SupabaseRepository,
     private readonly disciplineScore: DisciplineScoreService,
+    private readonly pushDelivery: PushDeliveryService,
   ) {}
 
   async runForUser(userId: string, now = new Date()): Promise<RolloverRunResult> {
@@ -129,6 +133,15 @@ export class RolloverService {
     const milestoneAwarded = await this.maybeAwardMilestone(userId, streakBeforeMilestone);
     const streak = milestoneAwarded ? await this.getStreak(userId, now) : streakBeforeMilestone;
 
+    // Batch 7: fire-and-forget pushes. Failures must not fail the rollover.
+    await this.dispatchRolloverPushes(userId, dayResults, latestAmount, milestoneAwarded).catch(
+      (err) => {
+        this.logger.warn(
+          `rollover push dispatch failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      },
+    );
+
     return {
       days: dayResults,
       totalAmount,
@@ -136,6 +149,32 @@ export class RolloverService {
       streak,
       milestoneAwarded,
     };
+  }
+
+  private async dispatchRolloverPushes(
+    userId: string,
+    dayResults: RolloverDayResult[],
+    latestAmount: number,
+    milestoneAwarded: number | null,
+  ): Promise<void> {
+    if (milestoneAwarded != null) {
+      await this.pushDelivery.notifyStreakMilestone(
+        userId,
+        milestoneAwarded,
+        new Date().toISOString().slice(0, 10),
+      );
+    }
+
+    const latestSuccess = [...dayResults]
+      .reverse()
+      .find((d) => !d.skipped && d.eventType === EVENT_DAILY_ROLLOVER_SUCCESS && d.amount > 0);
+    if (latestSuccess && latestAmount > 0) {
+      await this.pushDelivery.notifyRolloverSuccess(
+        userId,
+        latestSuccess.date,
+        latestSuccess.amount,
+      );
+    }
   }
 
   async getStreak(userId: string, now = new Date()): Promise<StreakSummary> {

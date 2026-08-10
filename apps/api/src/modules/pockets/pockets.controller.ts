@@ -1,11 +1,9 @@
-import { Controller, Get, Put, Post, Param, Body, UseGuards, Request, Query } from '@nestjs/common';
+import { Controller, Get, Put, Post, Param, Body, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PocketsService } from './pockets.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 
 @ApiTags('Pockets')
 @Controller('pockets')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class PocketsController {
   constructor(private readonly pocketsService: PocketsService) {}

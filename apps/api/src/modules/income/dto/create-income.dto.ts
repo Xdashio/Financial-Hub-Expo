@@ -1,4 +1,4 @@
-import { IsNumber, IsString, IsBoolean, IsEnum, IsOptional, IsDateString, Min } from 'class-validator';
+import { IsNumber, IsString, IsBoolean, IsEnum, IsOptional, IsDateString, Min, MaxLength, MinLength } from 'class-validator';
 
 export class CreateIncomeDto {
   @IsNumber()
@@ -17,4 +17,11 @@ export class CreateIncomeDto {
 
   @IsBoolean()
   run_allocation: boolean;
+
+  /** Client-generated key so a timeout+retry does not double-credit income. */
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  @MaxLength(128)
+  idempotency_key?: string;
 }

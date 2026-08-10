@@ -9,6 +9,10 @@ import { useDataSync } from '@/services/data-sync';
 import { reallocationsApi } from '@/services/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, Card, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
+import {
+  scheduleCoolingOffReminder,
+  showReallocationConfirm,
+} from '@/services/notifications';
 
 type ReviewParams = {
   fromId: string;
@@ -106,6 +110,9 @@ export default function ReallocReviewScreen() {
         // Money hasn't actually moved yet — undo the optimistic update so
         // Home doesn't show a transfer that's still pending approval.
         rollbackOptimisticUpdate(snapshot);
+        if (created.cooling_off_ends_at) {
+          void scheduleCoolingOffReminder(created.id, created.cooling_off_ends_at, amount);
+        }
         router.replace({
           pathname: '/(modals)/realloc-cooloff',
           params: {
@@ -120,7 +127,8 @@ export default function ReallocReviewScreen() {
       }
 
       // status === 'pending' — nothing blocks it, complete immediately.
-      const completed = await reallocationsApi.complete(created.id, {});
+      await reallocationsApi.complete(created.id, {});
+      void showReallocationConfirm(amount, fromPocket.name, toPocket.name);
       useDataSync.getState().bump();
       router.replace({
         pathname: '/(modals)/realloc-success',

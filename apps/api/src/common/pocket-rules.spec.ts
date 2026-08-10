@@ -1,4 +1,4 @@
-import { Pocket } from '../database/database.types';
+import type { Pocket } from '../database/database.types';
 import {
   getAllowedCategoriesForPocket,
   isEssentialPocket,

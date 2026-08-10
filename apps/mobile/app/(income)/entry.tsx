@@ -5,10 +5,12 @@ import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { incomeApi } from '@/services/api';
+import { incomeApi, createIdempotencyKey } from '@/services/api';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react-native';
+import { showAllocationReceived } from '@/services/notifications';
+import { enqueueWrite } from '@/services/offline-queue';
 
 type Source = 'client_payment' | 'cash' | 'other';
 
@@ -107,6 +109,7 @@ export default function IncomeEntryScreen() {
       snapshot = applyOptimisticDelta(deltas);
     }
 
+    const idempotencyKey = createIdempotencyKey('income');
     try {
       setIsSubmitting(true);
       const result = await incomeApi.createManual({
@@ -115,12 +118,20 @@ export default function IncomeEntryScreen() {
         label: label || undefined,
         date: isoDate,
         run_allocation: runAllocation,
+        idempotency_key: idempotencyKey,
       });
 
       // Reconcile with the server's actual allocation (source of truth —
       // the preview can drift from it, e.g. if pockets changed between
       // preview and submit) rather than trusting the optimistic guess.
       useDataSync.getState().bump();
+
+      if (result.allocation.triggered && result.allocation.total_allocated > 0) {
+        void showAllocationReceived(
+          result.allocation.total_allocated,
+          result.allocation.allocations.length,
+        );
+      }
 
       router.replace({
         pathname: '/(income)/success',
@@ -134,7 +145,25 @@ export default function IncomeEntryScreen() {
       });
     } catch (error: any) {
       if (snapshot) rollbackOptimisticUpdate(snapshot);
-      alert('Couldn\u2019t add income', error?.message || 'Please try again.');
+      const message = error?.message || 'Please try again.';
+      const looksNetwork =
+        /network|fetch|timeout|failed to fetch|network request failed/i.test(String(message));
+      if (looksNetwork) {
+        await enqueueWrite('/income/manual', {
+          amount: numericAmount,
+          source,
+          label: label || undefined,
+          date: isoDate,
+          run_allocation: runAllocation,
+          idempotency_key: idempotencyKey,
+        });
+        alert(
+          'Saved offline',
+          'We could not reach the server. This income entry will retry automatically when you are back online.',
+        );
+      } else {
+        alert('Couldn\u2019t add income', message);
+      }
     } finally {
       setIsSubmitting(false);
     }

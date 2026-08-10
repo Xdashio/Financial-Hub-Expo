@@ -7,6 +7,11 @@ import { useTheme } from '@/theme/ThemeContext';
 import { Bell, ToggleRight, LucideIcon } from 'lucide-react-native';
 import { Card, useMakeStyles, LoadingState, ErrorState } from '@/components/ui';
 import { notificationsApi } from '@/services/api';
+import {
+  clearNotificationPreferencesCache,
+  registerForPushNotifications,
+  requestNotificationPermissions,
+} from '@/services/notifications';
 
 // Define the theme shape if not imported from your UI library
 interface Theme {
@@ -87,6 +92,12 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     loadPreferences();
+    // Ask for OS permission when the user opens the settings screen — more
+    // contextual than a cold-start prompt, and re-registers the push token
+    // if permission was newly granted.
+    void requestNotificationPermissions().then((granted) => {
+      if (granted) void registerForPushNotifications();
+    });
   }, []);
 
   const loadPreferences = async () => {
@@ -114,6 +125,7 @@ export default function NotificationsScreen() {
     try {
       setIsUpdating(true);
       const { preferences: saved } = await notificationsApi.updateSettings({ [key]: value });
+      clearNotificationPreferencesCache();
       setPreferences(saved);
     } catch (error) {
       console.error('Error updating preference:', error);
@@ -259,7 +271,7 @@ export default function NotificationsScreen() {
               <NotificationToggle
                 icon={Bell}
                 title="Savings milestones"
-                description="Celebrate when you reach savings goals"
+                description="Celebrate streak milestones, daily rollovers, and income allocations"
                 value={preferences.savings_milestones}
                 onToggle={(value) => updatePreference('savings_milestones', value)}
               />

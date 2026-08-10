@@ -8,16 +8,13 @@ import {
   Body,
   HttpCode,
   HttpStatus,
-  UseGuards,
   Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 
 @ApiTags('Profile')
 @Controller('profile')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}

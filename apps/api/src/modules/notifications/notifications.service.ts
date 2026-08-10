@@ -1,14 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
-
-const DEFAULT_PREFERENCES = {
-  reallocation_confirms: true,
-  cooling_off_reminders: true,
-  savings_milestones: true,
-  monthly_insights: false,
-  tips_nudges: false,
-};
+import { DEFAULT_NOTIFICATION_PREFERENCES } from './notification.constants';
 
 @Injectable()
 export class NotificationsService {
@@ -33,7 +26,7 @@ export class NotificationsService {
       // so there's nothing to persist. Reflect that with is_default rather
       // than silently writing a row on every read.
       return {
-        preferences: { ...DEFAULT_PREFERENCES },
+        preferences: { ...DEFAULT_NOTIFICATION_PREFERENCES },
         user_id: userId,
         updated_at: null,
         is_default: true,

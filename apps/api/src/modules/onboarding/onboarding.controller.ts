@@ -1,7 +1,6 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { OnboardingService } from './onboarding.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import {
   OnboardingAssignResult,
   OnboardingCommitResult,
@@ -9,7 +8,6 @@ import {
 
 @ApiTags('Onboarding')
 @Controller('onboarding')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class OnboardingController {
   constructor(private readonly onboardingService: OnboardingService) {}
