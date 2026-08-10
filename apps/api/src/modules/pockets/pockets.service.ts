@@ -233,7 +233,7 @@ export class PocketsService {
       merchant_scope: {
         allowed_categories: allowedCategories,
         blocked_categories: blockedCategories,
-        classification_mode: pocket.kind === 'fixed' ? 'strict' : 'permissive',
+        classification_mode: this.isEssentialPocket(pocket) ? 'strict' : 'permissive',
         unclassified_handling: 'ask_once'
       },
       saved_classifications: classifications.map(c => ({
@@ -245,18 +245,36 @@ export class PocketsService {
     };
   }
 
+  // Kept in sync with SpendService's copy of the same rules (see the
+  // comment there for why pocket.category, not just pocket.kind, has to
+  // gate this — a category-scoped 'spendable' pocket like Food & Groceries
+  // must not get the same permissive allowance as a discretionary one like
+  // Personal & Leisure).
+  private static readonly ALL_MERCHANT_CATEGORIES = [
+    'grocery', 'landlord_rent', 'utility', 'transport', 'healthcare',
+    'education', 'entertainment', 'gambling_betting', 'personal_care', 'other',
+  ];
+
   private getAllowedCategoriesForPocket(pocket: Pocket): string[] {
     if (pocket.kind === 'fixed') {
       return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education'];
+    }
+    if (pocket.category === 'food') {
+      return ['grocery'];
+    }
+    if (pocket.category === 'transport') {
+      return ['transport'];
     }
     return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'other'];
   }
 
   private getBlockedCategoriesForPocket(pocket: Pocket): string[] {
-    if (pocket.kind === 'fixed') {
-      return ['gambling_betting', 'entertainment'];
-    }
-    return ['gambling_betting'];
+    const allowed = this.getAllowedCategoriesForPocket(pocket);
+    return PocketsService.ALL_MERCHANT_CATEGORIES.filter(c => !allowed.includes(c));
+  }
+
+  private isEssentialPocket(pocket: Pocket): boolean {
+    return pocket.kind === 'fixed' || pocket.category === 'food' || pocket.category === 'transport';
   }
 
   async unlockPocket(

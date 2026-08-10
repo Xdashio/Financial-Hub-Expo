@@ -83,7 +83,7 @@ export class SpendService {
           blocked_category: dto.category,
           pocket_type: pocket.kind,
           message: `${this.getCategoryDisplayName(dto.category)} can't be paid from ${pocket.name}`,
-          review_available: pocket.kind !== 'fixed',
+          review_available: !this.isEssentialPocket(pocket),
           pocket: {
             id: pocket.id,
             name: pocket.name,
@@ -123,7 +123,7 @@ export class SpendService {
           blocked_category: classification.category,
           pocket_type: pocket.kind,
           message: `${this.getCategoryDisplayName(classification.category)} can't be paid from ${pocket.name}`,
-          review_available: pocket.kind !== 'fixed',
+          review_available: !this.isEssentialPocket(pocket),
           pocket: {
             id: pocket.id,
             name: pocket.name,
@@ -169,8 +169,18 @@ export class SpendService {
       category: dto.category || null,
     });
 
+    // result.pocket.available_balance was computed by checkSpend() *before*
+    // this transaction was written, so it's the pre-spend balance. Re-read
+    // the ledger now so the caller (and the "Spend logged" confirmation
+    // modal) gets the true post-spend balance instead of a stale figure.
+    const postSpendSummary = await this.repository.getPocketSummary(dto.pocket_id);
+
     return {
       ...result,
+      pocket: {
+        ...result.pocket,
+        available_balance: postSpendSummary.available,
+      },
       transaction_id: transaction?.id,
     };
   }
@@ -201,8 +211,8 @@ export class SpendService {
       pocket_kind: pocket.kind,
       blocked_categories: blockedCategories.map(category => ({
         category,
-        reason: pocket.kind === 'fixed' ? 'Essential pocket protection' : 'Savings protection',
-        can_override: pocket.kind !== 'fixed',
+        reason: this.isEssentialPocket(pocket) ? 'Essential pocket protection' : 'Savings protection',
+        can_override: !this.isEssentialPocket(pocket),
       })),
       allowed_categories: allowedCategories,
     };
@@ -225,18 +235,49 @@ export class SpendService {
     return new Date(pocket.lock_until).getTime() > Date.now();
   }
 
+  // All merchant categories a pocket could ever be scoped to (excludes the
+  // internal-only 'unclassified' bucket, which is never an allow/block target).
+  private static readonly ALL_MERCHANT_CATEGORIES = [
+    'grocery', 'landlord_rent', 'utility', 'transport', 'healthcare',
+    'education', 'entertainment', 'gambling_betting', 'personal_care', 'other',
+  ];
+
   private getBlockedCategoriesForPocket(pocket: Pocket): string[] {
-    if (pocket.kind === 'fixed') {
-      return ['gambling_betting', 'entertainment'];
-    }
-    return ['gambling_betting'];
+    const allowed = this.getAllowedCategoriesForPocket(pocket);
+    return SpendService.ALL_MERCHANT_CATEGORIES.filter(c => !allowed.includes(c));
   }
 
+  // A pocket's own category (food/transport/leisure, set at onboarding —
+  // see onboarding.service.ts SPENDABLE_CATEGORIES) must scope what it can
+  // pay out to, per PRD.md §3.5: "Essential pockets (Food, Rent) can only
+  // pay out to matching merchant categories." Previously this only branched
+  // on pocket.kind === 'fixed', so every 'spendable' pocket — food, transport,
+  // *and* leisure alike — got the same permissive rule and could pay
+  // entertainment/personal_care/other out of a pocket funded for groceries.
+  // That let money notionally set aside for essentials cover discretionary
+  // spend with nothing stopping it (fixed pockets kept their own rule).
   private getAllowedCategoriesForPocket(pocket: Pocket): string[] {
     if (pocket.kind === 'fixed') {
       return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education'];
     }
+    if (pocket.category === 'food') {
+      return ['grocery'];
+    }
+    if (pocket.category === 'transport') {
+      return ['transport'];
+    }
+    // Leisure/other discretionary spendable pockets, and savings: broad,
+    // never-gambling allowance (gambling_betting is excluded here and
+    // therefore always ends up in getBlockedCategoriesForPocket()).
     return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'other'];
+  }
+
+  // Essential pockets get a hard block on blacklisted categories (no
+  // override); discretionary pockets get a soft warning the user can
+  // review past — see PRD.md §3.5. "Essential" = the fixed-expenses
+  // pocket, plus category-scoped food/transport pockets.
+  private isEssentialPocket(pocket: Pocket): boolean {
+    return pocket.kind === 'fixed' || pocket.category === 'food' || pocket.category === 'transport';
   }
 
   private getCategoryDisplayName(category: string): string {
