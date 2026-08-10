@@ -35,7 +35,8 @@
     "helmet": "^8.3.0",
     "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1",
-    "uuid": "9"
+    "uuid": "9",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
@@ -45,6 +46,7 @@
     "@types/jest": "^29.5.11",
     "@types/node": "^20.10.6",
     "@types/uuid": "9",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.56.0",
