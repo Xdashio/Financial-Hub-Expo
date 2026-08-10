@@ -113,6 +113,8 @@ export const insightsApi = {
     api.get<Array<{ date: string; count: number; points: number }>>(
       `/insights/activity-heatmap?range=${range}`
     ),
+  getActivityHeatmapDay: (date: string) =>
+    api.get<any[]>(`/insights/activity-heatmap/day?date=${date}`),
 };
 
 export const profileApi = {

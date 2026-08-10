@@ -50,4 +50,12 @@ export class InsightsController {
     const r = range === 'week' || range === 'year' ? range : 'month';
     return this.insightsService.getActivityHeatmap(req.user.id, r);
   }
+
+  @Get('activity-heatmap/day')
+  @ApiOperation({ summary: 'Get the actual behavior events for one calendar day of the heatmap' })
+  @ApiResponse({ status: 200, description: 'Events for the given UTC calendar day, oldest first' })
+  @ApiQuery({ name: 'date', required: true, type: String, description: 'YYYY-MM-DD' })
+  getActivityHeatmapDay(@Request() req: any, @Query('date') date: string): Promise<BehaviorEvent[]> {
+    return this.insightsService.getEventsForDay(req.user.id, date);
+  }
 }
