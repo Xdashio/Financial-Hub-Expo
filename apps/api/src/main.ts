@@ -89,11 +89,13 @@ async function bootstrap() {
     SwaggerModule.setup('docs', app, document);
   }
 
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  logger.log(`API running on http://localhost:${port}`);
+  // Railway (and most PaaS) healthchecks hit the container from outside
+  // localhost — bind all interfaces or the check fails with "service unavailable".
+  const port = Number(process.env.PORT) || 3000;
+  await app.listen(port, '0.0.0.0');
+  logger.log(`API running on http://0.0.0.0:${port}`);
   if (docsEnabled) {
-    logger.log(`Swagger docs at http://localhost:${port}/docs`);
+    logger.log(`Swagger docs at http://0.0.0.0:${port}/docs`);
   }
 }
 bootstrap();
