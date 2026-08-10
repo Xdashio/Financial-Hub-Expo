@@ -6,6 +6,7 @@ import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { useAuthStore } from '@/services/auth';
 import { supabase } from '@/config/supabase.config';
+import { API_BASE_URL } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight } from 'lucide-react-native';
@@ -86,9 +87,6 @@ export default function ResultScreen() {
       // Check pockets API directly without calling checkHasPlan to avoid overriding optimistic state
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
-        const API_BASE_URL = __DEV__
-          ? (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api')
-          : 'https://api.financialhub.app/api';
         // NOTE: this is a one-off verification fetch — for all other API
         // calls use the shared api.ts client which reads the same env var.
         const res = await fetch(`${API_BASE_URL}/pockets`, {

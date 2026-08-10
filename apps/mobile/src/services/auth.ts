@@ -4,13 +4,9 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from '@/config/supabase.config';
+import { API_BASE_URL } from '@/config/api';
 
-// Base URL for API calls — mirrors the resolution logic in api.ts.
-// On native dev builds, set EXPO_PUBLIC_API_URL to your ngrok URL;
-// localhost resolves to the device itself, not your dev machine.
-const API_BASE_URL = !__DEV__
-  ? 'https://api.financialhub.app/api'
-  : (process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api');
+// Base URL for API calls — see src/config/api.ts (EXPO_PUBLIC_API_URL).
 
 // expo-secure-store has no web implementation (it throws
 // "getValueWithKeyAsync is not a function" there), so on web we fall back to
