@@ -13,6 +13,9 @@ import {
   DisciplineScore, DisciplineScoreInsert,
   MerchantReport, MerchantReportInsert,
   NotificationPreferences, NotificationPreferencesUpdate,
+  PushToken, PushTokenInsert,
+  NotificationDeliveryInsert,
+  IdempotencyRecord, IdempotencyRecordInsert, IdempotencyScope,
 } from '../database/database.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -745,5 +748,163 @@ export class SupabaseRepository {
       .single();
     if (insertError) throw insertError;
     return inserted;
+  }
+
+  // Push tokens (Batch 7)
+  async upsertPushToken(token: PushTokenInsert): Promise<PushToken | null> {
+    const updatedAt = new Date().toISOString();
+
+    // If this Expo token was previously registered to a *different* user
+    // (device re-login / account switch), delete the stale row first so we
+    // never silently reassign another account's push channel via upsert.
+    const { data: existing, error: existingError } = await this.supabase
+      .from('push_tokens')
+      .select('id, user_id')
+      .eq('token', token.token)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing && existing.user_id !== token.user_id) {
+      const { error: deleteError } = await this.supabase
+        .from('push_tokens')
+        .delete()
+        .eq('id', existing.id);
+      if (deleteError) throw deleteError;
+    }
+
+    const { data, error } = await this.supabase
+      .from('push_tokens')
+      .upsert(
+        { ...token, updated_at: updatedAt },
+        { onConflict: 'token' },
+      )
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getPushTokensByUserId(userId: string): Promise<PushToken[]> {
+    const { data, error } = await this.supabase
+      .from('push_tokens')
+      .select('*')
+      .eq('user_id', userId);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async listUserIdsWithPushTokens(): Promise<string[]> {
+    const { data, error } = await this.supabase
+      .from('push_tokens')
+      .select('user_id');
+    if (error) throw error;
+    return [...new Set((data || []).map((row: { user_id: string }) => row.user_id))];
+  }
+
+  async deletePushToken(userId: string, token: string): Promise<boolean> {
+    const { error, count } = await this.supabase
+      .from('push_tokens')
+      .delete({ count: 'exact' })
+      .eq('user_id', userId)
+      .eq('token', token);
+    if (error) throw error;
+    return (count ?? 0) > 0;
+  }
+
+  async deletePushTokenByValue(token: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('push_tokens')
+      .delete()
+      .eq('token', token);
+    if (error) throw error;
+  }
+
+  /**
+   * Insert-or-no-op for delivery dedupe. Returns true when this process
+   * claimed the (user, kind, dedupe_key) slot; false if it already existed.
+   */
+  async tryClaimNotificationDelivery(
+    delivery: NotificationDeliveryInsert,
+  ): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from('notification_deliveries')
+      .insert(delivery)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      // Unique violation → already delivered (or another worker claimed it).
+      if (error.code === '23505') return false;
+      throw error;
+    }
+    return Boolean(data);
+  }
+
+  async deleteNotificationDelivery(
+    userId: string,
+    kind: string,
+    dedupeKey: string,
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('notification_deliveries')
+      .delete()
+      .eq('user_id', userId)
+      .eq('kind', kind)
+      .eq('dedupe_key', dedupeKey);
+    if (error) throw error;
+  }
+
+  async getCoolingOffReallocationsEndingBetween(
+    windowStartIso: string,
+    windowEndIso: string,
+  ): Promise<Reallocation[]> {
+    const { data, error } = await this.supabase
+      .from('reallocations')
+      .select('*')
+      .eq('status', 'cooling_off')
+      .gte('cooling_off_ends_at', windowStartIso)
+      .lte('cooling_off_ends_at', windowEndIso);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async resolveUserIdForPocket(pocketId: string): Promise<string | null> {
+    const pocket = await this.getPocketById(pocketId);
+    if (!pocket) return null;
+    const plan = await this.getPlanById(pocket.plan_id);
+    return plan?.user_id ?? null;
+  }
+
+  // Idempotency (income / spend retries)
+  async getIdempotencyRecord(
+    userId: string,
+    scope: IdempotencyScope,
+    key: string,
+  ): Promise<IdempotencyRecord | null> {
+    const { data, error } = await this.supabase
+      .from('idempotency_records')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('scope', scope)
+      .eq('idempotency_key', key)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async saveIdempotencyRecord(
+    record: IdempotencyRecordInsert,
+  ): Promise<IdempotencyRecord | null> {
+    const { data, error } = await this.supabase
+      .from('idempotency_records')
+      .insert(record)
+      .select()
+      .single();
+    if (error) {
+      // Race: another request with the same key won — surface as null so
+      // the caller re-reads the winning record.
+      if (error.code === '23505') return null;
+      throw error;
+    }
+    return data;
   }
 }

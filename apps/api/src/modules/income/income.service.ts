@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateIncomeDto, AllocatePreviewDto } from './dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
@@ -7,12 +7,16 @@ import { RunwaySummary } from '@financial-hub/shared';
 import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 import { MIN_SAVINGS_RATE } from '../onboarding/rules-engine';
+import { PushDeliveryService } from '../notifications/push-delivery.service';
 
 @Injectable()
 export class IncomeService {
+  private readonly logger = new Logger(IncomeService.name);
+
   constructor(
     private readonly repository: SupabaseRepository,
     private readonly runway: RunwayService,
+    private readonly pushDelivery: PushDeliveryService,
   ) {}
 
   async allocatePreview(dto: AllocatePreviewDto, userId: string): Promise<{
@@ -81,7 +85,22 @@ export class IncomeService {
     // { applicable: false } for salaried/mix/structured plans. See
     // docs/FREELANCER_RUNWAY.md.
     runway: RunwaySummary;
+    idempotent_replay?: boolean;
   }> {
+    if (dto.idempotency_key) {
+      const existing = await this.repository.getIdempotencyRecord(
+        userId,
+        'income',
+        dto.idempotency_key,
+      );
+      if (existing?.response) {
+        return {
+          ...(existing.response as any),
+          idempotent_replay: true,
+        };
+      }
+    }
+
     const plan = await this.repository.getActivePlanByUserId(userId);
     if (!plan) {
       throw new BadRequestException('No active plan found. Please complete onboarding first.');
@@ -154,6 +173,21 @@ export class IncomeService {
         total_allocated: allocations.reduce((sum, a) => sum + a.amount, 0),
         unallocated: dto.amount - allocations.reduce((sum, a) => sum + a.amount, 0),
       };
+
+      if (allocation.total_allocated > 0) {
+        await this.pushDelivery
+          .notifyAllocationReceived(
+            userId,
+            createdIncomeEvent.id,
+            allocation.total_allocated,
+            allocation.allocations.length,
+          )
+          .catch((err) => {
+            this.logger.warn(
+              `allocation push failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+      }
     }
 
     // Recompute runway now that this income event exists, and — for
@@ -175,11 +209,34 @@ export class IncomeService {
       }
     }
 
-    return {
+    const result = {
       income_event: createdIncomeEvent,
       allocation,
       runway,
     };
+
+    if (dto.idempotency_key) {
+      const saved = await this.repository.saveIdempotencyRecord({
+        id: uuidv4(),
+        user_id: userId,
+        scope: 'income',
+        idempotency_key: dto.idempotency_key,
+        resource_id: createdIncomeEvent.id,
+        response: result as unknown as Record<string, unknown>,
+      });
+      if (!saved) {
+        const raced = await this.repository.getIdempotencyRecord(
+          userId,
+          'income',
+          dto.idempotency_key,
+        );
+        if (raced?.response) {
+          return { ...(raced.response as any), idempotent_replay: true };
+        }
+      }
+    }
+
+    return result;
   }
 
   private calculateAllocationsBasedOnProportions(

@@ -69,6 +69,8 @@ describe('SpendService.commitSpend', () => {
       getPlanById: jest.fn().mockResolvedValue({ id: 'plan-1', user_id: 'user-1' }),
       getPocketSummary: jest.fn().mockResolvedValue(makePocketSummary()),
       getMerchantClassification: jest.fn().mockResolvedValue(null),
+      getIdempotencyRecord: jest.fn().mockResolvedValue(null),
+      saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
       createTransaction: jest.fn().mockImplementation((tx) => ({ id: 'tx-1', ...tx })),
       getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
       getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([['pocket-1', 500]])),

@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import { PushDeliveryService } from '../notifications/push-delivery.service';
 import { Pocket, Reallocation } from '../../database/database.types';
 import {
   ReallocationInputSchema,
@@ -25,9 +26,12 @@ const SKIP_COOLING_OFF_COST = 5;
 
 @Injectable()
 export class ReallocationsService {
+  private readonly logger = new Logger(ReallocationsService.name);
+
   constructor(
     private readonly repo: SupabaseRepository,
     private readonly disciplineScore: DisciplineScoreService,
+    private readonly pushDelivery: PushDeliveryService,
   ) {}
 
   async create(userId: string, input: unknown): Promise<Reallocation> {
@@ -172,6 +176,20 @@ export class ReallocationsService {
     if (disciplineCost > 0) {
       await this.applyDisciplineCost(userId, disciplineCost);
     }
+
+    await this.pushDelivery
+      .notifyReallocationConfirm(
+        userId,
+        updated.id,
+        updated.amount,
+        fromPocket.name,
+        toPocket.name,
+      )
+      .catch((err) => {
+        this.logger.warn(
+          `reallocation confirm push failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      });
 
     return updated;
   }

@@ -1,4 +1,4 @@
-import { Pocket } from '../database/database.types';
+import type { Pocket } from '../database/database.types';
 
 // Single source of truth for "what merchant categories can this pocket pay
 // out to". Previously duplicated (and drifting) across SpendService and

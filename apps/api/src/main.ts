@@ -1,7 +1,11 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import helmet from 'helmet';
+import * as Sentry from '@sentry/nestjs';
 import { AppModule } from './app.module';
+
+const logger = new Logger('Bootstrap');
 
 // Comma-separated allowlist, e.g. "https://app.example.com,http://localhost:8081".
 // Falls back to FRONTEND_URL, then to the local Expo dev server.
@@ -14,9 +18,18 @@ function corsOrigins(): string[] {
 }
 
 async function bootstrap() {
+  if (process.env.SENTRY_DSN) {
+    Sentry.init({
+      dsn: process.env.SENTRY_DSN,
+      environment: process.env.NODE_ENV || 'development',
+      tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    });
+  }
+
   const app = await NestFactory.create(AppModule);
   const isProduction = process.env.NODE_ENV === 'production';
 
+  app.use(helmet());
   app.setGlobalPrefix('api');
 
   const staticOrigins = corsOrigins();
@@ -41,7 +54,13 @@ async function bootstrap() {
       callback(new Error(`CORS: origin "${origin}" not allowed`), false);
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type', 'ngrok-skip-browser-warning'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'ngrok-skip-browser-warning',
+      'Idempotency-Key',
+      'X-Idempotency-Key',
+    ],
     credentials: true,
   });
 
@@ -72,9 +91,9 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
-  console.log(`[API] API running on http://localhost:${port}`);
+  logger.log(`API running on http://localhost:${port}`);
   if (docsEnabled) {
-    console.log(`[DOCS] Swagger docs at http://localhost:${port}/docs`);
+    logger.log(`Swagger docs at http://localhost:${port}/docs`);
   }
 }
 bootstrap();

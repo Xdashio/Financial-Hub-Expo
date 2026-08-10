@@ -1,11 +1,9 @@
-import { Controller, Post, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Get, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import { RolloverService } from './rollover.service';
 
 @ApiTags('Rollover')
 @Controller('income/rollover')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class RolloverController {
   constructor(private readonly rolloverService: RolloverService) {}

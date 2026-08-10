@@ -444,3 +444,68 @@ export interface NotificationPreferencesUpdate {
   tips_nudges?: boolean;
   updated_at?: string;
 }
+
+// Expo push device tokens (Batch 7)
+export interface PushToken {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: 'ios' | 'android' | 'web';
+  device_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PushTokenInsert {
+  id?: string;
+  user_id: string;
+  token: string;
+  platform: 'ios' | 'android' | 'web';
+  device_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface NotificationDelivery {
+  id: string;
+  user_id: string;
+  kind: string;
+  dedupe_key: string;
+  title: string | null;
+  body: string | null;
+  data: Record<string, unknown>;
+  sent_at: string;
+}
+
+export interface NotificationDeliveryInsert {
+  id?: string;
+  user_id: string;
+  kind: string;
+  dedupe_key: string;
+  title?: string | null;
+  body?: string | null;
+  data?: Record<string, unknown>;
+  sent_at?: string;
+}
+
+export type IdempotencyScope = 'income' | 'spend';
+
+export interface IdempotencyRecord {
+  id: string;
+  user_id: string;
+  scope: IdempotencyScope;
+  idempotency_key: string;
+  resource_id: string | null;
+  response: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface IdempotencyRecordInsert {
+  id?: string;
+  user_id: string;
+  scope: IdempotencyScope;
+  idempotency_key: string;
+  resource_id?: string | null;
+  response?: Record<string, unknown>;
+  created_at?: string;
+}

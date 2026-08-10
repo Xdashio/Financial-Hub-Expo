@@ -9,6 +9,7 @@ import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
+import { showReallocationConfirm } from '@/services/notifications';
 
 type CooloffParams = {
   reallocationId: string;
@@ -69,6 +70,11 @@ export default function ReallocCooloffScreen() {
       setIsResolving(true);
       try {
         await reallocationsApi.complete(params.reallocationId, { skipCoolingOff });
+        void showReallocationConfirm(
+          Number(params.amount) || 0,
+          params.fromName,
+          params.toName,
+        );
         useDataSync.getState().bump();
         await refreshData();
         goToSuccess();

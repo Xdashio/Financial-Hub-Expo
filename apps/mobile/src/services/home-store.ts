@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { pocketsApi, insightsApi, rolloverApi } from '@/services/api';
 import { RunwaySummary } from '@financial-hub/shared';
+import { showMilestoneCelebration, showRolloverSuccess } from '@/services/notifications';
 
 export interface Pocket {
   id: string;
@@ -113,6 +114,15 @@ async function runRolloverIfNeeded(): Promise<{
     if (lastRun !== todayUtc) {
       const result = await rolloverApi.run();
       await AsyncStorage.setItem(ROLLOVER_THROTTLE_KEY, todayUtc);
+
+      // Batch 7: local celebration when this device just ran rollover.
+      // Server also attempts Expo push for backgrounded devices.
+      if (result.milestoneAwarded != null) {
+        void showMilestoneCelebration(result.milestoneAwarded);
+      } else if ((result.latestAmount ?? 0) > 0) {
+        void showRolloverSuccess(result.latestAmount);
+      }
+
       const status = await rolloverApi.status().catch(() => null);
       return {
         latestAmount: result.latestAmount ?? 0,

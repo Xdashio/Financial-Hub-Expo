@@ -54,6 +54,10 @@ describe('RolloverService.runForUser', () => {
     service = new RolloverService(
       repository as unknown as SupabaseRepository,
       disciplineScore as unknown as DisciplineScoreService,
+      {
+        notifyStreakMilestone: jest.fn().mockResolvedValue({ sent: false }),
+        notifyRolloverSuccess: jest.fn().mockResolvedValue({ sent: false }),
+      } as any,
     );
   });
 

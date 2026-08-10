@@ -142,7 +142,12 @@ export default function RetakeCheckinScreen() {
       const [planRes, fixedRes, eligibility] = await Promise.all([
         profileApi.getPlan().catch(() => null),
         profileApi.getFixedExpenses().catch(() => []),
-        profileApi.getRetakeEligibility().catch(() => ({ allowed: true, nextRetakeAvailableOn: null, lastRetakenAt: null })),
+        profileApi.getRetakeEligibility().catch(() => ({
+          allowed: true,
+          nextRetakeAvailableOn: null as string | null,
+          lastRetakenAt: null as string | null,
+          message: undefined as string | undefined,
+        })),
       ]);
       if (!eligibility.allowed) {
         setEligibilityBlocked({

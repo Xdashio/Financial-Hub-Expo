@@ -1,12 +1,10 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MerchantService } from './merchant.service';
-import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
 import { ClassifyDto } from './dto/classify.dto';
 
 @ApiTags('Merchant')
 @Controller('merchant')
-@UseGuards(SupabaseAuthGuard)
 @ApiBearerAuth()
 export class MerchantController {
   constructor(private readonly merchantService: MerchantService) {}

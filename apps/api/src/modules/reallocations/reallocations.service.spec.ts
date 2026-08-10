@@ -4,6 +4,7 @@ import { NotFoundException, ForbiddenException, BadRequestException } from '@nes
 import { ReallocationsService } from './reallocations.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import { PushDeliveryService } from '../notifications/push-delivery.service';
 
 jest.mock('../../database/supabase.repository');
 jest.mock('../../config/supabase.config');
@@ -89,6 +90,13 @@ describe('ReallocationsService', () => {
         ReallocationsService,
         DisciplineScoreService,
         { provide: SupabaseRepository, useValue: repo },
+        {
+          provide: PushDeliveryService,
+          useValue: {
+            notifyReallocationConfirm: jest.fn().mockResolvedValue({ sent: false }),
+            notifyCoolingOffReady: jest.fn().mockResolvedValue({ sent: false }),
+          },
+        },
       ],
     }).compile();
 

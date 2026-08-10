@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { IncomeService } from './income.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { RunwayService } from '../runway/runway.service';
+import type { PushDeliveryService } from '../notifications/push-delivery.service';
 import type { CreateIncomeDto } from './dto';
 
 const PLAN = { id: 'plan-1', user_id: 'user-1', type: 'structured', income_pattern: 'salaried', status: 'active', created_at: 'x', reassigned_at: null };
@@ -12,13 +13,15 @@ const POCKETS = [
 ];
 
 function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
-  'getActivePlanByUserId' | 'getPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket'
+  'getActivePlanByUserId' | 'getPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord'
 >>> = {}) {
   return {
     getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN),
     getPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS.map(p => ({ ...p }))),
     createIncomeEvent: jest.fn().mockImplementation((event) => ({ ...event })),
     createTransactions: jest.fn().mockResolvedValue([]),
+    getIdempotencyRecord: jest.fn().mockResolvedValue(null),
+    saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
     updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
     ...overrides,
   } as unknown as jest.Mocked<SupabaseRepository>;
@@ -34,6 +37,14 @@ function makeRunway(overrides: Partial<jest.Mocked<Pick<RunwayService, 'getRunwa
   } as unknown as jest.Mocked<RunwayService>;
 }
 
+function makePush(overrides: Partial<jest.Mocked<Pick<PushDeliveryService, 'notifyAllocationReceived'>>> = {}) {
+  return {
+    notifyAllocationReceived: jest.fn().mockResolvedValue({ sent: false }),
+    ...overrides,
+  } as unknown as jest.Mocked<PushDeliveryService>;
+}
+
+
 const BASE_DTO: CreateIncomeDto = {
   amount: 4000,
   source: 'client_payment',
@@ -45,21 +56,21 @@ const BASE_DTO: CreateIncomeDto = {
 describe('IncomeService.createManualIncome', () => {
   it('throws when there is no active plan', async () => {
     const repository = makeRepository({ getActivePlanByUserId: jest.fn().mockResolvedValue(null) });
-    const service = new IncomeService(repository, makeRunway());
+    const service = new IncomeService(repository, makeRunway(), makePush());
 
     await expect(service.createManualIncome(BASE_DTO, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('throws when the plan has no pockets', async () => {
     const repository = makeRepository({ getPocketsByPlanId: jest.fn().mockResolvedValue([]) });
-    const service = new IncomeService(repository, makeRunway());
+    const service = new IncomeService(repository, makeRunway(), makePush());
 
     await expect(service.createManualIncome(BASE_DTO, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('creates the income event regardless of run_allocation', async () => {
     const repository = makeRepository();
-    const service = new IncomeService(repository, makeRunway());
+    const service = new IncomeService(repository, makeRunway(), makePush());
 
     await service.createManualIncome({ ...BASE_DTO, run_allocation: false }, 'user-1');
 
@@ -70,7 +81,7 @@ describe('IncomeService.createManualIncome', () => {
 
   it('does not touch pocket balances when run_allocation is false', async () => {
     const repository = makeRepository();
-    const service = new IncomeService(repository, makeRunway());
+    const service = new IncomeService(repository, makeRunway(), makePush());
 
     const result = await service.createManualIncome({ ...BASE_DTO, run_allocation: false }, 'user-1');
 
@@ -81,7 +92,7 @@ describe('IncomeService.createManualIncome', () => {
 
   it('splits income across pockets by their proportional share (C5 fix)', async () => {
     const repository = makeRepository();
-    const service = new IncomeService(repository, makeRunway());
+    const service = new IncomeService(repository, makeRunway(), makePush());
 
     // Pre-existing total monthly_allocation across pockets is 4000
     // (1000 savings + 3000 food), so a 4000 income event should split
@@ -108,7 +119,7 @@ describe('IncomeService.createManualIncome', () => {
         POCKETS.map(p => ({ ...p, monthly_allocation: 0 }))
       ),
     });
-    const service = new IncomeService(repository, makeRunway());
+    const service = new IncomeService(repository, makeRunway(), makePush());
 
     const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
@@ -121,7 +132,7 @@ describe('IncomeService.createManualIncome', () => {
 
   it('still creates ledger transactions for the allocation event', async () => {
     const repository = makeRepository();
-    const service = new IncomeService(repository, makeRunway());
+    const service = new IncomeService(repository, makeRunway(), makePush());
 
     await service.createManualIncome(BASE_DTO, 'user-1');
 
@@ -136,7 +147,7 @@ describe('IncomeService.createManualIncome', () => {
   it('returns { applicable: false } and never touches daily_cap for salaried plans', async () => {
     const repository = makeRepository();
     const runway = makeRunway();
-    const service = new IncomeService(repository, runway);
+    const service = new IncomeService(repository, runway, makePush());
 
     const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
@@ -159,7 +170,7 @@ describe('IncomeService.createManualIncome', () => {
         confidence: 'historical',
       }),
     });
-    const service = new IncomeService(repository, runway);
+    const service = new IncomeService(repository, runway, makePush());
 
     const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
@@ -182,7 +193,7 @@ describe('IncomeService.createManualIncome', () => {
     const runway = makeRunway({
       getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: true, runwayDays: 8, confidence: 'estimate' }),
     });
-    const service = new IncomeService(repository, runway);
+    const service = new IncomeService(repository, runway, makePush());
 
     await service.createManualIncome({ ...BASE_DTO, run_allocation: false }, 'user-1');
 
@@ -209,7 +220,7 @@ describe('IncomeService.createManualIncome', () => {
       const repository = makeRepository({
         getPocketsByPlanId: jest.fn().mockResolvedValue(LOW_SAVINGS_POCKETS.map(p => ({ ...p }))),
       });
-      const service = new IncomeService(repository, makeRunway());
+      const service = new IncomeService(repository, makeRunway(), makePush());
 
       const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
@@ -233,7 +244,7 @@ describe('IncomeService.createManualIncome', () => {
       const repository = makeRepository({
         getPocketsByPlanId: jest.fn().mockResolvedValue(NO_SAVINGS_POCKETS.map(p => ({ ...p }))),
       });
-      const service = new IncomeService(repository, makeRunway());
+      const service = new IncomeService(repository, makeRunway(), makePush());
 
       const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
@@ -249,7 +260,7 @@ describe('IncomeService.createManualIncome', () => {
       // Default POCKETS fixture: savings is 25% proportionally, well above
       // the floor, so its amount should be untouched by the top-up branch.
       const repository = makeRepository();
-      const service = new IncomeService(repository, makeRunway());
+      const service = new IncomeService(repository, makeRunway(), makePush());
 
       const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
@@ -269,7 +280,7 @@ describe('IncomeService.createManualIncome', () => {
       const repository = makeRepository({
         getPocketsByPlanId: jest.fn().mockResolvedValue(MULTI_SAVINGS_POCKETS.map(p => ({ ...p }))),
       });
-      const service = new IncomeService(repository, makeRunway());
+      const service = new IncomeService(repository, makeRunway(), makePush());
 
       const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
