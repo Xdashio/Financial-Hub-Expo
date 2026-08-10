@@ -2,6 +2,16 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const index_1 = require("../index");
 describe('Shared Schemas - Pack 1', () => {
+    describe('PocketCategorySchema', () => {
+        it('accepts housing and family (Batch 2 category expansion)', () => {
+            expect(index_1.PocketCategorySchema.parse('housing')).toBe('housing');
+            expect(index_1.PocketCategorySchema.parse('family')).toBe('family');
+            expect(index_1.PocketCategorySchema.parse('education')).toBe('education');
+        });
+        it('rejects unknown categories', () => {
+            expect(() => index_1.PocketCategorySchema.parse('rent')).toThrow();
+        });
+    });
     describe('UserSchema', () => {
         it('validates a correct user', () => {
             const user = {

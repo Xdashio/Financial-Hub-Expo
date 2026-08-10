@@ -12,17 +12,17 @@ import {
   HeartPulse,
   MoreHorizontal,
   Package,
+  Users,
   LucideIcon,
 } from 'lucide-react-native';
 
 // The fixed_expenses.category column is deliberately coarse (see
-// apps/api DB schema: 'food' | 'transport' | 'leisure' | 'personal' |
-// 'utilities' | 'healthcare' | 'education' | 'other') and isn't persisted
-// with any per-item icon — every utility bill (rent, electricity, water,
-// internet) shares the single 'utilities' category. Icon-by-category alone
-// therefore renders every one of those with the same icon. This resolves
-// by matching keywords in the expense's own name first, and only falls
-// back to a broad per-category icon when nothing matches.
+// apps/api DB schema / PocketCategorySchema) and isn't persisted with any
+// per-item icon — every utility bill (electricity, water, internet) can
+// share 'utilities', while rent now uses 'housing'. Icon-by-category alone
+// therefore isn't distinctive enough. This resolves by matching keywords
+// in the expense's own name first, and only falls back to a broad
+// per-category icon when nothing matches.
 const NAME_KEYWORDS: Array<{ keywords: string[]; icon: LucideIcon }> = [
   { keywords: ['rent', 'mortgage', 'landlord'], icon: Home },
   { keywords: ['electric', 'power', 'kplc'], icon: Zap },
@@ -35,6 +35,7 @@ const NAME_KEYWORDS: Array<{ keywords: string[]; icon: LucideIcon }> = [
   { keywords: ['health', 'medical', 'hospital', 'insurance', 'nhif', 'sha'], icon: HeartPulse },
   { keywords: ['salon', 'barber', 'personal care'], icon: Scissors },
   { keywords: ['entertainment', 'movie', 'cinema'], icon: Film },
+  { keywords: ['family', 'dependent', 'upkeep', 'remittance'], icon: Users },
 ];
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -42,7 +43,9 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   transport: Bus,
   leisure: Film,
   personal: Scissors,
-  utilities: Home,
+  utilities: Zap,
+  housing: Home,
+  family: Users,
   healthcare: HeartPulse,
   education: GraduationCap,
   other: MoreHorizontal,

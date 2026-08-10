@@ -106,10 +106,14 @@ export const useAuthStore = create<AuthState>()(
       hasPlan: false,
       isCheckingPlan: false,
 
-      // Calls GET /api/pockets with the current session token.
-      // Sets hasPlan=true if the user already has at least one pocket (i.e. completed onboarding).
+      // Calls GET /api/profile/plan with the current session token.
+      // Sets hasPlan=true when an active plan exists (onboarding completed).
       // Sets isCheckingPlan while the request is in flight so index.tsx can show a spinner
       // instead of briefly flashing the wrong route.
+      //
+      // Important: only set hasPlan=false after a confirmed "no plan" response.
+      // Network / 5xx / auth blips must NOT demote existing users into onboarding —
+      // that was sending returning users back through income/habits every launch.
       checkHasPlan: async () => {
         set({ isCheckingPlan: true });
         try {
@@ -118,37 +122,55 @@ export const useAuthStore = create<AuthState>()(
             set({ hasPlan: false, isCheckingPlan: false });
             return;
           }
-          
-          // Add retry logic for database persistence delays
+
+          // Short retry for post-commit races (plan row not visible yet).
           const maxRetries = 5;
           const retryDelay = 200;
-          
+          // null = never got a conclusive 200; true/false = last conclusive result
+          let lastKnown: boolean | null = null;
+
           for (let i = 0; i < maxRetries; i++) {
-            const res = await fetch(`${API_BASE_URL}/pockets`, {
-              headers: { Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': 'true' },
-            });
-            
-            if (res.ok) {
-              const pockets: any[] = await res.json();
-              const hasPockets = Array.isArray(pockets) && pockets.length > 0;
-              
-              if (hasPockets) {
-                set({ hasPlan: true, isCheckingPlan: false });
-                return;
+            try {
+              const res = await fetch(`${API_BASE_URL}/profile/plan`, {
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                  'ngrok-skip-browser-warning': 'true',
+                },
+              });
+
+              if (!res.ok) {
+                // 401/5xx — inconclusive, keep trying / fall through to preserve cache
+              } else {
+                const plan = await res.json();
+                const hasActivePlan =
+                  plan != null && typeof plan === 'object' && typeof plan.id === 'string';
+
+                if (hasActivePlan) {
+                  set({ hasPlan: true, isCheckingPlan: false });
+                  return;
+                }
+
+                lastKnown = false;
               }
+            } catch {
+              // Network error — inconclusive
             }
-            
-            // Only retry if not the last attempt
+
             if (i < maxRetries - 1) {
               await new Promise<void>((resolve) => setTimeout(resolve, retryDelay * (i + 1)));
             }
           }
-          
-          // All retries failed
-          set({ hasPlan: false, isCheckingPlan: false });
+
+          if (lastKnown === false) {
+            set({ hasPlan: false, isCheckingPlan: false });
+            return;
+          }
+
+          // No conclusive response — keep cached hasPlan so a flaky hop
+          // doesn't bounce existing users into onboarding.
+          set({ isCheckingPlan: false });
         } catch {
-          // Network error — default to no plan so user isn't stuck
-          set({ hasPlan: false, isCheckingPlan: false });
+          set({ isCheckingPlan: false });
         }
       },
 
@@ -430,34 +452,55 @@ export const useAuthStore = create<AuthState>()(
       name: 'auth-storage',
       storage: createJSONStorage(() => ({
         getItem: async (name) => {
-          if (name === 'auth-storage') {
-            const data = await storageAdapter.getItem(name);
-            return data ? JSON.parse(data) : null;
+          const data = await storageAdapter.getItem(name);
+          if (!data) return null;
+          // Legacy adapter double-stringified values. If parse yields a
+          // string, that's the real createJSONStorage payload; otherwise
+          // the value is already in the correct string form.
+          try {
+            const parsed = JSON.parse(data);
+            return typeof parsed === 'string' ? parsed : data;
+          } catch {
+            return data;
           }
-          return null;
         },
         setItem: async (name, value) => {
-          if (name === 'auth-storage') {
-            await storageAdapter.setItem(name, JSON.stringify(value));
-          }
+          // createJSONStorage already JSON.stringifies — store as-is.
+          await storageAdapter.setItem(name, value);
         },
         removeItem: async (name) => {
-          if (name === 'auth-storage') {
-            await storageAdapter.removeItem(name);
-          }
+          await storageAdapter.removeItem(name);
         },
       })),
+      // Persist hasPlan as a cache so a transient API failure on cold start
+      // doesn't wipe a known-good plan. Never persist isCheckingPlan — a
+      // stuck true would block routing forever after a crash mid-check.
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
         hasPlan: state.hasPlan,
-        isCheckingPlan: state.isCheckingPlan,
       }),
     }
   )
 );
 
-// Initialize auth state on app start
+async function waitForAuthHydration(): Promise<void> {
+  const persistApi = useAuthStore.persist;
+  if (persistApi.hasHydrated()) return;
+  await new Promise<void>((resolve) => {
+    const unsub = persistApi.onFinishHydration(() => {
+      unsub();
+      resolve();
+    });
+  });
+}
+
+// Initialize auth state on app start.
+// Hydration must finish first: if restoreSession ran before persist rehydrated,
+// a stale hasPlan:false from storage could overwrite a fresh successful check
+// and send existing users back into onboarding.
 export async function initializeAuth() {
+  await waitForAuthHydration();
+  useAuthStore.setState({ isCheckingPlan: true });
   await useAuthStore.getState().restoreSession();
 }

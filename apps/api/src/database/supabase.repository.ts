@@ -117,6 +117,17 @@ export class SupabaseRepository {
     if (error) throw error;
   }
 
+  /** Deactivate every active plan for the user except `exceptPlanId`. */
+  async deactivateUserPlansExcept(userId: string, exceptPlanId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('plans')
+      .update({ status: 'inactive' })
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .neq('id', exceptPlanId);
+    if (error) throw error;
+  }
+
   // Pockets
   async createPockets(pockets: PocketInsert[]): Promise<Pocket[]> {
     const { data, error } = await this.supabase
@@ -308,6 +319,20 @@ export class SupabaseRepository {
     return data;
   }
 
+  async updateTransaction(
+    id: string,
+    updates: { category?: string | null; pocket_id?: string },
+  ): Promise<Transaction | null> {
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   async getPocketSummary(pocketId: string): Promise<{
     allocated: number;
     spent: number;
@@ -324,9 +349,10 @@ export class SupabaseRepository {
     ]);
 
     // Ledger-based balance:
-    //   Credits  — allocation (income landed), reallocation_in (money moved in)
-    //   Debits   — spend (money out), reallocation_out (money moved out, stored as
-    //              negative amounts in the ledger so we sum them directly)
+    //   Credits  — allocation (income landed), reallocation_in (money moved in),
+    //              rollover with positive amount (e.g. daily unspent into Savings)
+    //   Debits   — spend (money out), reallocation_out (negative amounts summed),
+    //              rollover with negative amount (daily unspent leaving a spendable)
     // monthly_allocation on the pocket row is a planning ceiling only and is
     // never mutated after onboarding — balances are always derived from here.
     const allocated = transactions
@@ -344,7 +370,14 @@ export class SupabaseRepository {
       .filter(t => t.type === 'reallocation_out')
       .reduce((sum, t) => sum + t.amount, 0); // amounts are negative
 
-    const available = allocated + reallocatedOut - spent; // reallocatedOut is negative, so this is: allocated - |reallocatedOut| - spent
+    // Daily under-cap rollover (Batch 6): signed amounts — negative leaves a
+    // spendable pocket, positive lands in Savings. Zero-amount placeholder
+    // rows (early unlock audit) are no-ops.
+    const rolloverNet = transactions
+      .filter(t => t.type === 'rollover')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const available = allocated + reallocatedOut - spent + rolloverNet;
 
     const transactionCount = transactions.length;
     const reallocationCount = (reallocations.data || []).length;
@@ -570,6 +603,70 @@ export class SupabaseRepository {
       .order('created_at', { ascending: true });
     if (error) throw error;
     return data || [];
+  }
+
+  /** Behavior events of specific types since a timestamp (for streak / idempotency). */
+  async getBehaviorEventsByTypesSince(
+    userId: string,
+    types: string[],
+    sinceIso: string,
+  ): Promise<BehaviorEvent[]> {
+    if (types.length === 0) return [];
+    const { data, error } = await this.supabase
+      .from('behavior_events')
+      .select('*')
+      .eq('user_id', userId)
+      .in('type', types)
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  /**
+   * Spend totals keyed by pocket_id for transactions in [start, end).
+   * Only type='spend' rows are summed (positive amounts).
+   */
+  async getSpendTotalsByPocketBetween(
+    pocketIds: string[],
+    startIso: string,
+    endIsoExclusive: string,
+  ): Promise<Map<string, number>> {
+    const totals = new Map<string, number>();
+    for (const id of pocketIds) totals.set(id, 0);
+    if (pocketIds.length === 0) return totals;
+
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .select('pocket_id, amount')
+      .in('pocket_id', pocketIds)
+      .eq('type', 'spend')
+      .gte('created_at', startIso)
+      .lt('created_at', endIsoExclusive);
+    if (error) throw error;
+
+    for (const row of data || []) {
+      totals.set(row.pocket_id, (totals.get(row.pocket_id) || 0) + Number(row.amount));
+    }
+    return totals;
+  }
+
+  /** Sum of positive rollover credits into a pocket this calendar month (UTC). */
+  async getRolloverCreditsForPocketBetween(
+    pocketId: string,
+    startIso: string,
+    endIsoExclusive: string,
+  ): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .select('amount')
+      .eq('pocket_id', pocketId)
+      .eq('type', 'rollover')
+      .gt('amount', 0)
+      .gte('created_at', startIso)
+      .lt('created_at', endIsoExclusive);
+    if (error) throw error;
+    return (data || []).reduce((sum, row) => sum + Number(row.amount), 0);
   }
 
   // Discipline Scores

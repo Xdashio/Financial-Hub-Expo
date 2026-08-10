@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -15,6 +15,8 @@ exports.PocketCategorySchema = zod_1.z.enum([
     'utilities',
     'healthcare',
     'education',
+    'housing',
+    'family',
     'other',
 ]);
 exports.IncomePatternSchema = zod_1.z.enum(['salaried', 'freelancer', 'mix']);
@@ -75,6 +77,16 @@ exports.PlanStatusSchema = zod_1.z.enum(['active', 'inactive', 'reassigned']);
 // ============================================================================
 // Onboarding Schemas - Pack 2 Specification
 // ============================================================================
+exports.LifeStageSchema = zod_1.z.enum(['student', 'working_adult', 'self_employed']);
+exports.EmergencyBufferSchema = zod_1.z.enum([
+    'none',
+    'under_month',
+    '1_to_3_months',
+    '3_plus_months',
+]);
+/** Behavioral self-check — modifier layer, not a plan-type driver (§2.3). */
+exports.MoneyPersonalitySchema = zod_1.z.enum(['spender', 'saver', 'avoider']);
+exports.NeedsBandSchema = zod_1.z.enum(['high', 'mid', 'low']);
 exports.FixedExpenseInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     amount: zod_1.z.number().positive(),
@@ -92,10 +104,19 @@ exports.OnboardingInputSchema = zod_1.z.object({
     // message can be freelancer-specific) when incomePattern is 'freelancer'.
     // Ignored for 'salaried'/'mix'.
     incomeIntervalBand: exports.IncomeIntervalBandSchema.optional(),
+    // Persona / deeper onboarding (Batches 3–4). Optional so older clients
+    // keep working; provisioner + rules engine apply safe defaults.
+    lifeStage: exports.LifeStageSchema.optional(),
+    hasDependents: zod_1.z.boolean().optional(),
+    emergencyBuffer: exports.EmergencyBufferSchema.optional(),
+    moneyPersonality: exports.MoneyPersonalitySchema.optional(),
 });
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
     reason: zod_1.z.string(),
+    // Numeric context for "why this plan" templates (§2.6).
+    needsRatio: zod_1.z.number().nonnegative().optional(),
+    needsBand: exports.NeedsBandSchema.optional(),
 });
 exports.OnboardingAssignResultSchema = zod_1.z.object({
     plan: exports.PlanNameSchema,
@@ -105,6 +126,8 @@ exports.OnboardingAssignResultSchema = zod_1.z.object({
     remainingAfterFixed: zod_1.z.number(),
     savingsTarget: zod_1.z.number(),
     spendableAmount: zod_1.z.number(),
+    needsRatio: zod_1.z.number().nonnegative(),
+    needsBand: exports.NeedsBandSchema,
 });
 exports.OnboardingCommitResultSchema = zod_1.z.object({
     planId: zod_1.z.string().uuid(),
@@ -116,6 +139,37 @@ exports.OnboardingCommitResultSchema = zod_1.z.object({
         monthlyAllocation: zod_1.z.number().nonnegative(),
         dailyCap: zod_1.z.number().nonnegative().optional(),
     })),
+});
+/** Why a balance moved from an old pocket to a new one during plan retake. */
+exports.RedistributionReasonSchema = zod_1.z.enum([
+    'category_match',
+    'kind_match',
+    'proportional',
+    'spillover',
+]);
+exports.RedistributionMovementSchema = zod_1.z.object({
+    fromPocketName: zod_1.z.string(),
+    toPocketName: zod_1.z.string(),
+    amount: zod_1.z.number().nonnegative(),
+    reason: exports.RedistributionReasonSchema,
+});
+exports.PlanRedistributionSchema = zod_1.z.object({
+    totalMoved: zod_1.z.number().nonnegative(),
+    movements: zod_1.z.array(exports.RedistributionMovementSchema),
+    previousPlanType: exports.PlanTypeSchema,
+    newPlanType: exports.PlanTypeSchema,
+    nextRetakeAvailableOn: zod_1.z.string(), // ISO date (YYYY-MM-DD) — first day of next UTC month
+});
+/** Result of POST /profile/plan/retake — commit shape plus money-migration summary. */
+exports.PlanRetakeResultSchema = exports.OnboardingCommitResultSchema.extend({
+    redistribution: exports.PlanRedistributionSchema,
+});
+/** GET /profile/plan/retake-eligibility — gates the Profile retake CTA. */
+exports.RetakeEligibilitySchema = zod_1.z.object({
+    allowed: zod_1.z.boolean(),
+    nextRetakeAvailableOn: zod_1.z.string().nullable(),
+    lastRetakenAt: zod_1.z.string().nullable(),
+    message: zod_1.z.string().optional(),
 });
 // ============================================================================
 // Runway (freelancer adaptive daily budget) — see docs/FREELANCER_RUNWAY.md
@@ -258,6 +312,10 @@ exports.schemas = {
     PocketCategory: exports.PocketCategorySchema,
     IncomePattern: exports.IncomePatternSchema,
     SpendingHabit: exports.SpendingHabitSchema,
+    LifeStage: exports.LifeStageSchema,
+    EmergencyBuffer: exports.EmergencyBufferSchema,
+    MoneyPersonality: exports.MoneyPersonalitySchema,
+    NeedsBand: exports.NeedsBandSchema,
     PlanName: exports.PlanNameSchema,
     TransactionType: exports.TransactionTypeSchema,
     ReallocationStatus: exports.ReallocationStatusSchema,
@@ -268,6 +326,8 @@ exports.schemas = {
     PlanAssignReason: exports.PlanAssignReasonSchema,
     OnboardingAssignResult: exports.OnboardingAssignResultSchema,
     OnboardingCommitResult: exports.OnboardingCommitResultSchema,
+    PlanRetakeResult: exports.PlanRetakeResultSchema,
+    RetakeEligibility: exports.RetakeEligibilitySchema,
     User: exports.UserSchema,
     Plan: exports.PlanSchema,
     Pocket: exports.PocketSchema,

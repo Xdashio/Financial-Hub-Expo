@@ -36,12 +36,20 @@ export class ProfileController {
     return this.profileService.getActivePlan(req.user.id);
   }
 
+  @Get('plan/retake-eligibility')
+  @ApiOperation({ summary: 'Whether the user may retake the behavior check-in this month' })
+  @ApiResponse({ status: 200, description: 'Eligibility and next available date' })
+  getRetakeEligibility(@Request() req: any) {
+    return this.profileService.getRetakeEligibility(req.user.id);
+  }
+
   @Post('plan/retake')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Retake the behavior check-in and re-provision the plan' })
   @ApiBody({ description: 'Updated onboarding answers' })
-  @ApiResponse({ status: 201, description: 'New plan committed with created pockets' })
+  @ApiResponse({ status: 201, description: 'New plan committed with redistributed balances' })
   @ApiResponse({ status: 400, description: 'Invalid onboarding input' })
+  @ApiResponse({ status: 429, description: 'Already retaken this calendar month' })
   retakePlan(@Body() input: unknown, @Request() req: any) {
     return this.profileService.retakePlan(req.user.id, input);
   }

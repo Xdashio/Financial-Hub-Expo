@@ -26,6 +26,8 @@ describe('ProfileService', () => {
 
     onboardingService = {
       commit: jest.fn(),
+      retake: jest.fn(),
+      getRetakeEligibility: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -158,7 +160,7 @@ describe('ProfileService', () => {
     expect(supabaseRepo.deleteFixedExpense).toHaveBeenCalledWith('fe-1');
   });
 
-  it('retakePlan validates input then delegates to OnboardingService.commit', async () => {
+  it('retakePlan validates input then delegates to OnboardingService.retake', async () => {
     const input = {
       incomePattern: 'salaried',
       spendingHabit: 'tracker',
@@ -166,17 +168,53 @@ describe('ProfileService', () => {
       fixedTotal: 15000,
       sourceCount: 1,
     };
-    onboardingService.commit.mockResolvedValue({ planId: 'plan-2', pockets: [] });
+    onboardingService.retake.mockResolvedValue({
+      planId: 'plan-2',
+      pockets: [],
+      redistribution: {
+        totalMoved: 0,
+        movements: [],
+        previousPlanType: 'structured',
+        newPlanType: 'structured',
+        nextRetakeAvailableOn: '2026-09-01',
+      },
+    });
 
     const result = await service.retakePlan('user-123', input);
 
-    expect(onboardingService.commit).toHaveBeenCalledWith(input, 'user-123');
-    expect(result).toEqual({ planId: 'plan-2', pockets: [] });
+    expect(onboardingService.retake).toHaveBeenCalledWith(input, 'user-123');
+    expect(onboardingService.commit).not.toHaveBeenCalled();
+    expect(result.planId).toBe('plan-2');
   });
 
   it('retakePlan rejects invalid onboarding input without touching OnboardingService', async () => {
     await expect(service.retakePlan('user-123', { incomeAmount: -1 })).rejects.toBeInstanceOf(BadRequestException);
-    expect(onboardingService.commit).not.toHaveBeenCalled();
+    expect(onboardingService.retake).not.toHaveBeenCalled();
+  });
+
+  it('getRetakeEligibility delegates to OnboardingService', async () => {
+    onboardingService.getRetakeEligibility.mockResolvedValue({
+      allowed: false,
+      nextRetakeAvailableOn: '2026-09-01',
+      lastRetakenAt: '2026-08-01T00:00:00.000Z',
+      message: 'once per month',
+    });
+
+    const result = await service.getRetakeEligibility('user-123');
+
+    expect(onboardingService.getRetakeEligibility).toHaveBeenCalledWith('user-123');
+    expect(result.allowed).toBe(false);
+  });
+
+  it('getFixedExpenseSuggestions uses correct categories (not miscategorized)', async () => {
+    const result = await service.getFixedExpenseSuggestions('user-123');
+
+    const byName = Object.fromEntries(result.suggestions.map((s) => [s.name, s.category]));
+    expect(byName['Rent']).toBe('housing');
+    expect(byName['Internet']).toBe('utilities');
+    expect(byName['Mobile Data']).toBe('utilities');
+    expect(byName['School Fees']).toBe('education');
+    expect(byName['Electricity']).toBe('utilities');
   });
 
   describe('updateFixedExpenseStatus', () => {

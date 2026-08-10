@@ -78,7 +78,7 @@ export interface Database {
           plan_id: string
           name: string
           kind: 'savings' | 'fixed' | 'spendable'
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other' | null
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
           is_time_locked: boolean
           lock_until: string | null
           monthly_allocation: number
@@ -91,7 +91,7 @@ export interface Database {
           plan_id: string
           name: string
           kind: 'savings' | 'fixed' | 'spendable'
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other' | null
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation: number
@@ -104,7 +104,7 @@ export interface Database {
           plan_id?: string
           name?: string
           kind?: 'savings' | 'fixed' | 'spendable'
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other' | null
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation?: number
@@ -121,7 +121,7 @@ export interface Database {
           name: string
           amount: number
           due_day: number
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other'
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
           status: 'active' | 'inactive'
           created_at: string
           updated_at: string
@@ -132,7 +132,7 @@ export interface Database {
           name: string
           amount: number
           due_day: number
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other'
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
           status?: 'active' | 'inactive'
           created_at?: string
           updated_at?: string
@@ -143,7 +143,7 @@ export interface Database {
           name?: string
           amount?: number
           due_day?: number
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'other'
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
           status?: 'active' | 'inactive'
           created_at?: string
           updated_at?: string
@@ -258,6 +258,7 @@ export interface Database {
           user_id: string
           recipient_key: string
           category: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified'
+          pocket_id: string | null
           remember: boolean
           created_at: string
         }
@@ -266,6 +267,7 @@ export interface Database {
           user_id: string
           recipient_key: string
           category: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified'
+          pocket_id?: string | null
           remember?: boolean
           created_at?: string
         }
@@ -274,6 +276,7 @@ export interface Database {
           user_id?: string
           recipient_key?: string
           category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified'
+          pocket_id?: string | null
           remember?: boolean
           created_at?: string
         }

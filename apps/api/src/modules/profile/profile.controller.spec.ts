@@ -16,7 +16,8 @@ describe('ProfileController', () => {
       createFixedExpense: jest.fn().mockResolvedValue({ id: 'fe-1' }),
       updateFixedExpense: jest.fn().mockResolvedValue({ id: 'fe-1', amount: 2000 }),
       deleteFixedExpense: jest.fn().mockResolvedValue(undefined),
-      retakePlan: jest.fn().mockResolvedValue({ planId: 'plan-2', pockets: [] }),
+      retakePlan: jest.fn().mockResolvedValue({ planId: 'plan-2', pockets: [], redistribution: { totalMoved: 0, movements: [], previousPlanType: 'daily', newPlanType: 'daily', nextRetakeAvailableOn: '2026-09-01' } }),
+      getRetakeEligibility: jest.fn().mockResolvedValue({ allowed: true, nextRetakeAvailableOn: null, lastRetakenAt: null }),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -96,6 +97,15 @@ describe('ProfileController', () => {
     const result = await controller.retakePlan(body, req);
 
     expect(profileService.retakePlan).toHaveBeenCalledWith('user-123', body);
-    expect(result).toEqual({ planId: 'plan-2', pockets: [] });
+    expect(result.planId).toBe('plan-2');
+  });
+
+  it('returns retake eligibility for the authenticated user', async () => {
+    const req = { user: { id: 'user-123' } };
+
+    const result = await controller.getRetakeEligibility(req);
+
+    expect(profileService.getRetakeEligibility).toHaveBeenCalledWith('user-123');
+    expect(result.allowed).toBe(true);
   });
 });

@@ -7,7 +7,7 @@ import { useOnboardingStore } from '@/services/onboarding-store';
 import { useAuthStore } from '@/services/auth';
 import { supabase } from '@/config/supabase.config';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { Button, ScreenContainer, SafeScrollView, ProgressIndicator, SectionTitle } from '@/components/ui';
+import { Button, ScreenContainer, SafeScrollView, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight } from 'lucide-react-native';
 
 export default function ResultScreen() {
@@ -29,8 +29,12 @@ export default function ResultScreen() {
     return null;
   }
 
-  const { plan, planType, incomePattern, reasons, remainingAfterFixed, savingsTarget, spendableAmount } = assignResult;
+  const { plan, planType, incomePattern, reasons, remainingAfterFixed, savingsTarget, spendableAmount, needsRatio, needsBand } = assignResult;
   const incomeAmount = input?.incomeAmount || remainingAfterFixed + savingsTarget + spendableAmount;
+  // Prefer API needsRatio; fall back if an older assign payload omitted it.
+  const displayNeedsPercent = typeof needsRatio === 'number'
+    ? Math.round(needsRatio * 100)
+    : Math.round(((incomeAmount - remainingAfterFixed) / Math.max(incomeAmount, 1)) * 100);
 
   const handleSlideChange = (event: any) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -173,6 +177,10 @@ export default function ResultScreen() {
               <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money plan is ready</Text>
               <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>{plan}</Text>
               <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs, textAlign: 'center' }}>{getPlanTag()}</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm, textAlign: 'center' }}>
+                Fixed costs ≈ {displayNeedsPercent}% of income
+                {needsBand ? ` · ${needsBand} needs band` : ''}
+              </Text>
             </View>
 
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.xl, ...shadow.default, width: '100%' }}>

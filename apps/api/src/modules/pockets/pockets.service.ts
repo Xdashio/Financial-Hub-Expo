@@ -207,6 +207,7 @@ export class PocketsService {
     saved_classifications: Array<{
       recipient_key: string;
       category: string;
+      pocket_id: string | null;
       remember: boolean;
       created_at: string;
     }>;
@@ -220,12 +221,15 @@ export class PocketsService {
     const allowedCategories = getAllowedCategoriesForPocket(pocket);
     const blockedCategories = getBlockedCategoriesForPocket(pocket);
 
-    // Classifications are stored per-user (by recipient), not per-pocket —
-    // there's no pocket_id column on merchant_classifications. "Relevant to
-    // this pocket" means: the user's saved classifications whose category
-    // this pocket kind actually accepts.
+    // Prefer classifications pinned to this pocket; fall back to category-
+    // compatible ones so merchant-scope still shows useful history after
+    // retakes that replaced pocket ids (ON DELETE SET NULL).
     const allClassifications = await this.repository.getMerchantClassificationsByUserId(userId);
-    const classifications = allClassifications.filter(c => allowedCategories.includes(c.category));
+    const classifications = allClassifications.filter(
+      (c) =>
+        c.pocket_id === pocket.id ||
+        (c.pocket_id == null && allowedCategories.includes(c.category)),
+    );
 
     return {
       pocket_id: pocket.id,
@@ -240,6 +244,7 @@ export class PocketsService {
       saved_classifications: classifications.map(c => ({
         recipient_key: c.recipient_key,
         category: c.category,
+        pocket_id: c.pocket_id,
         remember: c.remember,
         created_at: c.created_at
       }))

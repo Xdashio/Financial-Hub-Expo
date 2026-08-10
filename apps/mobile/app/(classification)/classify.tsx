@@ -1,49 +1,84 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { merchantApi, pocketsApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 import {
   ArrowLeft,
   Tag,
   AlertTriangle,
   Check,
-  LucideIcon,
 } from 'lucide-react-native';
+
+type PocketOption = { id: string; name: string; kind: string; category: string | null };
+
+/** Mirrors apps/api pocket-rules getAllowedCategoriesForPocket for UI filtering. */
+function getAllowedCategoriesForPocket(pocket: PocketOption): string[] {
+  if (pocket.kind === 'fixed') {
+    switch (pocket.category) {
+      case 'housing':
+        return ['landlord_rent'];
+      case 'utilities':
+        return ['utility'];
+      case 'education':
+        return ['education'];
+      case 'transport':
+        return ['transport'];
+      case 'healthcare':
+        return ['healthcare'];
+      case 'food':
+        return ['grocery'];
+      case 'family':
+        return ['education', 'healthcare', 'other'];
+      case 'leisure':
+        return ['entertainment', 'personal_care', 'other'];
+      case 'personal':
+        return ['personal_care', 'other'];
+      default:
+        return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education'];
+    }
+  }
+  if (pocket.category === 'food') return ['grocery'];
+  if (pocket.category === 'transport') return ['transport'];
+  if (pocket.category === 'family') return ['education', 'healthcare', 'grocery', 'other'];
+  if (pocket.category === 'housing') return ['landlord_rent', 'utility'];
+  return [
+    'grocery',
+    'landlord_rent',
+    'utility',
+    'transport',
+    'healthcare',
+    'education',
+    'entertainment',
+    'personal_care',
+    'other',
+  ];
+}
 
 export default function ClassificationScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { recipientKey, amount, transactionId } = useLocalSearchParams<{
+  const { recipientKey, amount, transactionId, preferredPocketId } = useLocalSearchParams<{
     recipientKey: string;
     amount: string;
     transactionId: string;
+    preferredPocketId: string;
   }>();
-  
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedPocket, setSelectedPocket] = useState<string | null>(null);
+  const [selectedPocket, setSelectedPocket] = useState<string | null>(preferredPocketId || null);
   const [remember, setRemember] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [pockets, setPockets] = useState<Array<{ id: string; name: string; kind: string }>>([]);
+  const [pockets, setPockets] = useState<PocketOption[]>([]);
   const [isLoadingPockets, setIsLoadingPockets] = useState(true);
   const { alert, modal } = useAlertModal();
 
-  // Mirrors SpendService.getBlockedCategoriesForPocket on the API: fixed
-  // (essential) pockets block gambling + entertainment, every other pocket
-  // kind still blocks gambling. Keeps the picker from ever offering a
-  // pocket the backend would reject the classification for.
-  const getBlockedCategoriesForPocket = (kind: string): string[] => {
-    if (kind === 'fixed') {
-      return ['gambling_betting', 'entertainment'];
-    }
-    return ['gambling_betting'];
-  };
-
   const selectablePockets = selectedCategory
-    ? pockets.filter((p) => !getBlockedCategoriesForPocket(p.kind).includes(selectedCategory))
+    ? pockets.filter((p) => getAllowedCategoriesForPocket(p).includes(selectedCategory))
     : pockets;
 
   const categories = [
@@ -66,7 +101,14 @@ export default function ClassificationScreen() {
     try {
       setIsLoadingPockets(true);
       const data = await pocketsApi.getAll();
-      setPockets(data.map((p: any) => ({ id: p.id, name: p.name, kind: p.kind })));
+      setPockets(
+        data.map((p: any) => ({
+          id: p.id,
+          name: p.name,
+          kind: p.kind,
+          category: p.category ?? null,
+        })),
+      );
     } catch (error) {
       console.error('Error loading pockets:', error);
     } finally {
@@ -91,10 +133,16 @@ export default function ClassificationScreen() {
         amount: amount ? parseFloat(amount) : undefined,
       });
 
-      await alert('Success', 'Classification saved successfully!');
+      useDataSync.getState().bump();
+      await alert(
+        'Success',
+        transactionId
+          ? 'Classification saved and the spend was moved to the pocket you picked.'
+          : 'Classification saved successfully!',
+      );
       router.back();
-    } catch (error) {
-      alert('Error', 'Failed to save classification. Please try again.');
+    } catch (error: any) {
+      alert('Error', error?.message || 'Failed to save classification. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -107,14 +155,13 @@ export default function ClassificationScreen() {
     });
   };
 
-  const formatCurrency = (amount: string) => {
-    return `KES ${parseFloat(amount).toLocaleString()}`;
+  const formatCurrency = (value: string) => {
+    return `KES ${parseFloat(value).toLocaleString()}`;
   };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
-        {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
@@ -124,30 +171,31 @@ export default function ClassificationScreen() {
           </Text>
         </View>
 
-        {/* Context Card */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
-          <View style={{ 
-            padding: spacing.lg, 
-            borderRadius: radius.md, 
-            backgroundColor: colors.surface, 
-            borderWidth: 1, 
-            borderColor: colors.line 
-          }}>
+          <View
+            style={{
+              padding: spacing.lg,
+              borderRadius: radius.md,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.line,
+            }}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-              <View style={{ 
-                width: 40, 
-                height: 40, 
-                borderRadius: radius.md, 
-                backgroundColor: colors.goldTint, 
-                alignItems: 'center', 
-                justifyContent: 'center' 
-              }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.goldTint,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
                 <Tag size={20} color={colors.gold} strokeWidth={2} />
               </View>
               <View style={{ marginLeft: spacing.md, flex: 1 }}>
-                <Text style={{ ...typography.heading, color: colors.ink }}>
-                  {recipientKey}
-                </Text>
+                <Text style={{ ...typography.heading, color: colors.ink }}>{recipientKey}</Text>
                 {amount && (
                   <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
                     {formatCurrency(amount)}
@@ -155,22 +203,25 @@ export default function ClassificationScreen() {
                 )}
               </View>
             </View>
-            <View style={{ 
-              flexDirection: 'row', 
-              alignItems: 'center', 
-              padding: spacing.md, 
-              borderRadius: radius.xs, 
-              backgroundColor: colors.emeraldTint 
-            }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: spacing.md,
+                borderRadius: radius.xs,
+                backgroundColor: colors.emeraldTint,
+              }}
+            >
               <AlertTriangle size={16} color={colors.emeraldDeep} strokeWidth={2} />
-              <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginLeft: spacing.sm }}>
+              <Text
+                style={{ ...typography.caption, color: colors.emeraldDeep, marginLeft: spacing.sm }}
+              >
                 Sort, don't block — just tell us where this payment belongs
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Category Selection */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             What is this for?
@@ -184,45 +235,52 @@ export default function ClassificationScreen() {
                   alignItems: 'center',
                   padding: spacing.md,
                   borderRadius: radius.md,
-                  backgroundColor: selectedCategory === category.id ? colors.emeraldDeep : colors.background,
+                  backgroundColor:
+                    selectedCategory === category.id ? colors.emeraldDeep : colors.background,
                   borderWidth: 1,
                   borderColor: selectedCategory === category.id ? colors.emeraldDeep : colors.line,
                   minWidth: 120,
                 }}
                 onPress={() => {
                   setSelectedCategory(category.id);
-                  // Deselect the pocket if it's no longer eligible for the
-                  // newly picked category (e.g. switching to Entertainment
-                  // after picking an essential/fixed pocket).
                   if (
                     selectedPocket &&
-                    getBlockedCategoriesForPocket(
-                      pockets.find((p) => p.id === selectedPocket)?.kind || ''
+                    !getAllowedCategoriesForPocket(
+                      pockets.find((p) => p.id === selectedPocket) || {
+                        id: '',
+                        name: '',
+                        kind: '',
+                        category: null,
+                      },
                     ).includes(category.id)
                   ) {
                     setSelectedPocket(null);
                   }
                 }}
               >
-                <Text style={{ fontSize: 20, marginRight: spacing.sm }}>
-                  {category.icon}
-                </Text>
-                <Text style={{ 
-                  ...typography.caption, 
-                  color: selectedCategory === category.id ? colors.surface : colors.ink,
-                  marginLeft: spacing.sm 
-                }}>
+                <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{category.icon}</Text>
+                <Text
+                  style={{
+                    ...typography.caption,
+                    color: selectedCategory === category.id ? colors.surface : colors.ink,
+                    marginLeft: spacing.sm,
+                  }}
+                >
                   {category.name}
                 </Text>
                 {selectedCategory === category.id && (
-                  <Check size={16} color={colors.surface} strokeWidth={2} style={{ marginLeft: spacing.sm }} />
+                  <Check
+                    size={16}
+                    color={colors.surface}
+                    strokeWidth={2}
+                    style={{ marginLeft: spacing.sm }}
+                  />
                 )}
               </Pressable>
             ))}
           </View>
         </View>
 
-        {/* Pocket Selection */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
             Which pocket?
@@ -252,28 +310,39 @@ export default function ClassificationScreen() {
               }}
               onPress={() => setSelectedPocket(pocket.id)}
             >
-              <View style={{ 
-                width: 32, 
-                height: 32, 
-                borderRadius: radius.xs, 
-                backgroundColor: selectedPocket === pocket.id ? colors.emeraldDeep + '20' : colors.lineSoft, 
-                alignItems: 'center', 
-                justifyContent: 'center' 
-              }}>
-                <Tag size={16} color={selectedPocket === pocket.id ? colors.emeraldDeep : colors.sage} strokeWidth={2} />
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: radius.xs,
+                  backgroundColor:
+                    selectedPocket === pocket.id ? colors.emeraldDeep + '20' : colors.lineSoft,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Tag
+                  size={16}
+                  color={selectedPocket === pocket.id ? colors.emeraldDeep : colors.sage}
+                  strokeWidth={2}
+                />
               </View>
               <View style={{ marginLeft: spacing.md, flex: 1 }}>
-                <Text style={{ 
-                  ...typography.heading, 
-                  color: selectedPocket === pocket.id ? colors.surface : colors.ink 
-                }}>
+                <Text
+                  style={{
+                    ...typography.heading,
+                    color: selectedPocket === pocket.id ? colors.surface : colors.ink,
+                  }}
+                >
                   {pocket.name}
                 </Text>
-                <Text style={{ 
-                  ...typography.caption, 
-                  color: selectedPocket === pocket.id ? colors.emeraldDeep + '80' : colors.sage,
-                  marginTop: 2 
-                }}>
+                <Text
+                  style={{
+                    ...typography.caption,
+                    color: selectedPocket === pocket.id ? colors.emeraldDeep + '80' : colors.sage,
+                    marginTop: 2,
+                  }}
+                >
                   {pocket.kind}
                 </Text>
               </View>
@@ -284,7 +353,6 @@ export default function ClassificationScreen() {
           ))}
         </View>
 
-        {/* Remember Toggle */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <Pressable
             style={{
@@ -298,14 +366,16 @@ export default function ClassificationScreen() {
             }}
             onPress={() => setRemember(!remember)}
           >
-            <View style={{
-              width: 20,
-              height: 20,
-              borderRadius: radius.xs,
-              backgroundColor: remember ? colors.emeraldDeep : colors.lineSoft,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: radius.xs,
+                backgroundColor: remember ? colors.emeraldDeep : colors.lineSoft,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               {remember && <Check size={14} color={colors.surface} strokeWidth={2} />}
             </View>
             <View style={{ marginLeft: spacing.md, flex: 1 }}>
@@ -319,7 +389,6 @@ export default function ClassificationScreen() {
           </Pressable>
         </View>
 
-        {/* Action Buttons */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <Pressable
             style={{
@@ -335,19 +404,19 @@ export default function ClassificationScreen() {
             disabled={isLoading}
           >
             {isLoading ? (
-              <Text style={{ ...typography.heading, color: colors.surface }}>
-                Saving...
-              </Text>
+              <Text style={{ ...typography.heading, color: colors.surface }}>Saving...</Text>
             ) : (
               <>
                 <Check size={20} color={colors.surface} strokeWidth={2} />
-                <Text style={{ ...typography.heading, color: colors.surface, marginLeft: spacing.sm }}>
+                <Text
+                  style={{ ...typography.heading, color: colors.surface, marginLeft: spacing.sm }}
+                >
                   Save Classification
                 </Text>
               </>
             )}
           </Pressable>
-          
+
           <Pressable
             style={{
               flexDirection: 'row',

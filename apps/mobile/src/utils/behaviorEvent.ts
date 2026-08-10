@@ -48,6 +48,22 @@ export function mapBehaviorEvent(event: any, colors: any): DisplayEvent {
     const desc = payload.points_added ? `+${payload.points_added} discipline points` : 'Lock extended';
     return { title: 'Lock extended', desc, time, color: colors.emerald };
   }
+  if (event.type === 'daily_rollover_success') {
+    const amount = payload.amount != null ? `KES ${Number(payload.amount).toLocaleString()} to Savings` : 'Under-cap day';
+    const pts = payload.points_added ? ` · +${payload.points_added} pts` : '';
+    return { title: 'Daily rollover', desc: `${amount}${pts}`, time, color: colors.emerald };
+  }
+  if (event.type === 'daily_overspend') {
+    const pts = payload.points_deducted ? `−${payload.points_deducted} discipline points` : 'Went over a daily cap';
+    return { title: 'Over daily cap', desc: pts, time, color: colors.clay };
+  }
+  if (event.type === 'streak_milestone') {
+    const desc = payload.days ? `${payload.days}-day under-cap streak` : 'Streak milestone';
+    return { title: 'Streak milestone', desc, time, color: colors.emerald };
+  }
+  if (event.type === 'streak_freeze_used') {
+    return { title: 'Streak freeze used', desc: 'A missed day was covered by your freeze', time, color: colors.gold };
+  }
   if (typeof event.type === 'string' && event.type.startsWith('savings_streak')) {
     const desc = payload.days ? `${payload.days} days without touching Savings pocket` : 'Savings streak continues';
     return { title: 'Savings streak', desc, time, color: colors.emerald };

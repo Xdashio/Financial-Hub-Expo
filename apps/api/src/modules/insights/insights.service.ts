@@ -1,7 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { BehaviorEvent } from '../../database/database.types';
-import { DEFAULT_SCORE } from '../discipline-score/discipline-score.service';
+import { DEFAULT_SCORE } from '../discipline-score/discipline-score.constants';
+import { RolloverService } from '../rollover/rollover.service';
+import type { StreakSummary } from '../rollover/streak';
 
 export interface DisciplineScoreResult {
   score: number;
@@ -10,11 +12,9 @@ export interface DisciplineScoreResult {
 
 // A freshly onboarded user has no behavioral history yet, so there's
 // nothing to penalize - start at full marks with no movement. Imports
-// DEFAULT_SCORE from DisciplineScoreService rather than hardcoding its own
-// copy of 100 — this used to be a second, independent literal that could
-// silently drift from the one DisciplineScoreService actually uses to seed
-// applyDelta(), which would make this endpoint and every score-mutating
-// action disagree about a fresh user's starting score.
+// DEFAULT_SCORE from the shared constants module (same literal
+// DisciplineScoreService uses) so this endpoint and every score-mutating
+// action cannot silently drift apart on a fresh user's starting score.
 const DEFAULT_DISCIPLINE_SCORE: DisciplineScoreResult = { score: DEFAULT_SCORE, delta: 0 };
 
 const BEHAVIOR_EVENTS_LIMIT = 20;
@@ -33,7 +33,10 @@ export interface HeatmapDay {
 
 @Injectable()
 export class InsightsService {
-  constructor(private readonly supabaseRepo: SupabaseRepository) {}
+  constructor(
+    private readonly supabaseRepo: SupabaseRepository,
+    private readonly rolloverService: RolloverService,
+  ) {}
 
   async getDisciplineScore(userId: string): Promise<DisciplineScoreResult> {
     const latest = await this.supabaseRepo.getLatestDisciplineScore(userId);
@@ -41,6 +44,10 @@ export class InsightsService {
       return DEFAULT_DISCIPLINE_SCORE;
     }
     return { score: latest.score, delta: latest.delta };
+  }
+
+  async getStreak(userId: string): Promise<StreakSummary> {
+    return this.rolloverService.getStreak(userId);
   }
 
   async getBehaviorEvents(userId: string): Promise<BehaviorEvent[]> {

@@ -13,7 +13,9 @@ export default function Index() {
   const isCheckingPlan = useAuthStore((state) => state.isCheckingPlan);
   const recoverOnboarding = useOnboardingStore((state: any) => state.recoverState);
 
-  // Add recovery for interrupted onboarding
+  // Recovery for interrupted first-time onboarding only. Existing users with
+  // an active plan are gated above / in (onboarding)/_layout and must not be
+  // pulled back into the income → habits flow by leftover local draft state.
   React.useEffect(() => {
     if (isAuthenticated && !isCheckingPlan && !hasPlan) {
       recoverOnboarding();

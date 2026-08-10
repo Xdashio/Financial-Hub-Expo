@@ -46,7 +46,7 @@ export default function BlockedSpendScreen() {
       params: {
         recipientKey: merchant,
         amount,
-        transactionId: '',
+        preferredPocketId: pocketId,
       },
     });
   };

@@ -1,4 +1,5 @@
 import { DisciplineScoreService } from './discipline-score.service';
+import { DEFAULT_SCORE } from './discipline-score.constants';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 
 function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository, 'getLatestDisciplineScore' | 'upsertDisciplineScore'>>> = {}) {
@@ -11,11 +12,11 @@ function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository, 
 
 describe('DisciplineScoreService', () => {
   describe('getCurrentScore', () => {
-    it('defaults to 100 when the user has no score history', async () => {
+    it('defaults to DEFAULT_SCORE when the user has no score history', async () => {
       const repo = makeRepository();
       const service = new DisciplineScoreService(repo);
 
-      await expect(service.getCurrentScore('user-1')).resolves.toBe(100);
+      await expect(service.getCurrentScore('user-1')).resolves.toBe(DEFAULT_SCORE);
     });
 
     it('returns the latest persisted score when history exists', async () => {

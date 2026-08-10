@@ -31,17 +31,22 @@ export default function CurrentPlanScreen() {
   const [pockets, setPockets] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [retakeAllowed, setRetakeAllowed] = React.useState(true);
+  const [retakeNextOn, setRetakeNextOn] = React.useState<string | null>(null);
 
   const load = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setLoadError(null);
-      const [planRes, pocketsRes] = await Promise.all([
+      const [planRes, pocketsRes, eligibility] = await Promise.all([
         profileApi.getPlan(),
         pocketsApi.getAll().catch(() => []),
+        profileApi.getRetakeEligibility().catch(() => ({ allowed: true, nextRetakeAvailableOn: null, lastRetakenAt: null })),
       ]);
       setPlan(planRes);
       setPockets(Array.isArray(pocketsRes) ? pocketsRes : []);
+      setRetakeAllowed(eligibility.allowed);
+      setRetakeNextOn(eligibility.nextRetakeAvailableOn);
     } catch (e) {
       console.error('CurrentPlan load error:', e);
       setLoadError('Failed to load your plan. Please try again.');
@@ -155,7 +160,11 @@ export default function CurrentPlanScreen() {
           )}
 
           <Pressable
-            onPress={() => router.push('/(profile)/retake-checkin')}
+            onPress={() => {
+              if (!retakeAllowed) return;
+              router.push('/(profile)/retake-checkin');
+            }}
+            disabled={!retakeAllowed}
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -166,10 +175,17 @@ export default function CurrentPlanScreen() {
               borderRadius: radius.md,
               borderWidth: 1,
               borderColor: colors.line,
+              opacity: retakeAllowed ? 1 : 0.5,
             }}
           >
             <Briefcase size={16} color={colors.ink} strokeWidth={2} />
-            <Text style={{ ...typography.heading, color: colors.ink }}>Retake behavior check-in</Text>
+            <Text style={{ ...typography.heading, color: colors.ink }}>
+              {retakeAllowed
+                ? 'Retake behavior check-in'
+                : retakeNextOn
+                  ? `Retake available ${retakeNextOn}`
+                  : 'Retake locked this month'}
+            </Text>
           </Pressable>
         </ScrollView>
       )}

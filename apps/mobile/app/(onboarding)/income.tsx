@@ -101,10 +101,10 @@ export default function IncomeScreen() {
     <ScreenContainer>
       <SafeScrollView>
         <BrandHeader />
-        <ProgressIndicator currentStep={1} totalSteps={4} />
+        <ProgressIndicator currentStep={1} totalSteps={5} />
 
         <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 1 of 4 — Income</Text>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 1 of 5 — Income</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>How does your income usually arrive?</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>This shapes how your money gets split. There&apos;s no wrong answer — it just tunes the plan.</Text>
         </View>

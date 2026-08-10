@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { OnboardingService } from './onboarding.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { OnboardingInput } from '@financial-hub/shared';
@@ -6,12 +6,18 @@ import type { OnboardingInput } from '@financial-hub/shared';
 function makeRepository(overrides: Partial<jest.Mocked<SupabaseRepository>> = {}) {
   return {
     deactivateUserPlans: jest.fn().mockResolvedValue(undefined),
+    deactivateUserPlansExcept: jest.fn().mockResolvedValue(undefined),
     createPlan: jest.fn().mockImplementation((plan) => ({ ...plan })),
+    updatePlan: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
     createPockets: jest.fn().mockImplementation((pockets) => pockets),
     createFixedExpense: jest.fn().mockResolvedValue({ id: 'fe-1' }),
     deleteFixedExpensesByUserId: jest.fn().mockResolvedValue(undefined),
     createTransactions: jest.fn().mockResolvedValue([]),
     createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'event-1' }),
+    getActivePlanByUserId: jest.fn().mockResolvedValue(null),
+    getPocketsByPlanId: jest.fn().mockResolvedValue([]),
+    getPocketSummary: jest.fn().mockResolvedValue({ available: 0, allocated: 0, spent: 0, transactionCount: 0, reallocationCount: 0 }),
+    getBehaviorEventsByUserId: jest.fn().mockResolvedValue([]),
     ...overrides,
   } as unknown as jest.Mocked<SupabaseRepository>;
 }
@@ -82,16 +88,17 @@ describe('OnboardingService.assign', () => {
     expect(result.incomePattern).toBe('salaried');
   });
 
-  it('falls back to a daily-budget plan when a tracker has less than 20% of income remaining', () => {
+  it('assigns daily budget when needs ratio is high (≥70% of income in fixed costs)', () => {
     const result = service.assign({
       incomePattern: 'salaried',
       spendingHabit: 'tracker',
       incomeAmount: 50000,
-      fixedTotal: 45000, // remaining 5000, well under 20% of 50000
+      fixedTotal: 45000, // needs ratio 90% → high band → daily
       sourceCount: 1,
     });
 
     expect(result.planType).toBe('daily');
+    expect(result.needsBand).toBe('high');
   });
 });
 
@@ -148,8 +155,7 @@ describe('OnboardingService.commit', () => {
     const categories = spendablePockets.map((p: any) => p.category).sort();
     expect(categories).toEqual(['food', 'leisure', 'transport']);
 
-    // Structured plans divide the spendable amount evenly across the three
-    // categories.
+    // Structured plans divide the spendable amount across weighted categories.
     const total = spendablePockets.reduce((sum: number, p: any) => sum + p.monthly_allocation, 0);
     const assignment = service.assign(SALARIED_TRACKER_INPUT);
     expect(total).toBeCloseTo(assignment.spendableAmount);
@@ -161,6 +167,36 @@ describe('OnboardingService.commit', () => {
     const pockets = repository.createPockets.mock.calls[0][0];
     const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
     expect(spendablePockets.every((p: any) => typeof p.daily_cap === 'number' && p.daily_cap > 0)).toBe(true);
+  });
+
+  it('creates one locked fixed pocket per submitted fixed expense (itemized, not lumped)', async () => {
+    const input: OnboardingInput = {
+      ...SALARIED_TRACKER_INPUT,
+      fixedExpenses: [
+        { name: 'Rent', amount: 10000, dueDay: 1, category: 'housing' },
+        { name: 'Internet', amount: 2000, dueDay: 5, category: 'utilities' },
+      ],
+      fixedTotal: 12000,
+    };
+
+    await service.commit(input, 'user-1');
+
+    const pockets = repository.createPockets.mock.calls[0][0];
+    const fixed = pockets.filter((p: any) => p.kind === 'fixed');
+    expect(fixed).toHaveLength(2);
+    expect(fixed.every((p: any) => p.is_time_locked && p.lock_until)).toBe(true);
+    expect(fixed.map((p: any) => p.name).sort()).toEqual(['Internet', 'Rent']);
+  });
+
+  it('adds a Family spendable pocket when hasDependents is set', async () => {
+    await service.commit({ ...SALARIED_TRACKER_INPUT, hasDependents: true }, 'user-1');
+
+    const pockets = repository.createPockets.mock.calls[0][0];
+    const categories = pockets
+      .filter((p: any) => p.kind === 'spendable')
+      .map((p: any) => p.category)
+      .sort();
+    expect(categories).toEqual(['family', 'food', 'leisure', 'transport']);
   });
 
   it('creates one fixed expense row per submitted fixed expense', async () => {
@@ -272,5 +308,110 @@ describe('OnboardingService.commit', () => {
         })
       );
     }
+  });
+});
+
+describe('OnboardingService.retake', () => {
+  let repository: ReturnType<typeof makeRepository>;
+  let service: OnboardingService;
+
+  const previousPockets = [
+    { id: 'old-food', name: 'Food & Groceries', kind: 'spendable', category: 'food', monthly_allocation: 10000 },
+    { id: 'old-save', name: 'Savings', kind: 'savings', category: null, monthly_allocation: 3500 },
+    { id: 'old-fixed', name: 'Fixed Expenses', kind: 'fixed', category: null, monthly_allocation: 15000 },
+  ];
+
+  beforeEach(() => {
+    repository = makeRepository({
+      getActivePlanByUserId: jest.fn().mockResolvedValue({ id: 'plan-old', type: 'structured', user_id: 'user-1' }),
+      getPocketsByPlanId: jest.fn().mockResolvedValue(previousPockets),
+      getPocketSummary: jest.fn().mockImplementation(async (pocketId: string) => {
+        const balances: Record<string, number> = {
+          'old-food': 400,
+          'old-save': 1000,
+          'old-fixed': 200,
+        };
+        return { available: balances[pocketId] ?? 0, allocated: 0, spent: 0, transactionCount: 0, reallocationCount: 0 };
+      }),
+      getBehaviorEventsByUserId: jest.fn().mockResolvedValue([]),
+    });
+    service = new OnboardingService(repository);
+  });
+
+  it('rejects when the user already retaken this UTC month', async () => {
+    repository.getBehaviorEventsByUserId.mockResolvedValue([
+      { id: 'e1', user_id: 'user-1', type: 'plan_retaken', payload: {}, created_at: new Date().toISOString() },
+    ] as any);
+
+    try {
+      await service.retake(SALARIED_TRACKER_INPUT, 'user-1');
+      fail('expected HttpException');
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    }
+    expect(repository.createPlan).not.toHaveBeenCalled();
+  });
+
+  it('rejects when there is no active plan', async () => {
+    repository.getActivePlanByUserId.mockResolvedValue(null);
+
+    await expect(service.retake(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('migrates balances onto the new pockets and conserves total money', async () => {
+    const result = await service.retake(SALARIED_TRACKER_INPUT, 'user-1');
+
+    expect(result.redistribution.totalMoved).toBeCloseTo(1600);
+    expect(result.redistribution.previousPlanType).toBe('structured');
+    expect(result.redistribution.newPlanType).toBe('structured');
+    expect(result.redistribution.movements.length).toBeGreaterThan(0);
+
+    const ledger = repository.createTransactions.mock.calls[0][0];
+    const credited = ledger
+      .filter((t: any) => t.type === 'reallocation_in')
+      .reduce((s: number, t: any) => s + t.amount, 0);
+    const debited = ledger
+      .filter((t: any) => t.type === 'reallocation_out')
+      .reduce((s: number, t: any) => s + Math.abs(t.amount), 0);
+    expect(credited).toBeCloseTo(1600);
+    expect(debited).toBeCloseTo(1600);
+
+    expect(repository.deactivateUserPlans).toHaveBeenCalledWith('user-1');
+    expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'user-1', type: 'plan_retaken' }),
+    );
+  });
+
+  it('re-activates the previous plan if creating the new one fails', async () => {
+    repository.createPlan.mockResolvedValue(null);
+
+    await expect(service.retake(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toThrow('Failed to create plan');
+    expect(repository.updatePlan).toHaveBeenCalledWith('plan-old', { status: 'active' });
+  });
+
+  it('still creates a redistribution summary with zero total when pockets are empty', async () => {
+    repository.getPocketSummary.mockResolvedValue({
+      available: 0,
+      allocated: 0,
+      spent: 0,
+      transactionCount: 0,
+      reallocationCount: 0,
+    });
+
+    const result = await service.retake(SALARIED_TRACKER_INPUT, 'user-1');
+
+    expect(result.redistribution.totalMoved).toBe(0);
+    expect(result.redistribution.movements).toEqual([]);
+    expect(repository.createTransactions).not.toHaveBeenCalled();
+  });
+
+  it('getRetakeEligibility reports allowed when no prior retake exists', async () => {
+    const eligibility = await service.getRetakeEligibility('user-1');
+    expect(eligibility).toEqual({
+      allowed: true,
+      nextRetakeAvailableOn: null,
+      lastRetakenAt: null,
+    });
   });
 });

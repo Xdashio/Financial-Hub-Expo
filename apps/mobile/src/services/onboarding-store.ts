@@ -6,11 +6,13 @@ import {
   OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
+  PlanRetakeResult,
 } from '@financial-hub/shared';
 import { onboardingApi } from '@/services/onboarding';
 import { profileApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 
-export type OnboardingStep = 'income' | 'habits' | 'fixed' | 'result';
+export type OnboardingStep = 'income' | 'habits' | 'about-you' | 'fixed' | 'result';
 
 export interface FixedExpenseItem {
   id: string;
@@ -57,7 +59,7 @@ interface OnboardingState {
   input: Partial<OnboardingInput>;
   fixedExpenses: FixedExpenseItem[];
   assignResult: OnboardingAssignResult | null;
-  commitResult: OnboardingCommitResult | null;
+  commitResult: OnboardingCommitResult | PlanRetakeResult | null;
   isLoading: boolean;
   error: string | null;
   
@@ -65,6 +67,9 @@ interface OnboardingState {
   setStep: (step: OnboardingStep) => void;
   setIncomeData: (data: Pick<OnboardingInput, 'incomePattern' | 'incomeAmount' | 'sourceCount' | 'incomeIntervalBand'>) => void;
   setHabitsData: (data: Pick<OnboardingInput, 'spendingHabit'>) => void;
+  setAboutYouData: (
+    data: Pick<OnboardingInput, 'lifeStage' | 'hasDependents' | 'emergencyBuffer' | 'moneyPersonality'>,
+  ) => void;
   addFixedExpense: (expense: Omit<FixedExpenseItem, 'id'>) => void;
   removeFixedExpense: (id: string) => void;
   updateFixedExpense: (id: string, expense: Partial<FixedExpenseItem>) => void;
@@ -82,7 +87,7 @@ interface OnboardingState {
   recoverState: () => Promise<void>;
 }
 
-const STEP_ORDER: OnboardingStep[] = ['income', 'habits', 'fixed', 'result'];
+const STEP_ORDER: OnboardingStep[] = ['income', 'habits', 'about-you', 'fixed', 'result'];
 
 const initialInput: Partial<OnboardingInput> = {
   incomePattern: 'salaried',
@@ -90,6 +95,10 @@ const initialInput: Partial<OnboardingInput> = {
   incomeAmount: 0,
   fixedTotal: 0,
   sourceCount: 1,
+  lifeStage: 'working_adult',
+  hasDependents: false,
+  emergencyBuffer: 'under_month',
+  moneyPersonality: 'saver',
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -113,6 +122,12 @@ export const useOnboardingStore = create<OnboardingState>()(
         })),
 
       setHabitsData: (data) =>
+        set((state) => ({
+          input: { ...state.input, ...data },
+          error: null,
+        })),
+
+      setAboutYouData: (data) =>
         set((state) => ({
           input: { ...state.input, ...data },
           error: null,
@@ -210,6 +225,9 @@ export const useOnboardingStore = create<OnboardingState>()(
           const result = isRetake
             ? await profileApi.retakeBehaviorCheckin(commitData)
             : await onboardingApi.commit(commitData);
+          if (isRetake) {
+            useDataSync.getState().bump();
+          }
           set({ commitResult: result, isLoading: false });
         } catch (error) {
           set({ error: error instanceof Error ? error.message : 'Failed to commit plan', isLoading: false });

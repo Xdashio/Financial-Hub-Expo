@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS public.pockets (
   plan_id UUID NOT NULL REFERENCES public.plans(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   kind TEXT NOT NULL CHECK (kind IN ('savings', 'fixed', 'spendable')),
-  category TEXT CHECK (category IN ('food', 'transport', 'leisure', 'personal', 'utilities', 'healthcare', 'education', 'other')),
+  category TEXT CHECK (category IN ('food', 'transport', 'leisure', 'personal', 'utilities', 'healthcare', 'education', 'housing', 'family', 'other')),
   is_time_locked BOOLEAN NOT NULL DEFAULT FALSE,
   lock_until TIMESTAMPTZ,
   monthly_allocation NUMERIC NOT NULL DEFAULT 0 CHECK (monthly_allocation >= 0),
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.fixed_expenses (
   name TEXT NOT NULL CHECK (char_length(name) >= 1 AND char_length(name) <= 100),
   amount NUMERIC NOT NULL CHECK (amount > 0),
   due_day INTEGER NOT NULL CHECK (due_day >= 1 AND due_day <= 31),
-  category TEXT NOT NULL CHECK (category IN ('food', 'transport', 'leisure', 'personal', 'utilities', 'healthcare', 'education', 'other')),
+  category TEXT NOT NULL CHECK (category IN ('food', 'transport', 'leisure', 'personal', 'utilities', 'healthcare', 'education', 'housing', 'family', 'other')),
   -- Real status column: previously simulated by appending " (inactive)" to
   -- `name`, which corrupted user-entered data. See BACKEND_FRONTEND_AUDIT.md.
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
@@ -149,6 +149,9 @@ CREATE TABLE IF NOT EXISTS public.merchant_classifications (
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   recipient_key TEXT NOT NULL, -- e.g. till number, paybill, phone number
   category TEXT NOT NULL CHECK (category IN ('grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'gambling_betting', 'personal_care', 'other', 'unclassified')),
+  -- Preferred pocket for this recipient (Batch 5). Nullable so legacy rows
+  -- and ON DELETE SET NULL after pocket removal stay valid.
+  pocket_id UUID REFERENCES public.pockets(id) ON DELETE SET NULL,
   remember BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   -- Scoped per-user: two different users classifying the same till/paybill
@@ -188,6 +191,16 @@ BEGIN
     SELECT 1 FROM pg_constraint WHERE conname = 'unique_user_recipient' AND conrelid = 'public.merchant_classifications'::regclass
   ) THEN
     ALTER TABLE public.merchant_classifications ADD CONSTRAINT unique_user_recipient UNIQUE (user_id, recipient_key);
+  END IF;
+
+  -- Batch 5: preferred pocket for this recipient. CREATE TABLE IF NOT EXISTS
+  -- cannot add a column to an existing table, so mirror the user_id pattern.
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'merchant_classifications' AND column_name = 'pocket_id'
+  ) THEN
+    ALTER TABLE public.merchant_classifications
+      ADD COLUMN pocket_id UUID REFERENCES public.pockets(id) ON DELETE SET NULL;
   END IF;
 END $$;
 
@@ -328,6 +341,7 @@ CREATE INDEX IF NOT EXISTS idx_reallocations_created_at ON public.reallocations(
 CREATE INDEX IF NOT EXISTS idx_merchant_classifications_user_id ON public.merchant_classifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_merchant_classifications_recipient_key ON public.merchant_classifications(recipient_key);
 CREATE INDEX IF NOT EXISTS idx_merchant_classifications_category ON public.merchant_classifications(category);
+CREATE INDEX IF NOT EXISTS idx_merchant_classifications_pocket_id ON public.merchant_classifications(pocket_id);
 
 -- Behavior Events
 CREATE INDEX IF NOT EXISTS idx_behavior_events_user_id ON public.behavior_events(user_id);

@@ -18,6 +18,8 @@ export const PocketCategorySchema = z.enum([
   'utilities',
   'healthcare',
   'education',
+  'housing',
+  'family',
   'other',
 ]);
 export type PocketCategory = z.infer<typeof PocketCategorySchema>;
@@ -100,6 +102,24 @@ export type PlanStatus = z.infer<typeof PlanStatusSchema>;
 // Onboarding Schemas - Pack 2 Specification
 // ============================================================================
 
+export const LifeStageSchema = z.enum(['student', 'working_adult', 'self_employed']);
+export type LifeStage = z.infer<typeof LifeStageSchema>;
+
+export const EmergencyBufferSchema = z.enum([
+  'none',
+  'under_month',
+  '1_to_3_months',
+  '3_plus_months',
+]);
+export type EmergencyBuffer = z.infer<typeof EmergencyBufferSchema>;
+
+/** Behavioral self-check — modifier layer, not a plan-type driver (§2.3). */
+export const MoneyPersonalitySchema = z.enum(['spender', 'saver', 'avoider']);
+export type MoneyPersonality = z.infer<typeof MoneyPersonalitySchema>;
+
+export const NeedsBandSchema = z.enum(['high', 'mid', 'low']);
+export type NeedsBand = z.infer<typeof NeedsBandSchema>;
+
 export const FixedExpenseInputSchema = z.object({
   name: z.string().min(1).max(100),
   amount: z.number().positive(),
@@ -119,12 +139,21 @@ export const OnboardingInputSchema = z.object({
   // message can be freelancer-specific) when incomePattern is 'freelancer'.
   // Ignored for 'salaried'/'mix'.
   incomeIntervalBand: IncomeIntervalBandSchema.optional(),
+  // Persona / deeper onboarding (Batches 3–4). Optional so older clients
+  // keep working; provisioner + rules engine apply safe defaults.
+  lifeStage: LifeStageSchema.optional(),
+  hasDependents: z.boolean().optional(),
+  emergencyBuffer: EmergencyBufferSchema.optional(),
+  moneyPersonality: MoneyPersonalitySchema.optional(),
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 
 export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
   reason: z.string(),
+  // Numeric context for "why this plan" templates (§2.6).
+  needsRatio: z.number().nonnegative().optional(),
+  needsBand: NeedsBandSchema.optional(),
 });
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 
@@ -136,6 +165,8 @@ export const OnboardingAssignResultSchema = z.object({
   remainingAfterFixed: z.number(),
   savingsTarget: z.number(),
   spendableAmount: z.number(),
+  needsRatio: z.number().nonnegative(),
+  needsBand: NeedsBandSchema,
 });
 export type OnboardingAssignResult = z.infer<typeof OnboardingAssignResultSchema>;
 
@@ -151,6 +182,47 @@ export const OnboardingCommitResultSchema = z.object({
   })),
 });
 export type OnboardingCommitResult = z.infer<typeof OnboardingCommitResultSchema>;
+
+/** Why a balance moved from an old pocket to a new one during plan retake. */
+export const RedistributionReasonSchema = z.enum([
+  'category_match',
+  'kind_match',
+  'proportional',
+  'spillover',
+]);
+export type RedistributionReason = z.infer<typeof RedistributionReasonSchema>;
+
+export const RedistributionMovementSchema = z.object({
+  fromPocketName: z.string(),
+  toPocketName: z.string(),
+  amount: z.number().nonnegative(),
+  reason: RedistributionReasonSchema,
+});
+export type RedistributionMovement = z.infer<typeof RedistributionMovementSchema>;
+
+export const PlanRedistributionSchema = z.object({
+  totalMoved: z.number().nonnegative(),
+  movements: z.array(RedistributionMovementSchema),
+  previousPlanType: PlanTypeSchema,
+  newPlanType: PlanTypeSchema,
+  nextRetakeAvailableOn: z.string(), // ISO date (YYYY-MM-DD) — first day of next UTC month
+});
+export type PlanRedistribution = z.infer<typeof PlanRedistributionSchema>;
+
+/** Result of POST /profile/plan/retake — commit shape plus money-migration summary. */
+export const PlanRetakeResultSchema = OnboardingCommitResultSchema.extend({
+  redistribution: PlanRedistributionSchema,
+});
+export type PlanRetakeResult = z.infer<typeof PlanRetakeResultSchema>;
+
+/** GET /profile/plan/retake-eligibility — gates the Profile retake CTA. */
+export const RetakeEligibilitySchema = z.object({
+  allowed: z.boolean(),
+  nextRetakeAvailableOn: z.string().nullable(),
+  lastRetakenAt: z.string().nullable(),
+  message: z.string().optional(),
+});
+export type RetakeEligibility = z.infer<typeof RetakeEligibilitySchema>;
 
 // ============================================================================
 // Runway (freelancer adaptive daily budget) — see docs/FREELANCER_RUNWAY.md
@@ -324,6 +396,10 @@ export const schemas = {
   PocketCategory: PocketCategorySchema,
   IncomePattern: IncomePatternSchema,
   SpendingHabit: SpendingHabitSchema,
+  LifeStage: LifeStageSchema,
+  EmergencyBuffer: EmergencyBufferSchema,
+  MoneyPersonality: MoneyPersonalitySchema,
+  NeedsBand: NeedsBandSchema,
   PlanName: PlanNameSchema,
   TransactionType: TransactionTypeSchema,
   ReallocationStatus: ReallocationStatusSchema,
@@ -334,6 +410,8 @@ export const schemas = {
   PlanAssignReason: PlanAssignReasonSchema,
   OnboardingAssignResult: OnboardingAssignResultSchema,
   OnboardingCommitResult: OnboardingCommitResultSchema,
+  PlanRetakeResult: PlanRetakeResultSchema,
+  RetakeEligibility: RetakeEligibilitySchema,
   User: UserSchema,
   Plan: PlanSchema,
   Pocket: PocketSchema,

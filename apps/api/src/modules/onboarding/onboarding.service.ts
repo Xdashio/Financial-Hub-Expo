@@ -1,28 +1,25 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import {
   OnboardingInputSchema,
   OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
+  PlanRetakeResult,
+  RetakeEligibility,
   PocketKind,
-  PocketCategory,
+  PlanType,
 } from '@financial-hub/shared';
-import { assignPlan, PlanAssignment, validateOnboardingInput } from './rules-engine';
+import { assignPlan, validateOnboardingInput } from './rules-engine';
 import { SupabaseRepository } from '../../database/supabase.repository';
-
-type SpendableCategory = 'food' | 'transport' | 'leisure';
-
-const SPENDABLE_CATEGORIES: SpendableCategory[] = ['food', 'transport', 'leisure'];
-const CATEGORY_NAMES: Record<SpendableCategory, string> = {
-  food: 'Food & Groceries',
-  transport: 'Transport',
-  leisure: 'Personal & Leisure',
-};
-
-// Default savings time-lock length applied at plan creation. Short locks
-// (30-60 days) are best for habit-building; 30 days is the floor.
-const DEFAULT_SAVINGS_LOCK_DAYS = 30;
+import {
+  nextRetakeAvailableOn,
+  planBalanceRedistribution,
+  sameUtcMonth,
+  type RedistributionSource,
+  type RedistributionTarget,
+} from './plan-redistribution';
+import { buildPocketInputs } from './pocket-provisioning';
 
 @Injectable()
 export class OnboardingService {
@@ -41,6 +38,8 @@ export class OnboardingService {
       remainingAfterFixed: assignment.remainingAfterFixed,
       savingsTarget: assignment.savingsTarget,
       spendableAmount: assignment.spendableAmount,
+      needsRatio: assignment.needsRatio,
+      needsBand: assignment.needsBand,
     };
   }
 
@@ -69,13 +68,11 @@ export class OnboardingService {
       throw new Error('Failed to create plan');
     }
 
-    // Create pockets
-    // monthly_allocation is a planning ceiling only — it tells the app how
-    // to split income when it actually arrives (via POST /income/manual).
-    // No allocation transactions are written here: the user's onboarding
-    // income figure is behavioural input, not a deposit. Real money only
-    // enters the ledger when the user logs an income event.
-    const pocketInputs = this.createPocketInputs(planId, assignment, input.incomeAmount, input.fixedTotal);
+    // Create pockets from persona-shaped / itemized-fixed provisioner.
+    // monthly_allocation is a planning ceiling only — no allocation
+    // transactions are written here: real money only enters the ledger when
+    // the user logs an income event.
+    const pocketInputs = buildPocketInputs(planId, assignment, input);
     const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
 
     // Full-replace semantics apply only when fixedExpenses is actually part
@@ -123,6 +120,172 @@ export class OnboardingService {
     };
   }
 
+  /**
+   * Behavior check-in retake: re-runs the rules engine, creates a new plan
+   * and pocket set, then migrates ledger balances from the previous active
+   * plan so existing money is preserved and redistributed — unlike commit(),
+   * which deliberately starts pockets empty.
+   */
+  async retake(rawInput: unknown, userId: string): Promise<PlanRetakeResult> {
+    const input = this.parseInput(rawInput);
+
+    const eligibility = await this.getRetakeEligibility(userId);
+    if (!eligibility.allowed) {
+      throw new HttpException(
+        eligibility.message ?? 'You can only retake the behavior check-in once per month.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const previousPlan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    if (!previousPlan) {
+      throw new NotFoundException('No active plan to retake. Complete onboarding first.');
+    }
+
+    const previousPockets = await this.supabaseRepo.getPocketsByPlanId(previousPlan.id);
+    const sources: RedistributionSource[] = await Promise.all(
+      previousPockets.map(async (pocket) => {
+        const summary = await this.supabaseRepo.getPocketSummary(pocket.id);
+        return {
+          id: pocket.id,
+          name: pocket.name,
+          kind: pocket.kind as PocketKind,
+          category: pocket.category,
+          available: summary.available,
+        };
+      }),
+    );
+
+    const assignment = assignPlan(input);
+    const planId = uuidv4();
+    const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
+
+    // Schema enforces one active plan per user (partial unique index), so we
+    // must deactivate the old plan before inserting the new one. Snapshot of
+    // balances already happened above; ledger rows stay on old pocket ids and
+    // are moved via reallocation_* txs after the new pockets exist. If the
+    // create/migrate path fails, re-activate the previous plan so the user is
+    // not left without an active plan.
+    await this.supabaseRepo.deactivateUserPlans(userId);
+
+    let createdPockets;
+    let movementPlans;
+    try {
+      const plan = await this.supabaseRepo.createPlan({
+        id: planId,
+        user_id: userId,
+        type: assignment.planType,
+        income_pattern: dbIncomePattern,
+        income_interval_days: assignment.incomeIntervalDays ?? null,
+        status: 'active',
+      });
+
+      if (!plan) {
+        throw new Error('Failed to create plan');
+      }
+
+      const pocketInputs = buildPocketInputs(planId, assignment, input);
+      createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
+
+      const targets: RedistributionTarget[] = createdPockets.map((p) => ({
+        id: p.id,
+        name: p.name,
+        kind: p.kind as PocketKind,
+        category: p.category,
+        monthlyAllocation: p.monthly_allocation,
+      }));
+
+      movementPlans = planBalanceRedistribution(sources, targets);
+      if (movementPlans.length > 0) {
+        const ledgerRows = movementPlans.flatMap((m) => [
+          { pocket_id: m.fromPocketId, amount: -m.amount, type: 'reallocation_out' as const },
+          { pocket_id: m.toPocketId, amount: m.amount, type: 'reallocation_in' as const },
+        ]);
+        await this.supabaseRepo.createTransactions(ledgerRows);
+      }
+    } catch (error) {
+      await this.supabaseRepo.updatePlan(previousPlan.id, { status: 'active' });
+      throw error;
+    }
+
+    if (input.fixedExpenses !== undefined) {
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+      for (const expense of input.fixedExpenses) {
+        await this.supabaseRepo.createFixedExpense({
+          user_id: userId,
+          name: expense.name,
+          amount: expense.amount,
+          due_day: expense.dueDay,
+          category: expense.category,
+        });
+      }
+    }
+
+    const totalMoved = round2(movementPlans.reduce((sum, m) => sum + m.amount, 0));
+    const nextAvailable = nextRetakeAvailableOn();
+
+    await this.supabaseRepo.createBehaviorEvent({
+      user_id: userId,
+      type: 'plan_retaken',
+      payload: {
+        previousPlanId: previousPlan.id,
+        planId,
+        planType: assignment.planType,
+        incomePattern: assignment.incomePattern,
+        totalMoved,
+        movementCount: movementPlans.length,
+      },
+    });
+
+    return {
+      planId,
+      pockets: createdPockets.map((p) => ({
+        id: p.id,
+        name: p.name,
+        kind: p.kind,
+        category: p.category || undefined,
+        monthlyAllocation: p.monthly_allocation,
+        dailyCap: p.daily_cap || undefined,
+      })),
+      redistribution: {
+        totalMoved,
+        movements: movementPlans.map((m) => ({
+          fromPocketName: m.fromPocketName,
+          toPocketName: m.toPocketName,
+          amount: m.amount,
+          reason: m.reason,
+        })),
+        previousPlanType: previousPlan.type as PlanType,
+        newPlanType: assignment.planType,
+        nextRetakeAvailableOn: nextAvailable,
+      },
+    };
+  }
+
+  async getRetakeEligibility(userId: string): Promise<RetakeEligibility> {
+    const events = await this.supabaseRepo.getBehaviorEventsByUserId(userId, 100);
+    const lastRetake = events.find((e) => e.type === 'plan_retaken');
+    if (!lastRetake) {
+      return { allowed: true, nextRetakeAvailableOn: null, lastRetakenAt: null };
+    }
+
+    if (sameUtcMonth(lastRetake.created_at)) {
+      const next = nextRetakeAvailableOn(new Date(lastRetake.created_at));
+      return {
+        allowed: false,
+        nextRetakeAvailableOn: next,
+        lastRetakenAt: lastRetake.created_at,
+        message: `You can retake the behavior check-in once per month. Next available on ${next}.`,
+      };
+    }
+
+    return {
+      allowed: true,
+      nextRetakeAvailableOn: null,
+      lastRetakenAt: lastRetake.created_at,
+    };
+  }
+
   // Schema check first (shape/types), then the domain rules — both run on
   // every entry point so unvalidated client payloads never reach the rules
   // engine or the database.
@@ -137,90 +300,8 @@ export class OnboardingService {
     }
     return result.data;
   }
+}
 
-  private createPocketInputs(
-    planId: string,
-    assignment: PlanAssignment,
-    incomeAmount: number,
-    fixedTotal: number
-  ): any[] {
-    const pockets = [];
-
-    const fixedPocketId = uuidv4();
-    pockets.push({
-      id: fixedPocketId,
-      plan_id: planId,
-      name: 'Fixed Expenses',
-      kind: 'fixed' as PocketKind,
-      category: null,
-      is_time_locked: false,
-      lock_until: null,
-      monthly_allocation: fixedTotal,
-      daily_cap: null,
-    });
-
-    const savingsPocketId = uuidv4();
-    const lockUntil = new Date();
-    lockUntil.setDate(lockUntil.getDate() + DEFAULT_SAVINGS_LOCK_DAYS);
-    pockets.push({
-      id: savingsPocketId,
-      plan_id: planId,
-      name: 'Savings',
-      kind: 'savings' as PocketKind,
-      category: null,
-      is_time_locked: true,
-      lock_until: lockUntil.toISOString(),
-      monthly_allocation: assignment.savingsTarget,
-      daily_cap: null,
-    });
-
-    if (assignment.planType === 'structured') {
-      const spendableAmount = assignment.spendableAmount;
-      const perPocketAmount = spendableAmount / SPENDABLE_CATEGORIES.length;
-
-      for (const category of SPENDABLE_CATEGORIES) {
-        pockets.push({
-          id: uuidv4(),
-          plan_id: planId,
-          name: CATEGORY_NAMES[category],
-          kind: 'spendable' as PocketKind,
-          category: category as PocketCategory,
-          is_time_locked: false,
-          lock_until: null,
-          monthly_allocation: perPocketAmount,
-          daily_cap: null,
-        });
-      }
-    } else {
-      // Salaried daily plans assume a flat 30-day cycle. Freelancer daily
-      // plans size the *initial* cap against the onboarding pay-cadence
-      // estimate instead — this is overridden live on every /pockets read
-      // once real income history exists (RunwayService); see
-      // docs/FREELANCER_RUNWAY.md for why onboarding-time and read-time use
-      // different estimates.
-      const daysInMonth = assignment.incomePattern === 'freelancer' && assignment.incomeIntervalDays
-        ? assignment.incomeIntervalDays
-        : 30;
-      const dailySpendable = assignment.spendableAmount / daysInMonth;
-
-      for (const category of SPENDABLE_CATEGORIES) {
-        const dailyCap = dailySpendable / SPENDABLE_CATEGORIES.length;
-        pockets.push({
-          id: uuidv4(),
-          plan_id: planId,
-          name: CATEGORY_NAMES[category],
-          kind: 'spendable' as PocketKind,
-          category: category as PocketCategory,
-          is_time_locked: false,
-          lock_until: null,
-          monthly_allocation: dailyCap * daysInMonth,
-          daily_cap: Math.round(dailyCap * 100) / 100,
-        });
-      }
-    }
-
-    return pockets;
-  }
-
-
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
