@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 // IMPORTANT: this client must be created lazily, not at module-import time.
 // `main.ts` statically imports AppModule, which transitively imports this
@@ -30,6 +31,9 @@ export function getSupabaseClient(): SupabaseClient {
   // back to a harmless placeholder so a single bad call site can't crash
   // the process; it'll just keep failing auth/DB calls until real
   // credentials are present in process.env.
+  //
+  // Pass `ws` as the realtime transport: Node < 22 has no global WebSocket
+  // and @supabase/supabase-js 2.112+ throws at client construction otherwise.
   cachedClient = createClient(
     supabaseUrl || 'https://placeholder.supabase.co',
     supabaseKey || 'placeholder-key',
@@ -37,6 +41,10 @@ export function getSupabaseClient(): SupabaseClient {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
+      },
+      realtime: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        transport: ws as any,
       },
     },
   );

@@ -2,7 +2,8 @@
 #   docker build -f apps/api/Dockerfile .
 #   Railway: railway.toml at repo root (dockerfilePath = apps/api/Dockerfile)
 
-FROM node:20-bookworm-slim AS build
+# Node 22+: @supabase/supabase-js needs native WebSocket (Node 20 crashes at boot).
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
@@ -21,7 +22,7 @@ RUN pnpm --filter @financial-hub/shared build \
  && pnpm --filter api build
 
 # ---------------------------------------------------------------------------
-FROM node:20-bookworm-slim AS runner
+FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
