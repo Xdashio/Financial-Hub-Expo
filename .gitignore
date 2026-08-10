@@ -9,6 +9,14 @@ build/
 out/
 .turbo/
 
+#graphify
+
+graphify-out/
+
+#skills rules
+
+.cursorules/
+.cursor
 # Environment files (never commit secrets)
 .env
 .env.local
