@@ -102,6 +102,64 @@ describe('OnboardingService.assign', () => {
   });
 });
 
+describe('OnboardingService.previewPlan', () => {
+  let service: OnboardingService;
+
+  beforeEach(() => {
+    service = new OnboardingService(makeRepository());
+  });
+
+  it('returns the same assign() fields plus a categoryBreakdown that sums to spendableAmount', () => {
+    const result = service.previewPlan(SALARIED_TRACKER_INPUT);
+
+    expect(result.planType).toBe('structured');
+    expect(result.spendableAmount).toBeCloseTo(31500);
+    const total = result.categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);
+    expect(total).toBeCloseTo(result.spendableAmount);
+  });
+
+  it('echoes back the default weighting as categoryPercentages when no override is given', () => {
+    const result = service.previewPlan(SALARIED_TRACKER_INPUT);
+    expect(result.categoryPercentages.food).toBeCloseTo(42.86, 1);
+  });
+
+  it('uses a valid user override to compute the breakdown instead of default weights', () => {
+    const result = service.previewPlan({
+      ...SALARIED_TRACKER_INPUT,
+      categoryPercentages: { food: 50, transport: 30, leisure: 20 },
+    });
+    const food = result.categoryBreakdown.find((c) => c.category === 'food')!;
+    expect(food.percentage).toBeCloseTo(50, 0);
+    expect(result.categoryPercentages.food).toBe(50);
+  });
+
+  it('rejects an override that does not sum to 100', () => {
+    expect(() =>
+      service.previewPlan({
+        ...SALARIED_TRACKER_INPUT,
+        categoryPercentages: { food: 50, transport: 30, leisure: 10 },
+      })
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects an override missing a category this persona requires', () => {
+    expect(() =>
+      service.previewPlan({
+        ...SALARIED_TRACKER_INPUT,
+        categoryPercentages: { food: 60, transport: 40 },
+      })
+    ).toThrow(BadRequestException);
+  });
+
+  it('is a dry run — never touches the repository', () => {
+    const repo = makeRepository();
+    const dryRunService = new OnboardingService(repo);
+    dryRunService.previewPlan(SALARIED_TRACKER_INPUT);
+    expect(repo.createPlan).not.toHaveBeenCalled();
+    expect(repo.createPockets).not.toHaveBeenCalled();
+  });
+});
+
 describe('OnboardingService.commit', () => {
   let repository: ReturnType<typeof makeRepository>;
   let service: OnboardingService;
@@ -167,6 +225,29 @@ describe('OnboardingService.commit', () => {
     const pockets = repository.createPockets.mock.calls[0][0];
     const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
     expect(spendablePockets.every((p: any) => typeof p.daily_cap === 'number' && p.daily_cap > 0)).toBe(true);
+  });
+
+  it('applies a user-edited categoryPercentages split to the committed spendable pockets', async () => {
+    await service.commit(
+      { ...SALARIED_TRACKER_INPUT, categoryPercentages: { food: 50, transport: 30, leisure: 20 } },
+      'user-1',
+    );
+
+    const pockets = repository.createPockets.mock.calls[0][0];
+    const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
+    const assignment = service.assign(SALARIED_TRACKER_INPUT);
+    const food = spendablePockets.find((p: any) => p.category === 'food');
+    expect(food!.monthly_allocation).toBeCloseTo(assignment.spendableAmount * 0.5);
+  });
+
+  it('rejects commit when categoryPercentages does not sum to 100', async () => {
+    await expect(
+      service.commit(
+        { ...SALARIED_TRACKER_INPUT, categoryPercentages: { food: 50, transport: 30, leisure: 10 } },
+        'user-1',
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.createPlan).not.toHaveBeenCalled();
   });
 
   it('creates one locked fixed pocket per submitted fixed expense (itemized, not lumped)', async () => {

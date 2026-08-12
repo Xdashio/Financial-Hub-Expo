@@ -33,6 +33,10 @@ export declare const MoneyPersonalitySchema: z.ZodEnum<["spender", "saver", "avo
 export type MoneyPersonality = z.infer<typeof MoneyPersonalitySchema>;
 export declare const NeedsBandSchema: z.ZodEnum<["high", "mid", "low"]>;
 export type NeedsBand = z.infer<typeof NeedsBandSchema>;
+export declare const SpendableCategorySchema: z.ZodEnum<["food", "transport", "leisure", "family"]>;
+export type SpendableCategory = z.infer<typeof SpendableCategorySchema>;
+export declare const CategoryPercentagesSchema: z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>;
+export type CategoryPercentages = z.infer<typeof CategoryPercentagesSchema>;
 export declare const FixedExpenseInputSchema: z.ZodObject<{
     name: z.ZodString;
     amount: z.ZodNumber;
@@ -77,6 +81,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     hasDependents: z.ZodOptional<z.ZodBoolean>;
     emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
     moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
+    categoryPercentages: z.ZodOptional<z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
     incomePattern: "salaried" | "freelancer" | "mix";
     spendingHabit: "tracker" | "week3" | "off_guard";
@@ -94,6 +99,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     hasDependents?: boolean | undefined;
     emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
     moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+    categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
     spendingHabit: "tracker" | "week3" | "off_guard";
@@ -111,6 +117,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     hasDependents?: boolean | undefined;
     emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
     moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+    categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
 }>;
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
@@ -187,6 +194,123 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
     spendableAmount: number;
 }>;
 export type OnboardingAssignResult = z.infer<typeof OnboardingAssignResultSchema>;
+export declare const CategoryAllocationPreviewSchema: z.ZodObject<{
+    category: z.ZodEnum<["food", "transport", "leisure", "family"]>;
+    name: z.ZodString;
+    amount: z.ZodNumber;
+    percentage: z.ZodNumber;
+    dailyCap: z.ZodOptional<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    amount: number;
+    category: "food" | "transport" | "leisure" | "family";
+    percentage: number;
+    dailyCap?: number | undefined;
+}, {
+    name: string;
+    amount: number;
+    category: "food" | "transport" | "leisure" | "family";
+    percentage: number;
+    dailyCap?: number | undefined;
+}>;
+export type CategoryAllocationPreview = z.infer<typeof CategoryAllocationPreviewSchema>;
+/** POST/PATCH /onboarding/plan-preview — assign result plus an editable
+ *  per-category breakdown of the spendable amount, used by the onboarding
+ *  result screen's percentage editor (audit_team.md item 3). */
+export declare const PlanPreviewResultSchema: z.ZodObject<{
+    plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+    planType: z.ZodEnum<["structured", "daily"]>;
+    incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+    reasons: z.ZodArray<z.ZodObject<{
+        rule: z.ZodString;
+        reason: z.ZodString;
+        needsRatio: z.ZodOptional<z.ZodNumber>;
+        needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+    }, "strip", z.ZodTypeAny, {
+        rule: string;
+        reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
+    }, {
+        rule: string;
+        reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
+    }>, "many">;
+    remainingAfterFixed: z.ZodNumber;
+    savingsTarget: z.ZodNumber;
+    spendableAmount: z.ZodNumber;
+    needsRatio: z.ZodNumber;
+    needsBand: z.ZodEnum<["high", "mid", "low"]>;
+} & {
+    categoryBreakdown: z.ZodArray<z.ZodObject<{
+        category: z.ZodEnum<["food", "transport", "leisure", "family"]>;
+        name: z.ZodString;
+        amount: z.ZodNumber;
+        percentage: z.ZodNumber;
+        dailyCap: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        amount: number;
+        category: "food" | "transport" | "leisure" | "family";
+        percentage: number;
+        dailyCap?: number | undefined;
+    }, {
+        name: string;
+        amount: number;
+        category: "food" | "transport" | "leisure" | "family";
+        percentage: number;
+        dailyCap?: number | undefined;
+    }>, "many">;
+    categoryPercentages: z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    incomePattern: "salaried" | "freelancer" | "mix";
+    categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
+    needsRatio: number;
+    needsBand: "high" | "mid" | "low";
+    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+    planType: "structured" | "daily";
+    reasons: {
+        rule: string;
+        reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
+    }[];
+    remainingAfterFixed: number;
+    savingsTarget: number;
+    spendableAmount: number;
+    categoryBreakdown: {
+        name: string;
+        amount: number;
+        category: "food" | "transport" | "leisure" | "family";
+        percentage: number;
+        dailyCap?: number | undefined;
+    }[];
+}, {
+    incomePattern: "salaried" | "freelancer" | "mix";
+    categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
+    needsRatio: number;
+    needsBand: "high" | "mid" | "low";
+    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+    planType: "structured" | "daily";
+    reasons: {
+        rule: string;
+        reason: string;
+        needsRatio?: number | undefined;
+        needsBand?: "high" | "mid" | "low" | undefined;
+    }[];
+    remainingAfterFixed: number;
+    savingsTarget: number;
+    spendableAmount: number;
+    categoryBreakdown: {
+        name: string;
+        amount: number;
+        category: "food" | "transport" | "leisure" | "family";
+        percentage: number;
+        dailyCap?: number | undefined;
+    }[];
+}>;
+export type PlanPreviewResult = z.infer<typeof PlanPreviewResultSchema>;
 export declare const OnboardingCommitResultSchema: z.ZodObject<{
     planId: z.ZodString;
     pockets: z.ZodArray<z.ZodObject<{
@@ -770,6 +894,8 @@ export declare const schemas: {
     ReallocationReason: z.ZodEnum<["emergency", "unexpected_expense", "income_change", "priority_shift", "other"]>;
     MerchantCategory: z.ZodEnum<["grocery", "landlord_rent", "utility", "transport", "healthcare", "education", "entertainment", "gambling_betting", "personal_care", "other", "unclassified"]>;
     PlanStatus: z.ZodEnum<["active", "inactive", "reassigned"]>;
+    SpendableCategory: z.ZodEnum<["food", "transport", "leisure", "family"]>;
+    CategoryPercentages: z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>;
     OnboardingInput: z.ZodObject<{
         incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
         spendingHabit: z.ZodEnum<["tracker", "week3", "off_guard"]>;
@@ -797,6 +923,7 @@ export declare const schemas: {
         hasDependents: z.ZodOptional<z.ZodBoolean>;
         emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
         moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
+        categoryPercentages: z.ZodOptional<z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>>;
     }, "strip", z.ZodTypeAny, {
         incomePattern: "salaried" | "freelancer" | "mix";
         spendingHabit: "tracker" | "week3" | "off_guard";
@@ -814,6 +941,7 @@ export declare const schemas: {
         hasDependents?: boolean | undefined;
         emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
         moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+        categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
         spendingHabit: "tracker" | "week3" | "off_guard";
@@ -831,6 +959,7 @@ export declare const schemas: {
         hasDependents?: boolean | undefined;
         emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
         moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+        categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
     }>;
     PlanAssignReason: z.ZodObject<{
         rule: z.ZodString;
@@ -903,6 +1032,118 @@ export declare const schemas: {
         remainingAfterFixed: number;
         savingsTarget: number;
         spendableAmount: number;
+    }>;
+    CategoryAllocationPreview: z.ZodObject<{
+        category: z.ZodEnum<["food", "transport", "leisure", "family"]>;
+        name: z.ZodString;
+        amount: z.ZodNumber;
+        percentage: z.ZodNumber;
+        dailyCap: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        amount: number;
+        category: "food" | "transport" | "leisure" | "family";
+        percentage: number;
+        dailyCap?: number | undefined;
+    }, {
+        name: string;
+        amount: number;
+        category: "food" | "transport" | "leisure" | "family";
+        percentage: number;
+        dailyCap?: number | undefined;
+    }>;
+    PlanPreviewResult: z.ZodObject<{
+        plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+        planType: z.ZodEnum<["structured", "daily"]>;
+        incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+        reasons: z.ZodArray<z.ZodObject<{
+            rule: z.ZodString;
+            reason: z.ZodString;
+            needsRatio: z.ZodOptional<z.ZodNumber>;
+            needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+        }, "strip", z.ZodTypeAny, {
+            rule: string;
+            reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
+        }, {
+            rule: string;
+            reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
+        }>, "many">;
+        remainingAfterFixed: z.ZodNumber;
+        savingsTarget: z.ZodNumber;
+        spendableAmount: z.ZodNumber;
+        needsRatio: z.ZodNumber;
+        needsBand: z.ZodEnum<["high", "mid", "low"]>;
+    } & {
+        categoryBreakdown: z.ZodArray<z.ZodObject<{
+            category: z.ZodEnum<["food", "transport", "leisure", "family"]>;
+            name: z.ZodString;
+            amount: z.ZodNumber;
+            percentage: z.ZodNumber;
+            dailyCap: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            name: string;
+            amount: number;
+            category: "food" | "transport" | "leisure" | "family";
+            percentage: number;
+            dailyCap?: number | undefined;
+        }, {
+            name: string;
+            amount: number;
+            category: "food" | "transport" | "leisure" | "family";
+            percentage: number;
+            dailyCap?: number | undefined;
+        }>, "many">;
+        categoryPercentages: z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        incomePattern: "salaried" | "freelancer" | "mix";
+        categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
+        needsRatio: number;
+        needsBand: "high" | "mid" | "low";
+        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+        planType: "structured" | "daily";
+        reasons: {
+            rule: string;
+            reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
+        }[];
+        remainingAfterFixed: number;
+        savingsTarget: number;
+        spendableAmount: number;
+        categoryBreakdown: {
+            name: string;
+            amount: number;
+            category: "food" | "transport" | "leisure" | "family";
+            percentage: number;
+            dailyCap?: number | undefined;
+        }[];
+    }, {
+        incomePattern: "salaried" | "freelancer" | "mix";
+        categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
+        needsRatio: number;
+        needsBand: "high" | "mid" | "low";
+        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+        planType: "structured" | "daily";
+        reasons: {
+            rule: string;
+            reason: string;
+            needsRatio?: number | undefined;
+            needsBand?: "high" | "mid" | "low" | undefined;
+        }[];
+        remainingAfterFixed: number;
+        savingsTarget: number;
+        spendableAmount: number;
+        categoryBreakdown: {
+            name: string;
+            amount: number;
+            category: "food" | "transport" | "leisure" | "family";
+            percentage: number;
+            dailyCap?: number | undefined;
+        }[];
     }>;
     OnboardingCommitResult: z.ZodObject<{
         planId: z.ZodString;

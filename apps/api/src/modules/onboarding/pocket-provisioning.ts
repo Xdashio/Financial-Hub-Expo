@@ -1,16 +1,18 @@
 import { v4 as uuidv4 } from 'uuid';
 import type {
+  CategoryPercentages,
   OnboardingInput,
   PocketCategory,
   PocketKind,
+  SpendableCategory,
 } from '@financial-hub/shared';
 import type { PlanAssignment } from './rules-engine';
 
-type SpendableCategory = 'food' | 'transport' | 'leisure' | 'family';
+export type { SpendableCategory };
 
 const DEFAULT_SAVINGS_LOCK_DAYS = 30;
 
-const CATEGORY_NAMES: Record<SpendableCategory, string> = {
+export const CATEGORY_NAMES: Record<SpendableCategory, string> = {
   food: 'Food & Groceries',
   transport: 'Transport',
   leisure: 'Personal & Leisure',
@@ -18,7 +20,7 @@ const CATEGORY_NAMES: Record<SpendableCategory, string> = {
 };
 
 /** Relative weights when splitting spendable money across category pockets. */
-const CATEGORY_WEIGHTS: Record<SpendableCategory, number> = {
+export const CATEGORY_WEIGHTS: Record<SpendableCategory, number> = {
   food: 3,
   transport: 2,
   leisure: 2,
@@ -119,81 +121,155 @@ export function buildSpendablePockets(
   assignment: PlanAssignment,
   input: OnboardingInput,
 ): PocketInsertInput[] {
+  const breakdown = previewSpendableBreakdown(assignment, input);
+
+  return breakdown.map((entry) => ({
+    id: uuidv4(),
+    plan_id: planId,
+    name: entry.name,
+    kind: 'spendable' as PocketKind,
+    category: entry.category as PocketCategory,
+    is_time_locked: false,
+    lock_until: null,
+    monthly_allocation: entry.amount,
+    daily_cap: entry.dailyCap ?? null,
+  }));
+}
+
+export interface CategoryAllocationPreview {
+  category: SpendableCategory;
+  name: string;
+  amount: number;
+  percentage: number;
+  dailyCap?: number;
+}
+
+/**
+ * Single source of truth for splitting the spendable amount across category
+ * pockets — used both to build real pockets at commit time and to render the
+ * editable percentage preview on the onboarding result screen. Given the
+ * same `assignment` and `input` (including any `input.categoryPercentages`
+ * override), this always returns exactly what `buildSpendablePockets` would
+ * turn into pockets, so a previewed split can never drift from what
+ * actually gets committed.
+ */
+export function previewSpendableBreakdown(
+  assignment: PlanAssignment,
+  input: OnboardingInput,
+): CategoryAllocationPreview[] {
   const categories = resolveSpendableCategories(input);
-
-  if (assignment.planType === 'structured') {
-    // Student persona: one flat spendable pocket even on structured plans.
-    if (categories.length === 1 && categories[0] === 'leisure') {
-      return [
-        {
-          id: uuidv4(),
-          plan_id: planId,
-          name: 'Daily spend',
-          kind: 'spendable',
-          category: 'leisure',
-          is_time_locked: false,
-          lock_until: null,
-          monthly_allocation: round2(assignment.spendableAmount),
-          daily_cap: null,
-        },
-      ];
-    }
-
-    const allocations = splitByWeights(assignment.spendableAmount, categories);
-    return categories.map((category) => ({
-      id: uuidv4(),
-      plan_id: planId,
-      name: CATEGORY_NAMES[category],
-      kind: 'spendable' as PocketKind,
-      category: category as PocketCategory,
-      is_time_locked: false,
-      lock_until: null,
-      monthly_allocation: allocations[category],
-      daily_cap: null,
-    }));
-  }
-
-  // Daily plans: one flat pocket for students; otherwise per-category daily caps.
-  const daysInMonth =
-    assignment.incomePattern === 'freelancer' && assignment.incomeIntervalDays
-      ? assignment.incomeIntervalDays
-      : 30;
-  const dailySpendable = assignment.spendableAmount / daysInMonth;
+  const overrides = input.categoryPercentages;
 
   if (categories.length === 1 && categories[0] === 'leisure') {
-    // Student persona: single "Daily spend" pocket (category leisure is the
-    // discretionary bucket; name is clearer than Personal & Leisure).
-    const dailyCap = round2(dailySpendable);
+    // Student persona: one flat pocket, no split to preview — always 100%.
+    const isDaily = assignment.planType !== 'structured';
+    const daysInMonth = spendableDaysInMonth(assignment);
+    const dailyCap = isDaily ? round2(assignment.spendableAmount / daysInMonth) : undefined;
     return [
       {
-        id: uuidv4(),
-        plan_id: planId,
-        name: 'Daily spend',
-        kind: 'spendable',
         category: 'leisure',
-        is_time_locked: false,
-        lock_until: null,
-        monthly_allocation: round2(dailyCap * daysInMonth),
-        daily_cap: dailyCap,
+        name: 'Daily spend',
+        amount: round2(assignment.spendableAmount),
+        percentage: 100,
+        dailyCap,
       },
     ];
   }
 
-  const dailyByCategory = splitByWeights(dailySpendable, categories);
+  if (assignment.planType === 'structured') {
+    const allocations = splitByWeights(assignment.spendableAmount, categories, overrides);
+    return categories.map((category) => ({
+      category,
+      name: CATEGORY_NAMES[category],
+      amount: allocations[category],
+      percentage: percentOf(allocations[category], assignment.spendableAmount),
+    }));
+  }
+
+  // Daily plans: split the daily rate, then scale back up for the
+  // month-equivalent `amount` shown in the preview / stored as the
+  // pocket's planning ceiling.
+  const daysInMonth = spendableDaysInMonth(assignment);
+  const dailySpendable = assignment.spendableAmount / daysInMonth;
+  const dailyByCategory = splitByWeights(dailySpendable, categories, overrides);
+
   return categories.map((category) => {
     const dailyCap = round2(dailyByCategory[category]);
+    const amount = round2(dailyCap * daysInMonth);
     return {
-      id: uuidv4(),
-      plan_id: planId,
+      category,
       name: CATEGORY_NAMES[category],
-      kind: 'spendable' as PocketKind,
-      category: category as PocketCategory,
-      is_time_locked: false,
-      lock_until: null,
-      monthly_allocation: round2(dailyCap * daysInMonth),
-      daily_cap: dailyCap,
+      amount,
+      dailyCap,
+      percentage: percentOf(amount, assignment.spendableAmount),
     };
   });
+}
+
+/** Default weighting (no user override) as percentages, for seeding the
+ *  result-screen editor before the user has touched anything. */
+export function defaultCategoryPercentages(categories: SpendableCategory[]): CategoryPercentages {
+  const weights = categories.map((c) => CATEGORY_WEIGHTS[c]);
+  const weightSum = weights.reduce((s, w) => s + w, 0);
+  const result: CategoryPercentages = {};
+  categories.forEach((category, i) => {
+    result[category] = weightSum > 0 ? round2((weights[i] / weightSum) * 100) : 0;
+  });
+  return result;
+}
+
+/**
+ * Validates a user-supplied `categoryPercentages` override against the
+ * categories this persona actually resolves to. Only meaningful once
+ * `resolveSpendableCategories` is known, so this can't live in the shared
+ * zod schema (which has no access to the rest of the input). No-op when the
+ * field is omitted — omitting it just means "use defaults".
+ */
+export function validateCategoryPercentages(input: OnboardingInput): string[] {
+  const overrides = input.categoryPercentages;
+  if (!overrides) return [];
+
+  const errors: string[] = [];
+  const categories = resolveSpendableCategories(input);
+
+  if (categories.length === 1 && categories[0] === 'leisure') {
+    errors.push('This plan has a single spendable pocket — there is nothing to split by percentage.');
+    return errors;
+  }
+
+  const expectedKeys = new Set<string>(categories);
+  const suppliedKeys = Object.keys(overrides);
+
+  const missing = categories.filter((c) => !(c in overrides));
+  const unexpected = suppliedKeys.filter((k) => !expectedKeys.has(k));
+
+  if (missing.length > 0) {
+    errors.push(`Missing percentage for: ${missing.join(', ')}`);
+  }
+  if (unexpected.length > 0) {
+    errors.push(`Unexpected categories for this plan: ${unexpected.join(', ')}`);
+  }
+
+  if (missing.length === 0 && unexpected.length === 0) {
+    const sum = categories.reduce((s, c) => s + (overrides[c] ?? 0), 0);
+    // Small epsilon for float rounding from client-side sliders.
+    if (Math.abs(sum - 100) > 0.5) {
+      errors.push(`Category percentages must sum to 100 (got ${round2(sum)})`);
+    }
+  }
+
+  return errors;
+}
+
+function spendableDaysInMonth(assignment: PlanAssignment): number {
+  return assignment.incomePattern === 'freelancer' && assignment.incomeIntervalDays
+    ? assignment.incomeIntervalDays
+    : 30;
+}
+
+function percentOf(amount: number, total: number): number {
+  if (total <= 0) return 0;
+  return round2((amount / total) * 100);
 }
 
 /**
@@ -259,22 +335,34 @@ function daysInUtcMonth(year: number, monthIndex: number): number {
   return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
 }
 
+/**
+ * Splits `total` across `categories`, either by each category's percentage
+ * in `overridePercentages` (user-edited split) or, when no override is
+ * given, by the default relative weights. The last category always absorbs
+ * the rounding remainder so the parts sum exactly to `total`.
+ */
 function splitByWeights(
   total: number,
   categories: SpendableCategory[],
+  overridePercentages?: CategoryPercentages,
 ): Record<SpendableCategory, number> {
   const result = {} as Record<SpendableCategory, number>;
   if (categories.length === 0) return result;
 
-  const weights = categories.map((c) => CATEGORY_WEIGHTS[c]);
-  const weightSum = weights.reduce((s, w) => s + w, 0);
-  let assigned = 0;
+  const shares: number[] = overridePercentages
+    ? categories.map((c) => (overridePercentages[c] ?? 0) / 100)
+    : (() => {
+        const weights = categories.map((c) => CATEGORY_WEIGHTS[c]);
+        const weightSum = weights.reduce((s, w) => s + w, 0);
+        return weights.map((w) => w / weightSum);
+      })();
 
+  let assigned = 0;
   categories.forEach((category, i) => {
     if (i === categories.length - 1) {
       result[category] = round2(total - assigned);
     } else {
-      const share = round2((total * weights[i]) / weightSum);
+      const share = round2(total * shares[i]);
       result[category] = share;
       assigned += share;
     }
