@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Param, Body, Request, Query } from '@nestjs/common';
+import { Controller, Get, Put, Post, Delete, Param, Body, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PocketsService } from './pockets.service';
 
@@ -100,5 +100,32 @@ export class PocketsController {
   @ApiResponse({ status: 404, description: 'Pocket not found' })
   extendLock(@Param('id') id: string, @Body() body: { additional_days: number; reason?: string }, @Request() req: any) {
     return this.pocketsService.extendLock(id, req.user.id, body);
+  }
+
+  @Post(':id/sub-pockets')
+  @ApiOperation({ summary: 'Create a sub-pocket nested under this pocket (audit_team.md item 10)' })
+  @ApiResponse({ status: 201, description: 'The created sub-pocket' })
+  @ApiResponse({ status: 400, description: 'Invalid input, parent already a sub-pocket, or split exceeds the parent allocation' })
+  @ApiResponse({ status: 404, description: 'Parent pocket not found' })
+  createSubPocket(@Param('id') id: string, @Body() body: unknown, @Request() req: any) {
+    return this.pocketsService.createSubPocket(id, req.user.id, body);
+  }
+
+  @Get(':id/sub-pockets')
+  @ApiOperation({ summary: 'List sub-pockets nested under this pocket, each with its ledger-derived available balance' })
+  @ApiResponse({ status: 200, description: 'List of sub-pockets' })
+  @ApiResponse({ status: 404, description: 'Parent pocket not found' })
+  getSubPockets(@Param('id') id: string, @Request() req: any) {
+    return this.pocketsService.getSubPocketsForUser(id, req.user.id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a sub-pocket (top-level pockets cannot be deleted this way; balance must be zero first)' })
+  @ApiResponse({ status: 200, description: 'Sub-pocket deleted' })
+  @ApiResponse({ status: 400, description: 'Not a sub-pocket, or it still holds a balance' })
+  @ApiResponse({ status: 404, description: 'Pocket not found' })
+  async deleteSubPocket(@Param('id') id: string, @Request() req: any) {
+    await this.pocketsService.deleteSubPocket(id, req.user.id);
+    return { deleted: true, id };
   }
 }
