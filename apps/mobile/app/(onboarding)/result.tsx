@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView, Dimensions, Pressable } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
@@ -9,7 +9,163 @@ import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle } from '@/components/ui';
-import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight, Minus, Plus, RotateCcw } from 'lucide-react-native';
+import type { CategoryPercentages, SpendableCategory } from '@financial-hub/shared';
+
+const PERCENT_STEP = 5;
+
+/**
+ * Editable percentage split across spendable category pockets (food /
+ * transport / leisure / family), shown inside the "Safe to spend" card on
+ * the result screen. Local edits are staged client-side (instant, no
+ * network) and only sent to `/onboarding/plan-preview` for
+ * validation + re-pricing when the user taps Save — so the sliders never
+ * spam the API, and an invalid split never silently corrupts the plan
+ * that gets committed.
+ */
+function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }) {
+  const { planPreview, isPreviewLoading, loadPlanPreview, input } = useOnboardingStore();
+  const [localPercentages, setLocalPercentages] = useState<CategoryPercentages | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const hasLoadedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (hasLoadedRef.current) return;
+    hasLoadedRef.current = true;
+    loadPlanPreview(input?.categoryPercentages).catch(() => {
+      // Surfaced via store.error / falls back to the default split silently —
+      // this is a nice-to-have editor, not a blocker for entering the plan.
+    });
+  }, []);
+
+  React.useEffect(() => {
+    if (planPreview && !localPercentages) {
+      setLocalPercentages(planPreview.categoryPercentages);
+    }
+  }, [planPreview]);
+
+  if (isPreviewLoading && !planPreview) {
+    return (
+      <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
+        <ActivityIndicator color={colors.emeraldDeep} />
+      </View>
+    );
+  }
+
+  if (!planPreview || !localPercentages || planPreview.categoryBreakdown.length <= 1) {
+    // Single-pocket persona (students) — nothing to split, editor stays hidden.
+    return null;
+  }
+
+  const categories = planPreview.categoryBreakdown.map((c) => c.category);
+  const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
+  const roundedTotal = Math.round(total * 10) / 10;
+  const isBalanced = Math.abs(total - 100) < 0.5;
+  const isDirty = categories.some(
+    (c) => (localPercentages[c] ?? 0) !== (planPreview.categoryPercentages[c] ?? 0),
+  );
+
+  const adjust = (category: SpendableCategory, delta: number) => {
+    setSaveError(null);
+    setLocalPercentages((prev) => {
+      if (!prev) return prev;
+      const current = prev[category] ?? 0;
+      const next = Math.min(100, Math.max(0, current + delta));
+      return { ...prev, [category]: Math.round(next * 10) / 10 };
+    });
+  };
+
+  const handleReset = () => {
+    setSaveError(null);
+    setLocalPercentages(planPreview.categoryPercentages);
+  };
+
+  const handleSave = async () => {
+    if (!isBalanced || !localPercentages) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await loadPlanPreview(localPercentages);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Could not save that split');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: `${colors.surface}26` }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Adjust your split</Text>
+        {isDirty && (
+          <Pressable onPress={handleReset} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} accessibilityLabel="Reset split to suggested" accessibilityRole="button">
+            <RotateCcw size={11} color={`${colors.surface}B3`} />
+            <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Reset</Text>
+          </Pressable>
+        )}
+      </View>
+
+      {categories.map((category) => {
+        const entry = planPreview.categoryBreakdown.find((c) => c.category === category)!;
+        const pct = localPercentages[category] ?? 0;
+        const previewAmount = round2((pct / 100) * planPreview.spendableAmount);
+        return (
+          <View key={category} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+            <Text style={{ ...typography.body, fontSize: 13, color: colors.surface, flex: 1 }}>{entry.name}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <Pressable
+                onPress={() => adjust(category, -PERCENT_STEP)}
+                style={{ width: touchTarget.minWidth, height: touchTarget.minHeight, alignItems: 'center', justifyContent: 'center' }}
+                accessibilityLabel={`Decrease ${entry.name} percentage`}
+                accessibilityRole="button"
+              >
+                <Minus size={14} color={colors.surface} />
+              </Pressable>
+              <Text style={{ ...typography.body, fontSize: 13, color: colors.surface, fontVariant: ['tabular-nums'], minWidth: 68, textAlign: 'center' }}>
+                {Math.round(pct)}% · KSh {previewAmount.toLocaleString()}
+              </Text>
+              <Pressable
+                onPress={() => adjust(category, PERCENT_STEP)}
+                style={{ width: touchTarget.minWidth, height: touchTarget.minHeight, alignItems: 'center', justifyContent: 'center' }}
+                accessibilityLabel={`Increase ${entry.name} percentage`}
+                accessibilityRole="button"
+              >
+                <Plus size={14} color={colors.surface} />
+              </Pressable>
+            </View>
+          </View>
+        );
+      })}
+
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
+        <Text style={{ ...typography.caption, fontSize: 11, color: isBalanced ? `${colors.surface}B3` : colors.clay }}>
+          {isBalanced ? 'Adds up to 100%' : `${roundedTotal}% — must total 100%`}
+        </Text>
+        {isDirty && (
+          <Pressable
+            onPress={handleSave}
+            disabled={!isBalanced || isSaving}
+            style={{ opacity: !isBalanced || isSaving ? 0.4 : 1, paddingVertical: spacing.xs, paddingHorizontal: spacing.sm }}
+            accessibilityLabel="Save category split"
+            accessibilityRole="button"
+          >
+            <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldTint, fontWeight: '600' }}>
+              {isSaving ? 'Saving…' : 'Save split'}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+      {saveError && (
+        <Text style={{ ...typography.caption, fontSize: 11, color: colors.clay, marginTop: spacing.xs }}>{saveError}</Text>
+      )}
+    </View>
+  );
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 export default function ResultScreen() {
   const router = useRouter();
@@ -275,6 +431,8 @@ export default function ResultScreen() {
                   <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Daily budget</Text>
                   <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Available</Text>
                 </View>
+
+                <CategorySplitEditor colors={colors} />
               </View>
 
               <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, textAlign: 'center', marginTop: spacing.md, marginBottom: spacing.xl }}>Portions shown to scale · savings minimum is enforced at allocation, not just displayed</Text>

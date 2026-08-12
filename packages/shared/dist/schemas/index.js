@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -87,6 +87,16 @@ exports.EmergencyBufferSchema = zod_1.z.enum([
 /** Behavioral self-check — modifier layer, not a plan-type driver (§2.3). */
 exports.MoneyPersonalitySchema = zod_1.z.enum(['spender', 'saver', 'avoider']);
 exports.NeedsBandSchema = zod_1.z.enum(['high', 'mid', 'low']);
+// Spendable category pockets a user can rebalance at onboarding time (§3 of
+// audit_team.md item 3). Deliberately narrower than PocketCategorySchema —
+// only the categories the spendable-pocket provisioner ever creates.
+exports.SpendableCategorySchema = zod_1.z.enum(['food', 'transport', 'leisure', 'family']);
+// Partial map of category -> percentage (0-100) of the spendable amount.
+// Partial because which categories exist depends on persona (student gets
+// only 'leisure'; dependents add 'family') — the server resolves which keys
+// are expected and rejects a mismatched set rather than the schema trying to
+// enforce that here.
+exports.CategoryPercentagesSchema = zod_1.z.record(exports.SpendableCategorySchema, zod_1.z.number().min(0).max(100));
 exports.FixedExpenseInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     amount: zod_1.z.number().positive(),
@@ -110,6 +120,13 @@ exports.OnboardingInputSchema = zod_1.z.object({
     hasDependents: zod_1.z.boolean().optional(),
     emergencyBuffer: exports.EmergencyBufferSchema.optional(),
     moneyPersonality: exports.MoneyPersonalitySchema.optional(),
+    // User-adjusted split across spendable category pockets, set on the
+    // onboarding result screen (item 3 of audit_team.md). Optional — omitted
+    // means "use the rules engine's default weighting". When present, must
+    // cover exactly the categories the persona resolves to and sum to 100
+    // (server-validated in validateCategoryPercentages, not here, since the
+    // expected key set depends on lifeStage/hasDependents).
+    categoryPercentages: exports.CategoryPercentagesSchema.optional(),
 });
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
@@ -128,6 +145,24 @@ exports.OnboardingAssignResultSchema = zod_1.z.object({
     spendableAmount: zod_1.z.number(),
     needsRatio: zod_1.z.number().nonnegative(),
     needsBand: exports.NeedsBandSchema,
+});
+exports.CategoryAllocationPreviewSchema = zod_1.z.object({
+    category: exports.SpendableCategorySchema,
+    name: zod_1.z.string(),
+    amount: zod_1.z.number().nonnegative(),
+    percentage: zod_1.z.number().nonnegative(),
+    dailyCap: zod_1.z.number().nonnegative().optional(),
+});
+/** POST/PATCH /onboarding/plan-preview — assign result plus an editable
+ *  per-category breakdown of the spendable amount, used by the onboarding
+ *  result screen's percentage editor (audit_team.md item 3). */
+exports.PlanPreviewResultSchema = exports.OnboardingAssignResultSchema.extend({
+    categoryBreakdown: zod_1.z.array(exports.CategoryAllocationPreviewSchema),
+    // The percentages actually used to compute categoryBreakdown — either the
+    // caller's categoryPercentages echoed back, or the rules engine's default
+    // weighting when none was supplied. Lets the client seed sliders/inputs
+    // with sane defaults on first render.
+    categoryPercentages: exports.CategoryPercentagesSchema,
 });
 exports.OnboardingCommitResultSchema = zod_1.z.object({
     planId: zod_1.z.string().uuid(),
@@ -322,9 +357,13 @@ exports.schemas = {
     ReallocationReason: exports.ReallocationReasonSchema,
     MerchantCategory: exports.MerchantCategorySchema,
     PlanStatus: exports.PlanStatusSchema,
+    SpendableCategory: exports.SpendableCategorySchema,
+    CategoryPercentages: exports.CategoryPercentagesSchema,
     OnboardingInput: exports.OnboardingInputSchema,
     PlanAssignReason: exports.PlanAssignReasonSchema,
     OnboardingAssignResult: exports.OnboardingAssignResultSchema,
+    CategoryAllocationPreview: exports.CategoryAllocationPreviewSchema,
+    PlanPreviewResult: exports.PlanPreviewResultSchema,
     OnboardingCommitResult: exports.OnboardingCommitResultSchema,
     PlanRetakeResult: exports.PlanRetakeResultSchema,
     RetakeEligibility: exports.RetakeEligibilitySchema,

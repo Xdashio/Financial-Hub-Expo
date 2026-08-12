@@ -7,6 +7,8 @@ import {
   OnboardingAssignResult,
   OnboardingCommitResult,
   PlanRetakeResult,
+  PlanPreviewResult,
+  CategoryPercentages,
 } from '@financial-hub/shared';
 import { onboardingApi } from '@/services/onboarding';
 import { profileApi } from '@/services/api';
@@ -60,6 +62,12 @@ interface OnboardingState {
   fixedExpenses: FixedExpenseItem[];
   assignResult: OnboardingAssignResult | null;
   commitResult: OnboardingCommitResult | PlanRetakeResult | null;
+  /** Per-category spendable breakdown + percentages powering the result
+   *  screen's percentage editor (audit_team.md item 3). Loaded on demand,
+   *  separate from assignResult so the initial "assign" call (made right
+   *  after the fixed-expenses step) doesn't need to know about categories. */
+  planPreview: PlanPreviewResult | null;
+  isPreviewLoading: boolean;
   isLoading: boolean;
   error: string | null;
   
@@ -75,6 +83,12 @@ interface OnboardingState {
   updateFixedExpense: (id: string, expense: Partial<FixedExpenseItem>) => void;
   setFixedExpenses: (expenses: FixedExpenseItem[]) => void;
   previewPlan: () => Promise<void>;
+  /** Loads (or reloads) the category breakdown for the result screen. Call
+   *  with no argument to seed with defaults, or with an edited percentage
+   *  map to re-price a user's slider changes before they commit. Throws
+   *  (and leaves `input.categoryPercentages` unchanged) if the edited split
+   *  fails server-side validation, so a bad edit never corrupts state. */
+  loadPlanPreview: (percentages?: CategoryPercentages) => Promise<void>;
   commitPlan: () => Promise<void>;
   reset: () => void;
   /** Re-enters the flow in "retake" mode: same screens, but the final step
@@ -109,6 +123,8 @@ export const useOnboardingStore = create<OnboardingState>()(
       fixedExpenses: [],
       assignResult: null,
       commitResult: null,
+      planPreview: null,
+      isPreviewLoading: false,
       isLoading: false,
       error: null,
       isRetake: false,
@@ -201,6 +217,37 @@ export const useOnboardingStore = create<OnboardingState>()(
         }
       },
 
+      loadPlanPreview: async (percentages) => {
+        set({ isPreviewLoading: true, error: null });
+        try {
+          const { input, fixedExpenses } = get();
+          const fullInput = {
+            ...(input as OnboardingInput),
+            fixedExpenses: fixedExpenses.length > 0 ? fixedExpenses.map((expense) => ({
+              name: expense.name,
+              amount: expense.amount,
+              dueDay: expense.dueDay,
+              category: expense.category as any,
+            })) : undefined,
+            ...(percentages ? { categoryPercentages: percentages } : {}),
+          };
+
+          const preview = await onboardingApi.planPreview(fullInput);
+
+          // Only persist the edited percentages into `input` once the server
+          // has confirmed they're valid — an invalid edit throws above and
+          // leaves the last-known-good percentages (and pockets) in place.
+          set((state) => ({
+            planPreview: preview,
+            input: percentages ? { ...state.input, categoryPercentages: percentages } : state.input,
+            isPreviewLoading: false,
+          }));
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to preview category split', isPreviewLoading: false });
+          throw error;
+        }
+      },
+
       commitPlan: async () => {
         set({ isLoading: true, error: null });
         try {
@@ -242,6 +289,8 @@ export const useOnboardingStore = create<OnboardingState>()(
           fixedExpenses: [],
           assignResult: null,
           commitResult: null,
+          planPreview: null,
+          isPreviewLoading: false,
           isLoading: false,
           error: null,
           isRetake: false,
@@ -254,6 +303,8 @@ export const useOnboardingStore = create<OnboardingState>()(
           fixedExpenses: [],
           assignResult: null,
           commitResult: null,
+          planPreview: null,
+          isPreviewLoading: false,
           isLoading: false,
           error: null,
           isRetake: true,

@@ -1,9 +1,10 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
+import { Controller, Post, Patch, Body, HttpCode, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { OnboardingService } from './onboarding.service';
 import {
   OnboardingAssignResult,
   OnboardingCommitResult,
+  PlanPreviewResult,
 } from '@financial-hub/shared';
 
 @ApiTags('Onboarding')
@@ -20,6 +21,19 @@ export class OnboardingController {
   @ApiResponse({ status: 400, description: 'Invalid onboarding input' })
   assign(@Body() input: unknown): OnboardingAssignResult {
     return this.onboardingService.assign(input);
+  }
+
+  @Patch('plan-preview')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Pre-commit preview: re-validates a user-edited category percentage split and re-runs pocket amount math (no persistence)',
+  })
+  @ApiBody({ description: 'Onboarding answers, optionally including categoryPercentages', required: true })
+  @ApiResponse({ status: 200, description: 'Plan assignment preview plus per-category spendable breakdown' })
+  @ApiResponse({ status: 400, description: 'Invalid onboarding input, or categoryPercentages do not sum to 100 / do not match this persona\'s categories' })
+  planPreview(@Body() input: unknown): PlanPreviewResult {
+    return this.onboardingService.previewPlan(input);
   }
 
   @Post('commit')

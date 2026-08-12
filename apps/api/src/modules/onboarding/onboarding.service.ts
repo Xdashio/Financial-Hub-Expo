@@ -5,6 +5,7 @@ import {
   OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
+  PlanPreviewResult,
   PlanRetakeResult,
   RetakeEligibility,
   PocketKind,
@@ -19,7 +20,13 @@ import {
   type RedistributionSource,
   type RedistributionTarget,
 } from './plan-redistribution';
-import { buildPocketInputs } from './pocket-provisioning';
+import {
+  buildPocketInputs,
+  previewSpendableBreakdown,
+  resolveSpendableCategories,
+  defaultCategoryPercentages,
+  validateCategoryPercentages,
+} from './pocket-provisioning';
 
 @Injectable()
 export class OnboardingService {
@@ -40,6 +47,38 @@ export class OnboardingService {
       spendableAmount: assignment.spendableAmount,
       needsRatio: assignment.needsRatio,
       needsBand: assignment.needsBand,
+    };
+  }
+
+  /**
+   * Pre-commit preview for the onboarding result screen's percentage editor
+   * (audit_team.md item 3). Same assign() math, plus a per-category
+   * breakdown of the spendable amount. If the caller supplies
+   * `categoryPercentages`, they're validated (must cover exactly this
+   * persona's categories and sum to 100) and used to compute the breakdown
+   * instead of the rules engine's default weighting — this is a dry run,
+   * nothing is persisted.
+   */
+  previewPlan(rawInput: unknown): PlanPreviewResult {
+    const input = this.parseInput(rawInput);
+    const assignment = assignPlan(input);
+    const categoryBreakdown = previewSpendableBreakdown(assignment, input);
+    const categories = resolveSpendableCategories(input);
+    const categoryPercentages =
+      input.categoryPercentages ?? defaultCategoryPercentages(categories);
+
+    return {
+      plan: assignment.plan,
+      planType: assignment.planType,
+      incomePattern: assignment.incomePattern,
+      reasons: assignment.reasons,
+      remainingAfterFixed: assignment.remainingAfterFixed,
+      savingsTarget: assignment.savingsTarget,
+      spendableAmount: assignment.spendableAmount,
+      needsRatio: assignment.needsRatio,
+      needsBand: assignment.needsBand,
+      categoryBreakdown,
+      categoryPercentages,
     };
   }
 
@@ -297,6 +336,10 @@ export class OnboardingService {
     const errors = validateOnboardingInput(result.data);
     if (errors.length > 0) {
       throw new BadRequestException(errors.join('; '));
+    }
+    const categoryErrors = validateCategoryPercentages(result.data);
+    if (categoryErrors.length > 0) {
+      throw new BadRequestException(categoryErrors.join('; '));
     }
     return result.data;
   }

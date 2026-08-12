@@ -120,6 +120,20 @@ export type MoneyPersonality = z.infer<typeof MoneyPersonalitySchema>;
 export const NeedsBandSchema = z.enum(['high', 'mid', 'low']);
 export type NeedsBand = z.infer<typeof NeedsBandSchema>;
 
+// Spendable category pockets a user can rebalance at onboarding time (§3 of
+// audit_team.md item 3). Deliberately narrower than PocketCategorySchema —
+// only the categories the spendable-pocket provisioner ever creates.
+export const SpendableCategorySchema = z.enum(['food', 'transport', 'leisure', 'family']);
+export type SpendableCategory = z.infer<typeof SpendableCategorySchema>;
+
+// Partial map of category -> percentage (0-100) of the spendable amount.
+// Partial because which categories exist depends on persona (student gets
+// only 'leisure'; dependents add 'family') — the server resolves which keys
+// are expected and rejects a mismatched set rather than the schema trying to
+// enforce that here.
+export const CategoryPercentagesSchema = z.record(SpendableCategorySchema, z.number().min(0).max(100));
+export type CategoryPercentages = z.infer<typeof CategoryPercentagesSchema>;
+
 export const FixedExpenseInputSchema = z.object({
   name: z.string().min(1).max(100),
   amount: z.number().positive(),
@@ -145,6 +159,13 @@ export const OnboardingInputSchema = z.object({
   hasDependents: z.boolean().optional(),
   emergencyBuffer: EmergencyBufferSchema.optional(),
   moneyPersonality: MoneyPersonalitySchema.optional(),
+  // User-adjusted split across spendable category pockets, set on the
+  // onboarding result screen (item 3 of audit_team.md). Optional — omitted
+  // means "use the rules engine's default weighting". When present, must
+  // cover exactly the categories the persona resolves to and sum to 100
+  // (server-validated in validateCategoryPercentages, not here, since the
+  // expected key set depends on lifeStage/hasDependents).
+  categoryPercentages: CategoryPercentagesSchema.optional(),
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 
@@ -169,6 +190,28 @@ export const OnboardingAssignResultSchema = z.object({
   needsBand: NeedsBandSchema,
 });
 export type OnboardingAssignResult = z.infer<typeof OnboardingAssignResultSchema>;
+
+export const CategoryAllocationPreviewSchema = z.object({
+  category: SpendableCategorySchema,
+  name: z.string(),
+  amount: z.number().nonnegative(),
+  percentage: z.number().nonnegative(),
+  dailyCap: z.number().nonnegative().optional(),
+});
+export type CategoryAllocationPreview = z.infer<typeof CategoryAllocationPreviewSchema>;
+
+/** POST/PATCH /onboarding/plan-preview — assign result plus an editable
+ *  per-category breakdown of the spendable amount, used by the onboarding
+ *  result screen's percentage editor (audit_team.md item 3). */
+export const PlanPreviewResultSchema = OnboardingAssignResultSchema.extend({
+  categoryBreakdown: z.array(CategoryAllocationPreviewSchema),
+  // The percentages actually used to compute categoryBreakdown — either the
+  // caller's categoryPercentages echoed back, or the rules engine's default
+  // weighting when none was supplied. Lets the client seed sliders/inputs
+  // with sane defaults on first render.
+  categoryPercentages: CategoryPercentagesSchema,
+});
+export type PlanPreviewResult = z.infer<typeof PlanPreviewResultSchema>;
 
 export const OnboardingCommitResultSchema = z.object({
   planId: z.string().uuid(),
@@ -406,9 +449,13 @@ export const schemas = {
   ReallocationReason: ReallocationReasonSchema,
   MerchantCategory: MerchantCategorySchema,
   PlanStatus: PlanStatusSchema,
+  SpendableCategory: SpendableCategorySchema,
+  CategoryPercentages: CategoryPercentagesSchema,
   OnboardingInput: OnboardingInputSchema,
   PlanAssignReason: PlanAssignReasonSchema,
   OnboardingAssignResult: OnboardingAssignResultSchema,
+  CategoryAllocationPreview: CategoryAllocationPreviewSchema,
+  PlanPreviewResult: PlanPreviewResultSchema,
   OnboardingCommitResult: OnboardingCommitResultSchema,
   PlanRetakeResult: PlanRetakeResultSchema,
   RetakeEligibility: RetakeEligibilitySchema,

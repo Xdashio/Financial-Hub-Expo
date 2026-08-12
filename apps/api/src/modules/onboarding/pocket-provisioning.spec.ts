@@ -2,9 +2,12 @@ import type { OnboardingInput } from '@financial-hub/shared';
 import type { PlanAssignment } from './rules-engine';
 import {
   buildPocketInputs,
+  defaultCategoryPercentages,
   hasDependentsSignal,
   nextDueDateIso,
+  previewSpendableBreakdown,
   resolveSpendableCategories,
+  validateCategoryPercentages,
 } from './pocket-provisioning';
 
 const baseInput: OnboardingInput = {
@@ -18,6 +21,18 @@ const baseInput: OnboardingInput = {
 const structuredAssignment: PlanAssignment = {
   plan: 'Salaried — Structured',
   planType: 'structured',
+  incomePattern: 'salaried',
+  reasons: [],
+  remainingAfterFixed: 35000,
+  savingsTarget: 3500,
+  spendableAmount: 31500,
+  needsRatio: 0.3,
+  needsBand: 'low',
+};
+
+const dailyAssignment: PlanAssignment = {
+  plan: 'Salaried — Daily Budget',
+  planType: 'daily',
   incomePattern: 'salaried',
   reasons: [],
   remainingAfterFixed: 35000,
@@ -125,4 +140,133 @@ describe('pocket-provisioning', () => {
       expect(family!.name).toBe('Family & obligations');
     });
   });
+
+  describe('defaultCategoryPercentages', () => {
+    it('mirrors the relative weights (food 3 : transport 2 : leisure 2)', () => {
+      const pct = defaultCategoryPercentages(['food', 'transport', 'leisure']);
+      expect(pct.food).toBeCloseTo(42.86, 1);
+      expect(pct.transport).toBeCloseTo(28.57, 1);
+      expect(pct.leisure).toBeCloseTo(28.57, 1);
+    });
+  });
+
+  describe('validateCategoryPercentages', () => {
+    it('is a no-op when categoryPercentages is omitted', () => {
+      expect(validateCategoryPercentages(baseInput)).toEqual([]);
+    });
+
+    it('accepts a valid override summing to 100', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        categoryPercentages: { food: 50, transport: 30, leisure: 20 },
+      };
+      expect(validateCategoryPercentages(input)).toEqual([]);
+    });
+
+    it('rejects percentages that do not sum to 100', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        categoryPercentages: { food: 50, transport: 30, leisure: 10 },
+      };
+      const errors = validateCategoryPercentages(input);
+      expect(errors.length).toBeGreaterThan(0);
+      expect(errors[0]).toMatch(/sum to 100/);
+    });
+
+    it('rejects a missing category for this persona', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        categoryPercentages: { food: 60, transport: 40 },
+      };
+      const errors = validateCategoryPercentages(input);
+      expect(errors.some((e) => e.includes('Missing percentage for: leisure'))).toBe(true);
+    });
+
+    it('rejects an unexpected category for this persona (e.g. family without dependents)', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        categoryPercentages: { food: 40, transport: 30, leisure: 20, family: 10 },
+      };
+      const errors = validateCategoryPercentages(input);
+      expect(errors.some((e) => e.includes('Unexpected categories'))).toBe(true);
+    });
+
+    it('rejects any override for the single-pocket student persona', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        lifeStage: 'student',
+        categoryPercentages: { leisure: 100 },
+      };
+      const errors = validateCategoryPercentages(input);
+      expect(errors.some((e) => e.includes('single spendable pocket'))).toBe(true);
+    });
+
+    it('tolerates small float rounding (e.g. 33.33 x3)', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        categoryPercentages: { food: 33.34, transport: 33.33, leisure: 33.33 },
+      };
+      expect(validateCategoryPercentages(input)).toEqual([]);
+    });
+  });
+
+  describe('previewSpendableBreakdown', () => {
+    it('matches the default weighting when no override is given (structured)', () => {
+      const breakdown = previewSpendableBreakdown(structuredAssignment, baseInput);
+      const byCategory = Object.fromEntries(breakdown.map((b) => [b.category, b]));
+      expect(byCategory.food.percentage).toBeCloseTo(42.86, 1);
+      const total = breakdown.reduce((sum, b) => sum + b.amount, 0);
+      expect(total).toBeCloseTo(structuredAssignment.spendableAmount);
+    });
+
+    it('honors a user override on a structured plan and matches buildSpendablePockets exactly', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        categoryPercentages: { food: 50, transport: 30, leisure: 20 },
+      };
+      const breakdown = previewSpendableBreakdown(structuredAssignment, input);
+      const byCategory = Object.fromEntries(breakdown.map((b) => [b.category, b]));
+      expect(byCategory.food.amount).toBeCloseTo(structuredAssignment.spendableAmount * 0.5);
+      expect(byCategory.transport.amount).toBeCloseTo(structuredAssignment.spendableAmount * 0.3);
+
+      const pockets = buildPocketInputs('plan-1', structuredAssignment, input);
+      const spendable = pockets.filter((p) => p.kind === 'spendable');
+      for (const entry of breakdown) {
+        const pocket = spendable.find((p) => p.category === entry.category);
+        expect(pocket).toBeDefined();
+        expect(pocket!.monthly_allocation).toBeCloseTo(entry.amount);
+      }
+    });
+
+    it('honors a user override on a daily plan, splitting the daily cap and scaling amount back up', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        categoryPercentages: { food: 60, transport: 20, leisure: 20 },
+      };
+      const breakdown = previewSpendableBreakdown(dailyAssignment, input);
+      const byCategory = Object.fromEntries(breakdown.map((b) => [b.category, b]));
+      const expectedDailyFood = round2((dailyAssignment.spendableAmount / 30) * 0.6);
+      expect(byCategory.food.dailyCap).toBeCloseTo(expectedDailyFood, 1);
+      expect(byCategory.food.amount).toBeCloseTo(expectedDailyFood * 30, 1);
+
+      const pockets = buildPocketInputs('plan-1', dailyAssignment, input);
+      const spendable = pockets.filter((p) => p.kind === 'spendable');
+      for (const entry of breakdown) {
+        const pocket = spendable.find((p) => p.category === entry.category);
+        expect(pocket!.daily_cap).toBeCloseTo(entry.dailyCap!);
+        expect(pocket!.monthly_allocation).toBeCloseTo(entry.amount);
+      }
+    });
+
+    it('always returns 100% for the single-pocket student persona, ignoring weights', () => {
+      const input: OnboardingInput = { ...baseInput, lifeStage: 'student' };
+      const breakdown = previewSpendableBreakdown(structuredAssignment, input);
+      expect(breakdown).toHaveLength(1);
+      expect(breakdown[0].percentage).toBe(100);
+    });
+  });
 });
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
