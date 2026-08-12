@@ -6,6 +6,7 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { LoadingState, ErrorState } from '@/components/ui';
 import { profileApi, pocketsApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 import { ArrowLeft, BarChart3, Calendar, Briefcase, PiggyBank, House, ShoppingBasket } from 'lucide-react-native';
 
 function fmt(amount: number) {
@@ -60,6 +61,23 @@ export default function CurrentPlanScreen() {
       load();
     }, [load])
   );
+
+  // EXPO_APP_FULL_AUDIT.md item 8 / audit_team.md 2026-08-13 verification:
+  // this screen shows monthly_allocation per pocket via pocketsApi.getAll(),
+  // but previously only refetched on focus. A plan retake (or any other
+  // mutating flow that finishes with router.replace('/(tabs)')) can skip
+  // past this screen without a focus event, leaving it showing a stale
+  // plan/allocation. Subscribing to useDataSync's version closes that gap —
+  // same fix already applied to (pockets)/detail.tsx.
+  const dataVersion = useDataSync((s) => s.version);
+  const isFirstVersion = React.useRef(true);
+  React.useEffect(() => {
+    if (isFirstVersion.current) {
+      isFirstVersion.current = false;
+      return;
+    }
+    load();
+  }, [dataVersion, load]);
 
   const totalAllocated = pockets.reduce((sum, p) => sum + (p.monthly_allocation ?? 0), 0);
   const grouped: Record<string, any[]> = { savings: [], fixed: [], spendable: [] };
