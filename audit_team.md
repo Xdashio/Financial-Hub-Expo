@@ -129,12 +129,14 @@ This is a real, multi-week feature, not a quick add — flagging it as its own r
 
 ## 10. Sub-pockets + rollover/cap logic from the Flutter version
 
-**Status: split — rollover/cap logic is ✅ real and already ported; sub-pockets are 🆕 confirmed not ported, exactly as the audit says.**
+**Status: split — rollover/cap logic is ✅ real and already ported; sub-pockets are ✅ now ported (2026-08-13, see below).**
+
+**Update 2026-08-13:** sub-pockets are done. `parent_pocket_id` FK landed as scoped below, plus the fix this doc's own recommendation didn't anticipate: `getAllForUser` needed a filtered query (`getTopLevelPocketsByPlanId`) so sub-pockets don't double-list on the home screen or double-count in the freelancer daily-cap math — that gap existed in the first commit of this work and is now closed. Mobile UI (create/list/delete from Pocket Detail) also now exists; none did before. Item 9 (loans) is unblocked.
 
 Two different things bundled in this line item, worth separating:
 
 - **Rollover + daily-cap logic:** `FLUTTER_TO_EXPO_PORT_GUIDE.md` §1 originally flagged this as a hardcoded stub (`calculateRollover()` returning 0). That's now stale — checked directly: `pockets.service.ts` computes real adaptive daily caps via `computeSpendableDailyCaps`, and there's a real `rollover` module (`rollover.constants.ts`, `streak.ts`, referenced from the notification scheduler) with real streak/rollover event types (`EVENT_DAILY_ROLLOVER_SUCCESS`, `EVENT_DAILY_OVERSPEND`, `STREAK_GRACE_FREEZES_PER_MONTH`). This appears to already be a genuine, non-stub port. Worth a focused verification pass (does it actually run on a schedule and hit the DB correctly end-to-end) rather than treating it as unbuilt — I don't want the team to re-scope work that's done.
-- **Sub-pockets:** confirmed not ported. `FLUTTER_TO_EXPO_PORT_GUIDE.md` §5 already scoped this and explicitly recommended deferring it post-MVP, with a specific schema recommendation already made: a `parent_pocket_id` FK on the existing `pockets` table rather than a separate `sub_pockets` table, so it reuses all existing ledger/cap/rollover logic instead of duplicating it. Given item 9 (loans) now depends on this, I'd recommend un-deferring it — the "post-MVP" call in that doc was made before loans was on the roadmap.
+- **Sub-pockets:** ~~confirmed not ported~~ now ported — see update above. `FLUTTER_TO_EXPO_PORT_GUIDE.md` §5 already scoped this and explicitly recommended deferring it post-MVP, with a specific schema recommendation already made: a `parent_pocket_id` FK on the existing `pockets` table rather than a separate `sub_pockets` table, so it reuses all existing ledger/cap/rollover logic instead of duplicating it. Given item 9 (loans) now depends on this, I'd recommend un-deferring it — the "post-MVP" call in that doc was made before loans was on the roadmap.
 
 ---
 
@@ -144,11 +146,9 @@ This is too much to build in one pass — grouping into an order that avoids rew
 
 1. ~~**Biometric app-lock gate** (item 7)~~ — done.
 2. ~~**Merchant category taxonomy check** (item 8)~~ — done, reconciled 2026-08-12 above.
-3. **Onboarding percentage editing** (item 3)** — the smaller, well-bounded piece of the two onboarding asks. Up next.
-4. **Sub-pockets** (item 10, second half) — foundational for loans; land the `parent_pocket_id` model.
-5. **Income surplus detection + 3-option allocation prompt** (item 1) — build the reusable "confirm/adjust/redirect" prompt component here.
-6. **Loans** (item 9) — now unblocked by sub-pockets.
+3. ~~**Onboarding percentage editing** (item 3)~~ — done.
+4. ~~**Sub-pockets** (item 10, second half)~~ — done 2026-08-13; foundational for loans, now unblocked.
+5. **Income surplus detection + 3-option allocation prompt** (item 1) — up next; build the reusable "confirm/adjust/redirect" prompt component here.
+6. **Loans** (item 9) — unblocked by sub-pockets, but per this doc's own sequencing, build after #5 so it can reuse the prompt component instead of a bespoke one.
 7. **Behavioral layer: overspend prompting, 100%-allocation enforcement, ongoing monitoring** (items 4–5) — reuses the item-1 prompt component; this is the largest single item in the audit and deserves its own dedicated pass rather than being squeezed in alongside others.
 8. **Persona/identity split for income × spending style** (item 2) — build from `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 once the team confirms that design still stands.
-
-I need two things from the team before starting: confirmation on the sequencing above (or a different priority order if something's more urgent), and the specifics requested in item 7 (notifications repro) and item 8 (category list). Want me to start on #1–2 now while those specifics come in, or do you want to reorder first?
