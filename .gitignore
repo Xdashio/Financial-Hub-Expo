@@ -14,6 +14,7 @@ out/
 graphify-out/
 
 #skills rules
+.opencode/
 
 .cursorules/
 .cursor

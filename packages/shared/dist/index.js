@@ -16,3 +16,4 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
 Object.defineProperty(exports, "__esModule", { value: true });
 // Main entry point for @financial-hub/shared
 __exportStar(require("./schemas"), exports);
+__exportStar(require("./merchant-categories"), exports);

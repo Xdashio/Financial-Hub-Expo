@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -7,7 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/services/auth';
 import { Button, Card } from '@/components/ui';
-import { Fingerprint, ScanFace, Shield, ArrowLeft, ToggleRight } from 'lucide-react-native';
+import { Fingerprint, ScanFace, Shield, ArrowLeft } from 'lucide-react-native';
 
 type BiometricEnableParams = {
   fromSignup?: string;
@@ -32,6 +32,18 @@ export default function BiometricEnableScreen() {
   const biometricLabel = biometricType === 'face' ? 'Face ID' : 'fingerprint';
   const biometricTitle = biometricType === 'face' ? 'Face ID' : 'Fingerprint';
 
+  // Drives the switch track/thumb so toggling animates smoothly instead of
+  // snapping instantly — the instant snap plus the icon popping in/out was
+  // part of what read as "glitchy" alongside the re-prompt bug fixed above.
+  const toggleAnim = useRef(new Animated.Value(isEnabled ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.timing(toggleAnim, {
+      toValue: isEnabled ? 1 : 0,
+      duration: 180,
+      useNativeDriver: false, // animating backgroundColor requires the JS driver
+    }).start();
+  }, [isEnabled, toggleAnim]);
+
   useEffect(() => {
     const checkBiometrics = async () => {
       const available = await checkBiometricAvailability();
@@ -55,12 +67,26 @@ export default function BiometricEnableScreen() {
     setIsEnabled(!!user?.biometricEnabled);
   }, [user?.biometricEnabled]);
 
+  // The focus-gate below must only re-run when the screen is actually
+  // re-entered (navigated back to), never as a side effect of the toggle
+  // on this same screen changing `user.biometricEnabled` mid-visit — that
+  // was the cause of the "confirm, then immediately asked again" glitch:
+  // enabling/disabling biometrics updated the store, which used to sit in
+  // this effect's own dependency array, so a successful toggle re-armed
+  // and re-fired the exact same re-authentication prompt it had just
+  // satisfied. Read the enabled flag from a ref instead so toggling this
+  // screen's own switch can't retrigger it.
+  const biometricEnabledRef = useRef(!!user?.biometricEnabled);
+  useEffect(() => {
+    biometricEnabledRef.current = !!user?.biometricEnabled;
+  }, [user?.biometricEnabled]);
+
   // When biometrics are already on and this screen is opened again (Settings),
   // require a successful biometric confirmation before showing controls.
   useFocusEffect(
     React.useCallback(() => {
       if (fromSignup || !isReady || !biometricAvailable) return;
-      if (!user?.biometricEnabled) {
+      if (!biometricEnabledRef.current) {
         setIsUnlocked(true);
         return;
       }
@@ -98,7 +124,9 @@ export default function BiometricEnableScreen() {
       return () => {
         cancelled = true;
       };
-    }, [fromSignup, isReady, biometricAvailable, user?.biometricEnabled, router])
+      // Intentionally excludes `user?.biometricEnabled` — see comment above.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fromSignup, isReady, biometricAvailable, router])
   );
 
   // Auto-skip only applies to the signup flow.
@@ -259,14 +287,24 @@ export default function BiometricEnableScreen() {
               marginLeft: fromSignup ? 0 : spacing.md,
             }}
           >
-            {fromSignup ? 'Speed up sign-in' : 'Biometric unlock'}
+            {fromSignup ? 'Lock Financial Hub for privacy' : 'Biometric unlock'}
           </Text>
         </View>
 
         {fromSignup && (
           <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.lg }}>
             <Text style={{ ...typography.body, color: colors.sage, lineHeight: 22 }}>
-              {biometricTitle} lets you open Financial Hub without typing your password every time.
+              Turn on {biometricLabel} so only you can open Financial Hub — even if someone else
+              picks up your phone.
+            </Text>
+          </View>
+        )}
+
+        {!fromSignup && (
+          <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.lg }}>
+            <Text style={{ ...typography.body, color: colors.sage, lineHeight: 22 }}>
+              Require {biometricLabel} to open Financial Hub, keeping your pockets and balances
+              private on this device.
             </Text>
           </View>
         )}
@@ -314,41 +352,41 @@ export default function BiometricEnableScreen() {
                 Native, on-device, and free
               </Text>
             </View>
-            <View
+            <Animated.View
               style={{
                 width: 48,
                 height: 28,
                 borderRadius: 14,
                 padding: 2,
-                backgroundColor: isEnabled ? colors.emeraldDeep : colors.lineSoft,
                 justifyContent: 'center',
+                backgroundColor: toggleAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [colors.lineSoft, colors.emeraldDeep],
+                }),
               }}
             >
-              <View
-                style={[
-                  {
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
-                    backgroundColor: colors.surface,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    shadowColor: colors.ink,
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
-                    shadowRadius: 2,
-                    elevation: 2,
-                  },
-                  isEnabled && {
-                    transform: [{ translateX: 20 }],
-                  },
-                ]}
-              >
-                {isEnabled && (
-                  <ToggleRight size={14} color={colors.emeraldDeep} strokeWidth={2} />
-                )}
-              </View>
-            </View>
+              <Animated.View
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: colors.surface,
+                  shadowColor: colors.ink,
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 2,
+                  elevation: 2,
+                  transform: [
+                    {
+                      translateX: toggleAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, 20],
+                      }),
+                    },
+                  ],
+                }}
+              />
+            </Animated.View>
           </Pressable>
         </View>
 

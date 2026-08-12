@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { merchantApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
+import { MERCHANT_CATEGORIES } from '@financial-hub/shared';
 import {
   ArrowLeft,
   Tag,
@@ -81,17 +82,12 @@ export default function ClassificationScreen() {
     ? pockets.filter((p) => getAllowedCategoriesForPocket(p).includes(selectedCategory))
     : pockets;
 
-  const categories = [
-    { id: 'grocery', name: 'Groceries', icon: '🛒' },
-    { id: 'landlord_rent', name: 'Rent', icon: '🏠' },
-    { id: 'utility', name: 'Utilities', icon: '💡' },
-    { id: 'transport', name: 'Transport', icon: '🚗' },
-    { id: 'healthcare', name: 'Healthcare', icon: '💊' },
-    { id: 'education', name: 'Education', icon: '📚' },
-    { id: 'entertainment', name: 'Entertainment', icon: '🎬' },
-    { id: 'personal_care', name: 'Personal Care', icon: '💇' },
-    { id: 'other', name: 'Other', icon: '📦' },
-  ];
+  // Was a hardcoded 9-item list that silently omitted gambling_betting —
+  // meaning a user had no way to self-classify a betting/gambling payment
+  // at all, the one category this screen most needs to catch. Now sourced
+  // from the shared category list so it can't drift from the backend's
+  // enum again.
+  const categories = MERCHANT_CATEGORIES;
 
   useEffect(() => {
     loadPockets();
@@ -266,7 +262,7 @@ export default function ClassificationScreen() {
                     marginLeft: spacing.sm,
                   }}
                 >
-                  {category.name}
+                  {category.label}
                 </Text>
                 {selectedCategory === category.id && (
                   <Check
@@ -290,11 +286,21 @@ export default function ClassificationScreen() {
               Loading pockets…
             </Text>
           )}
-          {!isLoadingPockets && selectedCategory && selectablePockets.length < pockets.length && (
-            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
-              Some pockets are hidden because they block this category.
+          {!isLoadingPockets && selectedCategory && selectablePockets.length === 0 && (
+            <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginBottom: spacing.sm }}>
+              {MERCHANT_CATEGORIES.find((c) => c.id === selectedCategory)?.alwaysBlocked
+                ? "No pocket can take a betting/gambling payment — that's blocked everywhere, on purpose. Report it instead if this looks miscategorized."
+                : "No pocket currently accepts this category. Try a different category, or report it if this looks miscategorized."}
             </Text>
           )}
+          {!isLoadingPockets &&
+            selectedCategory &&
+            selectablePockets.length > 0 &&
+            selectablePockets.length < pockets.length && (
+              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
+                Some pockets are hidden because they block this category.
+              </Text>
+            )}
           {selectablePockets.map((pocket) => (
             <Pressable
               key={pocket.id}
