@@ -151,6 +151,26 @@ export class SupabaseRepository {
     return data || [];
   }
 
+  /**
+   * Top-level pockets only (excludes sub-pockets). Use this — not
+   * `getPocketsByPlanId` — anywhere that used to assume "every pocket in
+   * this plan" meant "every pocket the user sees as a home-screen row",
+   * e.g. the main pocket list and the freelancer daily-cap computation.
+   * Sub-pockets share the parent's `plan_id` (audit_team.md item 10), so
+   * without this filter they'd double-list on the home screen and
+   * double-count in `computeSpendableDailyCaps`.
+   */
+  async getTopLevelPocketsByPlanId(planId: string): Promise<Pocket[]> {
+    const { data, error } = await this.supabase
+      .from('pockets')
+      .select('*')
+      .eq('plan_id', planId)
+      .is('parent_pocket_id', null)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
   async getPocketById(id: string): Promise<Pocket | null> {
     const { data, error } = await this.supabase
       .from('pockets')
