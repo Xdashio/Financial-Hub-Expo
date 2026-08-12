@@ -1,4 +1,5 @@
 import type { Pocket } from '../database/database.types';
+import { isAlwaysBlockedCategory } from '@financial-hub/shared';
 
 // Single source of truth for "what merchant categories can this pocket pay
 // out to". Previously duplicated (and drifting) across SpendService and
@@ -46,6 +47,16 @@ export function isEssentialPocket(pocket: Pocket): boolean {
  * Expenses allowance.
  */
 export function getAllowedCategoriesForPocket(pocket: Pocket): string[] {
+  return allowedCategoriesForPocketUnguarded(pocket).filter(
+    (c) => !isAlwaysBlockedCategory(c)
+  );
+}
+
+// Defensive guard lives in the exported wrapper above so a future branch
+// added here can never accidentally leak an always-blocked category (e.g.
+// gambling_betting) into an allow-list again without someone deliberately
+// bypassing isAlwaysBlockedCategory to do it.
+function allowedCategoriesForPocketUnguarded(pocket: Pocket): string[] {
   if (pocket.kind === 'fixed') {
     return allowedMerchantsForFixedCategory(pocket.category);
   }
@@ -62,20 +73,45 @@ export function getAllowedCategoriesForPocket(pocket: Pocket): string[] {
     return ['landlord_rent', 'utility'];
   }
   if (pocket.kind === 'spendable' && pocket.category === 'leisure') {
-    // Discretionary spend — PRD §3.5: blacklisted categories are "blocked
-    // outright from essential pockets" but only "shown a warning if
-    // attempted from a discretionary pocket," which is a different, softer
-    // treatment than essential's hard block. This is the one pocket type
-    // where a gambling_betting self-classify (blocked-spend screen's
-    // "Review and classify" option) can actually go through — without this
-    // branch that option was a dead end for every pocket, essential or not.
-    return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'gambling_betting', 'other'];
+    // Discretionary spend — PRD §3.5: blacklisted categories get a
+    // *warning* from a discretionary pocket, which is softer than
+    // essential's hard block. But "warning" is not "override": per the
+    // 2026-08-12 team reconciliation, gambling_betting stays hard-blocked
+    // from every pocket, leisure included — self-classify is reserved for
+    // genuinely *unclassified* recipients (P2P, unregistered till/Pochi la
+    // Biashara), never for a recipient already known to be gambling. The
+    // "warning" a leisure pocket shows is the blocked message itself, plus
+    // the "report it" path (merchant-report, not self-classify) if the
+    // categorization looks wrong. See ALWAYS_BLOCKED_CATEGORIES.
+    return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'other'];
   }
-  // Savings and any other non-leisure discretionary pocket: broad,
-  // never-gambling allowance. Savings in particular must stay hard-blocked
-  // from gambling_betting even though it isn't "essential" in the
-  // food/rent sense — it's the pocket the whole product exists to protect.
+  if (pocket.kind === 'savings') {
+    // Savings is the pocket the whole product exists to protect — per the
+    // 2026-08-12 reconciliation it's scoped down to essential categories
+    // only, same as a fixed pocket, not the broad discretionary allowance
+    // other non-essential spendable pockets get. It should never be usable
+    // for discretionary/leisure spend, gambling or otherwise.
+    return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education'];
+  }
+  // Any other non-leisure discretionary spendable pocket (personal,
+  // utilities, healthcare, education, other as a spendable category):
+  // broad discretionary allowance.
   return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'other'];
+}
+
+/**
+ * Whether a block on this merchant category can ever be resolved via the
+ * "Review and classify" self-classify flow, for ANY pocket. Distinct from
+ * pocket-level essential/discretionary status: this is about the category
+ * itself. gambling_betting is blocked everywhere with no override, so it's
+ * never reviewable — the only path for a known gambling merchant is
+ * "report it" (disputes the classification, doesn't unblock it). Every
+ * other block is a routing problem ("wrong pocket for this category"),
+ * which self-classify legitimately solves by picking pocket + category
+ * again — see PRD §3.5's "sort, don't block" framing.
+ */
+export function isReviewableBlock(category: string): boolean {
+  return !isAlwaysBlockedCategory(category);
 }
 
 function allowedMerchantsForFixedCategory(category: string | null): string[] {
