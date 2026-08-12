@@ -94,14 +94,21 @@ This is a product principle, not a build item — it's already the stated positi
 
 ## 8. Merchant blocking / transaction flagging (essentials vs. non-essentials)
 
-**Status: ✅ mostly already built, 🐛 one gap worth flagging.**
+**Status: ✅ built and reconciled with the team 2026-08-12.**
 
 This is further along than the audit implies. Verified in code:
 - `getBlockedCategoriesForPocket` (`pocket-rules.ts`) enforces essential-pocket blocking against non-essential categories.
 - `MerchantService.classify` — checked directly, and the two bugs `FLUTTER_TO_EXPO_PORT_GUIDE.md` §9 flagged (dropped `pocket_id`, fake-echo reclassification) are **both already fixed**: `pocket_id` is a real column (migration `004_merchant_classification_pocket_id.sql`), and `reclassifyTransaction` does a real balance check and a real `updateTransaction` write, not a stub.
 - `merchant-report.service.ts` (flag/report-merchant path) is registered and wired to a real table.
 
-**What's still genuinely open:** the audit's specific example — rent/food/fees (essential) vs. gambling (non-essential) — the *category taxonomy* itself. Worth the team confirming: is "gambling" already in the blocked-category list today, or does it need adding? I'd want to check `pocket-rules.ts`'s category enum against the team's exact essential/non-essential list before calling this closed, since a missing category is a silent gap, not an error. If the team gives me the exact category list they expect blocked, I can verify or fix this in one pass.
+**Taxonomy, reconciled 2026-08-12:** `gambling_betting` is a real category (`MERCHANT_CATEGORIES`, `alwaysBlocked: true`) and is now hard-blocked from **every** pocket — essential, Savings, and discretionary/leisure alike, no override. Two real bugs were found and fixed while confirming this:
+
+1. **Leisure was carved out to allow gambling_betting**, framed as closing a "dead end" on the self-classify button. This directly contradicted the shared package's own doc comment ("always blocked from every pocket") and the team's decision that self-classify is for *unclassified recipients only* (P2P, unregistered Till/Pochi la Biashara), never for a recipient already known to be gambling. Reverted — gambling_betting is excluded everywhere now, with a defensive filter in `getAllowedCategoriesForPocket` so it can't silently leak back into an allow-list branch in the future.
+2. **`review_available`/`can_override` were computed from `!isEssentialPocket(pocket)`** — a pocket-level check — instead of whether the *category* itself is ever resolvable via review. That made "Review and classify" a live but dead-end button for Savings and any non-essential, non-leisure spendable pocket (personal, utilities, healthcare, education, other) whenever the block was gambling_betting. Fixed with a new `isReviewableBlock(category)` helper, used consistently in `spend.service.ts`'s block response and its `getBlockedReasons` reason/can_override output.
+
+Also tightened: Savings now gets the essential-only merchant allow-list (grocery/rent/utility/transport/healthcare/education), not the broader discretionary one it shared with pockets like "personal" before — it was already hard-blocked from gambling specifically, but could still pay entertainment/personal_care merchants, which doesn't match "Savings is the pocket the whole product exists to protect."
+
+**Resolved 2026-08-12 (was the last open item):** the block stays absolute — no cooling-off unlock, no discipline-score-cost bypass. Instead, every blocked gambling attempt is logged and costs discipline-score points on its own, without ever unblocking the spend (option 3 of the tradeoffs discussed). Rationale: gambling paybills/tills are registered and reliably identifiable, so false positives aren't a real risk here, which makes "log + penalize every attempt" safe to do aggressively without worrying about punishing miscategorized spend. Implementation: `EVENT_GAMBLING_BLOCKED_ATTEMPT` / `POINTS_GAMBLING_BLOCKED_ATTEMPT` (−5, capped −25/month) in `rollover.constants.ts`, wired into both blocked-category branches of `SpendService.checkSpend` via `recordGamblingBlockedAttempt`. Covered by new tests in `spend.service.spec.ts`.
 
 ---
 
@@ -135,9 +142,9 @@ Two different things bundled in this line item, worth separating:
 
 This is too much to build in one pass — grouping into an order that avoids rework (later items depending on earlier ones being in place first):
 
-1. **Biometric app-lock gate** (item 7) — small, well-scoped, no dependencies.
-2. **Merchant category taxonomy check** (item 8) — needs one input from the team (the exact essential/non-essential category list) before I can call it done or fix it.
-3. **Onboarding percentage editing** (item 3) — the smaller, well-bounded piece of the two onboarding asks.
+1. ~~**Biometric app-lock gate** (item 7)~~ — done.
+2. ~~**Merchant category taxonomy check** (item 8)~~ — done, reconciled 2026-08-12 above.
+3. **Onboarding percentage editing** (item 3)** — the smaller, well-bounded piece of the two onboarding asks. Up next.
 4. **Sub-pockets** (item 10, second half) — foundational for loans; land the `parent_pocket_id` model.
 5. **Income surplus detection + 3-option allocation prompt** (item 1) — build the reusable "confirm/adjust/redirect" prompt component here.
 6. **Loans** (item 9) — now unblocked by sub-pockets.

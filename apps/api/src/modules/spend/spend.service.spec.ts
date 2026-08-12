@@ -125,6 +125,67 @@ describe('SpendService.commitSpend', () => {
     expect(repository.createTransaction).not.toHaveBeenCalled();
   });
 
+  describe('gambling_betting blocked attempt (option 3, 2026-08-12)', () => {
+    it('logs the attempt and deducts discipline score, but still leaves the spend blocked', async () => {
+      repository.getPocketById.mockResolvedValue(FIXED_POCKET as any);
+
+      const result = await service.commitSpend(
+        { pocket_id: 'pocket-fixed', amount: 500, category: 'gambling_betting', recipient_key: 'Betika' },
+        'user-1',
+      );
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('blocked_category');
+      // The block itself is unaffected — no override, no unblock.
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+      // But the attempt is logged and costs discipline-score points.
+      expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', -5);
+      expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-1',
+          type: 'gambling_blocked_attempt',
+          payload: expect.objectContaining({
+            pocket_id: 'pocket-fixed',
+            category: 'gambling_betting',
+            recipient_key: 'Betika',
+            amount: 500,
+            points_deducted: 5,
+          }),
+        }),
+      );
+    });
+
+    it('does not log or deduct points for an ordinary (reviewable) blocked category', async () => {
+      // grocery blocked from a housing-scoped fixed pocket — reviewable,
+      // not the always-blocked gambling case.
+      repository.getPocketById.mockResolvedValue({ ...FIXED_POCKET, category: 'housing' } as any);
+
+      await service.commitSpend(
+        { pocket_id: 'pocket-fixed', amount: 500, category: 'grocery' },
+        'user-1',
+      );
+
+      expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+      expect(repository.createBehaviorEvent).not.toHaveBeenCalled();
+    });
+
+    it('caps the monthly point deduction the same way daily-overspend does', async () => {
+      repository.getPocketById.mockResolvedValue(FIXED_POCKET as any);
+      // Already lost 22 points this month from prior gambling attempts;
+      // cap is -25, so only -3 more should apply this time, not the full -5.
+      repository.getBehaviorEventsByTypesSince.mockResolvedValue([
+        { payload: { points_deducted: 22 } },
+      ] as any);
+
+      await service.commitSpend(
+        { pocket_id: 'pocket-fixed', amount: 500, category: 'gambling_betting' },
+        'user-1',
+      );
+
+      expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', -3);
+    });
+  });
+
   it('does not write a transaction for an unclassified recipient', async () => {
     const result = await service.commitSpend(
       { pocket_id: 'pocket-1', amount: 500, recipient_key: 'Juma K.' },

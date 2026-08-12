@@ -3,13 +3,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { Pocket } from '../../database/database.types';
-import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
+import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket, isReviewableBlock } from '../../common/pocket-rules';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import {
   CAP_DAILY_OVERSPEND,
+  CAP_GAMBLING_BLOCKED_ATTEMPT,
   EVENT_DAILY_OVERSPEND,
+  EVENT_GAMBLING_BLOCKED_ATTEMPT,
   POINTS_DAILY_OVERSPEND,
+  POINTS_GAMBLING_BLOCKED_ATTEMPT,
 } from '../rollover/rollover.constants';
 import { utcDayBounds } from '../rollover/rollover-planner';
 
@@ -90,13 +93,26 @@ export class SpendService {
     if (dto.category) {
       const blockedCategories = getBlockedCategoriesForPocket(pocket);
       if (blockedCategories.includes(dto.category)) {
+        if (!isReviewableBlock(dto.category)) {
+          await this.recordGamblingBlockedAttempt(pocket, userId, dto.category, dto.recipient_key, dto.amount);
+        }
         return {
           allowed: false,
           block_reason: 'blocked_category',
           blocked_category: dto.category,
           pocket_type: pocket.kind,
           message: `${this.getCategoryDisplayName(dto.category)} can't be paid from ${pocket.name}`,
-          review_available: !isEssentialPocket(pocket),
+          // Bug fix (2026-08-12): this used to be `!isEssentialPocket(pocket)`,
+          // which is about the POCKET (is it food/rent/etc.) and says nothing
+          // about whether the CATEGORY can ever be resolved via review. That
+          // made "Review and classify" a dead-end button for Savings and any
+          // other non-essential, non-leisure spendable pocket (personal,
+          // utilities, healthcare, education, other) whenever the blocked
+          // category was gambling_betting — always-blocked, so review could
+          // never actually unblock it there. isReviewableBlock checks the
+          // category itself, which is what determines whether review can
+          // ever succeed, independent of which pocket triggered the block.
+          review_available: isReviewableBlock(dto.category),
           pocket: {
             id: pocket.id,
             name: pocket.name,
@@ -130,13 +146,22 @@ export class SpendService {
       // Use saved classification to check if allowed
       const blockedCategories = getBlockedCategoriesForPocket(pocket);
       if (blockedCategories.includes(classification.category)) {
+        if (!isReviewableBlock(classification.category)) {
+          await this.recordGamblingBlockedAttempt(
+            pocket,
+            userId,
+            classification.category,
+            dto.recipient_key,
+            dto.amount,
+          );
+        }
         return {
           allowed: false,
           block_reason: 'blocked_category',
           blocked_category: classification.category,
           pocket_type: pocket.kind,
           message: `${this.getCategoryDisplayName(classification.category)} can't be paid from ${pocket.name}`,
-          review_available: !isEssentialPocket(pocket),
+          review_available: isReviewableBlock(classification.category),
           pocket: {
             id: pocket.id,
             name: pocket.name,
@@ -298,6 +323,59 @@ export class SpendService {
     });
   }
 
+  /**
+   * Option 3 from the 2026-08-12 reconciliation: the gambling block stays
+   * absolute — this never unblocks the spend, it only logs the attempt and
+   * costs discipline-score points, mirroring how daily-overspend logging
+   * works. Unlike overspend, we don't dedupe to once/day: every distinct
+   * blocked gambling attempt is a real, low-noise signal (gambling
+   * recipients are registered paybills/tills, not fuzzy-matched, so this
+   * isn't going to fire on false positives), and each one should be
+   * visible in the behavior_events history even if the score deduction for
+   * the month is already capped out.
+   */
+  private async recordGamblingBlockedAttempt(
+    pocket: Pocket,
+    userId: string,
+    category: string,
+    recipientKey: string | undefined,
+    amount: number,
+  ): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const monthStart = `${nowIso.slice(0, 7)}-01T00:00:00.000Z`;
+    const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
+      userId,
+      [EVENT_GAMBLING_BLOCKED_ATTEMPT],
+      monthStart,
+    );
+    let earned = 0;
+    for (const event of monthEvents) {
+      const deducted = (event.payload as any)?.points_deducted;
+      if (typeof deducted === 'number') earned -= deducted;
+    }
+    const apply = Math.max(
+      POINTS_GAMBLING_BLOCKED_ATTEMPT,
+      Math.min(0, CAP_GAMBLING_BLOCKED_ATTEMPT - earned),
+    );
+    if (apply !== 0) {
+      await this.disciplineScore.applyDelta(userId, apply);
+    }
+
+    await this.repository.createBehaviorEvent({
+      user_id: userId,
+      type: EVENT_GAMBLING_BLOCKED_ATTEMPT,
+      payload: {
+        date: nowIso,
+        pocket_id: pocket.id,
+        pocket_kind: pocket.kind,
+        category,
+        recipient_key: recipientKey ?? null,
+        amount,
+        points_deducted: apply < 0 ? -apply : 0,
+      },
+    });
+  }
+
   async getBlockedReasons(pocketId: string, userId: string): Promise<{
     pocket_id: string;
     pocket_name: string;
@@ -324,8 +402,21 @@ export class SpendService {
       pocket_kind: pocket.kind,
       blocked_categories: blockedCategories.map(category => ({
         category,
-        reason: isEssentialPocket(pocket) ? 'Essential pocket protection' : 'Savings protection',
-        can_override: !isEssentialPocket(pocket),
+        // Same bug as review_available above: reason/can_override need to
+        // account for the CATEGORY (is it always-blocked, e.g.
+        // gambling_betting) as well as the pocket. Previously this only
+        // branched on isEssentialPocket, which mislabeled every
+        // always-blocked category from Savings/personal/utilities/
+        // healthcare/education/other as "Savings protection, can override"
+        // when it's actually a permanent, category-level block.
+        reason: !isReviewableBlock(category)
+          ? 'Blocked category — no override'
+          : isEssentialPocket(pocket)
+            ? 'Essential pocket protection'
+            : pocket.kind === 'savings'
+              ? 'Savings protection'
+              : 'Discretionary category restriction',
+        can_override: isReviewableBlock(category),
       })),
       allowed_categories: allowedCategories,
     };

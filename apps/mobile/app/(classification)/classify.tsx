@@ -17,7 +17,16 @@ import {
 
 type PocketOption = { id: string; name: string; kind: string; category: string | null };
 
-/** Mirrors apps/api pocket-rules getAllowedCategoriesForPocket for UI filtering. */
+/**
+ * Mirrors apps/api/src/common/pocket-rules.ts getAllowedCategoriesForPocket
+ * for UI filtering. Keep in sync — gambling_betting must never appear in
+ * any branch here (it's filtered out on the backend by
+ * isAlwaysBlockedCategory regardless of what a branch returns, but the
+ * mobile mirror has no such guard, so it has to be correct by construction).
+ * Updated 2026-08-12: Savings now gets the essential-only list, not the
+ * broad discretionary one — it should never be spendable on leisure
+ * categories, gambling or otherwise.
+ */
 function getAllowedCategoriesForPocket(pocket: PocketOption): string[] {
   if (pocket.kind === 'fixed') {
     switch (pocket.category) {
@@ -47,6 +56,9 @@ function getAllowedCategoriesForPocket(pocket: PocketOption): string[] {
   if (pocket.category === 'transport') return ['transport'];
   if (pocket.category === 'family') return ['education', 'healthcare', 'grocery', 'other'];
   if (pocket.category === 'housing') return ['landlord_rent', 'utility'];
+  if (pocket.kind === 'savings') {
+    return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education'];
+  }
   return [
     'grocery',
     'landlord_rent',
