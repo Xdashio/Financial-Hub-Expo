@@ -20,7 +20,12 @@ export class PocketsService {
     if (!plan) {
       return [];
     }
-    const pockets = await this.repository.getPocketsByPlanId(plan.id);
+    // Top-level pockets only — sub-pockets (audit_team.md item 10) share
+    // the parent's plan_id but are surfaced via GET /pockets/:id/sub-pockets
+    // instead, nested under their parent. Using the unfiltered
+    // getPocketsByPlanId here would double-list them on the home screen and
+    // double-count their allocation in the freelancer daily-cap math below.
+    const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
 
     // Enrich each pocket with its ledger-derived available balance so the
     // home screen doesn't need to call /summary per pocket. monthly_allocation
