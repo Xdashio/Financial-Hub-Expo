@@ -16,6 +16,7 @@ function pocket(partial: Partial<Pocket> & Pick<Pocket, 'kind'>): Pocket {
     lock_until: null,
     monthly_allocation: 1000,
     daily_cap: null,
+    parent_pocket_id: null,
     created_at: 'x',
     updated_at: 'x',
     ...partial,

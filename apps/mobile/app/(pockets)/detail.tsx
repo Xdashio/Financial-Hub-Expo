@@ -11,7 +11,7 @@ import { radius, spacing, typography, shadow, borderWidth } from '../../src/them
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button, ConfirmModal } from '@/components/ui';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import {
   ArrowLeft,
@@ -24,6 +24,9 @@ import {
   AlertTriangle,
   ShieldCheck,
   CircleDollarSign,
+  Layers,
+  Plus,
+  Trash2,
 } from 'lucide-react-native';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -47,6 +50,10 @@ interface PocketSummary {
     daily_cap: number | null;
     is_time_locked: boolean;
     lock_until: string | null;
+    // Sub-pockets (audit_team.md item 10): null for a top-level pocket,
+    // set for a sub-pocket nested under a parent. See
+    // POST/GET /pockets/:id/sub-pockets.
+    parent_pocket_id?: string | null;
   };
   summary: {
     available: number;
@@ -62,6 +69,20 @@ interface PocketSummary {
     transaction_count: number;
     reallocation_count: number;
   };
+}
+
+// Sub-pockets (audit_team.md item 10): ordinary pockets nested one level
+// under a parent, e.g. splitting a Loans pocket into "Repayment" + purpose
+// sub-pockets. Returned by GET /pockets/:id/sub-pockets with a
+// ledger-derived available_balance, same shape as the enriched top-level
+// list in useHomeStore.
+interface SubPocket {
+  id: string;
+  name: string;
+  kind: 'savings' | 'fixed' | 'spendable';
+  category: string | null;
+  monthly_allocation: number;
+  available_balance: number;
 }
 
 interface MerchantScope {
@@ -212,6 +233,7 @@ export default function PocketDetailScreen() {
   const [summary, setSummary] = useState<PocketSummary | null>(null);
   const [scope, setScope] = useState<MerchantScope | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [subPockets, setSubPockets] = useState<SubPocket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [page, setPage] = useState(1);
@@ -220,6 +242,9 @@ export default function PocketDetailScreen() {
   const [loadMoreError, setLoadMoreError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scopeFailed, setScopeFailed] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<SubPocket | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const isFirstFocus = useRef(true);
 
@@ -230,19 +255,23 @@ export default function PocketDetailScreen() {
     try {
       setError(null);
       setScopeFailed(false);
-      const [s, txPage, sc] = await Promise.all([
+      const [s, txPage, sc, subs] = await Promise.all([
         pocketsApi.getSummary(id),
         pocketsApi.getTransactions(id, 1, 20),
         pocketsApi.getMerchantScope(id).then(
           (result) => ({ ok: true as const, result }),
           () => ({ ok: false as const, result: null })
         ),
+        // Empty for a pocket that's itself a sub-pocket (nothing has it as
+        // a parent) — harmless, the section below just won't render.
+        pocketsApi.getSubPockets(id).catch(() => []),
       ]);
       setSummary(s);
       setTransactions(txPage.transactions ?? []);
       setPage(1);
       setHasMore((txPage.pagination?.page ?? 1) < (txPage.pagination?.totalPages ?? 1));
       setLoadMoreError(false);
+      setSubPockets(subs ?? []);
       if (sc.ok) {
         setScope(sc.result);
       } else {
@@ -312,6 +341,21 @@ export default function PocketDetailScreen() {
       router.back();
     } else {
       router.replace('/(tabs)');
+    }
+  };
+
+  const confirmDeleteSubPocket = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await pocketsApi.deleteSubPocket(deleteTarget.id);
+      setDeleteTarget(null);
+      await loadAll();
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Could not delete this sub-pocket.');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -709,6 +753,88 @@ export default function PocketDetailScreen() {
           </View>
         )}
 
+        {/* ── Sub-pockets (audit_team.md item 10) — top-level pockets only, one level of nesting ── */}
+        {pocket && !pocket.parent_pocket_id && (
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderRadius: radius.sm,
+                borderWidth: borderWidth,
+                borderColor: colors.line,
+                padding: spacing.lg,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+                <Layers size={15} color={colors.ink} strokeWidth={2} />
+                <Text style={{ ...typography.eyebrow, color: colors.ink, flex: 1 }}>Sub-pockets</Text>
+                <Pressable
+                  onPress={() => router.push({ pathname: '/(modals)/subpocket-create', params: { parentId: id } })}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    paddingHorizontal: spacing.sm,
+                    paddingVertical: 4,
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add sub-pocket"
+                >
+                  <Plus size={14} color={colors.emeraldDeep} strokeWidth={2.5} />
+                  <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontWeight: '600' as const }}>
+                    Add
+                  </Text>
+                </Pressable>
+              </View>
+
+              {subPockets.length === 0 ? (
+                <Text style={{ ...typography.caption, color: colors.sage }}>
+                  Split this pocket into sub-pockets to earmark parts of it for something specific — a
+                  repayment plan, a purpose, a goal.
+                </Text>
+              ) : (
+                <View style={{ gap: spacing.sm }}>
+                  {subPockets.map((sp) => (
+                    <View
+                      key={sp.id}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                        paddingVertical: spacing.sm,
+                        borderTopWidth: borderWidth,
+                        borderTopColor: colors.line,
+                      }}
+                    >
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>
+                          {sp.name}
+                        </Text>
+                        <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                          {fmt(sp.available_balance)} available · {fmt(sp.monthly_allocation)} allocated
+                        </Text>
+                      </View>
+                      <Pressable
+                        onPress={() => {
+                          setDeleteError(null);
+                          setDeleteTarget(sp);
+                        }}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={{ padding: spacing.xs }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Delete ${sp.name}`}
+                      >
+                        <Trash2 size={16} color={colors.clay} strokeWidth={2} />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* ── Recent activity summary ── */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
@@ -802,6 +928,25 @@ export default function PocketDetailScreen() {
           )}
         </View>
       </ScrollView>
+
+      <ConfirmModal
+        visible={!!deleteTarget}
+        title={`Delete "${deleteTarget?.name ?? ''}"?`}
+        message={
+          deleteError ??
+          'This removes the sub-pocket. Its balance must be zero first — if it still holds money, move it out via reallocation before deleting.'
+        }
+        confirmLabel="Delete"
+        destructive
+        loading={deleting}
+        onConfirm={confirmDeleteSubPocket}
+        onCancel={() => {
+          if (!deleting) {
+            setDeleteTarget(null);
+            setDeleteError(null);
+          }
+        }}
+      />
     </ScreenContainer>
   );
 }

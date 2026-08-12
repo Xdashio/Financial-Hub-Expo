@@ -83,6 +83,13 @@ export const pocketsApi = {
     api.post<any>(`/pockets/${id}/unlock`, data),
   extendLock: (id: string, data: { additional_days: number; reason?: string }) =>
     api.post<any>(`/pockets/${id}/extend-lock`, data),
+  // Sub-pockets (audit_team.md item 10) — nested one level under a parent
+  // pocket, e.g. splitting a Loans pocket into "Repayment" + purpose
+  // sub-pockets.
+  getSubPockets: (parentId: string) => api.get<any[]>(`/pockets/${parentId}/sub-pockets`),
+  createSubPocket: (parentId: string, data: { name: string; monthlyAllocation: number; category?: string }) =>
+    api.post<any>(`/pockets/${parentId}/sub-pockets`, data),
+  deleteSubPocket: (id: string) => api.delete<any>(`/pockets/${id}`),
 };
 
 export const transactionsApi = {
