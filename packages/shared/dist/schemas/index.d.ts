@@ -635,6 +635,7 @@ export declare const PocketSchema: z.ZodObject<{
     lockUntil: z.ZodOptional<z.ZodString>;
     monthlyAllocation: z.ZodNumber;
     dailyCap: z.ZodOptional<z.ZodNumber>;
+    parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
@@ -649,6 +650,7 @@ export declare const PocketSchema: z.ZodObject<{
     category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     dailyCap?: number | undefined;
     lockUntil?: string | undefined;
+    parentPocketId?: string | null | undefined;
 }, {
     name: string;
     planId: string;
@@ -661,6 +663,7 @@ export declare const PocketSchema: z.ZodObject<{
     dailyCap?: number | undefined;
     isTimeLocked?: boolean | undefined;
     lockUntil?: string | undefined;
+    parentPocketId?: string | null | undefined;
 }>;
 export type Pocket = z.infer<typeof PocketSchema>;
 export declare const PocketUpdateInputSchema: z.ZodObject<{
@@ -677,6 +680,27 @@ export declare const PocketUpdateInputSchema: z.ZodObject<{
     dailyCap?: number | undefined;
 }>;
 export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
+/** POST /pockets/:id/sub-pockets — creates a sub-pocket nested under the
+ *  :id parent. The parent's own kind/lock status are not client-settable
+ *  here: a sub-pocket inherits its parent's `kind` (see
+ *  pockets.service.ts createSubPocket) so merchant-scope rules
+ *  (pocket-rules.ts) and spend checks behave the same as any other pocket
+ *  of that kind, with `category` free to differ from the parent so e.g. a
+ *  Loan pocket's purpose sub-pockets can each have their own category. */
+export declare const SubPocketCreateInputSchema: z.ZodObject<{
+    name: z.ZodString;
+    category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+    monthlyAllocation: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    monthlyAllocation: number;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+}, {
+    name: string;
+    monthlyAllocation: number;
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+}>;
+export type SubPocketCreateInput = z.infer<typeof SubPocketCreateInputSchema>;
 export declare const FixedExpenseSchema: z.ZodObject<{
     id: z.ZodString;
     userId: z.ZodString;
@@ -1377,6 +1401,7 @@ export declare const schemas: {
         lockUntil: z.ZodOptional<z.ZodString>;
         monthlyAllocation: z.ZodNumber;
         dailyCap: z.ZodOptional<z.ZodNumber>;
+        parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
@@ -1391,6 +1416,7 @@ export declare const schemas: {
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
         lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
     }, {
         name: string;
         planId: string;
@@ -1403,6 +1429,7 @@ export declare const schemas: {
         dailyCap?: number | undefined;
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
     }>;
     PocketUpdateInput: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
@@ -1416,6 +1443,19 @@ export declare const schemas: {
         name?: string | undefined;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
+    }>;
+    SubPocketCreateInput: z.ZodObject<{
+        name: z.ZodString;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+        monthlyAllocation: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        monthlyAllocation: number;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+    }, {
+        name: string;
+        monthlyAllocation: number;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     }>;
     FixedExpense: z.ZodObject<{
         id: z.ZodString;

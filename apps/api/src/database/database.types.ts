@@ -83,6 +83,11 @@ export interface Database {
           lock_until: string | null
           monthly_allocation: number
           daily_cap: number | null
+          // Sub-pockets (audit_team.md item 10): null for a top-level pocket,
+          // set for a sub-pocket nested under a parent. See
+          // 007_sub_pockets.sql — depth is capped at one level, enforced in
+          // pockets.service.ts, not here.
+          parent_pocket_id: string | null
           created_at: string
           updated_at: string
         }
@@ -96,6 +101,7 @@ export interface Database {
           lock_until?: string | null
           monthly_allocation: number
           daily_cap?: number | null
+          parent_pocket_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -109,6 +115,7 @@ export interface Database {
           lock_until?: string | null
           monthly_allocation?: number
           daily_cap?: number | null
+          parent_pocket_id?: string | null
           created_at?: string
           updated_at?: string
         }

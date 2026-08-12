@@ -323,6 +323,11 @@ export const PocketSchema = z.object({
   lockUntil: z.string().datetime().optional(),
   monthlyAllocation: z.number().nonnegative(),
   dailyCap: z.number().nonnegative().optional(), // for daily plans
+  // Sub-pockets (audit_team.md item 10): null/absent for a top-level
+  // pocket, set for a sub-pocket nested one level under a parent pocket.
+  // See docs on POST /pockets/:id/sub-pockets — depth is capped at one
+  // level (a sub-pocket can't itself have children).
+  parentPocketId: z.string().uuid().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -340,6 +345,20 @@ export const PocketUpdateInputSchema = z
   .partial()
   .strict();
 export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
+
+/** POST /pockets/:id/sub-pockets — creates a sub-pocket nested under the
+ *  :id parent. The parent's own kind/lock status are not client-settable
+ *  here: a sub-pocket inherits its parent's `kind` (see
+ *  pockets.service.ts createSubPocket) so merchant-scope rules
+ *  (pocket-rules.ts) and spend checks behave the same as any other pocket
+ *  of that kind, with `category` free to differ from the parent so e.g. a
+ *  Loan pocket's purpose sub-pockets can each have their own category. */
+export const SubPocketCreateInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  category: PocketCategorySchema.optional(),
+  monthlyAllocation: z.number().nonnegative(),
+});
+export type SubPocketCreateInput = z.infer<typeof SubPocketCreateInputSchema>;
 
 export const FixedExpenseSchema = z.object({
   id: z.string().uuid(),
@@ -463,6 +482,7 @@ export const schemas = {
   Plan: PlanSchema,
   Pocket: PocketSchema,
   PocketUpdateInput: PocketUpdateInputSchema,
+  SubPocketCreateInput: SubPocketCreateInputSchema,
   FixedExpense: FixedExpenseSchema,
   IncomeEvent: IncomeEventSchema,
   Transaction: TransactionSchema,

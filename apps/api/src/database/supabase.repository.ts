@@ -161,6 +161,38 @@ export class SupabaseRepository {
     return data;
   }
 
+  /** Sub-pockets nested directly under `parentPocketId` (audit_team.md item 10). */
+  async getSubPocketsByParentId(parentPocketId: string): Promise<Pocket[]> {
+    const { data, error } = await this.supabase
+      .from('pockets')
+      .select('*')
+      .eq('parent_pocket_id', parentPocketId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  /** Single-row insert helper for sub-pocket creation — createPockets is
+   *  batch-oriented (onboarding provisioning) and always returns an array;
+   *  callers creating exactly one pocket want the row back directly. */
+  async createPocket(pocket: PocketInsert): Promise<Pocket | null> {
+    const { data, error } = await this.supabase
+      .from('pockets')
+      .insert(pocket)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deletePocket(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('pockets')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  }
+
   async updatePocket(id: string, updates: PocketUpdate): Promise<Pocket | null> {
     const { data, error } = await this.supabase
       .from('pockets')

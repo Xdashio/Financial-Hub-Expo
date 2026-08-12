@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -254,6 +254,11 @@ exports.PocketSchema = zod_1.z.object({
     lockUntil: zod_1.z.string().datetime().optional(),
     monthlyAllocation: zod_1.z.number().nonnegative(),
     dailyCap: zod_1.z.number().nonnegative().optional(), // for daily plans
+    // Sub-pockets (audit_team.md item 10): null/absent for a top-level
+    // pocket, set for a sub-pocket nested one level under a parent pocket.
+    // See docs on POST /pockets/:id/sub-pockets — depth is capped at one
+    // level (a sub-pocket can't itself have children).
+    parentPocketId: zod_1.z.string().uuid().nullable().optional(),
     createdAt: zod_1.z.string().datetime(),
     updatedAt: zod_1.z.string().datetime(),
 });
@@ -268,6 +273,18 @@ exports.PocketUpdateInputSchema = zod_1.z
 })
     .partial()
     .strict();
+/** POST /pockets/:id/sub-pockets — creates a sub-pocket nested under the
+ *  :id parent. The parent's own kind/lock status are not client-settable
+ *  here: a sub-pocket inherits its parent's `kind` (see
+ *  pockets.service.ts createSubPocket) so merchant-scope rules
+ *  (pocket-rules.ts) and spend checks behave the same as any other pocket
+ *  of that kind, with `category` free to differ from the parent so e.g. a
+ *  Loan pocket's purpose sub-pockets can each have their own category. */
+exports.SubPocketCreateInputSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(100),
+    category: exports.PocketCategorySchema.optional(),
+    monthlyAllocation: zod_1.z.number().nonnegative(),
+});
 exports.FixedExpenseSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(), // per user
@@ -371,6 +388,7 @@ exports.schemas = {
     Plan: exports.PlanSchema,
     Pocket: exports.PocketSchema,
     PocketUpdateInput: exports.PocketUpdateInputSchema,
+    SubPocketCreateInput: exports.SubPocketCreateInputSchema,
     FixedExpense: exports.FixedExpenseSchema,
     IncomeEvent: exports.IncomeEventSchema,
     Transaction: exports.TransactionSchema,

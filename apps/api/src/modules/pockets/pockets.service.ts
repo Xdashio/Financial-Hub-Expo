@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PocketUpdateInputSchema, RunwaySummary } from '@financial-hub/shared';
+import { PocketUpdateInputSchema, SubPocketCreateInputSchema, RunwaySummary } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
-import { Pocket, PocketUpdate, Transaction, MerchantClassification } from '../../database/database.types';
+import { Pocket, PocketUpdate, PocketInsert, Transaction, MerchantClassification } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
 
 @Injectable()
@@ -108,6 +108,113 @@ export class PocketsService {
     if (!plan || plan.user_id !== userId) {
       throw new ForbiddenException('You do not have access to this pocket');
     }
+  }
+
+  /**
+   * Creates a sub-pocket nested one level under `parentId` (audit_team.md
+   * item 10 — foundational layer for item 9's loan-purpose sub-pockets).
+   * A sub-pocket is an ordinary pocket row with `parent_pocket_id` set, so
+   * every existing ledger/cap/rollover/merchant-scope code path (which only
+   * ever looks at `kind`/`category`) works on it unmodified.
+   *
+   * Rules enforced here (not in the DB, since they need sibling/parent
+   * context a CHECK constraint can't see):
+   * - Depth is capped at one level: you can't create a sub-pocket under a
+   *   pocket that is itself already a sub-pocket.
+   * - The sub-pocket inherits the parent's `kind` — a sub-pocket of a
+   *   Savings pocket is itself `savings`, etc. — so pocket-rules.ts and
+   *   spend checks treat it exactly like any other pocket of that kind.
+   * - The new sub-pocket's monthlyAllocation, combined with existing
+   *   siblings, cannot exceed the parent's own monthlyAllocation: siblings
+   *   are meant to divide the parent's planning ceiling, not multiply it.
+   */
+  async createSubPocket(parentId: string, userId: string, input: unknown): Promise<Pocket> {
+    const result = SubPocketCreateInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
+    }
+    const parsed = result.data;
+
+    const parent = await this.repository.getPocketById(parentId);
+    if (!parent) {
+      throw new NotFoundException('Pocket not found');
+    }
+    await this.assertOwnership(parent, userId);
+
+    if (parent.parent_pocket_id) {
+      throw new BadRequestException('Sub-pockets cannot themselves have sub-pockets (max depth of one level)');
+    }
+
+    const siblings = await this.repository.getSubPocketsByParentId(parentId);
+    const siblingTotal = siblings.reduce((sum, p) => sum + p.monthly_allocation, 0);
+    if (siblingTotal + parsed.monthlyAllocation > parent.monthly_allocation + 0.01) {
+      throw new BadRequestException(
+        `Sub-pockets would total KSh ${round2(siblingTotal + parsed.monthlyAllocation)}, which exceeds the parent pocket's KSh ${parent.monthly_allocation} allocation`,
+      );
+    }
+
+    const insert: PocketInsert = {
+      plan_id: parent.plan_id,
+      name: parsed.name,
+      kind: parent.kind,
+      category: parsed.category ?? null,
+      is_time_locked: false,
+      lock_until: null,
+      monthly_allocation: parsed.monthlyAllocation,
+      daily_cap: null,
+      parent_pocket_id: parent.id,
+    };
+
+    const created = await this.repository.createPocket(insert);
+    if (!created) {
+      throw new Error('Failed to create sub-pocket');
+    }
+    return created;
+  }
+
+  async getSubPocketsForUser(parentId: string, userId: string): Promise<(Pocket & { available_balance: number })[]> {
+    const parent = await this.repository.getPocketById(parentId);
+    if (!parent) {
+      throw new NotFoundException('Pocket not found');
+    }
+    await this.assertOwnership(parent, userId);
+
+    const children = await this.repository.getSubPocketsByParentId(parentId);
+    return Promise.all(
+      children.map(async (pocket) => {
+        const summary = await this.repository.getPocketSummary(pocket.id);
+        return { ...pocket, available_balance: summary.available };
+      }),
+    );
+  }
+
+  /**
+   * Deletes a sub-pocket. Refuses to delete a top-level pocket through this
+   * path (use plan retake for that) and refuses to delete a sub-pocket that
+   * still holds ledger balance — money-safe by default, matching the rest
+   * of the app (see plan-redistribution.ts): the caller must move the
+   * balance out (a reallocation to the parent or a sibling) before the
+   * sub-pocket itself can go away.
+   */
+  async deleteSubPocket(id: string, userId: string): Promise<void> {
+    const pocket = await this.repository.getPocketById(id);
+    if (!pocket) {
+      throw new NotFoundException('Pocket not found');
+    }
+    await this.assertOwnership(pocket, userId);
+
+    if (!pocket.parent_pocket_id) {
+      throw new BadRequestException('Only sub-pockets can be deleted this way');
+    }
+
+    const summary = await this.repository.getPocketSummary(id);
+    if (Math.abs(summary.available) > 0.01) {
+      throw new BadRequestException(
+        `This pocket still holds KSh ${round2(summary.available)} — move the balance out before deleting it`,
+      );
+    }
+
+    await this.repository.deletePocket(id);
   }
 
   async getTransactionsForUser(
@@ -501,4 +608,8 @@ export class PocketsService {
       },
     };
   }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
