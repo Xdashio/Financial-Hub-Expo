@@ -12,6 +12,7 @@ export default function ModalsLayout() {
       <Stack.Screen name="realloc-review" />
       <Stack.Screen name="realloc-cooloff" />
       <Stack.Screen name="realloc-success" />
+      <Stack.Screen name="subpocket-create" />
     </Stack>
   );
 }
