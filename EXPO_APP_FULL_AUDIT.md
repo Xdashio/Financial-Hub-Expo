@@ -6,6 +6,30 @@
 
 ---
 
+## Verification update — 2026-08-13
+
+Re-checked every item in the **Prioritized fix list** (bottom of this doc) against the current codebase, commit-by-commit, at a teammate's request rather than taking the doc at face value. Result: **all four 🔴 critical items, plus the 🟡 idempotency and `DEFAULT_SCORE` items, were already fixed** — this document just never got updated after the fact.
+
+Root cause of the drift: this audit was committed at `44b47e1` (2026-08-10 22:53). The commit that shipped the global auth guard, Sentry, rate limiting, and helmet — `3a86ee3`, "Batch 7 plan docs, then implement Expo push + the milestone/reminder scheduler" — landed **57 minutes later** the same evening. The fixes shipped almost immediately after this audit was written; the doc just never caught up.
+
+| # | Item | Audit said | Verified now |
+|---|---|---|---|
+| 1 | Global auth guard | Opt-in per-controller | ✅ **Fixed.** `app.module.ts` registers `SupabaseAuthGuard` globally via `APP_GUARD`; `@Public()` decorator + `public.decorator.ts` exist; `health.controller.ts`'s basic check is the one opted-out route, exactly as this audit recommended. |
+| 2 | Crash/error reporting | Nowhere in the stack | ✅ **Fixed.** `main.ts` initializes `@sentry/nestjs` (gated on `SENTRY_DSN`). Mobile has `@sentry/react-native` + `src/services/sentry.ts`, imported in `app/_layout.tsx`. |
+| 3 | Rate limiting | None anywhere | ✅ **Fixed.** `ThrottlerModule.forRoot` (100 req/min default) + `ThrottlerGuard` registered globally via `APP_GUARD` in `app.module.ts`. |
+| 4 | Idempotency keys | None on income/spend | ✅ **Fixed.** `spend.service.ts`, `income.service.ts`, and their DTOs implement it; CORS allowlist includes the `Idempotency-Key` header. |
+| 7 | `DEFAULT_SCORE` duplication | Re-exported, not single-sourced | ✅ **Fixed.** Single source in `discipline-score.constants.ts`; both `discipline-score.service.ts` and `insights.service.ts` import from it. |
+| 9 | `helmet` middleware | Missing | ✅ **Fixed.** `app.use(helmet())` in `main.ts`. |
+| 5 | Retry + timeout on mobile API client | Missing | ❌ **Still open.** `services/api.ts`'s `fetchApi` is a bare `fetch()` — no `AbortController`, no retry/backoff. |
+| 6 | Accessibility label coverage | 47/207 (~23%) | ❌ **Still open**, slightly improved: now 49/166 (`accessibilityLabel` vs `TouchableOpacity`+`Pressable`) ≈ 30%. `landing.tsx`'s icon-only prev/next + pagination-dot buttons and `fixed-expenses.tsx`/`classify.tsx`/`time-lock.tsx` are the highest-remaining-value targets (zero `accessibilityLabel`s despite several icon-only `Pressable`s each). |
+| 8 | `useDataSync` subscription coverage | Not systematically verified | ✅ **Fixed 2026-08-13.** `(pockets)/detail.tsx` already subscribed correctly. `(profile)/current-plan.tsx` was the confirmed gap — displayed `monthly_allocation` via `pocketsApi.getAll()` but only refetched on focus, so a retake finishing via `router.replace` could leave it stale. Added the same `useDataSync` version-subscription pattern used in `detail.tsx`; verified the retake flow (`retake-checkin.tsx`) does call `bump()`, so the subscription isn't a no-op. |
+| 10 | Structured network-error messaging | Generic `'Request failed'` fallback | ❌ **Still open**, unchanged. Same fallback in `services/api.ts`. |
+| 11 | Offline queue (SQLite + sync) | Deferred, post-MVP | ❌ **Still open**, unchanged and still correctly deferred — no `expo-sqlite`, no sync-queue module. |
+
+**Net effect on the prioritized fix list below:** it's now stale in the other direction (undercounting what's done). Treat rows 1–4, 7, 8, and 9 as closed. Rows 5, 6, 10, and 11 remain live work.
+
+---
+
 ## Part 1 — Backend / API
 
 ### 1.1 Security
@@ -135,16 +159,18 @@ Pulled from current (2026) fintech UX research, cross-referenced against what th
 
 ## Prioritized fix list (this audit only — see port guide and implementation plan for feature work)
 
-| Priority | Item | Section | Effort |
-|---|---|---|---|
-| 🔴 1 | Global auth guard (`APP_GUARD` + `@Public()`) | 1.1 | Small |
-| 🔴 2 | Crash/error reporting (Sentry, both API + mobile) | 1.2 | Small |
-| 🔴 3 | Rate limiting (`@nestjs/throttler`) | 1.1 | Small |
-| 🟡 4 | Idempotency keys on income/spend writes | 1.1 | Small |
-| 🟡 5 | Retry + timeout on mobile API client | 1.2 | Small |
-| 🟡 6 | Accessibility label coverage pass (icon-only buttons first) | 2.1 | Medium |
-| 🟡 7 | `DEFAULT_SCORE` duplication collapse | 1.3 | Small |
-| 🟡 8 | Verify `useDataSync` subscription coverage on all balance-displaying screens | 2.2 | Small |
-| 🟢 9 | `helmet` middleware | 1.1 | Trivial |
-| 🟢 10 | Structured network-error messaging on mobile | 2.3 | Small |
-| 🔵 11 | Offline queue (SQLite + sync) — deferred, post-MVP | 1.2 | Large |
+**Updated 2026-08-13 — see "Verification update" at the top of this doc.** Status column added; rows marked ✅ are confirmed done in current code and need no further action.
+
+| Priority | Item | Section | Effort | Status |
+|---|---|---|---|---|
+| 🔴 1 | Global auth guard (`APP_GUARD` + `@Public()`) | 1.1 | Small | ✅ Done |
+| 🔴 2 | Crash/error reporting (Sentry, both API + mobile) | 1.2 | Small | ✅ Done |
+| 🔴 3 | Rate limiting (`@nestjs/throttler`) | 1.1 | Small | ✅ Done |
+| 🟡 4 | Idempotency keys on income/spend writes | 1.1 | Small | ✅ Done |
+| 🟡 5 | Retry + timeout on mobile API client | 1.2 | Small | Open |
+| 🟡 6 | Accessibility label coverage pass (icon-only buttons first) | 2.1 | Medium | Open (~30% coverage) |
+| 🟡 7 | `DEFAULT_SCORE` duplication collapse | 1.3 | Small | ✅ Done |
+| 🟡 8 | Verify `useDataSync` subscription coverage on all balance-displaying screens | 2.2 | Small | ✅ Done |
+| 🟢 9 | `helmet` middleware | 1.1 | Trivial | ✅ Done |
+| 🟢 10 | Structured network-error messaging on mobile | 2.3 | Small | Open |
+| 🔵 11 | Offline queue (SQLite + sync) — deferred, post-MVP | 1.2 | Large | Open, correctly deferred |
