@@ -11,6 +11,7 @@ import {
   RefreshCw,
   LucideIcon,
 } from 'lucide-react-native';
+import { getMerchantCategoryLabel } from '@financial-hub/shared';
 
 export default function BlockedSpendScreen() {
   const { colors } = useTheme();
@@ -28,15 +29,6 @@ export default function BlockedSpendScreen() {
 
   const formatCurrency = (amount: string) => {
     return `KES ${parseFloat(amount).toLocaleString()}`;
-  };
-
-  const getCategoryDisplayName = (category: string) => {
-    const displayNames: Record<string, string> = {
-      gambling_betting: 'Betting & gambling',
-      entertainment: 'Entertainment',
-      other: 'Other',
-    };
-    return displayNames[category] || category;
   };
 
   const handleReview = () => {
@@ -94,7 +86,7 @@ export default function BlockedSpendScreen() {
             </Text>
             
             <Text style={{ ...typography.body, color: colors.sage, marginBottom: spacing.lg }}>
-              {getCategoryDisplayName(blockedCategory)} payments can't be made from this pocket to help you stay on track with your spending goals.
+              {getMerchantCategoryLabel(blockedCategory)} payments can't be made from this pocket to help you stay on track with your spending goals.
             </Text>
 
             <View style={{ 
@@ -207,7 +199,7 @@ export default function BlockedSpendScreen() {
             backgroundColor: colors.emeraldTint 
           }}>
             <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-              💡 These block rules help you protect your essential spending and stay on track with your financial goals. You can adjust them in your pocket settings.
+              💡 These block rules help you protect your essential spending and stay on track with your financial goals. You can see exactly what each pocket allows and blocks from its pocket detail screen.
             </Text>
           </View>
         </View>

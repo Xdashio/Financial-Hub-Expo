@@ -61,9 +61,20 @@ export function getAllowedCategoriesForPocket(pocket: Pocket): string[] {
   if (pocket.category === 'housing') {
     return ['landlord_rent', 'utility'];
   }
-  // Leisure/other discretionary spendable pockets, and savings: broad,
-  // never-gambling allowance (gambling_betting is excluded here and
-  // therefore always ends up in getBlockedCategoriesForPocket()).
+  if (pocket.kind === 'spendable' && pocket.category === 'leisure') {
+    // Discretionary spend — PRD §3.5: blacklisted categories are "blocked
+    // outright from essential pockets" but only "shown a warning if
+    // attempted from a discretionary pocket," which is a different, softer
+    // treatment than essential's hard block. This is the one pocket type
+    // where a gambling_betting self-classify (blocked-spend screen's
+    // "Review and classify" option) can actually go through — without this
+    // branch that option was a dead end for every pocket, essential or not.
+    return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'gambling_betting', 'other'];
+  }
+  // Savings and any other non-leisure discretionary pocket: broad,
+  // never-gambling allowance. Savings in particular must stay hard-blocked
+  // from gambling_betting even though it isn't "essential" in the
+  // food/rent sense — it's the pocket the whole product exists to protect.
   return ['grocery', 'landlord_rent', 'utility', 'transport', 'healthcare', 'education', 'entertainment', 'personal_care', 'other'];
 }
 

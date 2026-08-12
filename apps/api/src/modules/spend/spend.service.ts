@@ -4,6 +4,7 @@ import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { Pocket } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
+import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import {
   CAP_DAILY_OVERSPEND,
@@ -348,20 +349,7 @@ export class SpendService {
   }
 
   private getCategoryDisplayName(category: string): string {
-    const displayNames: Record<string, string> = {
-      grocery: 'Groceries',
-      landlord_rent: 'Rent',
-      utility: 'Utilities',
-      transport: 'Transport',
-      healthcare: 'Healthcare',
-      education: 'Education',
-      entertainment: 'Entertainment',
-      gambling_betting: 'Betting & gambling',
-      personal_care: 'Personal care',
-      other: 'Other',
-      unclassified: 'Unclassified',
-    };
-    return displayNames[category] || category;
+    return getMerchantCategoryLabel(category);
   }
 
   private getSuggestedCategories(pocket: Pocket): Array<{
