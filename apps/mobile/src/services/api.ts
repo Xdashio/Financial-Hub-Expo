@@ -33,7 +33,9 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    const raw = error.message ?? error.error ?? `HTTP ${response.status}`;
+    const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
+    throw new Error(message || `HTTP ${response.status}`);
   }
 
   // DELETE /profile/fixed-expenses/:id returns 204 No Content. Calling

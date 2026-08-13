@@ -493,12 +493,15 @@ export const useAuthStore = create<AuthState>()(
 async function waitForAuthHydration(): Promise<void> {
   const persistApi = useAuthStore.persist;
   if (persistApi.hasHydrated()) return;
-  await new Promise<void>((resolve) => {
-    const unsub = persistApi.onFinishHydration(() => {
-      unsub();
-      resolve();
-    });
-  });
+  await Promise.race([
+    new Promise<void>((resolve) => {
+      const unsub = persistApi.onFinishHydration(() => {
+        unsub();
+        resolve();
+      });
+    }),
+    new Promise<void>((resolve) => setTimeout(resolve, 5_000)),
+  ]);
 }
 
 // Initialize auth state on app start.
@@ -506,7 +509,22 @@ async function waitForAuthHydration(): Promise<void> {
 // a stale hasPlan:false from storage could overwrite a fresh successful check
 // and send existing users back into onboarding.
 export async function initializeAuth() {
-  await waitForAuthHydration();
-  useAuthStore.setState({ isCheckingPlan: true });
-  await useAuthStore.getState().restoreSession();
+  const boot = async () => {
+    await waitForAuthHydration();
+    useAuthStore.setState({ isCheckingPlan: true });
+    await useAuthStore.getState().restoreSession();
+  };
+
+  // Expo Go on Android can hang forever on SecureStore / network during
+  // cold start — never block the root spinner longer than this.
+  const timeoutMs = 12_000;
+  await Promise.race([
+    boot(),
+    new Promise<void>((resolve) => {
+      setTimeout(() => {
+        useAuthStore.setState({ isCheckingPlan: false });
+        resolve();
+      }, timeoutMs);
+    }),
+  ]);
 }
