@@ -206,6 +206,33 @@ export class PushDeliveryService {
     });
   }
 
+  async notifyLoanRepaymentDue(
+    userId: string,
+    loanName: string,
+    amount: number,
+    dueDate: string,
+    daysUntilDue: number
+  ): Promise<PushSendResult> {
+    const formatted = Math.round(amount).toLocaleString('en-KE');
+    const dueDateObj = new Date(dueDate);
+    const formattedDate = dueDateObj.toLocaleDateString('en-KE', { month: 'short', day: 'numeric' });
+    
+    let message: string;
+    if (daysUntilDue === 0) {
+      message = `Your loan "${loanName}" payment of KSh ${formatted} is due today.`;
+    } else if (daysUntilDue === 1) {
+      message = `Your loan "${loanName}" payment of KSh ${formatted} is due tomorrow (${formattedDate}).`;
+    } else {
+      message = `Your loan "${loanName}" payment of KSh ${formatted} is due in ${daysUntilDue} days (${formattedDate}).`;
+    }
+
+    return this.sendIfAllowed(userId, 'loan_reminder' as NotificationKind, `loan:${loanName}_${dueDate}`, {
+      title: `Loan payment due`,
+      body: message,
+      data: { kind: 'loan_reminder', loanName, amount, dueDate, screen: '/(loans)' },
+    });
+  }
+
   async notifyAllocationReceived(
     userId: string,
     incomeEventId: string,
@@ -233,9 +260,9 @@ export class PushDeliveryService {
   async isPreferenceEnabled(userId: string, key: PreferenceKey): Promise<boolean> {
     const prefs = await this.repository.getNotificationPreferencesByUserId(userId);
     if (!prefs) {
-      return DEFAULT_NOTIFICATION_PREFERENCES[key];
+      return DEFAULT_NOTIFICATION_PREFERENCES[key as keyof typeof DEFAULT_NOTIFICATION_PREFERENCES];
     }
-    return Boolean(prefs[key]);
+    return Boolean(prefs[key as keyof typeof prefs]);
   }
 
   /**

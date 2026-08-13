@@ -44,7 +44,7 @@ interface PocketSummary {
   pocket: {
     id: string;
     name: string;
-    kind: 'savings' | 'fixed' | 'spendable';
+    kind: 'savings' | 'fixed' | 'spendable' | 'loan';
     category: string | null;
     monthly_allocation: number;
     daily_cap: number | null;
@@ -79,7 +79,7 @@ interface PocketSummary {
 interface SubPocket {
   id: string;
   name: string;
-  kind: 'savings' | 'fixed' | 'spendable';
+  kind: 'savings' | 'fixed' | 'spendable' | 'loan';
   category: string | null;
   monthly_allocation: number;
   available_balance: number;

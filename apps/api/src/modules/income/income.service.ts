@@ -228,7 +228,7 @@ export class IncomeService {
       income_event: createdIncomeEvent,
       allocation,
       surplus: {
-        has_surplus: hasSurplus,
+        has_surplus: Boolean(hasSurplus),
         surplus_amount: surplusAmount,
         allocation_status: createdIncomeEvent.surplus_allocation_status,
       },

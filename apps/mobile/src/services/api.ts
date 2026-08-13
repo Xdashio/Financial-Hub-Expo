@@ -92,6 +92,27 @@ export const pocketsApi = {
   deleteSubPocket: (id: string) => api.delete<any>(`/pockets/${id}`),
 };
 
+export const loansApi = {
+  getAll: () => api.get<any[]>('/loans'),
+  getById: (id: string) => api.get<any>(`/loans/${id}`),
+  create: (data: {
+    name: string;
+    totalAmount: number;
+    repaymentAmount: number;
+    cadence: 'weekly' | 'biweekly' | 'monthly';
+    startDate: string;
+    endDate: string;
+    dueDay: number;
+    loanProvider?: string;
+    loanPurpose?: string;
+  }) => api.post<any>('/loans', data),
+  update: (id: string, data: any) => api.put<any>(`/loans/${id}`, data),
+  createPurposeSubPocket: (id: string, data: { name: string; category: string; monthlyAllocation: number }) =>
+    api.post<any>(`/loans/${id}/purpose-sub-pockets`, data),
+  fundRepayment: (id: string, amount: number) =>
+    api.post<any>(`/loans/${id}/fund-repayment`, { amount }),
+};
+
 export const transactionsApi = {
   getByPocketId: (pocketId: string) => api.get<any[]>(`/pockets/${pocketId}/transactions`),
 };

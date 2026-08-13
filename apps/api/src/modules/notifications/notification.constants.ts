@@ -11,6 +11,7 @@ export const NOTIFICATION_KIND = {
   STREAK_AT_RISK: 'streak_at_risk',
   MONTHLY_INSIGHT: 'monthly_insight',
   ALLOCATION_RECEIVED: 'allocation_received',
+  LOAN_REMINDER: 'loan_reminder',
 } as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KIND)[keyof typeof NOTIFICATION_KIND];
@@ -20,7 +21,8 @@ export type PreferenceKey =
   | 'cooling_off_reminders'
   | 'savings_milestones'
   | 'monthly_insights'
-  | 'tips_nudges';
+  | 'tips_nudges'
+  | 'loan_reminders';
 
 /** Which preference toggle must be ON for a given kind to send. */
 export const KIND_PREFERENCE: Record<NotificationKind, PreferenceKey> = {
@@ -33,6 +35,7 @@ export const KIND_PREFERENCE: Record<NotificationKind, PreferenceKey> = {
   // Allocation confirmations share the savings_milestones toggle — the
   // settings copy covers rollover + allocation celebrations together.
   [NOTIFICATION_KIND.ALLOCATION_RECEIVED]: 'savings_milestones',
+  [NOTIFICATION_KIND.LOAN_REMINDER]: 'loan_reminders',
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCES = {
@@ -41,6 +44,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES = {
   savings_milestones: true,
   monthly_insights: false,
   tips_nudges: false,
+  loan_reminders: true,
 } as const;
 
 /**

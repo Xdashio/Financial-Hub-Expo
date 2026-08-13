@@ -29,6 +29,7 @@ function payloadRecord(payload: unknown): Record<string, unknown> {
  * - Cooling-off ready: every minute, notify when a cooling_off window has ended
  * - Streak-at-risk tips: daily 18:00 UTC for users with tips_nudges on
  * - Monthly insights: 1st of each month 09:00 UTC
+ * - Loan repayment reminders: daily 09:00 UTC for upcoming loan due dates
  *
  * Milestone / rollover / reallocation-confirm pushes are event-driven
  * (see RolloverService / ReallocationsService / IncomeService), not cron.
@@ -43,6 +44,7 @@ export class NotificationSchedulerService {
   private coolingOffRunning = false;
   private tipsRunning = false;
   private monthlyRunning = false;
+  private loanRemindersRunning = false;
 
   constructor(
     private readonly repository: SupabaseRepository,
@@ -143,6 +145,72 @@ export class NotificationSchedulerService {
       return { candidates: userIds.length, sent };
     } finally {
       this.monthlyRunning = false;
+    }
+  }
+
+  /**
+   * Daily 09:00 UTC: check for loan repayments due within 3 days and send reminders.
+   * This enforces the due-day mechanism for loans (audit_team.md item 9).
+   */
+  @Cron('0 9 * * *')
+  async sendLoanRepaymentReminders(now = new Date()): Promise<{ checked: number; sent: number }> {
+    if (this.loanRemindersRunning) {
+      return { checked: 0, sent: 0 };
+    }
+    this.loanRemindersRunning = true;
+    try {
+      const todayDay = now.getUTCDate();
+      const threeDaysFromNow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), todayDay + 3));
+      
+      // Get all loan pockets
+      const allLoans = await this.repository.getPocketsByKind('loan');
+      
+      let sent = 0;
+      for (const loan of allLoans) {
+        const userId = await this.repository.resolveUserIdForPocket(loan.id);
+        if (!userId) continue;
+        
+        const schedule = loan.repayment_schedule as any;
+        if (!schedule) continue;
+        
+        const nextDueDate = new Date(schedule.nextDueDate);
+        const daysUntilDue = Math.ceil((nextDueDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+        
+        // Only send reminder if within 3 days and haven't already sent one for this due date
+        if (daysUntilDue < 0 || daysUntilDue > 3) continue;
+        
+        const dedupeKey = `loan_reminder_${loan.id}_${schedule.nextDueDate}`;
+        const alreadyNotified = await this.repository.getIdempotencyRecord(userId, 'loan_reminder', dedupeKey);
+        if (alreadyNotified) continue;
+        
+        const result = await this.push.notifyLoanRepaymentDue(
+          userId,
+          loan.name,
+          schedule.repaymentAmount,
+          schedule.nextDueDate,
+          daysUntilDue
+        );
+        
+        if (result.sent) {
+          sent += 1;
+          // Save idempotency record to avoid duplicate reminders
+          await this.repository.saveIdempotencyRecord({
+            id: crypto.randomUUID(),
+            user_id: userId,
+            scope: 'loan_reminder',
+            idempotency_key: dedupeKey,
+            resource_id: loan.id,
+            response: { sent: true } as any,
+          });
+        }
+      }
+      
+      if (allLoans.length > 0) {
+        this.logger.log(`loan repayment reminders: checked=${allLoans.length} sent=${sent}`);
+      }
+      return { checked: allLoans.length, sent };
+    } finally {
+      this.loanRemindersRunning = false;
     }
   }
 

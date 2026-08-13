@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
 // ============================================================================
 exports.PlanTypeSchema = zod_1.z.enum(['structured', 'daily']);
-exports.PocketKindSchema = zod_1.z.enum(['savings', 'fixed', 'spendable']);
+exports.PocketKindSchema = zod_1.z.enum(['savings', 'fixed', 'spendable', 'loan']);
 exports.PocketCategorySchema = zod_1.z.enum([
     'food',
     'transport',
@@ -169,7 +170,7 @@ exports.OnboardingCommitResultSchema = zod_1.z.object({
     pockets: zod_1.z.array(zod_1.z.object({
         id: zod_1.z.string().uuid(),
         name: zod_1.z.string(),
-        kind: exports.PocketKindSchema,
+        kind: exports.PocketKindSchema, // Includes 'loan' for compatibility, though onboarding doesn't create loans
         category: exports.PocketCategorySchema.optional(),
         monthlyAllocation: zod_1.z.number().nonnegative(),
         dailyCap: zod_1.z.number().nonnegative().optional(),
@@ -285,6 +286,49 @@ exports.SubPocketCreateInputSchema = zod_1.z.object({
     category: exports.PocketCategorySchema.optional(),
     monthlyAllocation: zod_1.z.number().nonnegative(),
 });
+// ============================================================================
+// Loan Schemas - audit_team.md item 9
+// ============================================================================
+exports.RepaymentCadenceSchema = zod_1.z.enum(['weekly', 'biweekly', 'monthly']);
+exports.RepaymentScheduleSchema = zod_1.z.object({
+    totalAmount: zod_1.z.number().positive(),
+    repaymentAmount: zod_1.z.number().positive(),
+    cadence: exports.RepaymentCadenceSchema,
+    startDate: zod_1.z.string(), // ISO date string
+    endDate: zod_1.z.string(), // ISO date string
+    nextDueDate: zod_1.z.string(), // ISO date string
+    totalPayments: zod_1.z.number().int().positive(),
+    paymentsMade: zod_1.z.number().int().nonnegative(),
+});
+exports.LoanCreateInputSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(100),
+    totalAmount: zod_1.z.number().positive(),
+    repaymentAmount: zod_1.z.number().positive(),
+    cadence: exports.RepaymentCadenceSchema,
+    startDate: zod_1.z.string(), // ISO date string
+    endDate: zod_1.z.string(), // ISO date string
+    dueDay: zod_1.z.number().int().min(1).max(31),
+    loanProvider: zod_1.z.string().min(1).max(100).optional(),
+    loanPurpose: zod_1.z.string().min(1).max(200).optional(),
+});
+exports.LoanUpdateInputSchema = zod_1.z.object({
+    repaymentSchedule: exports.RepaymentScheduleSchema.partial().optional(),
+    loanProvider: zod_1.z.string().min(1).max(100).optional(),
+    loanPurpose: zod_1.z.string().min(1).max(200).optional(),
+}).partial();
+exports.LoanPurposePocketInputSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(100),
+    category: exports.PocketCategorySchema,
+    monthlyAllocation: zod_1.z.number().nonnegative(),
+});
+exports.LoanDetailSchema = exports.PocketSchema.extend({
+    kind: zod_1.z.literal('loan'),
+    repaymentSchedule: exports.RepaymentScheduleSchema,
+    loanProvider: zod_1.z.string().nullable(),
+    loanPurpose: zod_1.z.string().nullable(),
+    dueDay: zod_1.z.number().int().min(1).max(31),
+    subPockets: zod_1.z.array(exports.PocketSchema).optional(), // Repayment + purpose sub-pockets
+});
 exports.FixedExpenseSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(), // per user
@@ -389,6 +433,12 @@ exports.schemas = {
     Pocket: exports.PocketSchema,
     PocketUpdateInput: exports.PocketUpdateInputSchema,
     SubPocketCreateInput: exports.SubPocketCreateInputSchema,
+    RepaymentCadence: exports.RepaymentCadenceSchema,
+    RepaymentSchedule: exports.RepaymentScheduleSchema,
+    LoanCreateInput: exports.LoanCreateInputSchema,
+    LoanUpdateInput: exports.LoanUpdateInputSchema,
+    LoanPurposePocketInput: exports.LoanPurposePocketInputSchema,
+    LoanDetail: exports.LoanDetailSchema,
     FixedExpense: exports.FixedExpenseSchema,
     IncomeEvent: exports.IncomeEventSchema,
     Transaction: exports.TransactionSchema,

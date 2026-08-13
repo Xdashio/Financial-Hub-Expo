@@ -274,6 +274,29 @@ export class SupabaseRepository {
     if (error) throw error;
   }
 
+  // Loans (audit_team.md item 9) - get loans with due dates in a date range
+  async getLoansWithDueDateBetween(startDate: string, endDate: string): Promise<Pocket[]> {
+    const { data, error } = await this.supabase
+      .from('pockets')
+      .select('*')
+      .eq('kind', 'loan')
+      .gte('due_day', parseInt(startDate.slice(8, 10)))
+      .lte('due_day', parseInt(endDate.slice(8, 10)))
+      .order('due_day', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Get all pockets of a specific kind (for loan reminders)
+  async getPocketsByKind(kind: string): Promise<Pocket[]> {
+    const { data, error } = await this.supabase
+      .from('pockets')
+      .select('*')
+      .eq('kind', kind);
+    if (error) throw error;
+    return data || [];
+  }
+
   // Deletes every fixed expense row for a user. Used by
   // OnboardingService.commit() to give onboarding/retake submissions
   // full-replace semantics instead of appending on top of whatever was

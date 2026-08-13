@@ -1,7 +1,7 @@
 import { z } from 'zod';
 export declare const PlanTypeSchema: z.ZodEnum<["structured", "daily"]>;
 export type PlanType = z.infer<typeof PlanTypeSchema>;
-export declare const PocketKindSchema: z.ZodEnum<["savings", "fixed", "spendable"]>;
+export declare const PocketKindSchema: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
 export type PocketKind = z.infer<typeof PocketKindSchema>;
 export declare const PocketCategorySchema: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
 export type PocketCategory = z.infer<typeof PocketCategorySchema>;
@@ -316,21 +316,21 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
     pockets: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         name: z.ZodString;
-        kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+        kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
         category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
         monthlyAllocation: z.ZodNumber;
         dailyCap: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }, {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -340,7 +340,7 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
     pockets: {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -350,7 +350,7 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
     pockets: {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -428,21 +428,21 @@ export declare const PlanRetakeResultSchema: z.ZodObject<{
     pockets: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         name: z.ZodString;
-        kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+        kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
         category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
         monthlyAllocation: z.ZodNumber;
         dailyCap: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }, {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -497,7 +497,7 @@ export declare const PlanRetakeResultSchema: z.ZodObject<{
     pockets: {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -519,7 +519,7 @@ export declare const PlanRetakeResultSchema: z.ZodObject<{
     pockets: {
         name: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -629,7 +629,7 @@ export declare const PocketSchema: z.ZodObject<{
     id: z.ZodString;
     planId: z.ZodString;
     name: z.ZodString;
-    kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+    kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
     category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
     isTimeLocked: z.ZodDefault<z.ZodBoolean>;
     lockUntil: z.ZodOptional<z.ZodString>;
@@ -642,7 +642,7 @@ export declare const PocketSchema: z.ZodObject<{
     name: string;
     planId: string;
     id: string;
-    kind: "savings" | "fixed" | "spendable";
+    kind: "savings" | "fixed" | "spendable" | "loan";
     monthlyAllocation: number;
     createdAt: string;
     updatedAt: string;
@@ -655,7 +655,7 @@ export declare const PocketSchema: z.ZodObject<{
     name: string;
     planId: string;
     id: string;
-    kind: "savings" | "fixed" | "spendable";
+    kind: "savings" | "fixed" | "spendable" | "loan";
     monthlyAllocation: number;
     createdAt: string;
     updatedAt: string;
@@ -701,6 +701,309 @@ export declare const SubPocketCreateInputSchema: z.ZodObject<{
     category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
 }>;
 export type SubPocketCreateInput = z.infer<typeof SubPocketCreateInputSchema>;
+export declare const RepaymentCadenceSchema: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+export type RepaymentCadence = z.infer<typeof RepaymentCadenceSchema>;
+export declare const RepaymentScheduleSchema: z.ZodObject<{
+    totalAmount: z.ZodNumber;
+    repaymentAmount: z.ZodNumber;
+    cadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+    startDate: z.ZodString;
+    endDate: z.ZodString;
+    nextDueDate: z.ZodString;
+    totalPayments: z.ZodNumber;
+    paymentsMade: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    totalAmount: number;
+    repaymentAmount: number;
+    cadence: "weekly" | "biweekly" | "monthly";
+    startDate: string;
+    endDate: string;
+    nextDueDate: string;
+    totalPayments: number;
+    paymentsMade: number;
+}, {
+    totalAmount: number;
+    repaymentAmount: number;
+    cadence: "weekly" | "biweekly" | "monthly";
+    startDate: string;
+    endDate: string;
+    nextDueDate: string;
+    totalPayments: number;
+    paymentsMade: number;
+}>;
+export type RepaymentSchedule = z.infer<typeof RepaymentScheduleSchema>;
+export declare const LoanCreateInputSchema: z.ZodObject<{
+    name: z.ZodString;
+    totalAmount: z.ZodNumber;
+    repaymentAmount: z.ZodNumber;
+    cadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+    startDate: z.ZodString;
+    endDate: z.ZodString;
+    dueDay: z.ZodNumber;
+    loanProvider: z.ZodOptional<z.ZodString>;
+    loanPurpose: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    dueDay: number;
+    totalAmount: number;
+    repaymentAmount: number;
+    cadence: "weekly" | "biweekly" | "monthly";
+    startDate: string;
+    endDate: string;
+    loanProvider?: string | undefined;
+    loanPurpose?: string | undefined;
+}, {
+    name: string;
+    dueDay: number;
+    totalAmount: number;
+    repaymentAmount: number;
+    cadence: "weekly" | "biweekly" | "monthly";
+    startDate: string;
+    endDate: string;
+    loanProvider?: string | undefined;
+    loanPurpose?: string | undefined;
+}>;
+export type LoanCreateInput = z.infer<typeof LoanCreateInputSchema>;
+export declare const LoanUpdateInputSchema: z.ZodObject<{
+    repaymentSchedule: z.ZodOptional<z.ZodOptional<z.ZodObject<{
+        totalAmount: z.ZodOptional<z.ZodNumber>;
+        repaymentAmount: z.ZodOptional<z.ZodNumber>;
+        cadence: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly"]>>;
+        startDate: z.ZodOptional<z.ZodString>;
+        endDate: z.ZodOptional<z.ZodString>;
+        nextDueDate: z.ZodOptional<z.ZodString>;
+        totalPayments: z.ZodOptional<z.ZodNumber>;
+        paymentsMade: z.ZodOptional<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        totalAmount?: number | undefined;
+        repaymentAmount?: number | undefined;
+        cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+        startDate?: string | undefined;
+        endDate?: string | undefined;
+        nextDueDate?: string | undefined;
+        totalPayments?: number | undefined;
+        paymentsMade?: number | undefined;
+    }, {
+        totalAmount?: number | undefined;
+        repaymentAmount?: number | undefined;
+        cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+        startDate?: string | undefined;
+        endDate?: string | undefined;
+        nextDueDate?: string | undefined;
+        totalPayments?: number | undefined;
+        paymentsMade?: number | undefined;
+    }>>>;
+    loanProvider: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    loanPurpose: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    loanProvider?: string | undefined;
+    loanPurpose?: string | undefined;
+    repaymentSchedule?: {
+        totalAmount?: number | undefined;
+        repaymentAmount?: number | undefined;
+        cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+        startDate?: string | undefined;
+        endDate?: string | undefined;
+        nextDueDate?: string | undefined;
+        totalPayments?: number | undefined;
+        paymentsMade?: number | undefined;
+    } | undefined;
+}, {
+    loanProvider?: string | undefined;
+    loanPurpose?: string | undefined;
+    repaymentSchedule?: {
+        totalAmount?: number | undefined;
+        repaymentAmount?: number | undefined;
+        cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+        startDate?: string | undefined;
+        endDate?: string | undefined;
+        nextDueDate?: string | undefined;
+        totalPayments?: number | undefined;
+        paymentsMade?: number | undefined;
+    } | undefined;
+}>;
+export type LoanUpdateInput = z.infer<typeof LoanUpdateInputSchema>;
+export declare const LoanPurposePocketInputSchema: z.ZodObject<{
+    name: z.ZodString;
+    category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
+    monthlyAllocation: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+    monthlyAllocation: number;
+}, {
+    name: string;
+    category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+    monthlyAllocation: number;
+}>;
+export type LoanPurposePocketInput = z.infer<typeof LoanPurposePocketInputSchema>;
+export declare const LoanDetailSchema: z.ZodObject<{
+    id: z.ZodString;
+    planId: z.ZodString;
+    name: z.ZodString;
+    category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+    isTimeLocked: z.ZodDefault<z.ZodBoolean>;
+    lockUntil: z.ZodOptional<z.ZodString>;
+    monthlyAllocation: z.ZodNumber;
+    dailyCap: z.ZodOptional<z.ZodNumber>;
+    parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+} & {
+    kind: z.ZodLiteral<"loan">;
+    repaymentSchedule: z.ZodObject<{
+        totalAmount: z.ZodNumber;
+        repaymentAmount: z.ZodNumber;
+        cadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+        startDate: z.ZodString;
+        endDate: z.ZodString;
+        nextDueDate: z.ZodString;
+        totalPayments: z.ZodNumber;
+        paymentsMade: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        nextDueDate: string;
+        totalPayments: number;
+        paymentsMade: number;
+    }, {
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        nextDueDate: string;
+        totalPayments: number;
+        paymentsMade: number;
+    }>;
+    loanProvider: z.ZodNullable<z.ZodString>;
+    loanPurpose: z.ZodNullable<z.ZodString>;
+    dueDay: z.ZodNumber;
+    subPockets: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        planId: z.ZodString;
+        name: z.ZodString;
+        kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+        isTimeLocked: z.ZodDefault<z.ZodBoolean>;
+        lockUntil: z.ZodOptional<z.ZodString>;
+        monthlyAllocation: z.ZodNumber;
+        dailyCap: z.ZodOptional<z.ZodNumber>;
+        parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        planId: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable" | "loan";
+        monthlyAllocation: number;
+        createdAt: string;
+        updatedAt: string;
+        isTimeLocked: boolean;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+        lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
+    }, {
+        name: string;
+        planId: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable" | "loan";
+        monthlyAllocation: number;
+        createdAt: string;
+        updatedAt: string;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+        isTimeLocked?: boolean | undefined;
+        lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
+    }>, "many">>;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    dueDay: number;
+    planId: string;
+    id: string;
+    kind: "loan";
+    monthlyAllocation: number;
+    createdAt: string;
+    updatedAt: string;
+    isTimeLocked: boolean;
+    loanProvider: string | null;
+    loanPurpose: string | null;
+    repaymentSchedule: {
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        nextDueDate: string;
+        totalPayments: number;
+        paymentsMade: number;
+    };
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+    dailyCap?: number | undefined;
+    lockUntil?: string | undefined;
+    parentPocketId?: string | null | undefined;
+    subPockets?: {
+        name: string;
+        planId: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable" | "loan";
+        monthlyAllocation: number;
+        createdAt: string;
+        updatedAt: string;
+        isTimeLocked: boolean;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+        lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
+    }[] | undefined;
+}, {
+    name: string;
+    dueDay: number;
+    planId: string;
+    id: string;
+    kind: "loan";
+    monthlyAllocation: number;
+    createdAt: string;
+    updatedAt: string;
+    loanProvider: string | null;
+    loanPurpose: string | null;
+    repaymentSchedule: {
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        nextDueDate: string;
+        totalPayments: number;
+        paymentsMade: number;
+    };
+    category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+    dailyCap?: number | undefined;
+    isTimeLocked?: boolean | undefined;
+    lockUntil?: string | undefined;
+    parentPocketId?: string | null | undefined;
+    subPockets?: {
+        name: string;
+        planId: string;
+        id: string;
+        kind: "savings" | "fixed" | "spendable" | "loan";
+        monthlyAllocation: number;
+        createdAt: string;
+        updatedAt: string;
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+        isTimeLocked?: boolean | undefined;
+        lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
+    }[] | undefined;
+}>;
+export type LoanDetail = z.infer<typeof LoanDetailSchema>;
 export declare const FixedExpenseSchema: z.ZodObject<{
     id: z.ZodString;
     userId: z.ZodString;
@@ -904,7 +1207,7 @@ export declare const DisciplineScoreSchema: z.ZodObject<{
 export type DisciplineScore = z.infer<typeof DisciplineScoreSchema>;
 export declare const schemas: {
     PlanType: z.ZodEnum<["structured", "daily"]>;
-    PocketKind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+    PocketKind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
     PocketCategory: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
     IncomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
     SpendingHabit: z.ZodEnum<["tracker", "week3", "off_guard"]>;
@@ -1174,21 +1477,21 @@ export declare const schemas: {
         pockets: z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             name: z.ZodString;
-            kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+            kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
             category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
             monthlyAllocation: z.ZodNumber;
             dailyCap: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }, {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -1198,7 +1501,7 @@ export declare const schemas: {
         pockets: {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -1208,7 +1511,7 @@ export declare const schemas: {
         pockets: {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -1219,21 +1522,21 @@ export declare const schemas: {
         pockets: z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             name: z.ZodString;
-            kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+            kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
             category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
             monthlyAllocation: z.ZodNumber;
             dailyCap: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }, {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -1288,7 +1591,7 @@ export declare const schemas: {
         pockets: {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -1310,7 +1613,7 @@ export declare const schemas: {
         pockets: {
             name: string;
             id: string;
-            kind: "savings" | "fixed" | "spendable";
+            kind: "savings" | "fixed" | "spendable" | "loan";
             monthlyAllocation: number;
             category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -1395,7 +1698,7 @@ export declare const schemas: {
         id: z.ZodString;
         planId: z.ZodString;
         name: z.ZodString;
-        kind: z.ZodEnum<["savings", "fixed", "spendable"]>;
+        kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
         category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
         isTimeLocked: z.ZodDefault<z.ZodBoolean>;
         lockUntil: z.ZodOptional<z.ZodString>;
@@ -1408,7 +1711,7 @@ export declare const schemas: {
         name: string;
         planId: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         createdAt: string;
         updatedAt: string;
@@ -1421,7 +1724,7 @@ export declare const schemas: {
         name: string;
         planId: string;
         id: string;
-        kind: "savings" | "fixed" | "spendable";
+        kind: "savings" | "fixed" | "spendable" | "loan";
         monthlyAllocation: number;
         createdAt: string;
         updatedAt: string;
@@ -1456,6 +1759,303 @@ export declare const schemas: {
         name: string;
         monthlyAllocation: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+    }>;
+    RepaymentCadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+    RepaymentSchedule: z.ZodObject<{
+        totalAmount: z.ZodNumber;
+        repaymentAmount: z.ZodNumber;
+        cadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+        startDate: z.ZodString;
+        endDate: z.ZodString;
+        nextDueDate: z.ZodString;
+        totalPayments: z.ZodNumber;
+        paymentsMade: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        nextDueDate: string;
+        totalPayments: number;
+        paymentsMade: number;
+    }, {
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        nextDueDate: string;
+        totalPayments: number;
+        paymentsMade: number;
+    }>;
+    LoanCreateInput: z.ZodObject<{
+        name: z.ZodString;
+        totalAmount: z.ZodNumber;
+        repaymentAmount: z.ZodNumber;
+        cadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+        startDate: z.ZodString;
+        endDate: z.ZodString;
+        dueDay: z.ZodNumber;
+        loanProvider: z.ZodOptional<z.ZodString>;
+        loanPurpose: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        dueDay: number;
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        loanProvider?: string | undefined;
+        loanPurpose?: string | undefined;
+    }, {
+        name: string;
+        dueDay: number;
+        totalAmount: number;
+        repaymentAmount: number;
+        cadence: "weekly" | "biweekly" | "monthly";
+        startDate: string;
+        endDate: string;
+        loanProvider?: string | undefined;
+        loanPurpose?: string | undefined;
+    }>;
+    LoanUpdateInput: z.ZodObject<{
+        repaymentSchedule: z.ZodOptional<z.ZodOptional<z.ZodObject<{
+            totalAmount: z.ZodOptional<z.ZodNumber>;
+            repaymentAmount: z.ZodOptional<z.ZodNumber>;
+            cadence: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly"]>>;
+            startDate: z.ZodOptional<z.ZodString>;
+            endDate: z.ZodOptional<z.ZodString>;
+            nextDueDate: z.ZodOptional<z.ZodString>;
+            totalPayments: z.ZodOptional<z.ZodNumber>;
+            paymentsMade: z.ZodOptional<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            totalAmount?: number | undefined;
+            repaymentAmount?: number | undefined;
+            cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+            startDate?: string | undefined;
+            endDate?: string | undefined;
+            nextDueDate?: string | undefined;
+            totalPayments?: number | undefined;
+            paymentsMade?: number | undefined;
+        }, {
+            totalAmount?: number | undefined;
+            repaymentAmount?: number | undefined;
+            cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+            startDate?: string | undefined;
+            endDate?: string | undefined;
+            nextDueDate?: string | undefined;
+            totalPayments?: number | undefined;
+            paymentsMade?: number | undefined;
+        }>>>;
+        loanProvider: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+        loanPurpose: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        loanProvider?: string | undefined;
+        loanPurpose?: string | undefined;
+        repaymentSchedule?: {
+            totalAmount?: number | undefined;
+            repaymentAmount?: number | undefined;
+            cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+            startDate?: string | undefined;
+            endDate?: string | undefined;
+            nextDueDate?: string | undefined;
+            totalPayments?: number | undefined;
+            paymentsMade?: number | undefined;
+        } | undefined;
+    }, {
+        loanProvider?: string | undefined;
+        loanPurpose?: string | undefined;
+        repaymentSchedule?: {
+            totalAmount?: number | undefined;
+            repaymentAmount?: number | undefined;
+            cadence?: "weekly" | "biweekly" | "monthly" | undefined;
+            startDate?: string | undefined;
+            endDate?: string | undefined;
+            nextDueDate?: string | undefined;
+            totalPayments?: number | undefined;
+            paymentsMade?: number | undefined;
+        } | undefined;
+    }>;
+    LoanPurposePocketInput: z.ZodObject<{
+        name: z.ZodString;
+        category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
+        monthlyAllocation: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        monthlyAllocation: number;
+    }, {
+        name: string;
+        category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        monthlyAllocation: number;
+    }>;
+    LoanDetail: z.ZodObject<{
+        id: z.ZodString;
+        planId: z.ZodString;
+        name: z.ZodString;
+        category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+        isTimeLocked: z.ZodDefault<z.ZodBoolean>;
+        lockUntil: z.ZodOptional<z.ZodString>;
+        monthlyAllocation: z.ZodNumber;
+        dailyCap: z.ZodOptional<z.ZodNumber>;
+        parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+    } & {
+        kind: z.ZodLiteral<"loan">;
+        repaymentSchedule: z.ZodObject<{
+            totalAmount: z.ZodNumber;
+            repaymentAmount: z.ZodNumber;
+            cadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
+            startDate: z.ZodString;
+            endDate: z.ZodString;
+            nextDueDate: z.ZodString;
+            totalPayments: z.ZodNumber;
+            paymentsMade: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            totalAmount: number;
+            repaymentAmount: number;
+            cadence: "weekly" | "biweekly" | "monthly";
+            startDate: string;
+            endDate: string;
+            nextDueDate: string;
+            totalPayments: number;
+            paymentsMade: number;
+        }, {
+            totalAmount: number;
+            repaymentAmount: number;
+            cadence: "weekly" | "biweekly" | "monthly";
+            startDate: string;
+            endDate: string;
+            nextDueDate: string;
+            totalPayments: number;
+            paymentsMade: number;
+        }>;
+        loanProvider: z.ZodNullable<z.ZodString>;
+        loanPurpose: z.ZodNullable<z.ZodString>;
+        dueDay: z.ZodNumber;
+        subPockets: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            planId: z.ZodString;
+            name: z.ZodString;
+            kind: z.ZodEnum<["savings", "fixed", "spendable", "loan"]>;
+            category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
+            isTimeLocked: z.ZodDefault<z.ZodBoolean>;
+            lockUntil: z.ZodOptional<z.ZodString>;
+            monthlyAllocation: z.ZodNumber;
+            dailyCap: z.ZodOptional<z.ZodNumber>;
+            parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+            createdAt: z.ZodString;
+            updatedAt: z.ZodString;
+        }, "strip", z.ZodTypeAny, {
+            name: string;
+            planId: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable" | "loan";
+            monthlyAllocation: number;
+            createdAt: string;
+            updatedAt: string;
+            isTimeLocked: boolean;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+            lockUntil?: string | undefined;
+            parentPocketId?: string | null | undefined;
+        }, {
+            name: string;
+            planId: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable" | "loan";
+            monthlyAllocation: number;
+            createdAt: string;
+            updatedAt: string;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+            isTimeLocked?: boolean | undefined;
+            lockUntil?: string | undefined;
+            parentPocketId?: string | null | undefined;
+        }>, "many">>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        dueDay: number;
+        planId: string;
+        id: string;
+        kind: "loan";
+        monthlyAllocation: number;
+        createdAt: string;
+        updatedAt: string;
+        isTimeLocked: boolean;
+        loanProvider: string | null;
+        loanPurpose: string | null;
+        repaymentSchedule: {
+            totalAmount: number;
+            repaymentAmount: number;
+            cadence: "weekly" | "biweekly" | "monthly";
+            startDate: string;
+            endDate: string;
+            nextDueDate: string;
+            totalPayments: number;
+            paymentsMade: number;
+        };
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+        lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
+        subPockets?: {
+            name: string;
+            planId: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable" | "loan";
+            monthlyAllocation: number;
+            createdAt: string;
+            updatedAt: string;
+            isTimeLocked: boolean;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+            lockUntil?: string | undefined;
+            parentPocketId?: string | null | undefined;
+        }[] | undefined;
+    }, {
+        name: string;
+        dueDay: number;
+        planId: string;
+        id: string;
+        kind: "loan";
+        monthlyAllocation: number;
+        createdAt: string;
+        updatedAt: string;
+        loanProvider: string | null;
+        loanPurpose: string | null;
+        repaymentSchedule: {
+            totalAmount: number;
+            repaymentAmount: number;
+            cadence: "weekly" | "biweekly" | "monthly";
+            startDate: string;
+            endDate: string;
+            nextDueDate: string;
+            totalPayments: number;
+            paymentsMade: number;
+        };
+        category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+        dailyCap?: number | undefined;
+        isTimeLocked?: boolean | undefined;
+        lockUntil?: string | undefined;
+        parentPocketId?: string | null | undefined;
+        subPockets?: {
+            name: string;
+            planId: string;
+            id: string;
+            kind: "savings" | "fixed" | "spendable" | "loan";
+            monthlyAllocation: number;
+            createdAt: string;
+            updatedAt: string;
+            category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+            dailyCap?: number | undefined;
+            isTimeLocked?: boolean | undefined;
+            lockUntil?: string | undefined;
+            parentPocketId?: string | null | undefined;
+        }[] | undefined;
     }>;
     FixedExpense: z.ZodObject<{
         id: z.ZodString;
