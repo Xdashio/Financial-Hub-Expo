@@ -183,10 +183,10 @@ export default function FixedScreen() {
     <ScreenContainer>
       <SafeScrollView>
         <BrandHeader onBack={() => router.back()} />
-        <ProgressIndicator currentStep={4} totalSteps={5} />
+        <ProgressIndicator currentStep={5} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 4 of 5 — Fixed costs</Text>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 5 of 6 — Fixed costs</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>What repeats every month?</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>
             These get set aside before anything else. No bank link needed in this build — enter them once, edit anytime.

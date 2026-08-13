@@ -152,6 +152,69 @@ export type SpendableCategory = z.infer<typeof SpendableCategorySchema>;
 export const CategoryPercentagesSchema = z.record(SpendableCategorySchema, z.number().min(0).max(100));
 export type CategoryPercentages = z.infer<typeof CategoryPercentagesSchema>;
 
+// ----------------------------------------------------------------------------
+// Goal-driven savings (ONBOARDING_AND_SCORING_REDESIGN.md Part 4). Replaces
+// the flat-rate-for-everyone savings model with an optional captured goal —
+// what, roughly how much, roughly by when — that the rules engine derives a
+// savings rate and lock length from (see rules-engine.ts's
+// calculateSavingsTarget). Entirely optional: skipping this step falls back
+// to the existing buffer-based rate with no goal-shortfall messaging.
+// ----------------------------------------------------------------------------
+
+export const SavingsGoalTypeSchema = z.enum([
+  'emergency_fund',
+  'purchase',
+  'dependent_education',
+  'other',
+]);
+export type SavingsGoalType = z.infer<typeof SavingsGoalTypeSchema>;
+
+// Timeframe band, not an exact date — same honesty-over-precision reasoning
+// as IncomeIntervalBandSchema for freelancers (§4.1: "target date or a
+// rough timeframe band ... exact dates are unreliable, bands are honest").
+export const SavingsGoalTimeframeSchema = z.enum([
+  '3_months',
+  '6_months',
+  '1_year',
+  '2_plus_years',
+]);
+export type SavingsGoalTimeframe = z.infer<typeof SavingsGoalTimeframeSchema>;
+
+// Months-to-target used by the derived-rate calculation. '2_plus_years' is
+// open-ended by definition — 24 is treated as a conservative floor (a
+// longer real timeframe only makes the derived rate easier to hit, never
+// harder), not a claim that the goal is exactly 2 years out.
+export const SavingsGoalTimeframeMonths: Record<SavingsGoalTimeframe, number> = {
+  '3_months': 3,
+  '6_months': 6,
+  '1_year': 12,
+  '2_plus_years': 24,
+};
+
+// Savings-pocket lock length (days), matched to how far out the goal is
+// (§4.2: "lock length becomes goal-derived too"). Shorter-horizon goals
+// (e.g. an emergency buffer) get shorter lock cycles than a multi-year goal
+// so the lock cadence doesn't feel arbitrary relative to what it's guarding.
+export const SavingsGoalLockDays: Record<SavingsGoalTimeframe, number> = {
+  '3_months': 30,
+  '6_months': 60,
+  '1_year': 90,
+  '2_plus_years': 90,
+};
+
+export const SavingsGoalInputSchema = z.object({
+  goalType: SavingsGoalTypeSchema,
+  // Free-text personalization (e.g. "Amara's school fees"), same posture as
+  // fixed-expense names already stored today — deliberately not a separate
+  // structured dependent-name/relationship field, to avoid introducing a
+  // new PII category beyond what the app already handles (open question 5
+  // in ONBOARDING_AND_SCORING_REDESIGN.md).
+  goalLabel: z.string().min(1).max(60).optional(),
+  goalAmount: z.number().positive().optional(),
+  goalTimeframe: SavingsGoalTimeframeSchema,
+});
+export type SavingsGoalInput = z.infer<typeof SavingsGoalInputSchema>;
+
 export const FixedExpenseInputSchema = z.object({
   name: z.string().min(1).max(100),
   amount: z.number().positive(),
@@ -186,6 +249,11 @@ export const OnboardingInputSchema = z.object({
   // split instead of an even split, without removing the category outright
   // (a remote worker still occasionally takes transport).
   hasTransportNeed: z.boolean().optional(),
+  // Optional captured savings goal (Part 4) — see SavingsGoalInputSchema.
+  // Omitted means "no stated goal": rules-engine falls back to the
+  // existing buffer-based rate/default 30-day lock with no shortfall
+  // messaging.
+  savingsGoal: SavingsGoalInputSchema.optional(),
   // User-adjusted split across spendable category pockets, set on the
   // onboarding result screen (item 3 of audit_team.md). Optional — omitted
   // means "use the rules engine's default weighting". When present, must
@@ -202,6 +270,13 @@ export const PlanAssignReasonSchema = z.object({
   // Numeric context for "why this plan" templates (§2.6).
   needsRatio: z.number().nonnegative().optional(),
   needsBand: NeedsBandSchema.optional(),
+  // Populated only on the 'savings_goal_capacity_shortfall' reason (§4.2):
+  // the literal derived rate needed to hit the goal on time would exceed
+  // the sane-share cap, so these carry the numbers the client renders as
+  // "would take ~N months longer" / "would need ~X% of your spendable
+  // income" instead of silently forcing or silently ignoring the goal.
+  goalMonthsNeeded: z.number().nonnegative().optional(),
+  goalRequiredSharePercent: z.number().nonnegative().optional(),
 });
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 
@@ -548,6 +623,9 @@ export const schemas = {
   EmergencyBuffer: EmergencyBufferSchema,
   MoneyPersonality: MoneyPersonalitySchema,
   NeedsBand: NeedsBandSchema,
+  SavingsGoalType: SavingsGoalTypeSchema,
+  SavingsGoalTimeframe: SavingsGoalTimeframeSchema,
+  SavingsGoalInput: SavingsGoalInputSchema,
   PlanName: PlanNameSchema,
   TransactionType: TransactionTypeSchema,
   ReallocationStatus: ReallocationStatusSchema,

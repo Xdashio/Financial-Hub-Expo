@@ -8,8 +8,10 @@ import type {
   NeedsBand,
   EmergencyBuffer,
   MoneyPersonality,
+  SavingsGoalInput,
+  SavingsGoalType,
 } from '@financial-hub/shared';
-import { IncomeIntervalDaysByBand } from '@financial-hub/shared';
+import { IncomeIntervalDaysByBand, SavingsGoalTimeframeMonths, SavingsGoalLockDays } from '@financial-hub/shared';
 
 export interface PlanAssignment {
   plan: PlanName;
@@ -25,6 +27,10 @@ export interface PlanAssignment {
   reasons: PlanAssignReason[];
   remainingAfterFixed: number;
   savingsTarget: number;
+  // Days the Savings pocket locks for each cycle. Goal-derived when a
+  // savings goal was captured (§4.2 — shorter-horizon goals get shorter
+  // lock cycles), otherwise DEFAULT_SAVINGS_LOCK_DAYS.
+  savingsLockDays: number;
   spendableAmount: number;
   needsRatio: number;
   needsBand: NeedsBand;
@@ -35,6 +41,26 @@ export interface PlanAssignment {
 
 /** Floor savings rate of remaining-after-fixed when no buffer answer exists. */
 export const MIN_SAVINGS_RATE = 0.10;
+
+/** Default Savings pocket lock length (days) when no goal was captured —
+ *  single source of truth, imported by pocket-provisioning.ts rather than
+ *  duplicated there. */
+export const DEFAULT_SAVINGS_LOCK_DAYS = 30;
+
+/** Absolute floor savings rate — never goes lower regardless of goal size or
+ *  needs ratio (scoping answer 6: "derived rate, minimum 5%"). Buffer-based
+ *  rates (savingsRateForBuffer) already sit at or above this; this floor is
+ *  what actually binds on the goal-derived path when a goal is small or far
+ *  out. */
+export const ABSOLUTE_SAVINGS_FLOOR_RATE = 0.05;
+
+/** "Sane share" ceiling on how much of remaining-after-fixed a goal-derived
+ *  rate can claim before we stop silently forcing it and surface a
+ *  shortfall back to the user instead (§4.2: "don't silently force it —
+ *  surface it back to the user"). Keeps savings from claiming more than
+ *  half of what's left after fixed costs, so spendable always keeps a
+ *  meaningful floor. */
+export const SAVINGS_GOAL_CAP_SHARE = 0.5;
 
 /** Needs-ratio bands from ONBOARDING_AND_SCORING_REDESIGN.md §2.4. */
 export const NEEDS_RATIO_HIGH = 0.7;
@@ -253,9 +279,75 @@ export function savingsRateForBuffer(buffer?: EmergencyBuffer): number {
   }
 }
 
-function calculateSavingsTarget(incomeAmount: number, fixedTotal: number, buffer?: EmergencyBuffer): number {
+function calculateSavingsTarget(
+  incomeAmount: number,
+  fixedTotal: number,
+  buffer?: EmergencyBuffer,
+  goal?: SavingsGoalInput,
+): {
+  savingsTarget: number;
+  savingsLockDays: number;
+  goalShortfall?: { goalMonthsNeeded: number; goalRequiredSharePercent: number };
+} {
   const remainingAfterFixed = incomeAmount - fixedTotal;
-  return Math.max(remainingAfterFixed * savingsRateForBuffer(buffer), 0);
+  const bufferRate = savingsRateForBuffer(buffer);
+
+  // No goal, or a goal without a stated amount (user skipped "roughly how
+  // much") — fall back to the buffer-based rate (§4.2 point 3: "fall back
+  // to the 5% floor plus whatever the existing needs-ratio-based
+  // calculation already produces"), still never below the absolute floor.
+  // A goal timeframe with no amount still personalizes the lock length,
+  // since that part of the question was answered.
+  if (!goal || !goal.goalAmount) {
+    const rate = Math.max(bufferRate, ABSOLUTE_SAVINGS_FLOOR_RATE);
+    return {
+      savingsTarget: Math.max(remainingAfterFixed * rate, 0),
+      savingsLockDays: goal ? SavingsGoalLockDays[goal.goalTimeframe] : DEFAULT_SAVINGS_LOCK_DAYS,
+    };
+  }
+
+  const savingsLockDays = SavingsGoalLockDays[goal.goalTimeframe];
+
+  // remainingAfterFixed <= 0 is already rejected in assignPlan before this
+  // runs, so this division is always against a positive number here.
+  const monthsToTarget = SavingsGoalTimeframeMonths[goal.goalTimeframe];
+  const monthlyRequired = goal.goalAmount / monthsToTarget;
+  const derivedRate = monthlyRequired / remainingAfterFixed;
+  const flooredRate = Math.max(derivedRate, bufferRate, ABSOLUTE_SAVINGS_FLOOR_RATE);
+
+  if (flooredRate <= SAVINGS_GOAL_CAP_SHARE) {
+    return {
+      savingsTarget: Math.max(remainingAfterFixed * flooredRate, 0),
+      savingsLockDays,
+    };
+  }
+
+  // Derived rate would eat more than the sane-share cap — cap it rather
+  // than forcing it, and carry the real numbers so the client can show
+  // "this would take ~N months longer" / "would need ~X% of your
+  // spendable income" instead of failing silently or overcommitting.
+  const cappedMonthlyAmount = remainingAfterFixed * SAVINGS_GOAL_CAP_SHARE;
+  return {
+    savingsTarget: Math.max(cappedMonthlyAmount, 0),
+    savingsLockDays,
+    goalShortfall: {
+      goalMonthsNeeded: goal.goalAmount / cappedMonthlyAmount,
+      goalRequiredSharePercent: derivedRate * 100,
+    },
+  };
+}
+
+function goalDisplayLabel(goal: SavingsGoalInput): string {
+  if (goal.goalLabel) {
+    return goal.goalLabel;
+  }
+  const byType: Record<SavingsGoalType, string> = {
+    emergency_fund: 'your emergency fund',
+    purchase: 'your goal',
+    dependent_education: "a dependent's education goal",
+    other: 'your savings goal',
+  };
+  return byType[goal.goalType];
 }
 
 export function assignPlan(input: OnboardingInput): PlanAssignment {
@@ -273,10 +365,33 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
   const { planType, reason: styleReason } = determineAllocationStyle(input, needsRatio, needsBand);
   const plan = buildPlanName(resolvedIncomePattern, planType, concentration);
 
-  const savingsTarget = calculateSavingsTarget(incomeAmount, fixedTotal, input.emergencyBuffer);
+  const savingsTargetResult = calculateSavingsTarget(
+    incomeAmount,
+    fixedTotal,
+    input.emergencyBuffer,
+    input.savingsGoal,
+  );
+  const { savingsTarget, savingsLockDays, goalShortfall } = savingsTargetResult;
   const spendableAmount = remainingAfterFixed - savingsTarget;
 
   const reasons: PlanAssignReason[] = [patternReason, styleReason];
+
+  if (input.savingsGoal?.goalAmount) {
+    const label = goalDisplayLabel(input.savingsGoal);
+    if (goalShortfall) {
+      reasons.push({
+        rule: 'savings_goal_capacity_shortfall',
+        reason: `Hitting ${label} on your stated timeline would take about ${Math.round(goalShortfall.goalRequiredSharePercent)}% of what's left after fixed costs — more than we'd recommend committing at once, so we've capped it. At this rate the goal would take roughly ${Math.ceil(goalShortfall.goalMonthsNeeded)} months — want to adjust the goal, the timeline, or the rate?`,
+        goalMonthsNeeded: goalShortfall.goalMonthsNeeded,
+        goalRequiredSharePercent: goalShortfall.goalRequiredSharePercent,
+      });
+    } else {
+      reasons.push({
+        rule: 'savings_goal_on_track',
+        reason: `We derived your savings rate from ${label} and your stated timeline — this pace should get you there on schedule.`,
+      });
+    }
+  }
 
   if (input.hasDependents === true) {
     reasons.push({
@@ -305,6 +420,7 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
     reasons,
     remainingAfterFixed,
     savingsTarget,
+    savingsLockDays,
     spendableAmount,
     needsRatio,
     needsBand,

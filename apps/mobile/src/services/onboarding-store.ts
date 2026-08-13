@@ -14,7 +14,7 @@ import { onboardingApi } from '@/services/onboarding';
 import { profileApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 
-export type OnboardingStep = 'income' | 'habits' | 'about-you' | 'fixed' | 'result';
+export type OnboardingStep = 'income' | 'habits' | 'about-you' | 'goal' | 'fixed' | 'result';
 
 export interface FixedExpenseItem {
   id: string;
@@ -76,8 +76,15 @@ interface OnboardingState {
   setIncomeData: (data: Pick<OnboardingInput, 'incomePattern' | 'incomeAmount' | 'sourceCount' | 'incomeIntervalBand'>) => void;
   setHabitsData: (data: Pick<OnboardingInput, 'spendingHabit'>) => void;
   setAboutYouData: (
-    data: Pick<OnboardingInput, 'lifeStage' | 'hasDependents' | 'emergencyBuffer' | 'moneyPersonality'>,
+    data: Pick<
+      OnboardingInput,
+      'lifeStage' | 'hasDependents' | 'emergencyBuffer' | 'moneyPersonality' | 'hasTransportNeed'
+    >,
   ) => void;
+  /** Sets or clears the captured savings goal (Part 4). Pass `undefined` to
+   *  skip the goal step — the rules engine falls back to the buffer-based
+   *  rate with no goal-shortfall messaging. */
+  setSavingsGoalData: (goal: OnboardingInput['savingsGoal']) => void;
   addFixedExpense: (expense: Omit<FixedExpenseItem, 'id'>) => void;
   removeFixedExpense: (id: string) => void;
   updateFixedExpense: (id: string, expense: Partial<FixedExpenseItem>) => void;
@@ -101,7 +108,7 @@ interface OnboardingState {
   recoverState: () => Promise<void>;
 }
 
-const STEP_ORDER: OnboardingStep[] = ['income', 'habits', 'about-you', 'fixed', 'result'];
+const STEP_ORDER: OnboardingStep[] = ['income', 'habits', 'about-you', 'goal', 'fixed', 'result'];
 
 const initialInput: Partial<OnboardingInput> = {
   incomePattern: 'salaried',
@@ -113,6 +120,11 @@ const initialInput: Partial<OnboardingInput> = {
   hasDependents: false,
   emergencyBuffer: 'under_month',
   moneyPersonality: 'saver',
+  // Default true = today's even-weighted transport share. Only an explicit
+  // `false` (remote worker, no regular transport spend) folds transport
+  // into a smaller share — see hasTransportNeed's doc comment in the shared
+  // schema.
+  hasTransportNeed: true,
 };
 
 export const useOnboardingStore = create<OnboardingState>()(
@@ -146,6 +158,12 @@ export const useOnboardingStore = create<OnboardingState>()(
       setAboutYouData: (data) =>
         set((state) => ({
           input: { ...state.input, ...data },
+          error: null,
+        })),
+
+      setSavingsGoalData: (goal) =>
+        set((state) => ({
+          input: { ...state.input, savingsGoal: goal },
           error: null,
         })),
 
