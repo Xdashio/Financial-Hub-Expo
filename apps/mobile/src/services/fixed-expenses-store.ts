@@ -46,7 +46,7 @@ export const useFixedExpensesStore = create<FixedExpensesState>((set, get) => ({
   },
 
   addExpense: async (expenseData) => {
-    const { expenses } = get();
+    const { expenses: previousExpenses } = get();
     
     try {
       // Optimistic update
@@ -56,29 +56,34 @@ export const useFixedExpensesStore = create<FixedExpensesState>((set, get) => ({
         user_id: 'current',
         created_at: new Date().toISOString(),
       };
-      const previousExpenses = [...expenses];
-      set({ expenses: [...expenses, optimisticExpense] });
+      set({ expenses: [...previousExpenses, optimisticExpense] });
 
       // Actual API call
       const created = await api.post<any>('/profile/fixed-expenses', expenseData);
       
-      // Replace optimistic with real data
-      set({ 
-        expenses: expenses.map(e => e.id === optimisticExpense.id ? created : e)
+      // Replace optimistic with real data. Bug fix (senior review,
+      // 2026-08-13): this previously mapped over the `expenses` closure
+      // variable captured *before* the optimistic update above, which
+      // never contained optimisticExpense — so the id match always missed,
+      // and this set() silently reverted the store to the pre-add list,
+      // dropping the newly created expense from the UI right after a
+      // successful save. Read current state fresh via get() instead.
+      set({
+        expenses: get().expenses.map(e => (e.id === optimisticExpense.id ? created : e)),
       });
     } catch (error) {
       // Rollback on error
-      set({ expenses });
+      set({ expenses: previousExpenses });
       throw error;
     }
   },
 
   updateExpense: async (id, updates) => {
     const { expenses } = get();
-    
+    const previousExpenses = [...expenses];
+
     try {
       // Optimistic update
-      const previousExpenses = [...expenses];
       set({ 
         expenses: expenses.map(e => e.id === id ? { ...e, ...updates } : e)
       });
@@ -98,10 +103,10 @@ export const useFixedExpensesStore = create<FixedExpensesState>((set, get) => ({
 
   deleteExpense: async (id) => {
     const { expenses } = get();
-    
+    const previousExpenses = [...expenses];
+
     try {
       // Optimistic update
-      const previousExpenses = [...expenses];
       set({ expenses: expenses.filter(e => e.id !== id) });
 
       // Actual API call

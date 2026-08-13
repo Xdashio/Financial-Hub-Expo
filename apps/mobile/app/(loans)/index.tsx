@@ -204,7 +204,14 @@ export default function LoansScreen() {
   };
 
   const goToDetail = (loanId: string) => {
-    router.push(`/loans/detail?id=${loanId}`);
+    // Bug fix (senior review, 2026-08-13): this was '/loans/detail?id=...'
+    // (no parens) — the group folder is '(loans)', not 'loans', and every
+    // other navigation into this same group uses the parenthesized form
+    // (see goToCreate above, and the router.replace('/(loans)') calls in
+    // create.tsx and detail.tsx). The un-parenthesized path doesn't resolve
+    // to a real route, so tapping a loan in this list silently failed to
+    // open its detail screen.
+    router.push(`/(loans)/detail?id=${loanId}`);
   };
 
   // ── Loading state ──────────────────────────────────────────────────────────

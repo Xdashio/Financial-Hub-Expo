@@ -62,7 +62,11 @@ describe('NotificationSchedulerService', () => {
           return [
             {
               type: EVENT_DAILY_ROLLOVER_SUCCESS,
-              payload: { date: '2026-08-09' },
+              // amount must be present and nonzero — streak.ts's
+              // collectSuccessDates now excludes zero/missing-amount
+              // rollover events (anti-gaming), so this fixture needs one
+              // to still count as a real streak day.
+              payload: { date: '2026-08-09', amount: 150 },
               created_at: '2026-08-09T01:00:00.000Z',
             },
           ];

@@ -104,8 +104,14 @@ export class LoansService {
       return [];
     }
 
-    const loanPockets = await this.repository.getPocketsByPlanId(plan.id);
-    const loans = loanPockets.filter(p => p.kind === 'loan');
+    // Top-level pockets only. Repayment/purpose sub-pockets inherit the
+    // parent's kind ('loan') so they'd pass a bare `kind === 'loan'` filter
+    // too — using the unfiltered getPocketsByPlanId here made every loan's
+    // own Repayment sub-pocket (and any purpose sub-pockets) show up as a
+    // separate top-level loan in this list. Same failure mode as the
+    // getAllForUser sub-pocket leak fixed earlier for regular pockets.
+    const topLevelPockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
+    const loans = topLevelPockets.filter(p => p.kind === 'loan');
 
     // Enrich each loan with sub-pockets and repayment status
     return Promise.all(
@@ -305,14 +311,20 @@ export class LoansService {
 
     await this.repository.createTransaction(transactionInsert);
 
-    // Update repayment schedule progress
+    // Update repayment schedule progress. Schedule keys are camelCase
+    // throughout (see RepaymentScheduleSchema / buildRepaymentSchedule) —
+    // using payments_made here previously read/wrote a key that didn't
+    // exist, so paymentsMade never actually advanced (see code review,
+    // 2026-08-13): NaN broke the "is fully repaid" and "advance due date"
+    // checks below, and silently persisted as `null` once round-tripped
+    // through JSON into the JSONB column.
     const updatedSchedule = {
       ...schedule,
-      payments_made: schedule.payments_made + 1,
+      paymentsMade: schedule.paymentsMade + 1,
     };
 
     // Calculate next due date
-    if (updatedSchedule.payments_made < updatedSchedule.totalPayments) {
+    if (updatedSchedule.paymentsMade < updatedSchedule.totalPayments) {
       updatedSchedule.nextDueDate = this.calculateNextDueDate(updatedSchedule);
     }
 
@@ -345,7 +357,7 @@ export class LoansService {
     await this.disciplineScore.applyDelta(userId, scoreChange);
 
     // Check if loan is fully repaid
-    if (updatedSchedule.payments_made >= updatedSchedule.totalPayments) {
+    if (updatedSchedule.paymentsMade >= updatedSchedule.totalPayments) {
       await this.markLoanFullyRepaid(loanId, userId);
     }
 
@@ -461,7 +473,7 @@ export class LoansService {
    * Calculates next due date based on cadence
    */
   private calculateNextDueDate(schedule: any): string {
-    const lastPaymentDate = schedule.payments_made > 0 
+    const lastPaymentDate = schedule.paymentsMade > 0
       ? new Date(schedule.nextDueDate)
       : new Date(schedule.startDate);
 
@@ -498,11 +510,11 @@ export class LoansService {
 
     // Calculate repayment progress
     const progress = schedule ? {
-      paymentsMade: schedule.payments_made,
+      paymentsMade: schedule.paymentsMade,
       totalPayments: schedule.totalPayments,
-      percentagePaid: (schedule.payments_made / schedule.totalPayments) * 100,
-      amountPaid: schedule.payments_made * schedule.repaymentAmount,
-      amountRemaining: (schedule.totalPayments - schedule.payments_made) * schedule.repaymentAmount,
+      percentagePaid: (schedule.paymentsMade / schedule.totalPayments) * 100,
+      amountPaid: schedule.paymentsMade * schedule.repaymentAmount,
+      amountRemaining: (schedule.totalPayments - schedule.paymentsMade) * schedule.repaymentAmount,
       nextDueDate: schedule.nextDueDate,
       isOverdue: new Date() > new Date(schedule.nextDueDate),
     } : null;
