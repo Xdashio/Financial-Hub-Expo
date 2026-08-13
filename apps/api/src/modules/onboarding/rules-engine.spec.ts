@@ -464,6 +464,97 @@ describe('Rules Engine — Plan Assignment', () => {
     });
   });
 
+  describe('goal-driven savings (Part 4)', () => {
+    it('uses the buffer-based rate (unchanged) when no goal is captured', () => {
+      const result = assignPlan(createInput({ incomeAmount: 100000, fixedTotal: 30000 }));
+      expect(result.savingsTarget).toBe(7000);
+      expect(result.savingsLockDays).toBe(30);
+      expect(result.reasons.some((r) => r.rule.startsWith('savings_goal'))).toBe(false);
+    });
+
+    it('derives the rate from an achievable goal and skips the shortfall reason', () => {
+      // 210,000 target over 12 months = 17,500/mo ÷ 70,000 remaining = 25%,
+      // comfortably under the 50% cap.
+      const result = assignPlan(
+        createInput({
+          incomeAmount: 100000,
+          fixedTotal: 30000,
+          savingsGoal: { goalType: 'purchase', goalAmount: 210000, goalTimeframe: '1_year' },
+        }),
+      );
+      expect(result.savingsTarget).toBe(17500);
+      expect(result.savingsLockDays).toBe(90);
+      const reason = result.reasons.find((r) => r.rule === 'savings_goal_on_track');
+      expect(reason).toBeDefined();
+      expect(result.reasons.some((r) => r.rule === 'savings_goal_capacity_shortfall')).toBe(false);
+    });
+
+    it('caps the rate and surfaces a shortfall reason when the derived rate exceeds the sane-share cap', () => {
+      // 700,000 target over 6 months = 116,666.67/mo ÷ 70,000 remaining ≈
+      // 166.7%, well over the 50% cap — should cap at 35,000 (50% of
+      // remaining) rather than force the full derived rate.
+      const result = assignPlan(
+        createInput({
+          incomeAmount: 100000,
+          fixedTotal: 30000,
+          savingsGoal: { goalType: 'emergency_fund', goalAmount: 700000, goalTimeframe: '6_months' },
+        }),
+      );
+      expect(result.savingsTarget).toBe(35000);
+      expect(result.savingsLockDays).toBe(60);
+      const reason = result.reasons.find((r) => r.rule === 'savings_goal_capacity_shortfall');
+      expect(reason).toBeDefined();
+      expect(reason?.goalMonthsNeeded).toBeCloseTo(20);
+      expect(reason?.goalRequiredSharePercent).toBeCloseTo(166.666, 2);
+      expect(result.reasons.some((r) => r.rule === 'savings_goal_on_track')).toBe(false);
+    });
+
+    it('falls back to the buffer-based rate but still applies the goal-derived lock length when goalAmount is omitted', () => {
+      const result = assignPlan(
+        createInput({
+          incomeAmount: 100000,
+          fixedTotal: 30000,
+          savingsGoal: { goalType: 'other', goalTimeframe: '3_months' },
+        }),
+      );
+      expect(result.savingsTarget).toBe(7000); // unchanged buffer-based rate
+      expect(result.savingsLockDays).toBe(30);
+      expect(result.reasons.some((r) => r.rule.startsWith('savings_goal'))).toBe(false);
+    });
+
+    it('never drops the rate below the absolute 5% floor, even for a tiny, distant goal', () => {
+      // 7,000 target over 24 months = ~291.67/mo ÷ 70,000 remaining ≈
+      // 0.42% — far below both the buffer rate and the absolute floor.
+      const result = assignPlan(
+        createInput({
+          incomeAmount: 100000,
+          fixedTotal: 30000,
+          emergencyBuffer: '3_plus_months', // bufferRate 0.05, same as the floor
+          savingsGoal: { goalType: 'other', goalAmount: 7000, goalTimeframe: '2_plus_years' },
+        }),
+      );
+      expect(result.savingsTarget).toBe(3500); // 70,000 * 0.05 floor
+      expect(result.savingsLockDays).toBe(90);
+    });
+
+    it('uses the free-text goalLabel in the reason text when provided', () => {
+      const result = assignPlan(
+        createInput({
+          incomeAmount: 100000,
+          fixedTotal: 30000,
+          savingsGoal: {
+            goalType: 'dependent_education',
+            goalLabel: "Amara's school fees",
+            goalAmount: 84000,
+            goalTimeframe: '1_year',
+          },
+        }),
+      );
+      const reason = result.reasons.find((r) => r.rule === 'savings_goal_on_track');
+      expect(reason?.reason).toContain("Amara's school fees");
+    });
+  });
+
   describe('edge cases', () => {
     it('throws when fixed equals income', () => {
       expect(() => assignPlan(createInput({ incomeAmount: 50000, fixedTotal: 50000 }))).toThrow(

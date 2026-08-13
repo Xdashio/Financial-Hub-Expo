@@ -5,7 +5,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
-import { ChevronLeft, GraduationCap, Briefcase, Wrench, Users, PiggyBank, Sparkles } from 'lucide-react-native';
+import { ChevronLeft, GraduationCap, Briefcase, Wrench, Users, PiggyBank, Sparkles, Bus } from 'lucide-react-native';
 import type { EmergencyBuffer, LifeStage, MoneyPersonality } from '@financial-hub/shared';
 
 const LIFE_STAGES: { id: LifeStage; label: string; description: string; icon: typeof GraduationCap }[] = [
@@ -17,6 +17,11 @@ const LIFE_STAGES: { id: LifeStage; label: string; description: string; icon: ty
 const DEPENDENT_OPTIONS: { id: boolean; label: string; description: string }[] = [
   { id: true, label: 'Yes — I support others', description: 'School fees, family upkeep, dependents' },
   { id: false, label: 'No — just myself', description: 'Money is mainly for your own needs' },
+];
+
+const TRANSPORT_OPTIONS: { id: boolean; label: string; description: string }[] = [
+  { id: true, label: 'Yes — I spend on it regularly', description: 'Commuting, fares, fuel, or similar' },
+  { id: false, label: 'No — rarely or never', description: 'e.g. you work remote or walk everywhere' },
 ];
 
 const BUFFER_OPTIONS: { id: EmergencyBuffer; label: string; description: string }[] = [
@@ -45,13 +50,16 @@ export default function AboutYouScreen() {
   const [moneyPersonality, setMoneyPersonality] = React.useState<MoneyPersonality>(
     input.moneyPersonality ?? 'saver',
   );
+  const [hasTransportNeed, setHasTransportNeed] = React.useState<boolean>(
+    input.hasTransportNeed ?? true,
+  );
   const [isLoading, setIsLoading] = React.useState(false);
 
   const handleContinue = async () => {
     setIsLoading(true);
     try {
-      setAboutYouData({ lifeStage, hasDependents, emergencyBuffer, moneyPersonality });
-      router.push('/(onboarding)/fixed');
+      setAboutYouData({ lifeStage, hasDependents, emergencyBuffer, moneyPersonality, hasTransportNeed });
+      router.push('/(onboarding)/goal');
     } catch (error) {
       console.error('Error saving about you data:', error);
     } finally {
@@ -63,10 +71,10 @@ export default function AboutYouScreen() {
     <ScreenContainer>
       <SafeScrollView>
         <BrandHeader onBack={() => router.back()} />
-        <ProgressIndicator currentStep={3} totalSteps={5} />
+        <ProgressIndicator currentStep={3} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 3 of 5 — About you</Text>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 3 of 6 — About you</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>
             A few details so the plan fits your life
           </Text>
@@ -102,6 +110,23 @@ export default function AboutYouScreen() {
               label={option.label}
               description={option.description}
               icon={Users}
+            />
+          ))}
+        </View>
+
+        <SectionTitle>Transport</SectionTitle>
+        <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs, marginBottom: spacing.md }}>
+          Do you regularly spend on transport or commuting?
+        </Text>
+        <View style={{ marginBottom: spacing.xl, gap: spacing.md }}>
+          {TRANSPORT_OPTIONS.map((option) => (
+            <ChoiceRow
+              key={String(option.id)}
+              selected={hasTransportNeed === option.id}
+              onPress={() => setHasTransportNeed(option.id)}
+              label={option.label}
+              description={option.description}
+              icon={Bus}
             />
           ))}
         </View>

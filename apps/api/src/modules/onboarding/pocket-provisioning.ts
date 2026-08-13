@@ -7,10 +7,9 @@ import type {
   SpendableCategory,
 } from '@financial-hub/shared';
 import type { PlanAssignment } from './rules-engine';
+import { DEFAULT_SAVINGS_LOCK_DAYS } from './rules-engine';
 
 export type { SpendableCategory };
-
-const DEFAULT_SAVINGS_LOCK_DAYS = 30;
 
 export const CATEGORY_NAMES: Record<SpendableCategory, string> = {
   food: 'Food & Groceries',
@@ -93,7 +92,9 @@ export interface PocketInsertInput {
  * - Fixed: one pocket per submitted fixed expense (named, categorized,
  *   locked until the next due day). Falls back to a single lump pocket when
  *   only `fixedTotal` is known.
- * - Savings: locked for DEFAULT_SAVINGS_LOCK_DAYS.
+ * - Savings: locked for `assignment.savingsLockDays` (goal-derived when a
+ *   savings goal was captured — see rules-engine.ts's calculateSavingsTarget
+ *   — otherwise DEFAULT_SAVINGS_LOCK_DAYS).
  * - Spendable: persona-shaped — students get one flat daily/spendable pocket;
  *   working adults get Food/Transport/Leisure, plus Family when dependents
  *   are signaled (explicit flag or family/education fixed expenses).
@@ -106,7 +107,7 @@ export function buildPocketInputs(
   const pockets: PocketInsertInput[] = [];
 
   pockets.push(...buildFixedPockets(planId, input));
-  pockets.push(buildSavingsPocket(planId, assignment.savingsTarget));
+  pockets.push(buildSavingsPocket(planId, assignment.savingsTarget, assignment.savingsLockDays));
   pockets.push(...buildSpendablePockets(planId, assignment, input));
 
   return pockets;
@@ -148,9 +149,13 @@ export function buildFixedPockets(planId: string, input: OnboardingInput): Pocke
   return [];
 }
 
-export function buildSavingsPocket(planId: string, savingsTarget: number): PocketInsertInput {
+export function buildSavingsPocket(
+  planId: string,
+  savingsTarget: number,
+  lockDays: number = DEFAULT_SAVINGS_LOCK_DAYS,
+): PocketInsertInput {
   const lockUntil = new Date();
-  lockUntil.setDate(lockUntil.getDate() + DEFAULT_SAVINGS_LOCK_DAYS);
+  lockUntil.setDate(lockUntil.getDate() + lockDays);
   return {
     id: uuidv4(),
     plan_id: planId,

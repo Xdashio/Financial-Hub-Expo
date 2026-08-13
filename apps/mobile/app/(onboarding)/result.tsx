@@ -9,7 +9,7 @@ import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader } from '@/components/ui';
-import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight, Minus, Plus, RotateCcw } from 'lucide-react-native';
+import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight, Minus, Plus, RotateCcw, Target, AlertTriangle } from 'lucide-react-native';
 import type { CategoryPercentages, SpendableCategory } from '@financial-hub/shared';
 
 const PERCENT_STEP = 5;
@@ -200,7 +200,7 @@ export default function ResultScreen() {
     return null;
   }
 
-  const { plan, planType, incomePattern, reasons, remainingAfterFixed, savingsTarget, spendableAmount, needsRatio, needsBand } = assignResult;
+  const { plan, planType, incomePattern, incomeConcentration, reasons, remainingAfterFixed, savingsTarget, spendableAmount, needsRatio, needsBand } = assignResult;
   const incomeAmount = input?.incomeAmount || remainingAfterFixed + savingsTarget + spendableAmount;
   // Prefer API needsRatio; fall back if an older assign payload omitted it.
   const displayNeedsPercent = typeof needsRatio === 'number'
@@ -294,7 +294,21 @@ export default function ResultScreen() {
   };
 
   const getPlanTag = () => {
-    const patternLabel = incomePattern === 'salaried' ? 'Salaried income' : 'Freelancer income';
+    // rules-engine.ts's determineIncomePattern always resolves 'mix' down to
+    // 'salaried' before this reaches the client, so the 'mix' branch below is
+    // defensive (in case that resolution ever changes) rather than reachable
+    // today. The real, currently-reachable gap this fixes: 'freelancer'
+    // splits into Gig vs Freelancer by incomeConcentration, same as
+    // buildPlanName does for the plan string itself — this label was
+    // ignoring that split.
+    const patternLabel =
+      incomePattern === 'salaried'
+        ? 'Salaried income'
+        : incomePattern === 'mix'
+          ? 'Mixed income'
+          : incomeConcentration === 'concentrated'
+            ? 'Gig income'
+            : 'Freelancer income';
     const styleLabel = planType === 'structured' ? 'Planner behaviour' : 'Daily budget style';
     return `${patternLabel} · ${styleLabel}`;
   };
@@ -354,16 +368,29 @@ export default function ResultScreen() {
 
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.xl, ...shadow.default, width: '100%' }}>
               <Text style={{ ...typography.heading, fontSize: 13, color: colors.ink, marginBottom: spacing.sm }}>Why this plan</Text>
-              {reasons.map((reason, index) => (
-                <View key={index} style={{ flexDirection: 'row', gap: spacing.md, marginBottom: index === reasons.length - 1 ? 0 : spacing.md }}>
-                  <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {index === 0 && <Home size={15} color={colors.ink} strokeWidth={2} />}
-                    {index === 1 && <TrendingUp size={15} color={colors.ink} strokeWidth={2} />}
-                    {index === 2 && <Check size={15} color={colors.ink} strokeWidth={2} />}
+              {reasons.map((reason, index) => {
+                // Savings-goal reasons (Part 4) get their own icon regardless
+                // of position — Target for on-track, AlertTriangle (amber,
+                // matching the app's warning tint) for the capacity
+                // shortfall, so it reads as a heads-up rather than an
+                // ordinary "why this plan" bullet.
+                const isShortfall = reason.rule === 'savings_goal_capacity_shortfall';
+                const isGoalOnTrack = reason.rule === 'savings_goal_on_track';
+                const iconBg = isShortfall ? colors.goldTint : colors.emeraldTint;
+
+                return (
+                  <View key={index} style={{ flexDirection: 'row', gap: spacing.md, marginBottom: index === reasons.length - 1 ? 0 : spacing.md }}>
+                    <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {isShortfall && <AlertTriangle size={15} color={colors.gold} strokeWidth={2} />}
+                      {isGoalOnTrack && <Target size={15} color={colors.ink} strokeWidth={2} />}
+                      {!isShortfall && !isGoalOnTrack && index === 0 && <Home size={15} color={colors.ink} strokeWidth={2} />}
+                      {!isShortfall && !isGoalOnTrack && index === 1 && <TrendingUp size={15} color={colors.ink} strokeWidth={2} />}
+                      {!isShortfall && !isGoalOnTrack && index === 2 && <Check size={15} color={colors.ink} strokeWidth={2} />}
+                    </View>
+                    <Text style={{ ...typography.body, color: colors.ink, flex: 1, lineHeight: 21 }}>{reason.reason}</Text>
                   </View>
-                  <Text style={{ ...typography.body, color: colors.ink, flex: 1, lineHeight: 21 }}>{reason.reason}</Text>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
 

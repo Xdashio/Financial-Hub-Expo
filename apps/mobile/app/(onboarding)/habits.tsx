@@ -57,7 +57,7 @@ export default function HabitsScreen() {
     <ScreenContainer>
       <SafeScrollView>
         <BrandHeader onBack={() => router.back()} />
-        <ProgressIndicator currentStep={2} totalSteps={5} />
+        <ProgressIndicator currentStep={2} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 2 of 5 — Spending habits</Text>

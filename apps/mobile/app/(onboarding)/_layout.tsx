@@ -20,6 +20,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="income" />
       <Stack.Screen name="habits" />
       <Stack.Screen name="about-you" />
+      <Stack.Screen name="goal" />
       <Stack.Screen name="fixed" />
       <Stack.Screen name="result" />
     </Stack>
