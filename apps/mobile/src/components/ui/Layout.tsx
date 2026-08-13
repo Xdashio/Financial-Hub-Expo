@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ViewStyle, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography } from '@/theme';
+import { safeGoBack } from '@/utils/navigation';
 
 export function ScreenContainer({ children, style }: { children: React.ReactNode; style?: ViewStyle }) {
   const insets = useSafeAreaInsets();
@@ -54,16 +55,23 @@ export function ProgressIndicator({ currentStep, totalSteps = 4 }: { currentStep
   );
 }
 
-export function BrandHeader({ onBack }: { onBack?: () => void }) {
+export function BrandHeader({
+  onBack,
+  fallbackHref = '/(tabs)',
+}: {
+  /**
+   * Pass any function to show the back chevron. Navigation itself always
+   * goes through safeGoBack so empty stacks (web refresh / deep link) don't
+   * warn with GO_BACK. Use fallbackHref to control that destination.
+   */
+  onBack?: () => void;
+  fallbackHref?: Href;
+}) {
   const { colors } = useTheme();
   const router = useRouter();
 
   const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else if (router.canGoBack()) {
-      router.back();
-    }
+    safeGoBack(router, fallbackHref);
   };
 
   return (

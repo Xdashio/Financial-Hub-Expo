@@ -6,6 +6,7 @@ import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { useAuthStore } from '@/services/auth';
+import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft, User, Phone, Check } from 'lucide-react-native';
 
 export default function PersonalInfoScreen() {
@@ -43,7 +44,7 @@ export default function PersonalInfoScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>

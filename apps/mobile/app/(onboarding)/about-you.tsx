@@ -70,7 +70,7 @@ export default function AboutYouScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => router.back()} />
+        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/income" />
         <ProgressIndicator currentStep={3} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>

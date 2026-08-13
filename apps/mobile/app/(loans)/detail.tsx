@@ -25,6 +25,7 @@ import {
   CheckCircle,
   Trash2,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -183,11 +184,7 @@ export default function LoanDetailScreen() {
   };
 
   const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(loans)');
-    }
+    safeGoBack(router, '/(loans)');
   };
 
   const handleFundRepayment = async () => {

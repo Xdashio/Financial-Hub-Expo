@@ -1,12 +1,15 @@
 import React from 'react';
 import { Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing } from '@/theme';
+import { safeGoBack } from '@/utils/navigation';
 
 interface BackButtonProps {
   onPress?: () => void;
+  /** Used when there is no navigation history (web refresh / deep link). */
+  fallbackHref?: Href;
   accessibilityLabel?: string;
 }
 
@@ -14,16 +17,20 @@ interface BackButtonProps {
  * Reusable back button component with consistent styling.
  * Standardizes back navigation across all screens.
  */
-export function BackButton({ onPress, accessibilityLabel = "Go back" }: BackButtonProps) {
+export function BackButton({
+  onPress,
+  fallbackHref = '/(tabs)',
+  accessibilityLabel = 'Go back',
+}: BackButtonProps) {
   const { colors } = useTheme();
   const router = useRouter();
 
   const handlePress = () => {
     if (onPress) {
       onPress();
-    } else if (router.canGoBack()) {
-      router.back();
+      return;
     }
+    safeGoBack(router, fallbackHref);
   };
 
   return (

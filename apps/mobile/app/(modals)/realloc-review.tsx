@@ -278,7 +278,7 @@ export default function ReallocReviewScreen() {
   if (!fromPocket || !toPocket) {
     return (
       <ScreenContainer>
-        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+        <BrandHeader onBack={() => {}} fallbackHref="/(tabs)" />
         <SafeScrollView>
           <Text style={styles.subtext}>This reallocation is missing pocket details — go back and pick again.</Text>
         </SafeScrollView>
@@ -288,7 +288,7 @@ export default function ReallocReviewScreen() {
 
   return (
     <ScreenContainer>
-      <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+      <BrandHeader onBack={() => {}} fallbackHref="/(tabs)" />
       <SafeScrollView>
         <View style={{ marginTop: spacing.lg }}>
           <Text style={styles.title}>Review reallocation</Text>

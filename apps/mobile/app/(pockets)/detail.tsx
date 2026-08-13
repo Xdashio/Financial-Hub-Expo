@@ -28,6 +28,7 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -337,11 +338,7 @@ export default function PocketDetailScreen() {
   };
 
   const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)');
-    }
+    safeGoBack(router, '/(tabs)');
   };
 
   const confirmDeleteSubPocket = async () => {

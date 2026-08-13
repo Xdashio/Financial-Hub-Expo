@@ -12,6 +12,7 @@ import {
   LucideIcon,
 } from 'lucide-react-native';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
+import { safeGoBack } from '@/utils/navigation';
 
 export default function BlockedSpendScreen() {
   const { colors } = useTheme();
@@ -44,7 +45,7 @@ export default function BlockedSpendScreen() {
   };
 
   const handleBack = () => {
-    router.back();
+    safeGoBack(router, '/(tabs)');
   };
 
   return (

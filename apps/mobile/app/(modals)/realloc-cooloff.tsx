@@ -10,6 +10,7 @@ import { useDataSync } from '@/services/data-sync';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
 import { showReallocationConfirm } from '@/services/notifications';
+import { safeGoBack } from '@/utils/navigation';
 
 type CooloffParams = {
   reallocationId: string;
@@ -129,7 +130,7 @@ export default function ReallocCooloffScreen() {
   };
 
   const handleWait = () => {
-    router.canGoBack() ? router.back() : router.replace('/(tabs)');
+    safeGoBack(router, '/(tabs)');
   };
 
   const styles = {
@@ -205,7 +206,7 @@ export default function ReallocCooloffScreen() {
 
   return (
     <ScreenContainer>
-      <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+      <BrandHeader onBack={() => {}} fallbackHref="/(tabs)" />
       <SafeScrollView>
         <View style={styles.hero}>
           <View style={styles.icon}>

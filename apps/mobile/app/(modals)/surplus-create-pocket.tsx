@@ -55,7 +55,7 @@ export default function SurplusCreatePocketScreen() {
 
   return (
     <ScreenContainer>
-      <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+      <BrandHeader onBack={() => {}} fallbackHref="/(tabs)" />
       <SafeScrollView>
         <View style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View

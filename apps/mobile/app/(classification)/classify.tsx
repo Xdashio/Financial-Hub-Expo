@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Check,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 type PocketOption = { id: string; name: string; kind: string; category: string | null };
 
@@ -148,7 +149,7 @@ export default function ClassificationScreen() {
           ? 'Classification saved and the spend was moved to the pocket you picked.'
           : 'Classification saved successfully!',
       );
-      router.back();
+      safeGoBack(router, '/(tabs)');
     } catch (error: any) {
       alert('Error', error?.message || 'Failed to save classification. Please try again.');
     } finally {
@@ -171,7 +172,7 @@ export default function ClassificationScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>

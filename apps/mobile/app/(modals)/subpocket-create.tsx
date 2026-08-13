@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
+import { safeGoBack } from '@/utils/navigation';
 
 /**
  * Create a sub-pocket nested under `parentId` (audit_team.md item 10).
@@ -47,7 +48,7 @@ export default function SubPocketCreateScreen() {
         monthlyAllocation: parsedAmount,
       });
       bump();
-      if (router.canGoBack()) router.back();
+      safeGoBack(router, '/(tabs)');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not create this sub-pocket.');
     } finally {
@@ -57,7 +58,7 @@ export default function SubPocketCreateScreen() {
 
   return (
     <ScreenContainer>
-      <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+      <BrandHeader onBack={() => {}} fallbackHref="/(tabs)" />
       <SafeScrollView>
         <View style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <View

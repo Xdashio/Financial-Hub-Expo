@@ -7,6 +7,7 @@ import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { useHomeStore } from '@/services/home-store';
 import { ScreenContainer } from '@/components/ui';
+import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft } from 'lucide-react-native';
 
 export default function PocketEditModal() {
@@ -35,7 +36,7 @@ export default function PocketEditModal() {
     } catch (error) {
       console.error('Failed to load pocket:', error);
       Alert.alert('Error', 'Could not load pocket');
-      router.back();
+      safeGoBack(router, '/(modals)/pockets-manage');
     } finally {
       setLoading(false);
     }
@@ -58,7 +59,7 @@ export default function PocketEditModal() {
       if (pocket?.kind === 'spendable' && dailyCap) localPatch.dailyCap = parseFloat(dailyCap);
       useHomeStore.getState().updatePocketLocal(id as string, localPatch);
       dataSync.bump();
-      router.back();
+      safeGoBack(router, '/(modals)/pockets-manage');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Could not update pocket');
     } finally {
@@ -80,7 +81,7 @@ export default function PocketEditModal() {
     <ScreenContainer>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md }}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.heading, color: colors.ink }}>Edit Pocket</Text>

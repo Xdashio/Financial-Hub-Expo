@@ -12,6 +12,7 @@ import {
   registerForPushNotifications,
   requestNotificationPermissions,
 } from '@/services/notifications';
+import { safeGoBack } from '@/utils/navigation';
 
 // Define the theme shape if not imported from your UI library
 interface Theme {
@@ -46,11 +47,7 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/profile');
-    }
+    safeGoBack(router, '/(tabs)/profile');
   };
 
   // useMakeStyles returns the styles object directly, so we assign it to 'styles'

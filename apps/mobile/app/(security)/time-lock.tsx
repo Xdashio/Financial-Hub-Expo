@@ -19,6 +19,7 @@ import {
   Check,
   LucideIcon,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 export default function TimeLockScreen() {
   const { colors } = useTheme();
@@ -144,7 +145,7 @@ export default function TimeLockScreen() {
         'Unlocked Successfully',
         `Your pocket has been unlocked early. Discipline score: ${result.discipline_cost.previous_score} → ${result.discipline_cost.new_score}.`
       );
-      router.back();
+      safeGoBack(router, '/(tabs)/profile');
     } catch (error) {
       alert('Error', 'Failed to unlock pocket. Please try again.');
     } finally {
@@ -194,7 +195,7 @@ export default function TimeLockScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Time-Lock Savings</Text>
@@ -208,7 +209,7 @@ export default function TimeLockScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Time-Lock Savings</Text>
@@ -230,7 +231,7 @@ export default function TimeLockScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>

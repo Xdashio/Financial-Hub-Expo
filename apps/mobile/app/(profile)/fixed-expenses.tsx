@@ -3,12 +3,15 @@ import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
-import { radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { useFixedExpensesStore } from '@/services/fixed-expenses-store';
+import { useFixedExpensesStore, getFixedPocketBalance } from '@/services/fixed-expenses-store';
+import { useHomeStore } from '@/services/home-store';
+import { pocketsApi } from '@/services/api';
 import { LoadingState, ErrorState, SearchBar, Toast, EmptyState } from '@/components/ui';
 import { getExpenseIcon } from '@/utils/expenseIcon';
+import { safeGoBack } from '@/utils/navigation';
 import {
   ArrowLeft,
   Plus,
@@ -101,9 +104,28 @@ export default function FixedExpensesScreen() {
   );
 
   const handleDeleteExpense = async (expense: FixedExpense) => {
+    let pocketsForCheck = useHomeStore.getState().pockets;
+    try {
+      const fresh = await pocketsApi.getAll();
+      if (Array.isArray(fresh) && fresh.length > 0) {
+        pocketsForCheck = fresh;
+      }
+    } catch {
+      // Fall back to the last home-store snapshot if the network blips.
+    }
+
+    const balance = getFixedPocketBalance(pocketsForCheck, expense.name, expense.category);
+    if (balance > 0.01) {
+      await alert(
+        'Cannot delete yet',
+        `"${expense.name}" still has KES ${Math.round(balance).toLocaleString()} in its pocket. Move that money to another pocket first, then try again.`,
+      );
+      return;
+    }
+
     const confirmed = await confirm(
       'Delete Fixed Expense',
-      `Are you sure you want to delete "${expense.name}"?`,
+      `Are you sure you want to delete "${expense.name}"? This also removes it from Fixed & Protected on the homepage.`,
       { confirmLabel: 'Delete', destructive: true }
     );
     if (!confirmed) return;
@@ -116,7 +138,8 @@ export default function FixedExpensesScreen() {
         type: 'success',
       });
     } catch (error) {
-      setToast({ visible: true, message: 'Unable to remove expense', type: 'error' });
+      const message = error instanceof Error ? error.message : 'Unable to remove expense';
+      setToast({ visible: true, message, type: 'error' });
     }
   };
 
@@ -173,7 +196,7 @@ export default function FixedExpensesScreen() {
       >
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} hitSlop={8}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Fixed Expenses</Text>
@@ -285,7 +308,13 @@ export default function FixedExpensesScreen() {
                   <View style={{ flexDirection: 'row', gap: spacing.xs }}>
                     <Pressable
                       onPress={() => handleEditExpense(expense)}
-                      hitSlop={8}
+                      hitSlop={12}
+                      style={{
+                        minWidth: touchTarget.minWidth,
+                        minHeight: touchTarget.minHeight,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                       accessibilityLabel={`Edit ${expense.name}`}
                       accessibilityRole="button"
                     >
@@ -293,7 +322,13 @@ export default function FixedExpensesScreen() {
                     </Pressable>
                     <Pressable
                       onPress={() => handleDeleteExpense(expense)}
-                      hitSlop={8}
+                      hitSlop={12}
+                      style={{
+                        minWidth: touchTarget.minWidth,
+                        minHeight: touchTarget.minHeight,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
                       accessibilityLabel={`Delete ${expense.name}`}
                       accessibilityRole="button"
                     >
@@ -306,6 +341,10 @@ export default function FixedExpensesScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Confirm / alert modal — required for delete; without this the
+          trash icon looked dead because confirm() never showed a dialog. */}
+      {modal}
 
       {/* Toast */}
       <Toast

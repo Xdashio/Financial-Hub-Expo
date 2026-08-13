@@ -19,6 +19,7 @@ import {
   DollarSign,
   Info,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -44,11 +45,7 @@ export default function CreateLoanScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(loans)');
-    }
+    safeGoBack(router, '/(loans)');
   };
 
   const validateForm = () => {

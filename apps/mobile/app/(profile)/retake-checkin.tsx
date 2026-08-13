@@ -11,6 +11,7 @@ import { profileApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
 import { useDataSync } from '@/services/data-sync';
 import { getExpenseIcon } from '@/utils/expenseIcon';
+import { safeGoBack } from '@/utils/navigation';
 import {
   ArrowLeft, RefreshCw, Wallet, ListChecks, CalendarClock, Building2, TrendingUp, Clock,
   AlertCircle, Plus, Trash2, GraduationCap, Bus, CreditCard, X, Check,
@@ -321,7 +322,7 @@ export default function RetakeCheckinScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake Check-in</Text>
@@ -339,7 +340,7 @@ export default function RetakeCheckinScreen() {
               Next available: {eligibilityBlocked.nextRetakeAvailableOn}
             </Text>
           ) : null}
-          <Button fullWidth size="lg" style={{ marginTop: spacing.xl }} onPress={() => router.back()}>
+          <Button fullWidth size="lg" style={{ marginTop: spacing.xl }} onPress={() => safeGoBack(router, '/(tabs)/profile')}>
             Back
           </Button>
         </View>
@@ -439,7 +440,7 @@ export default function RetakeCheckinScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
         <Pressable
           onPress={() => {
-            if (!showForm) { router.back(); return; }
+            if (!showForm) { safeGoBack(router, '/(tabs)/profile'); return; }
             if (formStep === 3) { setFormStep(2); return; }
             if (formStep === 2) { setFormStep(1); return; }
             setShowForm(false);
