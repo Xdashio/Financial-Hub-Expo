@@ -12,6 +12,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
 import {
+  ArrowLeft,
   Plus,
   TrendingUp,
   Calendar,
@@ -199,6 +200,14 @@ export default function LoansScreen() {
     setIsRefreshing(false);
   };
 
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
   const goToCreate = () => {
     router.push('/(loans)/create');
   };
@@ -219,9 +228,26 @@ export default function LoansScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
-        <Text style={{ ...typography.title, color: colors.ink, paddingHorizontal: spacing.lg, paddingTop: spacing.md }}>
-          Loans
-        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: spacing.lg,
+            paddingTop: spacing.md,
+            paddingBottom: spacing.sm,
+          }}
+        >
+          <Pressable
+            onPress={goBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: spacing.xs, marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
+          <Text style={{ ...typography.title, color: colors.ink }}>Loans</Text>
+        </View>
         <LoadingState label="Loading loans…" />
       </ScreenContainer>
     );
@@ -240,7 +266,18 @@ export default function LoansScreen() {
       >
         {/* Header */}
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm }}>
-          <Text style={{ ...typography.title, color: colors.ink }}>Loans</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable
+              onPress={goBack}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ padding: spacing.xs, marginRight: spacing.sm, marginLeft: -spacing.xs }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+            </Pressable>
+            <Text style={{ ...typography.title, color: colors.ink }}>Loans</Text>
+          </View>
           <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
             Manage your loans and repayment schedules
           </Text>
