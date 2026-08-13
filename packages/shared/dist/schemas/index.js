@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = void 0;
+exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -114,6 +114,60 @@ exports.SpendableCategorySchema = zod_1.z.enum(['food', 'transport', 'leisure', 
 // are expected and rejects a mismatched set rather than the schema trying to
 // enforce that here.
 exports.CategoryPercentagesSchema = zod_1.z.record(exports.SpendableCategorySchema, zod_1.z.number().min(0).max(100));
+// ----------------------------------------------------------------------------
+// Goal-driven savings (ONBOARDING_AND_SCORING_REDESIGN.md Part 4). Replaces
+// the flat-rate-for-everyone savings model with an optional captured goal —
+// what, roughly how much, roughly by when — that the rules engine derives a
+// savings rate and lock length from (see rules-engine.ts's
+// calculateSavingsTarget). Entirely optional: skipping this step falls back
+// to the existing buffer-based rate with no goal-shortfall messaging.
+// ----------------------------------------------------------------------------
+exports.SavingsGoalTypeSchema = zod_1.z.enum([
+    'emergency_fund',
+    'purchase',
+    'dependent_education',
+    'other',
+]);
+// Timeframe band, not an exact date — same honesty-over-precision reasoning
+// as IncomeIntervalBandSchema for freelancers (§4.1: "target date or a
+// rough timeframe band ... exact dates are unreliable, bands are honest").
+exports.SavingsGoalTimeframeSchema = zod_1.z.enum([
+    '3_months',
+    '6_months',
+    '1_year',
+    '2_plus_years',
+]);
+// Months-to-target used by the derived-rate calculation. '2_plus_years' is
+// open-ended by definition — 24 is treated as a conservative floor (a
+// longer real timeframe only makes the derived rate easier to hit, never
+// harder), not a claim that the goal is exactly 2 years out.
+exports.SavingsGoalTimeframeMonths = {
+    '3_months': 3,
+    '6_months': 6,
+    '1_year': 12,
+    '2_plus_years': 24,
+};
+// Savings-pocket lock length (days), matched to how far out the goal is
+// (§4.2: "lock length becomes goal-derived too"). Shorter-horizon goals
+// (e.g. an emergency buffer) get shorter lock cycles than a multi-year goal
+// so the lock cadence doesn't feel arbitrary relative to what it's guarding.
+exports.SavingsGoalLockDays = {
+    '3_months': 30,
+    '6_months': 60,
+    '1_year': 90,
+    '2_plus_years': 90,
+};
+exports.SavingsGoalInputSchema = zod_1.z.object({
+    goalType: exports.SavingsGoalTypeSchema,
+    // Free-text personalization (e.g. "Amara's school fees"), same posture as
+    // fixed-expense names already stored today — deliberately not a separate
+    // structured dependent-name/relationship field, to avoid introducing a
+    // new PII category beyond what the app already handles (open question 5
+    // in ONBOARDING_AND_SCORING_REDESIGN.md).
+    goalLabel: zod_1.z.string().min(1).max(60).optional(),
+    goalAmount: zod_1.z.number().positive().optional(),
+    goalTimeframe: exports.SavingsGoalTimeframeSchema,
+});
 exports.FixedExpenseInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     amount: zod_1.z.number().positive(),
@@ -146,6 +200,11 @@ exports.OnboardingInputSchema = zod_1.z.object({
     // split instead of an even split, without removing the category outright
     // (a remote worker still occasionally takes transport).
     hasTransportNeed: zod_1.z.boolean().optional(),
+    // Optional captured savings goal (Part 4) — see SavingsGoalInputSchema.
+    // Omitted means "no stated goal": rules-engine falls back to the
+    // existing buffer-based rate/default 30-day lock with no shortfall
+    // messaging.
+    savingsGoal: exports.SavingsGoalInputSchema.optional(),
     // User-adjusted split across spendable category pockets, set on the
     // onboarding result screen (item 3 of audit_team.md). Optional — omitted
     // means "use the rules engine's default weighting". When present, must
@@ -160,6 +219,13 @@ exports.PlanAssignReasonSchema = zod_1.z.object({
     // Numeric context for "why this plan" templates (§2.6).
     needsRatio: zod_1.z.number().nonnegative().optional(),
     needsBand: exports.NeedsBandSchema.optional(),
+    // Populated only on the 'savings_goal_capacity_shortfall' reason (§4.2):
+    // the literal derived rate needed to hit the goal on time would exceed
+    // the sane-share cap, so these carry the numbers the client renders as
+    // "would take ~N months longer" / "would need ~X% of your spendable
+    // income" instead of silently forcing or silently ignoring the goal.
+    goalMonthsNeeded: zod_1.z.number().nonnegative().optional(),
+    goalRequiredSharePercent: zod_1.z.number().nonnegative().optional(),
 });
 exports.OnboardingAssignResultSchema = zod_1.z.object({
     plan: exports.PlanNameSchema,
@@ -440,6 +506,9 @@ exports.schemas = {
     EmergencyBuffer: exports.EmergencyBufferSchema,
     MoneyPersonality: exports.MoneyPersonalitySchema,
     NeedsBand: exports.NeedsBandSchema,
+    SavingsGoalType: exports.SavingsGoalTypeSchema,
+    SavingsGoalTimeframe: exports.SavingsGoalTimeframeSchema,
+    SavingsGoalInput: exports.SavingsGoalInputSchema,
     PlanName: exports.PlanNameSchema,
     TransactionType: exports.TransactionTypeSchema,
     ReallocationStatus: exports.ReallocationStatusSchema,

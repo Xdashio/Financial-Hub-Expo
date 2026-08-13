@@ -6,7 +6,7 @@
     "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter mobile dev\"",
     "dev:mobile": "pnpm --filter mobile dev",
     "dev:api": "pnpm --filter api dev",
-    "build": "pnpm --filter mobile build && pnpm --filter api build && pnpm --filter shared build",
+    "build": "pnpm --filter shared build && pnpm --filter mobile build && pnpm --filter api build",
     "lint": "pnpm --filter mobile lint && pnpm --filter api lint && pnpm --filter shared lint",
     "typecheck": "pnpm --filter mobile typecheck && pnpm --filter api typecheck && pnpm --filter shared typecheck",
     "test": "SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter mobile test && SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter api test && pnpm --filter shared test",
