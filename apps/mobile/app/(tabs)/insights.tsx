@@ -187,11 +187,13 @@ export default function InsightsScreen() {
                   {scorePeriod}
                 </Text>
               )}
-              <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: `${colors.surface}1E`, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
-                <Text style={{ ...typography.caption, color: colors.surface }}>
-                  {delta > 0 ? `+${delta}` : delta} pts this period
-                </Text>
-              </View>
+              {delta !== 0 && (
+                <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: `${colors.surface}1E`, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
+                  <Text style={{ ...typography.caption, color: colors.surface }}>
+                    {delta > 0 ? `+${delta}` : delta} pts this period
+                  </Text>
+                </View>
+              )}
             </>
           )}
         </View>

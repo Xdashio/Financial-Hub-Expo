@@ -18,6 +18,7 @@ describe('InsightsService', () => {
     supabaseRepo = {
       getLatestDisciplineScore: jest.fn(),
       getActivePlanByUserId: jest.fn().mockResolvedValue(null),
+      getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
     } as any;
     rolloverService = {
       getStreak: jest.fn().mockResolvedValue({
@@ -65,20 +66,24 @@ describe('InsightsService', () => {
       expect(supabaseRepo.getLatestDisciplineScore).toHaveBeenCalledWith('user-123');
     });
 
-    it('returns the latest stored score and delta when one exists', async () => {
+    it('returns the latest stored score and period-net delta from behavior events', async () => {
       supabaseRepo.getLatestDisciplineScore.mockResolvedValue({
         user_id: 'user-123',
         score: 72,
-        delta: -4,
+        delta: -4, // last write — must NOT be echoed as period delta
         period: '2026-08',
         calculated_at: new Date().toISOString(),
       } as any);
+      (supabaseRepo.getBehaviorEventsByTypesSince as jest.Mock).mockResolvedValue([
+        { created_at: '2026-08-05T12:00:00.000Z', payload: { points_added: 3 } },
+        { created_at: '2026-08-06T12:00:00.000Z', payload: { points_deducted: 7 } },
+      ]);
 
       const result = await service.getDisciplineScore('user-123');
 
       expect(result).toEqual({
         score: 72,
-        delta: -4,
+        delta: -4, // 3 - 7
         period: '2026-08',
         hasHistory: true,
         cardOrder: expect.any(Array),
