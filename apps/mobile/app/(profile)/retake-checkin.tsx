@@ -323,7 +323,12 @@ export default function RetakeCheckinScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
+          <Pressable
+            onPress={() => safeGoBack(router, '/(tabs)/profile')}
+            style={{ padding: spacing.sm, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake Check-in</Text>
@@ -446,8 +451,7 @@ export default function RetakeCheckinScreen() {
             if (formStep === 2) { setFormStep(1); return; }
             setShowForm(false);
           }}
-          style={{ padding: spacing.sm }}
-        >
+          style={{ padding: spacing.sm }} accessibilityLabel="Go back" accessibilityRole="button">
           <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
         </Pressable>
         <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake Check-in</Text>

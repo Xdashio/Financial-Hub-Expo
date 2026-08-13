@@ -81,7 +81,7 @@ export default function PocketEditModal() {
     <ScreenContainer>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md }}>
-          <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8}>
+          <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.heading, color: colors.ink }}>Edit Pocket</Text>
@@ -133,7 +133,7 @@ export default function PocketEditModal() {
 
           {pocket?.kind === 'spendable' && (
             <View style={{ marginTop: spacing.lg }}>
-              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Daily cap (KES)</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Daily cap (KSh)</Text>
               <TextInput
                 value={dailyCap}
                 onChangeText={setDailyCap}

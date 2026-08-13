@@ -196,7 +196,7 @@ export default function TimeLockScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Time-Lock Savings</Text>
@@ -210,7 +210,7 @@ export default function TimeLockScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Time-Lock Savings</Text>
@@ -232,7 +232,7 @@ export default function TimeLockScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>

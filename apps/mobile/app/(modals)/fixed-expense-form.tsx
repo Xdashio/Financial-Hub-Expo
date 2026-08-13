@@ -201,8 +201,7 @@ export default function FixedExpenseFormScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
             <Pressable 
               onPress={() => safeGoBack(router, '/(profile)/fixed-expenses')} 
-              hitSlop={8}
-            >
+              hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
               <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
             </Pressable>
             <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>
@@ -273,7 +272,7 @@ export default function FixedExpenseFormScreen() {
           </View>
 
           <View style={{ marginBottom: spacing.md }}>
-            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Amount (KES)</Text>
+            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Amount (KSh)</Text>
             <TextInput
               style={{
                 ...typography.body,
