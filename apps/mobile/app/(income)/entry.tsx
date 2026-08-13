@@ -11,6 +11,7 @@ import { useDataSync } from '@/services/data-sync';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react-native';
 import { showAllocationReceived } from '@/services/notifications';
 import { enqueueWrite } from '@/services/offline-queue';
+import { MoneyAllocationPrompt } from '@/components/ui';
 
 type Source = 'client_payment' | 'cash' | 'other';
 
@@ -38,6 +39,17 @@ export default function IncomeEntryScreen() {
   const [label, setLabel] = useState('');
   const [runAllocation, setRunAllocation] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Surplus allocation state
+  const [surplusPrompt, setSurplusPrompt] = useState<{
+    visible: boolean;
+    incomeEventId: string;
+    surplusAmount: number;
+  }>({
+    visible: false,
+    incomeEventId: '',
+    surplusAmount: 0,
+  });
 
   const [preview, setPreview] = useState<{
     projected_allocations: ProjectedAllocation[];
@@ -133,6 +145,16 @@ export default function IncomeEntryScreen() {
         );
       }
 
+      // Check for surplus and show allocation prompt
+      if (result.surplus?.has_surplus && result.surplus.surplus_amount > 0) {
+        setSurplusPrompt({
+          visible: true,
+          incomeEventId: result.income_event.id,
+          surplusAmount: result.surplus.surplus_amount,
+        });
+        return;
+      }
+
       router.replace({
         pathname: '/(income)/success',
         params: {
@@ -170,6 +192,83 @@ export default function IncomeEntryScreen() {
   };
 
   const formatCurrency = (value: number) => `KES ${Math.round(value).toLocaleString()}`;
+
+  const handleSurplusAllocation = async (optionId: string) => {
+    if (!surplusPrompt.incomeEventId) return;
+
+    try {
+      setIsSubmitting(true);
+
+      let allocationData: any = { target: optionId as 'main_pocket' | 'pocket' | 'new_pocket' };
+
+      // For now, we'll handle main_pocket directly
+      // pocket and new_pocket will need additional UI flows
+      if (optionId === 'pocket') {
+        // Navigate to pocket picker screen
+        setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
+        setIsSubmitting(false);
+        router.push({
+          pathname: '/(modals)/surplus-pocket-picker',
+          params: {
+            incomeEventId: surplusPrompt.incomeEventId,
+            surplusAmount: String(surplusPrompt.surplusAmount),
+          },
+        });
+        return;
+      }
+
+      if (optionId === 'new_pocket') {
+        // Navigate to pocket creation screen
+        setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
+        setIsSubmitting(false);
+        router.push({
+          pathname: '/(modals)/surplus-create-pocket',
+          params: {
+            incomeEventId: surplusPrompt.incomeEventId,
+            surplusAmount: String(surplusPrompt.surplusAmount),
+          },
+        });
+        return;
+      }
+
+      // Handle main_pocket allocation
+      await incomeApi.allocateSurplus(surplusPrompt.incomeEventId, allocationData);
+
+      // Refresh data and navigate to success
+      useDataSync.getState().bump();
+      setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
+
+      router.replace({
+        pathname: '/(income)/success',
+        params: {
+          amount: String(numericAmount),
+          triggered: 'true',
+          allocations: JSON.stringify([]),
+          totalAllocated: String(surplusPrompt.surplusAmount),
+          unallocated: '0',
+        },
+      });
+    } catch (error: any) {
+      const message = error?.message || 'Failed to allocate surplus. Please try again.';
+      alert('Allocation failed', message);
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSurplusCancel = () => {
+    setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
+    // Navigate to success screen even if surplus is not allocated
+    router.replace({
+      pathname: '/(income)/success',
+      params: {
+        amount: String(numericAmount),
+        triggered: 'true',
+        allocations: JSON.stringify([]),
+        totalAllocated: '0',
+        unallocated: String(surplusPrompt.surplusAmount),
+      },
+    });
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
@@ -393,6 +492,16 @@ export default function IncomeEntryScreen() {
         </View>
       </KeyboardAvoidingView>
       {modal}
+      
+      <MoneyAllocationPrompt
+        visible={surplusPrompt.visible}
+        title="You have extra income!"
+        message="This amount is more than your expected income. How would you like to allocate the surplus?"
+        amount={surplusPrompt.surplusAmount}
+        onSelectOption={handleSurplusAllocation}
+        onCancel={handleSurplusCancel}
+        loading={isSubmitting}
+      />
     </SafeAreaView>
   );
 }
