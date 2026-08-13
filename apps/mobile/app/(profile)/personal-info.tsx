@@ -7,7 +7,14 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { useAuthStore } from '@/services/auth';
 import { safeGoBack } from '@/utils/navigation';
-import { ArrowLeft, User, Phone, Check } from 'lucide-react-native';
+import { ArrowLeft, User, Phone, Check, Calendar } from 'lucide-react-native';
+
+function formatJoinedDate(iso?: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 export default function PersonalInfoScreen() {
   const { colors } = useTheme();
@@ -114,6 +121,30 @@ export default function PersonalInfoScreen() {
           <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm }}>
             Your phone number is how you sign in and can't be changed here.
           </Text>
+        </View>
+
+        {/* Joined date — from auth account creation; read-only identity metadata. */}
+        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
+            Date joined
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              borderRadius: radius.md,
+              backgroundColor: colors.lineSoft,
+              borderWidth: 1,
+              borderColor: colors.line,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.md,
+            }}
+          >
+            <Calendar size={18} color={colors.sage} strokeWidth={2} />
+            <Text style={{ ...typography.body, color: colors.sage, marginLeft: spacing.md, flex: 1 }}>
+              {formatJoinedDate(user?.createdAt)}
+            </Text>
+          </View>
         </View>
 
         {/* Save button */}

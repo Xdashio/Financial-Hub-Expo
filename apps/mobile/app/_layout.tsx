@@ -8,16 +8,18 @@
 import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 
-import { useEffect, useRef, useState } from 'react';
-import { AppState, View, ActivityIndicator, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, View, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as Notifications from 'expo-notifications';
 import { initializeAuth, useAuthStore } from '@/services/auth';
 import { ThemeProvider, useTheme } from '@/theme/ThemeContext';
-import { registerForPushNotifications } from '@/services/notifications';
-import { initSentry, Sentry } from '@/services/sentry';
+import {
+  registerForPushNotifications,
+  subscribeNotificationResponses,
+} from '@/services/notifications';
+import { initSentry, wrapRoot } from '@/services/sentry';
 import { flushWriteQueue } from '@/services/offline-queue';
 import { OfflineIndicator } from '@/components/ui';
 import { AppLockGate } from '@/components/auth/AppLockGate';
@@ -48,7 +50,6 @@ function RootLayoutInner() {
   const { colors: themeColors } = useTheme();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const router = useRouter();
-  const handledColdStart = useRef(false);
 
   useEffect(() => {
     initializeAuth().finally(() => setIsReady(true));
@@ -56,6 +57,7 @@ function RootLayoutInner() {
 
   useEffect(() => {
     if (!isReady || !isAuthenticated) return;
+    // No-ops inside Expo Go (SDK 53+ removed Android remote push there).
     void registerForPushNotifications();
     void flushWriteQueue();
   }, [isReady, isAuthenticated]);
@@ -72,23 +74,22 @@ function RootLayoutInner() {
 
   // Live taps + cold-start (app launched from a killed state via notification).
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-      routeFromNotificationData(response.notification.request.content.data, router);
-    });
-
-    if (!handledColdStart.current) {
-      handledColdStart.current = true;
-      // Only call getLastNotificationResponseAsync on native platforms
-      if (Platform.OS !== 'web') {
-        void Notifications.getLastNotificationResponseAsync().then((response) => {
-          if (response) {
-            routeFromNotificationData(response.notification.request.content.data, router);
-          }
-        });
+    let active = true;
+    let unsubscribe = () => {};
+    void subscribeNotificationResponses((data) => {
+      if (!active) return;
+      routeFromNotificationData(data, router);
+    }).then((unsub) => {
+      if (!active) {
+        unsub();
+        return;
       }
-    }
-
-    return () => sub.remove();
+      unsubscribe = unsub;
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, [router]);
 
   if (!isReady) {
@@ -140,4 +141,4 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default wrapRoot(RootLayout);

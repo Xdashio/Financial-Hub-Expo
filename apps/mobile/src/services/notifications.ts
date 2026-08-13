@@ -1,25 +1,62 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { notificationsApi, type NotificationPreferences } from '@/services/api';
 
 /**
  * Batch 7 — Expo local + push notifications.
  *
- * Local notifications work in Expo Go without an EAS project id.
- * Remote push token registration is best-effort and silently skips when
- * projectId is missing (common in local Expo Go without `eas init`).
+ * SDK 53+ removed remote push from Expo Go. Calling push APIs there throws
+ * and — because this module used to run `setNotificationHandler` at import
+ * time — crashed route evaluation across the app (false "missing default
+ * export" warnings + ErrorBoundary errors). Everything here is gated for
+ * Expo Go / web and wrapped so a missing native module never takes down
+ * the navigator.
  */
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+/** True inside the Expo Go client (StoreClient), where remote push is gone. */
+export function isExpoGo(): boolean {
+  return (
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+    Constants.appOwnership === 'expo'
+  );
+}
+
+type NotificationsModule = typeof import('expo-notifications');
+
+let notificationsMod: NotificationsModule | null | undefined;
+let handlerReady = false;
+
+async function getNotifications(): Promise<NotificationsModule | null> {
+  if (Platform.OS === 'web') return null;
+  if (notificationsMod !== undefined) return notificationsMod;
+  try {
+    // Dynamic import so a throw inside the package during load doesn't
+    // fail every screen that transitively imports this file.
+    notificationsMod = await import('expo-notifications');
+    return notificationsMod;
+  } catch {
+    notificationsMod = null;
+    return null;
+  }
+}
+
+async function ensureHandler(Notifications: NotificationsModule): Promise<void> {
+  if (handlerReady) return;
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+    handlerReady = true;
+  } catch {
+    // Expo Go / missing native module — local present may still no-op.
+  }
+}
 
 const ANDROID_CHANNEL_ID = 'financial-hub-default';
 const PUSH_TOKEN_KEY = 'expo_push_token';
@@ -65,24 +102,37 @@ async function shouldPresentLocal(): Promise<boolean> {
 
 export async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== 'android') return;
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: 'Financial Hub',
-    importance: Notifications.AndroidImportance.DEFAULT,
-    vibrationPattern: [0, 250, 250, 250],
-    lightColor: '#0F6E56',
-  });
+  const Notifications = await getNotifications();
+  if (!Notifications) return;
+  try {
+    await ensureHandler(Notifications);
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: 'Financial Hub',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#0F6E56',
+    });
+  } catch {
+    // Channel setup is best-effort.
+  }
 }
 
 export async function requestNotificationPermissions(): Promise<boolean> {
   if (Platform.OS === 'web') return false;
-  await ensureAndroidChannel();
-  const existing = await Notifications.getPermissionsAsync();
-  let status = existing.status;
-  if (status !== 'granted') {
-    const requested = await Notifications.requestPermissionsAsync();
-    status = requested.status;
+  const Notifications = await getNotifications();
+  if (!Notifications) return false;
+  try {
+    await ensureAndroidChannel();
+    const existing = await Notifications.getPermissionsAsync();
+    let status = existing.status;
+    if (status !== 'granted') {
+      const requested = await Notifications.requestPermissionsAsync();
+      status = requested.status;
+    }
+    return status === 'granted';
+  } catch {
+    return false;
   }
-  return status === 'granted';
 }
 
 export async function loadNotificationPreferences(
@@ -125,7 +175,10 @@ async function presentLocal(input: {
 }): Promise<string | null> {
   if (Platform.OS === 'web') return null;
   if (!(await shouldPresentLocal())) return null;
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
   try {
+    await ensureHandler(Notifications);
     return await Notifications.scheduleNotificationAsync({
       content: {
         title: input.title,
@@ -205,8 +258,12 @@ export async function scheduleCoolingOffReminder(
   const seconds = Math.max(1, Math.floor((endsAt - Date.now()) / 1000));
   if (!Number.isFinite(seconds) || seconds > 60 * 60 * 24) return null;
 
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
+
   const formatted = Math.round(amount).toLocaleString('en-KE');
   try {
+    await ensureHandler(Notifications);
     return await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Cooling-off ended',
@@ -229,8 +286,12 @@ export async function scheduleCoolingOffReminder(
   }
 }
 
+/**
+ * Remote push token registration. No-ops in Expo Go (SDK 53+ removed
+ * Android remote push from the Go client — use a development build).
+ */
 export async function registerForPushNotifications(): Promise<string | null> {
-  if (Platform.OS === 'web') return null;
+  if (Platform.OS === 'web' || isExpoGo()) return null;
 
   const granted = await requestNotificationPermissions();
   if (!granted) return null;
@@ -239,6 +300,9 @@ export async function registerForPushNotifications(): Promise<string | null> {
   if (!projectId) {
     return null;
   }
+
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
 
   try {
     const push = await Notifications.getExpoPushTokenAsync({ projectId });
@@ -263,5 +327,30 @@ export async function unregisterPushToken(token?: string | null): Promise<void> 
     // Best-effort on sign-out.
   } finally {
     await setStoredPushToken(null);
+  }
+}
+
+/** Wire notification-tap navigation. Safe no-op in Expo Go / web. */
+export async function subscribeNotificationResponses(
+  onResponse: (data: unknown) => void,
+): Promise<() => void> {
+  if (Platform.OS === 'web' || isExpoGo()) {
+    return () => {};
+  }
+  const Notifications = await getNotifications();
+  if (!Notifications) return () => {};
+
+  try {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      onResponse(response.notification.request.content.data);
+    });
+    void Notifications.getLastNotificationResponseAsync()
+      .then((response) => {
+        if (response) onResponse(response.notification.request.content.data);
+      })
+      .catch(() => {});
+    return () => sub.remove();
+  } catch {
+    return () => {};
   }
 }
