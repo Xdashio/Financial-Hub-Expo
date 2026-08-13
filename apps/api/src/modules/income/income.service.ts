@@ -43,7 +43,7 @@ export class IncomeService {
       throw new BadRequestException('No active plan found. Please complete onboarding first.');
     }
 
-    const pockets = await this.repository.getPocketsByPlanId(plan.id);
+    const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
     if (pockets.length === 0) {
       throw new BadRequestException('No pockets found in your plan.');
     }
@@ -93,16 +93,24 @@ export class IncomeService {
     idempotent_replay?: boolean;
   }> {
     if (dto.idempotency_key) {
-      const existing = await this.repository.getIdempotencyRecord(
-        userId,
-        'income',
-        dto.idempotency_key,
-      );
-      if (existing?.response) {
-        return {
-          ...(existing.response as any),
-          idempotent_replay: true,
-        };
+      try {
+        const existing = await this.repository.getIdempotencyRecord(
+          userId,
+          'income',
+          dto.idempotency_key,
+        );
+        if (existing?.response) {
+          return {
+            ...(existing.response as any),
+            idempotent_replay: true,
+          };
+        }
+      } catch (err) {
+        // Missing idempotency_records (migration not applied) must not 500
+        // a real income deposit — log and proceed as a first write.
+        this.logger.warn(
+          `idempotency lookup failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
@@ -111,7 +119,7 @@ export class IncomeService {
       throw new BadRequestException('No active plan found. Please complete onboarding first.');
     }
 
-    const pockets = await this.repository.getPocketsByPlanId(plan.id);
+    const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
     if (pockets.length === 0) {
       throw new BadRequestException('No pockets found in your plan.');
     }
@@ -190,7 +198,9 @@ export class IncomeService {
       };
 
       if (allocation.total_allocated > 0) {
-        await this.pushDelivery
+        // Fire-and-forget: awaiting Expo here hung POST /income/manual until
+        // the Railway proxy reset the connection whenever push was slow.
+        void this.pushDelivery
           .notifyAllocationReceived(
             userId,
             createdIncomeEvent.id,
@@ -236,23 +246,29 @@ export class IncomeService {
     };
 
     if (dto.idempotency_key) {
-      const saved = await this.repository.saveIdempotencyRecord({
-        id: uuidv4(),
-        user_id: userId,
-        scope: 'income',
-        idempotency_key: dto.idempotency_key,
-        resource_id: createdIncomeEvent.id,
-        response: result as unknown as Record<string, unknown>,
-      });
-      if (!saved) {
-        const raced = await this.repository.getIdempotencyRecord(
-          userId,
-          'income',
-          dto.idempotency_key,
-        );
-        if (raced?.response) {
-          return { ...(raced.response as any), idempotent_replay: true };
+      try {
+        const saved = await this.repository.saveIdempotencyRecord({
+          id: uuidv4(),
+          user_id: userId,
+          scope: 'income',
+          idempotency_key: dto.idempotency_key,
+          resource_id: createdIncomeEvent.id,
+          response: result as unknown as Record<string, unknown>,
+        });
+        if (!saved) {
+          const raced = await this.repository.getIdempotencyRecord(
+            userId,
+            'income',
+            dto.idempotency_key,
+          );
+          if (raced?.response) {
+            return { ...(raced.response as any), idempotent_replay: true };
+          }
         }
+      } catch (err) {
+        this.logger.warn(
+          `idempotency save failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
 
@@ -393,7 +409,7 @@ export class IncomeService {
     switch (dto.target) {
       case 'main_pocket':
         // Allocate proportionally to all pockets using the same logic as normal income
-        const pockets = await this.repository.getPocketsByPlanId(plan.id);
+        const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
         const allocations = this.calculateAllocationsBasedOnProportions(incomeEvent.unallocated_surplus, pockets);
         
         if (allocations.length === 0) {

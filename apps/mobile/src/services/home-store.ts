@@ -44,6 +44,7 @@ export interface HomeState {
   refreshData: () => Promise<void>;
   applyOptimisticDelta: (deltas: Record<string, number>) => HomeState['pockets'];
   rollbackOptimisticUpdate: (snapshot: HomeState['pockets']) => void;
+  updatePocketLocal: (id: string, patch: Partial<Pick<Pocket, 'name' | 'category' | 'dailyCap'>>) => void;
 }
 
 const POCKET_COLORS: Record<string, string> = {
@@ -165,21 +166,32 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
   error: null,
 
   fetchHomeData: async () => {
+    const hadData = get().pockets.length > 0;
     set({ isLoading: true, error: null });
     try {
-      const rollover = await runRolloverIfNeeded();
-
-      const [pocketsRes, insightsRes, runwayRes] = await Promise.all([
+      // Pockets are required; rollover/insights/runway must not take the
+      // whole homepage down when Railway drops one of those connections.
+      // The heavy POST /income/rollover/run is fired after the GETs so a
+      // catch-up timeout cannot reset the page-load connections.
+      const [pocketsOutcome, insightsOutcome, runwayOutcome, statusOutcome] = await Promise.allSettled([
         pocketsApi.getAll(),
         insightsApi.getDisciplineScore(),
-        pocketsApi.getRunway().catch(() => ({ applicable: false } as RunwaySummary)),
+        pocketsApi.getRunway(),
+        rolloverApi.status(),
       ]);
 
-      const pockets = (pocketsRes || []).map(mapPocket);
+      if (pocketsOutcome.status === 'rejected') {
+        throw pocketsOutcome.reason;
+      }
+
+      const pockets = (pocketsOutcome.value || []).map(mapPocket);
       const dailyPockets = calculateDailyPockets(pockets);
       const planType = derivePlanType(pockets);
-      const rolloverAmount =
-        rollover.latestAmount > 0 ? rollover.latestAmount : rollover.monthToDateAmount;
+      const status = statusOutcome.status === 'fulfilled' ? statusOutcome.value : null;
+      const insightsRes = insightsOutcome.status === 'fulfilled' ? insightsOutcome.value : null;
+      const runwayRes =
+        runwayOutcome.status === 'fulfilled' ? runwayOutcome.value : ({ applicable: false } as RunwaySummary);
+      const previous = get();
       const safeToSpendToday = calculateSafeToSpend(pockets);
       const totalBalance = calculateTotalBalance(pockets);
 
@@ -187,18 +199,28 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
         pockets,
         dailyPockets,
         planType,
-        rolloverAmount,
+        rolloverAmount: status?.monthToDateAmount ?? (hadData ? previous.rolloverAmount : 0),
         safeToSpendToday,
         totalBalance,
-        disciplineScore: insightsRes?.score ?? null,
-        scoreDelta: insightsRes?.delta ?? 0,
-        currentStreak: rollover.currentStreak,
+        disciplineScore: insightsRes?.score ?? (hadData ? previous.disciplineScore : null),
+        scoreDelta: insightsRes?.delta ?? (hadData ? previous.scoreDelta : 0),
+        currentStreak: status?.streak?.currentStreak ?? (hadData ? previous.currentStreak : 0),
         runway: runwayRes || { applicable: false },
         isLoading: false,
+        error: null,
+      });
+
+      void runRolloverIfNeeded().then((rollover) => {
+        if (rollover.latestAmount > 0) {
+          set({
+            rolloverAmount: rollover.latestAmount,
+            currentStreak: rollover.currentStreak || get().currentStreak,
+          });
+        }
       });
     } catch (error) {
       set({
-        error: error instanceof Error ? error.message : 'Failed to load home data',
+        error: hadData ? null : error instanceof Error ? error.message : 'Failed to load home data',
         isLoading: false,
       });
     }
@@ -228,5 +250,11 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
     const safeToSpendToday = calculateSafeToSpend(pockets);
     const totalBalance = calculateTotalBalance(pockets);
     set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
+  },
+
+  updatePocketLocal: (id, patch) => {
+    const pockets = get().pockets.map((p) => (p.id === id ? { ...p, ...patch } : p));
+    const dailyPockets = calculateDailyPockets(pockets);
+    set({ pockets, dailyPockets });
   },
 }));

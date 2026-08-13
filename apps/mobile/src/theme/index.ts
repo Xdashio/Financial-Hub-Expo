@@ -91,17 +91,11 @@ export const typography = {
 
 export const shadow = {
   default: {
-    shadowColor: '#16231D',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
+    boxShadow: '0px 1px 2px rgba(22, 35, 29, 0.04)',
     elevation: 1,
   },
   elevated: {
-    shadowColor: '#16231D',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
+    boxShadow: '0px 8px 24px rgba(22, 35, 29, 0.06)',
     elevation: 8,
   },
 };

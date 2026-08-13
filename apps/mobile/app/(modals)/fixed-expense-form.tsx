@@ -6,6 +6,7 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { useFixedExpensesStore } from '@/services/fixed-expenses-store';
+import { useDataSync } from '@/services/data-sync';
 import { LoadingState } from '@/components/ui';
 import { getExpenseIcon } from '@/utils/expenseIcon';
 import {
@@ -39,6 +40,7 @@ export default function FixedExpenseFormScreen() {
   const { mode, expenseId } = useLocalSearchParams<{ mode: 'add' | 'edit'; expenseId?: string }>();
   const { alert } = useAlertModal();
   const { addExpense, updateExpense, expenses } = useFixedExpensesStore();
+  const dataSync = useDataSync();
   const canGoBack = router.canGoBack();
   
   const [expense, setExpense] = useState<FixedExpense | null>(null);
@@ -142,6 +144,7 @@ export default function FixedExpenseFormScreen() {
           due_day: parseInt(formData.dueDay),
           category: formData.category,
         });
+        dataSync.bump();
         alert('Success', 'Fixed expense updated successfully.');
       } else {
         await addExpense({
@@ -150,6 +153,7 @@ export default function FixedExpenseFormScreen() {
           due_day: parseInt(formData.dueDay),
           category: formData.category,
         });
+        dataSync.bump();
         alert('Success', 'Fixed expense added successfully.');
       }
       
