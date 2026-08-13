@@ -33,9 +33,9 @@ const RANGE_LABELS: Record<Range, string> = {
 // small ones rendered identically, and there was no way to tell from color alone
 // whether a day helped or barely mattered. Using points consistently
 // means a cell's darkness always answers "how much did this day improve your
-spending consistency", with color (green vs clay) answering "which direction" and the
-// per-day tooltip still surfacing the raw spending decision count for "how many
-// decisions" detail that color alone can't carry.
+// spending consistency", with color (green vs clay) answering "which direction"
+// and the per-day tooltip still surfacing the raw spending decision count for
+// "how many decisions" detail that color alone can't carry.
 const POSITIVE_POINTS_SCALE = 20; // points/day considered "fully saturated" green
 const NEGATIVE_POINTS_SCALE = 15; // points/day considered "fully saturated" clay
 
