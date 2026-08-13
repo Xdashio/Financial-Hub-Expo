@@ -44,7 +44,7 @@ export interface HomeState {
   refreshData: () => Promise<void>;
   applyOptimisticDelta: (deltas: Record<string, number>) => HomeState['pockets'];
   rollbackOptimisticUpdate: (snapshot: HomeState['pockets']) => void;
-  updatePocketLocal: (id: string, patch: Partial<Pick<Pocket, 'name' | 'category' | 'dailyCap'>>) => void;
+  updatePocketLocal: (id: string, patch: Partial<Pick<Pocket, 'name' | 'category' | 'dailyCap' | 'monthlyAllocation'>>) => void;
 }
 
 const POCKET_COLORS: Record<string, string> = {

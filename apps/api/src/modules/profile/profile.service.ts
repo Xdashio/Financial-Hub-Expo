@@ -69,8 +69,11 @@ export class ProfileService {
   }
 
   async deleteFixedExpense(userId: string, id: string): Promise<void> {
-    await this.getOwnedFixedExpense(id, userId);
+    const existing = await this.getOwnedFixedExpense(id, userId);
     await this.supabaseRepo.deleteFixedExpense(id);
+    // Homepage Fixed & Protected lists pockets. Deleting only the expense
+    // row left UTILITIES (etc.) stuck on Home forever.
+    await this.removeFixedPocketForExpense(userId, existing);
   }
 
   async retakePlan(userId: string, input: unknown): Promise<PlanRetakeResult> {
@@ -226,6 +229,69 @@ export class ProfileService {
     if (fixed.length === 1) return fixed[0];
 
     return undefined;
+  }
+
+  /**
+   * Drop the homepage pocket that corresponded to a deleted fixed expense.
+   * Unlocks first (fixed pockets are time-locked by default). Any leftover
+   * balance moves into Savings so money isn't destroyed with the bill.
+   */
+  private async removeFixedPocketForExpense(
+    userId: string,
+    expense: Pick<FixedExpense, 'name' | 'category'>,
+  ): Promise<void> {
+    const plan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    if (!plan) return;
+
+    const pockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(plan.id);
+    const match = this.findMatchingFixedPocket(pockets, expense.name, expense.category);
+    if (!match) return;
+
+    // Never delete the only remaining pocket.
+    if (pockets.length <= 1) {
+      this.logger.warn(`skipped pocket delete for "${expense.name}": only pocket left on plan`);
+      return;
+    }
+
+    try {
+      const summary = await this.supabaseRepo.getPocketSummary(match.id);
+      if (Math.abs(summary.available) > 0.01) {
+        const savings = pockets.find((p) => p.kind === 'savings' && p.id !== match.id);
+        const destination = savings ?? pockets.find((p) => p.id !== match.id);
+        if (!destination) {
+          this.logger.warn(`skipped pocket delete for "${expense.name}": has balance and no destination`);
+          return;
+        }
+        await this.supabaseRepo.createTransactions([
+          {
+            pocket_id: match.id,
+            amount: -summary.available,
+            type: 'reallocation_out',
+            merchant: null,
+            category: null,
+          },
+          {
+            pocket_id: destination.id,
+            amount: summary.available,
+            type: 'reallocation_in',
+            merchant: null,
+            category: null,
+          },
+        ]);
+      }
+
+      if (match.is_time_locked) {
+        await this.supabaseRepo.updatePocket(match.id, {
+          is_time_locked: false,
+          lock_until: null,
+        });
+      }
+      await this.supabaseRepo.deletePocket(match.id);
+    } catch (err) {
+      this.logger.warn(
+        `fixed-pocket delete sync failed for "${expense.name}": ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   async getFixedExpenseSuggestions(userId: string): Promise<{
