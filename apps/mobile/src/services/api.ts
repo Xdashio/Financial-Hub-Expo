@@ -232,6 +232,7 @@ export interface NotificationPreferences {
   savings_milestones: boolean;
   monthly_insights: boolean;
   tips_nudges: boolean;
+  loan_reminders: boolean;
 }
 
 export const notificationsApi = {
