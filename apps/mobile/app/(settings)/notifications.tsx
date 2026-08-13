@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { spacing, typography } from '../../src/theme';
@@ -11,9 +11,9 @@ import {
   clearNotificationPreferencesCache,
   registerForPushNotifications,
   requestNotificationPermissions,
+  isExpoGo,
 } from '@/services/notifications';
 import { safeGoBack } from '@/utils/navigation';
-
 // Define the theme shape if not imported from your UI library
 interface Theme {
   surface: string;
@@ -201,6 +201,15 @@ export default function NotificationsScreen() {
 
         {preferences && (
           <>
+            {isExpoGo() && Platform.OS === 'android' && (
+              <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
+                <Card style={{ backgroundColor: colors.goldTint, borderColor: colors.gold }}>
+                  <Text style={{ ...typography.caption, color: colors.ink, lineHeight: 18 }}>
+                    Remote push is not available in Expo Go on Android (SDK 53+). Use a development build (`eas build --profile development`) to receive push alerts on device.
+                  </Text>
+                </Card>
+              </View>
+            )}
             {updateError && (
               <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
                 <Card style={{ backgroundColor: colors.clayTint, borderColor: colors.clay }}>

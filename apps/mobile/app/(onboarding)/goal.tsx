@@ -72,7 +72,7 @@ export default function GoalScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/habits" />
+        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/about-you" />
         <ProgressIndicator currentStep={4} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>

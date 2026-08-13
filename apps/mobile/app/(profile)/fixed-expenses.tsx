@@ -12,6 +12,7 @@ import { pocketsApi } from '@/services/api';
 import { LoadingState, ErrorState, SearchBar, Toast, EmptyState } from '@/components/ui';
 import { getExpenseIcon } from '@/utils/expenseIcon';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 import {
   ArrowLeft,
   Plus,
@@ -118,7 +119,7 @@ export default function FixedExpensesScreen() {
     if (balance > 0.01) {
       await alert(
         'Cannot delete yet',
-        `"${expense.name}" still has KES ${Math.round(balance).toLocaleString()} in its pocket. Move that money to another pocket first, then try again.`,
+        `"${expense.name}" still has ${formatMoney(balance)} in its pocket. Move that money to another pocket first, then try again.`,
       );
       return;
     }
@@ -152,7 +153,7 @@ export default function FixedExpensesScreen() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `KES ${amount.toLocaleString()}`;
+    return formatMoney(amount);
   };
 
   const getCategoryDisplayName = (categoryId: string) => {

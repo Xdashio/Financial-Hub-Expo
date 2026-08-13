@@ -8,6 +8,7 @@ import { useDataSync } from '@/services/data-sync';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { incomeApi } from '@/services/api';
+import { formatMoney } from '@/utils/money';
 
 export default function SurplusCreatePocketScreen() {
   const { colors } = useTheme();
@@ -73,7 +74,7 @@ export default function SurplusCreatePocketScreen() {
           <View style={{ flex: 1 }}>
             <Text style={{ ...typography.title, color: colors.ink }}>Create new pocket</Text>
             <Text style={{ ...typography.body, color: colors.sage, marginTop: 2 }}>
-              Your surplus of KES {surplusAmount.toLocaleString()} will be allocated here.
+              Your surplus of {formatMoney(surplusAmount)} will be allocated here.
             </Text>
           </View>
         </View>

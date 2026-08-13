@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -11,6 +11,8 @@ import { Button } from '@/components/ui';
 import { ArrowLeft, ShoppingCart } from 'lucide-react-native';
 import { enqueueWrite } from '@/services/offline-queue';
 import { safeGoBack } from '@/utils/navigation';
+import { useHomeStore } from '@/services/home-store';
+import { formatMoney } from '@/utils/money';
 
 const CATEGORIES: { id: string; name: string }[] = [
   { id: '', name: "Don't know yet" },
@@ -30,12 +32,24 @@ export default function LogSpendScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { alert, modal } = useAlertModal();
-  const { pocketId, pocketName } = useLocalSearchParams<{ pocketId: string; pocketName: string }>();
+  const params = useLocalSearchParams<{ pocketId: string; pocketName: string }>();
+  const pockets = useHomeStore((s) => s.pockets);
 
+  const spendablePockets = useMemo(
+    () => pockets.filter((p) => p.kind === 'spendable' || p.kind === 'fixed' || p.kind === 'savings'),
+    [pockets],
+  );
+
+  const [selectedPocketId, setSelectedPocketId] = useState(params.pocketId || '');
   const [amount, setAmount] = useState('');
   const [merchant, setMerchant] = useState('');
   const [category, setCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const pocketId = selectedPocketId || params.pocketId;
+  const selectedPocket = spendablePockets.find((p) => p.id === pocketId);
+  const pocketName = params.pocketName || selectedPocket?.name || '';
+  const needsPocketPick = !params.pocketId;
 
   const formatAmountInput = (text: string) => {
     const cleaned = text.replace(/[^\d]/g, '');
@@ -46,6 +60,10 @@ export default function LogSpendScreen() {
   const numericAmount = Number(amount.replace(/,/g, '')) || 0;
 
   const handleSubmit = async () => {
+    if (!pocketId) {
+      alert('Pick a pocket', 'Choose which pocket this payment comes from.');
+      return;
+    }
     if (!numericAmount || numericAmount <= 0) {
       alert('Missing amount', 'Enter how much this payment is for.');
       return;
@@ -65,7 +83,7 @@ export default function LogSpendScreen() {
 
       if (result.allowed) {
         useDataSync.getState().bump();
-        await alert('Spend logged', `${result.pocket.name} now has KES ${Math.round(result.pocket.available_balance).toLocaleString()} left.`);
+        await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
         safeGoBack(router, '/(tabs)');
         return;
       }
@@ -138,8 +156,45 @@ export default function LogSpendScreen() {
 
           <View style={{ paddingHorizontal: spacing.lg }}>
             <Text style={{ ...typography.body, color: colors.sage }}>
-              Record a payment from {pocketName || 'this pocket'} — this app has no bank/PSP connection yet, so spend is simulated the same way income is.
+              Record a payment from {pocketName || 'a pocket'}. This updates your pocket balance in the app — it does not move money at your bank.
             </Text>
+
+            {needsPocketPick && (
+              <View style={{ marginTop: spacing.xl }}>
+                <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.sm }}>From pocket</Text>
+                <View style={{ gap: spacing.sm }}>
+                  {spendablePockets.map((pocket) => {
+                    const selected = pocketId === pocket.id;
+                    return (
+                      <Pressable
+                        key={pocket.id}
+                        onPress={() => setSelectedPocketId(pocket.id)}
+                        style={{
+                          paddingVertical: spacing.md,
+                          paddingHorizontal: spacing.md,
+                          borderRadius: radius.md,
+                          backgroundColor: selected ? colors.emeraldTint : colors.surface,
+                          borderWidth: 1,
+                          borderColor: selected ? colors.emeraldDeep : colors.line,
+                          minHeight: 44,
+                          justifyContent: 'center',
+                        }}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`${pocket.name}, ${formatMoney(pocket.availableBalance)} available`}
+                      >
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={{ ...typography.body, color: colors.ink }}>{pocket.name}</Text>
+                          <Text style={{ ...typography.caption, color: colors.sage, fontVariant: ['tabular-nums'] }}>
+                            {formatMoney(pocket.availableBalance)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
 
             <View
               style={{

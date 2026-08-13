@@ -5,13 +5,22 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer } from '@/components/ui';
 import { safeGoBack } from '@/utils/navigation';
-import { ArrowLeft, ArrowLeftRight, Plus, Wallet, TrendingUp } from 'lucide-react-native';
+import { ArrowLeft, ArrowLeftRight, Plus, Wallet, TrendingUp, ShoppingCart } from 'lucide-react-native';
 
 export default function ActionsModal() {
   const router = useRouter();
   const { colors } = useTheme();
 
   const actions = [
+    {
+      id: 'spend',
+      icon: ShoppingCart,
+      label: 'Log spend',
+      description: 'Record a payment from a pocket',
+      color: colors.emeraldTint,
+      iconColor: colors.emeraldDeep,
+      route: '/(pockets)/log-spend',
+    },
     {
       id: 'income',
       icon: Plus,

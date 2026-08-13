@@ -182,7 +182,7 @@ export default function FixedScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/habits" />
+        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/goal" />
         <ProgressIndicator currentStep={5} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>

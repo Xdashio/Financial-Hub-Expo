@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { CalendarCheck, ArrowLeftRight, Target, Timer } from 'lucide-react-native';
+import { CalendarCheck, ArrowLeftRight, Timer } from 'lucide-react-native';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi } from '@/services/api';
@@ -27,6 +27,7 @@ function isSameMonth(iso: string) {
 interface Metric {
   label: string;
   value: string;
+  story: string;
   icon: any;
   color: string;
 }
@@ -125,14 +126,37 @@ export default function InsightsScreen() {
   );
 
   const metrics: (Metric & { kind: string })[] = [
-    { kind: 'reallocation_frequency', label: 'Pocket adjustments this month', value: String(reallocationsThisMonth), icon: ArrowLeftRight, color: colors.plum },
-    { kind: 'discipline_score', label: 'Spending discipline', value: score !== null ? `${score}%` : '—', icon: Target, color: colors.gold },
-    { kind: 'cooling_off_skips', label: 'Cooling-off skips', value: String(coolingOffSkips), icon: Timer, color: colors.clay },
+    {
+      kind: 'reallocation_frequency',
+      label: 'Pocket moves',
+      value: String(reallocationsThisMonth),
+      story:
+        reallocationsThisMonth === 0
+          ? 'Money stayed in its job this month.'
+          : reallocationsThisMonth === 1
+            ? 'One deliberate move between pockets.'
+            : `${reallocationsThisMonth} times you reassigned money's job.`,
+      icon: ArrowLeftRight,
+      color: colors.plum,
+    },
+    {
+      kind: 'cooling_off_skips',
+      label: 'Cooling-off skips',
+      value: String(coolingOffSkips),
+      story:
+        coolingOffSkips === 0
+          ? 'You let every pause finish — strong purpose habit.'
+          : coolingOffSkips === 1
+            ? 'One move skipped the pause this month.'
+            : `${coolingOffSkips} moves skipped the pause — worth noticing.`,
+      icon: Timer,
+      color: colors.clay,
+    },
   ];
   // Money-personality modifier layer (§2.3) — reorders these cards by the
   // priority order the API returned (insightPriorityOrderFor), without
   // changing which cards exist. Falls back to the order above when the API
-  // didn't send one (older server build).
+  // didn't send one (older server build). Discipline score is the hero only.
   const orderedMetrics = cardOrder.length
     ? [...metrics].sort((a, b) => {
         const ai = cardOrder.indexOf(a.kind);
@@ -179,7 +203,7 @@ export default function InsightsScreen() {
           ) : (
             <>
               <View style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: `${colors.surface}33`, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md }}>
-                <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score}</Text>
+                <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score}%</Text>
               </View>
               <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Spending discipline</Text>
               {scorePeriod && (
@@ -187,22 +211,18 @@ export default function InsightsScreen() {
                   {scorePeriod}
                 </Text>
               )}
-              {delta !== 0 && (
-                <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: `${colors.surface}1E`, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
-                  <Text style={{ ...typography.caption, color: colors.surface }}>
-                    {delta > 0 ? `+${delta}` : delta} pts this period
-                  </Text>
-                </View>
-              )}
+              <Text style={{ ...typography.caption, color: `${colors.surface}CC`, marginTop: spacing.sm, textAlign: 'center', lineHeight: 18 }}>
+                {delta > 0
+                  ? `What moved it: +${delta} pts from under-cap days and staying on purpose.`
+                  : delta < 0
+                    ? `What moved it: ${delta} pts from over-cap days or cooling-off skips.`
+                    : 'What moved it: steady this period — keep pockets on purpose.'}
+              </Text>
             </>
           )}
         </View>
 
-        {/* Metrics — previously a fixed row of hardcoded numbers with a
-            plain "●" glyph standing in for an icon, and inconsistent
-            internal spacing. Now real data, real icons, and a centered
-            layout so the value/label pair lines up the same way across all
-            three cards regardless of label length. */}
+        {/* Purpose stories — discipline score lives in the hero only (no duplicate metric). */}
         <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
           {orderedMetrics.map((metric, i) => (
             <View
@@ -217,12 +237,14 @@ export default function InsightsScreen() {
                 paddingHorizontal: spacing.md,
                 alignItems: 'center',
               }}
+              accessibilityLabel={`${metric.label}: ${metric.value}. ${metric.story}`}
             >
               <View style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: `${metric.color}1A`, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm }}>
                 <metric.icon size={16} color={metric.color} strokeWidth={2} />
               </View>
               <Text style={{ ...typography.heading, fontSize: 20, color: colors.ink, textAlign: 'center' }}>{metric.value}</Text>
               <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs, lineHeight: 14, textAlign: 'center' }}>{metric.label}</Text>
+              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, marginTop: spacing.xs, lineHeight: 13, textAlign: 'center' }}>{metric.story}</Text>
             </View>
           ))}
         </View>
@@ -234,6 +256,9 @@ export default function InsightsScreen() {
             <CalendarCheck size={15} color={colors.ink} strokeWidth={2} />
             <Text style={{ ...typography.eyebrow, color: colors.ink }}>Spending consistency</Text>
           </View>
+          <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.md, lineHeight: 16 }}>
+            Day-by-day behavior over a rolling window — pair with your calendar-month score above.
+          </Text>
           <StreakHeatmap />
         </View>
 

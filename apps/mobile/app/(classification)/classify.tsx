@@ -15,6 +15,7 @@ import {
   Check,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 type PocketOption = { id: string; name: string; kind: string; category: string | null };
 
@@ -165,7 +166,7 @@ export default function ClassificationScreen() {
   };
 
   const formatCurrency = (value: string) => {
-    return `KES ${parseFloat(value).toLocaleString()}`;
+    return formatMoney(parseFloat(value));
   };
 
   return (

@@ -1,3 +1,4 @@
+import { formatMoney } from '@/utils/money';
 // Formats a raw behavior_events row (type + payload) into something
 // displayable. Previously this lived only inside (tabs)/insights.tsx, which
 // meant the heatmap's tap-to-expand day panel (StreakHeatmap.tsx) had no way
@@ -55,7 +56,7 @@ export function mapBehaviorEvent(event: any, colors: any): DisplayEventOrNull {
     if (payload.amount === 0 || payload.amount == null) {
       return null;
     }
-    const amount = `KES ${Number(payload.amount).toLocaleString()} to Savings`;
+    const amount = `${formatMoney(Number(payload.amount))} to Savings`;
     const pts = payload.points_added ? ` · +${payload.points_added} pts` : '';
     return { title: 'Daily rollover', desc: `${amount}${pts}`, time, color: colors.emerald };
   }

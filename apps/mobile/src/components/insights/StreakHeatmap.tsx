@@ -40,12 +40,14 @@ const POSITIVE_POINTS_SCALE = 20; // points/day considered "fully saturated" gre
 const NEGATIVE_POINTS_SCALE = 15; // points/day considered "fully saturated" clay
 
 function cellColor(day: HeatmapDay, colors: any) {
-  if (day.count === 0) return colors.lineSoft;
+  // Empty cells use `line` (not lineSoft) so inactive days stay visible on
+  // both light and dark paper — lineSoft failed WCAG-ish contrast checks.
+  if (day.count === 0) return colors.line;
   if (day.points < 0) {
     const intensity = Math.min(1, Math.abs(day.points) / NEGATIVE_POINTS_SCALE);
     if (intensity > 0.66) return colors.clay;
-    if (intensity > 0.33) return colors.clay + 'DD';
-    return colors.clay + 'AA';
+    if (intensity > 0.33) return colors.clay;
+    return colors.clayTint || colors.clay + 'CC';
   }
   // Positive but zero net points (e.g. neutral logging activity) still
   // gets the lightest green tint rather than looking identical to a
@@ -345,14 +347,14 @@ export function StreakHeatmap() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm, flexWrap: 'wrap' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
               <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage }}>Low impact</Text>
-              {[colors.lineSoft, colors.emeraldTint, colors.emerald, colors.emeraldDeep].map((c, i) => (
+              {[colors.line, colors.emeraldTint, colors.emerald, colors.emeraldDeep].map((c, i) => (
                 <View key={i} style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: c }} />
               ))}
               <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage }}>High impact</Text>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginLeft: spacing.md }}>
               <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage }}>Negative</Text>
-              {[colors.lineSoft, colors.clay + '80', colors.clay + 'CC', colors.clay].map((c, i) => (
+              {[colors.line, colors.clayTint || colors.clay, colors.clay, colors.clay].map((c, i) => (
                 <View key={i} style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: c }} />
               ))}
             </View>

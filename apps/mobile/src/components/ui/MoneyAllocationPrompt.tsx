@@ -5,6 +5,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, borderWidth } from '@/theme';
 import { Button } from './Button';
 import { ArrowRight, Plus, Wallet, Building2 } from 'lucide-react-native';
+import { formatMoney } from '@/utils/money';
 
 export interface AllocationOption {
   id: 'main_pocket' | 'pocket' | 'new_pocket';
@@ -70,7 +71,7 @@ export function MoneyAllocationPrompt({
   const { colors } = useTheme();
 
   const formatAmount = (value: number) => {
-    return `KES ${Math.round(value).toLocaleString()}`;
+    return formatMoney(value);
   };
 
   return (

@@ -20,7 +20,7 @@ import {
   LucideIcon,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/services/auth';
-import { profileApi } from '@/services/api';
+import { profileApi, notificationsApi, pocketsApi, type NotificationPreferences } from '@/services/api';
 import { ConfirmModal } from '@/components/ui';
 import { showAlert } from '@/utils/alert';
 
@@ -50,6 +50,8 @@ export default function ProfileScreen() {
   const [plan, setPlan] = React.useState<any>(null);
   const [fixedExpenseCount, setFixedExpenseCount] = React.useState<number | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
+  const [timeLockActive, setTimeLockActive] = React.useState<boolean | null>(null);
+  const [notificationsOn, setNotificationsOn] = React.useState<boolean | null>(null);
   const [retakeEligibility, setRetakeEligibility] = React.useState<{
     allowed: boolean;
     nextRetakeAvailableOn: string | null;
@@ -57,14 +59,33 @@ export default function ProfileScreen() {
   } | null>(null);
 
   const loadProfileMeta = React.useCallback(async () => {
-    const [planRes, expensesRes, eligibility] = await Promise.all([
+    const [planRes, expensesRes, eligibility, notifRes, pocketsRes] = await Promise.all([
       profileApi.getPlan().catch(() => null),
       profileApi.getFixedExpenses().catch(() => []),
       profileApi.getRetakeEligibility().catch(() => null),
+      notificationsApi.getSettings().catch(() => null),
+      pocketsApi.getAll().catch(() => []),
     ]);
     setPlan(planRes);
     setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
     setRetakeEligibility(eligibility);
+    const prefs = notifRes?.preferences as NotificationPreferences | undefined;
+    if (prefs) {
+      setNotificationsOn(
+        prefs.reallocation_confirms ||
+          prefs.cooling_off_reminders ||
+          prefs.savings_milestones ||
+          prefs.monthly_insights ||
+          prefs.tips_nudges ||
+          prefs.loan_reminders,
+      );
+    } else {
+      setNotificationsOn(null);
+    }
+    const pockets = Array.isArray(pocketsRes) ? pocketsRes : [];
+    setTimeLockActive(
+      pockets.some((p: any) => p.kind === 'savings' && (p.is_time_locked || p.isTimeLocked)),
+    );
   }, []);
 
   const onRefresh = React.useCallback(async () => {
@@ -165,14 +186,26 @@ export default function ProfileScreen() {
           trailing: user?.biometricEnabled ? 'On' : 'Off',
           onPress: handleBiometricPress,
         },
-        { icon: Timer, title: 'Savings time-lock', desc: '7-day delay on withdrawals', trailing: 'Active', onPress: handleTimeLockPress },
+        {
+          icon: Timer,
+          title: 'Savings time-lock',
+          desc: '7-day delay on withdrawals',
+          trailing: timeLockActive === null ? '…' : timeLockActive ? 'Active' : 'Off',
+          onPress: handleTimeLockPress,
+        },
       ],
     },
     {
       label: 'Account',
       items: [
         { icon: User, title: 'Personal info', desc: 'Name and phone number', trailing: '', onPress: handlePersonalInfoPress },
-        { icon: Bell, title: 'Notifications', desc: 'Push and in-app alerts', trailing: 'On', onPress: handleNotificationsPress },
+        {
+          icon: Bell,
+          title: 'Notifications',
+          desc: 'Push and in-app alerts',
+          trailing: notificationsOn === null ? '…' : notificationsOn ? 'On' : 'Off',
+          onPress: handleNotificationsPress,
+        },
         { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: mode.charAt(0).toUpperCase() + mode.slice(1), onPress: handleThemePress },
       ],
     },
@@ -273,9 +306,15 @@ export default function ProfileScreen() {
             {group.items.map((item, ii) => (
               <Pressable 
                 key={ii} 
-                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, minHeight: 44, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}
                 onPress={item.onPress}
                 disabled={!item.onPress}
+                accessibilityRole={item.onPress ? 'button' : undefined}
+                accessibilityLabel={
+                  item.trailing
+                    ? `${item.title}, ${item.desc}, ${item.trailing}`
+                    : `${item.title}, ${item.desc}`
+                }
               >
                 <View style={{ width: 34, height: 34, borderRadius: radius.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
                   <item.icon size={18} color={colors.ink} strokeWidth={2.5} />

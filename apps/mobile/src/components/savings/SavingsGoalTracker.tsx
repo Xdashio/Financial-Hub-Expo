@@ -3,6 +3,7 @@ import { View, Text, Pressable, Animated, Easing } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography } from '@/theme';
 import { Target, Sparkles, Award, TrendingUp, Calendar, Check } from 'lucide-react-native';
+import { formatMoney } from '@/utils/money';
 
 interface SavingsGoal {
   id: string;
@@ -270,5 +271,5 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
 }
 
 function formatCurrency(amount: number): string {
-  return `KES ${amount.toLocaleString()}`;
+  return formatMoney(amount);
 }

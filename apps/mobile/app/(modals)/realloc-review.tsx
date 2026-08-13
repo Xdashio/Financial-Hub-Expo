@@ -13,6 +13,7 @@ import {
   scheduleCoolingOffReminder,
   showReallocationConfirm,
 } from '@/services/notifications';
+import { formatMoney } from '@/utils/money';
 
 type ReviewParams = {
   fromId: string;
@@ -29,7 +30,7 @@ const REASONS: { value: string; label: string }[] = [
 ];
 
 function formatCurrency(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 function isSameMonth(iso: string) {
@@ -297,12 +298,12 @@ export default function ReallocReviewScreen() {
         <View style={styles.flowRow}>
           <View style={styles.flowPocket}>
             <Text style={styles.flowName}>{fromPocket.name}</Text>
-            <Text style={styles.flowAmt}>{formatCurrency(fromPocket.monthlyAllocation)}</Text>
+            <Text style={styles.flowAmt}>{formatCurrency(fromPocket.availableBalance)}</Text>
           </View>
           <ArrowRight size={18} color={colors.sage} />
           <View style={[styles.flowPocket, styles.flowPocketTo]}>
             <Text style={styles.flowName}>{toPocket.name}</Text>
-            <Text style={styles.flowAmt}>{formatCurrency(toPocket.monthlyAllocation)}</Text>
+            <Text style={styles.flowAmt}>{formatCurrency(toPocket.availableBalance)}</Text>
           </View>
         </View>
 

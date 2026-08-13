@@ -24,6 +24,7 @@ import {
   Users,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 interface FixedExpense {
   id: string;
@@ -174,7 +175,7 @@ export default function FixedExpenseFormScreen() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `KES ${amount.toLocaleString()}`;
+    return formatMoney(amount);
   };
 
   if (isLoading) {

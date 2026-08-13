@@ -20,11 +20,12 @@ import {
   Info,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmt(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 // ─── Main screen ─────────────────────────────────────────────────────────────

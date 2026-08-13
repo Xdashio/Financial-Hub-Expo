@@ -78,10 +78,10 @@ export function BrandHeader({
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: onBack ? 'space-between' : 'center', paddingTop: onBack ? spacing.md : spacing.lg, marginBottom: spacing.md }}>
       {!!onBack && (
         <TouchableOpacity
-          style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
           onPress={handleBack}
           activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           accessibilityLabel="Go back"
           accessibilityRole="button"
         >
@@ -102,7 +102,7 @@ export function BrandHeader({
           Financial Hub
         </Text>
       </View>
-      {!!onBack && <View style={{ width: 36 }} />}
+      {!!onBack && <View style={{ width: 44 }} />}
     </View>
   );
 }
