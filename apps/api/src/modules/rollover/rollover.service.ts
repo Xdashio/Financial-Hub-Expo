@@ -122,11 +122,9 @@ export class RolloverService {
 
       const result = await this.processDay(userId, dateIso, spendable, savings);
       dayResults.push(result);
-      if (!result.skipped) {
-        totalAmount += result.amount;
-        latestAmount = result.amount;
-        alreadyHandled.add(dateIso);
-      }
+      totalAmount += result.amount;
+      latestAmount = result.amount;
+      alreadyHandled.add(dateIso);
     }
 
     const streakBeforeMilestone = await this.getStreak(userId, now);
@@ -289,6 +287,8 @@ export class RolloverService {
       };
     }
 
+
+
     if (dayPlan.totalRollAmount > 0 && !savings) {
       throw new BadRequestException('No savings pocket to receive daily rollover');
     }
@@ -329,24 +329,29 @@ export class RolloverService {
       await this.repository.createTransactions(ledgerRows);
     }
 
-    const pointsApplied = await this.applyCappedDelta(
-      userId,
-      EVENT_DAILY_ROLLOVER_SUCCESS,
-      POINTS_DAILY_ROLLOVER_SUCCESS,
-      CAP_DAILY_ROLLOVER_SUCCESS,
-      dateIso,
-    );
+    // Only apply points and create events if there was actual rollover amount
+    // This prevents fake events and score changes for new users with no spending
+    let pointsApplied = 0;
+    if (dayPlan.totalRollAmount > 0) {
+      pointsApplied = await this.applyCappedDelta(
+        userId,
+        EVENT_DAILY_ROLLOVER_SUCCESS,
+        POINTS_DAILY_ROLLOVER_SUCCESS,
+        CAP_DAILY_ROLLOVER_SUCCESS,
+        dateIso,
+      );
 
-    await this.repository.createBehaviorEvent({
-      user_id: userId,
-      type: EVENT_DAILY_ROLLOVER_SUCCESS,
-      payload: {
-        date: dateIso,
-        amount: dayPlan.totalRollAmount,
-        movements,
-        points_added: pointsApplied > 0 ? pointsApplied : 0,
-      },
-    });
+      await this.repository.createBehaviorEvent({
+        user_id: userId,
+        type: EVENT_DAILY_ROLLOVER_SUCCESS,
+        payload: {
+          date: dateIso,
+          amount: dayPlan.totalRollAmount,
+          movements,
+          points_added: pointsApplied > 0 ? pointsApplied : 0,
+        },
+      });
+    }
 
     return {
       date: dateIso,

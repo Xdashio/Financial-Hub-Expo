@@ -51,14 +51,13 @@ export default function FixedScreen() {
   
   const [isLoading, setIsLoading] = React.useState(false);
   const [showAddModal, setShowAddModal] = React.useState(false);
-  const [newName, setNewName] = React.useState('');
-  const [newAmount, setNewAmount] = React.useState('');
-  const [newDueDay, setNewDueDay] = React.useState('1');
-  const [newCategory, setNewCategory] = React.useState('other');
+  const [formData, setFormData] = React.useState({
+    name: '',
+    amount: '',
+    dueDay: '1',
+    category: 'other',
+  });
   const [editingId, setEditingId] = React.useState<string | null>(null);
-  const [editName, setEditName] = React.useState('');
-  const [editAmount, setEditAmount] = React.useState('');
-  const [editDueDay, setEditDueDay] = React.useState('1');
   const [deleteTargetId, setDeleteTargetId] = React.useState<string | null>(null);
 
   const totalFixed = fixedExpenses.reduce((sum: number, e: FixedExpenseItem) => sum + e.amount, 0);
@@ -71,78 +70,69 @@ export default function FixedScreen() {
   };
 
   const handleAddSuggestion = (suggestion: typeof SUGGESTIONS[0]) => {
-  setShowAddModal(true);
-  setNewName(suggestion.name);
-  setNewAmount('');
-  setNewDueDay('1');
-  setNewCategory(suggestion.category);
-  setEditingId(null);
-};
+    setShowAddModal(true);
+    setFormData({
+      name: suggestion.name,
+      amount: '',
+      dueDay: '1',
+      category: suggestion.category,
+    });
+    setEditingId(null);
+  };
 
   const handleAddCustom = () => {
     setShowAddModal(true);
-    setNewName('');
-    setNewAmount('');
-    setNewDueDay('1');
-    setNewCategory('other');
+    setFormData({
+      name: '',
+      amount: '',
+      dueDay: '1',
+      category: 'other',
+    });
     setEditingId(null);
   };
 
   const handleEdit = (expense: typeof fixedExpenses[0]) => {
     setEditingId(expense.id);
-    setEditName(expense.name);
-    setEditAmount(expense.amount.toLocaleString());
-    setEditDueDay(String(expense.dueDay));
+    setFormData({
+      name: expense.name,
+      amount: expense.amount.toLocaleString(),
+      dueDay: String(expense.dueDay),
+      category: expense.category,
+    });
     setShowAddModal(true);
   };
 
   const handleSave = () => {
     Keyboard.dismiss();
     
+    const amount = Number(formData.amount.replace(/,/g, ''));
+    if (!amount || amount <= 0) {
+      alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    if (!formData.name.trim()) {
+      alert('Error', 'Please enter a name');
+      return;
+    }
+    const dueDay = Number(formData.dueDay);
+    if (!dueDay || dueDay < 1 || dueDay > 31) {
+      alert('Error', 'Please enter a valid due day (1-31)');
+      return;
+    }
+    
     if (editingId) {
       // Update existing
-      const amount = Number(editAmount.replace(/,/g, ''));
-      if (!amount || amount <= 0) {
-        alert('Error', 'Please enter a valid amount');
-        return;
-      }
-      if (!editName.trim()) {
-        alert('Error', 'Please enter a name');
-        return;
-      }
-      const dueDay = Number(editDueDay);
-      if (!dueDay || dueDay < 1 || dueDay > 31) {
-        alert('Error', 'Please enter a valid due day (1-31)');
-        return;
-      }
-      
-      // Update in store
       const updated = fixedExpenses.map((e: FixedExpenseItem) => 
-        e.id === editingId ? { ...e, name: editName, amount, dueDay } : e
+        e.id === editingId ? { ...e, name: formData.name, amount, dueDay } : e
       );
       setFixedExpenses(updated);
     } else {
       // Add new
-      const amount = Number(newAmount.replace(/,/g, ''));
-      if (!amount || amount <= 0) {
-        alert('Error', 'Please enter a valid amount');
-        return;
-      }
-      if (!newName.trim()) {
-        alert('Error', 'Please enter a name');
-        return;
-      }
-      const dueDay = Number(newDueDay);
-      if (!dueDay || dueDay < 1 || dueDay > 31) {
-        alert('Error', 'Please enter a valid due day (1-31)');
-        return;
-      }
-      
       addFixedExpense({
-        name: newName,
+        name: formData.name,
         amount,
         dueDay,
-        category: newCategory,
+        category: formData.category,
       });
     }
     
@@ -166,28 +156,27 @@ export default function FixedScreen() {
   };
 
   const resetForm = () => {
-    setNewName('');
-    setNewAmount('');
-    setNewDueDay('1');
-    setNewCategory('other');
+    setFormData({
+      name: '',
+      amount: '',
+      dueDay: '1',
+      category: 'other',
+    });
     setEditingId(null);
-    setEditName('');
-    setEditAmount('');
-    setEditDueDay('1');
   };
 
   const handleContinue = async () => {
-  setIsLoading(true);
-  try {
-    await previewPlan(); // calls API, sets assignResult in store
-    router.push('/(onboarding)/result');
-  } catch (error) {
-    // error is already set in store, but show the real message here too
-    const message = error instanceof Error ? error.message : 'Please try again.';
-    await alert('Could not generate your plan', message);
-  } finally {
-    setIsLoading(false);
-  }
+    setIsLoading(true);
+    try {
+      await previewPlan(); // calls API, sets assignResult in store
+      router.push('/(onboarding)/result');
+    } catch (error) {
+      // error is already set in store, but show the real message here too
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      await alert('Could not generate your plan', message);
+    } finally {
+      setIsLoading(false);
+    }
 };
 
   return (
@@ -307,8 +296,8 @@ export default function FixedScreen() {
               <View style={{ gap: spacing.lg }}>
                 <Input
                   label="Name"
-                  value={editingId ? editName : newName}
-                  onChangeText={editingId ? setEditName : setNewName}
+                  value={formData.name}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, name: text }))}
                   placeholder="e.g., Rent"
                   autoFocus
                   accessible={true}
@@ -317,10 +306,10 @@ export default function FixedScreen() {
 
                 <Input
                   label="Amount (KSh)"
-                  value={editingId ? editAmount : newAmount}
-                  onChangeText={(t) => {
-                    const formatted = formatAmount(t);
-                    editingId ? setEditAmount(formatted) : setNewAmount(formatted);
+                  value={formData.amount}
+                  onChangeText={(text) => {
+                    const formatted = formatAmount(text);
+                    setFormData(prev => ({ ...prev, amount: formatted }));
                   }}
                   placeholder="0"
                   keyboardType="numeric"
@@ -330,10 +319,8 @@ export default function FixedScreen() {
 
                 <Input
                   label="Due day"
-                  value={editingId ? editDueDay : newDueDay}
-                  onChangeText={(t) => {
-                    editingId ? setEditDueDay(t) : setNewDueDay(t);
-                  }}
+                  value={formData.dueDay}
+                  onChangeText={(text) => setFormData(prev => ({ ...prev, dueDay: text }))}
                   placeholder="1"
                   keyboardType="numeric"
                   accessible={true}

@@ -13,6 +13,8 @@ export interface DisplayEvent {
   color: string;
 }
 
+export type DisplayEventOrNull = DisplayEvent | null;
+
 export function formatRelativeTime(iso: string): string {
   const date = new Date(iso);
   const diffDays = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
@@ -23,7 +25,7 @@ export function formatRelativeTime(iso: string): string {
   return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
 }
 
-export function mapBehaviorEvent(event: any, colors: any): DisplayEvent {
+export function mapBehaviorEvent(event: any, colors: any): DisplayEventOrNull {
   const payload = event.payload || {};
   const time = formatRelativeTime(event.created_at);
 
@@ -49,7 +51,11 @@ export function mapBehaviorEvent(event: any, colors: any): DisplayEvent {
     return { title: 'Lock extended', desc, time, color: colors.emerald };
   }
   if (event.type === 'daily_rollover_success') {
-    const amount = payload.amount != null ? `KES ${Number(payload.amount).toLocaleString()} to Savings` : 'Under-cap day';
+    // Hide events with zero amount to avoid showing fake "KES 0 to Savings" for new users
+    if (payload.amount === 0 || payload.amount == null) {
+      return null;
+    }
+    const amount = `KES ${Number(payload.amount).toLocaleString()} to Savings`;
     const pts = payload.points_added ? ` · +${payload.points_added} pts` : '';
     return { title: 'Daily rollover', desc: `${amount}${pts}`, time, color: colors.emerald };
   }

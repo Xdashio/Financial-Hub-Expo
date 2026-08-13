@@ -17,6 +17,19 @@ export class InsightsController {
     return this.insightsService.getDisciplineScore(userId);
   }
 
+  @Get('discipline-score/history')
+  @ApiOperation({ summary: "Get the user's discipline score history for a date range" })
+  @ApiResponse({ status: 200, description: 'Historical discipline scores' })
+  @ApiQuery({ name: 'startDate', required: true, type: String })
+  @ApiQuery({ name: 'endDate', required: true, type: String })
+  getDisciplineScoreHistory(
+    @Request() req: any,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string
+  ) {
+    return this.insightsService.getDisciplineScoreHistory(req.user.id, startDate, endDate);
+  }
+
   @Get('streak')
   @ApiOperation({ summary: "Get the current user's under-cap rollover streak (with grace/freeze)" })
   @ApiResponse({ status: 200, description: 'Current/longest streak and freeze inventory' })

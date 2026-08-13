@@ -6,16 +6,20 @@ import { RolloverService } from '../rollover/rollover.service';
 import type { StreakSummary } from '../rollover/streak';
 
 export interface DisciplineScoreResult {
-  score: number;
+  score: number | null;
   delta: number;
+  period: string;
+  hasHistory: boolean;
 }
 
-// A freshly onboarded user has no behavioral history yet, so there's
-// nothing to penalize - start at full marks with no movement. Imports
-// DEFAULT_SCORE from the shared constants module (same literal
-// DisciplineScoreService uses) so this endpoint and every score-mutating
-// action cannot silently drift apart on a fresh user's starting score.
-const DEFAULT_DISCIPLINE_SCORE: DisciplineScoreResult = { score: DEFAULT_SCORE, delta: 0 };
+// A freshly onboarded user has no behavioral history yet, so return null
+// to indicate "No data yet" instead of a fake 100 score.
+const DEFAULT_DISCIPLINE_SCORE: DisciplineScoreResult = { 
+  score: DEFAULT_SCORE, 
+  delta: 0, 
+  period: new Date().toISOString().slice(0, 7),
+  hasHistory: false 
+};
 
 const BEHAVIOR_EVENTS_LIMIT = 20;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -43,7 +47,16 @@ export class InsightsService {
     if (!latest) {
       return DEFAULT_DISCIPLINE_SCORE;
     }
-    return { score: latest.score, delta: latest.delta };
+    return { 
+      score: latest.score, 
+      delta: latest.delta,
+      period: latest.period,
+      hasHistory: true
+    };
+  }
+
+  async getDisciplineScoreHistory(userId: string, startDate: string, endDate: string) {
+    return this.supabaseRepo.getDisciplineScoreHistory(userId, startDate, endDate);
   }
 
   async getStreak(userId: string): Promise<StreakSummary> {

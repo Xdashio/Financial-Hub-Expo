@@ -137,6 +137,7 @@ export class NotificationSchedulerService {
 
       for (const userId of userIds) {
         const score = await this.disciplineScore.getCurrentScore(userId);
+        if (score === null) continue; // Skip users with no score history
         const result = await this.push.notifyMonthlyInsight(userId, period, score);
         if (result.sent) sent += 1;
       }

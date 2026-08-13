@@ -13,6 +13,13 @@ export default function ModalsLayout() {
       <Stack.Screen name="realloc-cooloff" />
       <Stack.Screen name="realloc-success" />
       <Stack.Screen name="subpocket-create" />
+      <Stack.Screen 
+        name="fixed-expense-form" 
+        options={{
+          presentation: 'formSheet',
+          sheetAllowedDetents: [0.5, 0.75, 1],
+        }}
+      />
     </Stack>
   );
 }

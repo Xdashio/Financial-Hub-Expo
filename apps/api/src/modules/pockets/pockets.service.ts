@@ -6,6 +6,7 @@ import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 import { Pocket, PocketUpdate, PocketInsert, Transaction, MerchantClassification } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class PocketsService {
@@ -90,6 +91,90 @@ export class PocketsService {
       throw new NotFoundException('Pocket not found');
     }
     return updated;
+  }
+
+  /**
+   * Create a new pocket for the user's active plan.
+   * Enforces max 6 pockets limit per plan to prevent cognitive overload.
+   */
+  async createForUser(userId: string, input: unknown): Promise<Pocket> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    // Check pocket count limit (max 6)
+    const existingPockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
+    if (existingPockets.length >= 6) {
+      throw new BadRequestException('Maximum of 6 pockets allowed. Delete or merge existing pockets first.');
+    }
+
+    // Basic validation for top-level pocket creation
+    const data = input as any;
+    if (!data.name || typeof data.name !== 'string' || data.name.trim().length === 0) {
+      throw new BadRequestException('Pocket name is required');
+    }
+
+    // Default to spendable kind if not specified
+    const kind = data.kind || 'spendable';
+    const pocketId = uuidv4();
+
+    const pocketData: PocketInsert = {
+      id: pocketId,
+      plan_id: plan.id,
+      name: data.name,
+      kind,
+      category: data.category || null,
+      monthly_allocation: data.monthlyAllocation || 0,
+      daily_cap: kind === 'spendable' ? (data.dailyCap ?? null) : null,
+      is_time_locked: false,
+      lock_until: null,
+      parent_pocket_id: null,
+    };
+
+    const created = await this.repository.createPocket(pocketData);
+    if (!created) {
+      throw new BadRequestException('Failed to create pocket');
+    }
+
+    return created;
+  }
+
+  /**
+   * Delete a pocket with balance redistribution to other pockets.
+   * - Cannot delete time-locked pockets
+   * - Cannot delete if it has balance (must redistribute first)
+   * - Cannot delete if it's the only pocket remaining
+   */
+  async deleteForUser(pocketId: string, userId: string): Promise<{ deleted: boolean; redistributed?: { toPocketId: string; amount: number }[] }> {
+    const pocket = await this.repository.getPocketById(pocketId);
+    if (!pocket) {
+      throw new NotFoundException('Pocket not found');
+    }
+    await this.assertOwnership(pocket, userId);
+
+    // Cannot delete time-locked pockets
+    if (pocket.is_time_locked) {
+      throw new BadRequestException('Cannot delete a time-locked pocket. Unlock it first.');
+    }
+
+    // Cannot delete if it's the only pocket
+    const plan = await this.repository.getPlanById(pocket.plan_id);
+    const allPockets = await this.repository.getTopLevelPocketsByPlanId(pocket.plan_id);
+    if (allPockets.length <= 1) {
+      throw new BadRequestException('Cannot delete the only pocket. You need at least one pocket.');
+    }
+
+    // Check balance
+    const summary = await this.repository.getPocketSummary(pocketId);
+    if (summary.available > 0) {
+      throw new BadRequestException('Pocket has balance. Reallocate the money to another pocket before deleting.');
+    }
+
+    // Delete the pocket
+    await this.repository.deletePocket(pocketId);
+
+    return { deleted: true };
   }
 
   private parseUpdate(input: unknown): PocketUpdate {
@@ -457,7 +542,7 @@ export class PocketsService {
       },
       discipline_cost: {
         points_deducted: disciplineCost,
-        previous_score: previousScore,
+        previous_score: previousScore === null ? 0 : previousScore,
         new_score: newScore,
         reason: `early_unlock_${daysRemaining}_days`,
       },
@@ -607,7 +692,7 @@ export class PocketsService {
       },
       discipline_bonus: {
         points_added: disciplineBonus,
-        previous_score: previousScore,
+        previous_score: previousScore === null ? 0 : previousScore,
         new_score: newScore,
         reason: `lock_extension_${additionalDays}_days`,
       },

@@ -53,12 +53,26 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
     );
   }
 
-  if (!planPreview || !localPercentages || planPreview.categoryBreakdown.length <= 1) {
-    // Single-pocket persona (students) — nothing to split, editor stays hidden.
+  if (!planPreview || !localPercentages) {
     return null;
   }
 
   const categories = planPreview.categoryBreakdown.map((c) => c.category);
+  
+  // If no categories or single category, show a message about managing pockets
+  if (categories.length <= 1) {
+    return (
+      <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: `${colors.surface}26` }}>
+        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>
+          Adjust your split
+        </Text>
+        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}80`, marginTop: spacing.xs }}>
+          Add more pockets after onboarding to customize your allocation
+        </Text>
+      </View>
+    );
+  }
+
   const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
   const roundedTotal = Math.round(total * 10) / 10;
   const isBalanced = Math.abs(total - 100) < 0.5;

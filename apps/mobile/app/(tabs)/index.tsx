@@ -282,47 +282,17 @@ export default function HomeScreen() {
         </View>
 
         <TouchableOpacity
-          style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
+          style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
           activeOpacity={0.8}
-          onPress={() => router.push('/(modals)/realloc-pick')}
-          accessibilityLabel="Reallocate money between pockets"
-          accessibilityRole="button"
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.plumTint, alignItems: 'center', justifyContent: 'center' }}>
-              <ArrowLeftRight size={16} color={colors.plum} strokeWidth={2} />
-            </View>
-            <Text style={{ ...typography.body, color: colors.ink }}>Reallocate money between pockets</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
-          activeOpacity={0.8}
-          onPress={() => router.push('/(income)/entry')}
-          accessibilityLabel="Add income"
+          onPress={() => router.push('/(modals)/actions')}
+          accessibilityLabel="Manage your money"
           accessibilityRole="button"
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
               <Plus size={16} color={colors.emeraldDeep} strokeWidth={2} />
             </View>
-            <Text style={{ ...typography.body, color: colors.ink }}>Add income</Text>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
-          activeOpacity={0.8}
-          onPress={() => router.push('/(loans)')}
-          accessibilityLabel="Manage loans"
-          accessibilityRole="button"
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.plumTint, alignItems: 'center', justifyContent: 'center' }}>
-              <TrendingUp size={16} color={colors.plum} strokeWidth={2} />
-            </View>
-            <Text style={{ ...typography.body, color: colors.ink }}>Manage loans</Text>
+            <Text style={{ ...typography.body, color: colors.ink }}>Manage your money</Text>
           </View>
         </TouchableOpacity>
 
