@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { InsightsService } from './insights.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { RolloverService } from '../rollover/rollover.service';
+import { NudgesService } from '../nudges/nudges.service';
 
 jest.mock('../../database/supabase.repository');
 jest.mock('../../config/supabase.config');
@@ -11,6 +12,7 @@ describe('InsightsService', () => {
   let service: InsightsService;
   let supabaseRepo: jest.Mocked<SupabaseRepository>;
   let rolloverService: { getStreak: jest.Mock };
+  let nudgesService: { getNudges: jest.Mock };
 
   beforeEach(async () => {
     supabaseRepo = {
@@ -26,12 +28,16 @@ describe('InsightsService', () => {
         todayCounted: false,
       }),
     };
+    nudgesService = {
+      getNudges: jest.fn().mockResolvedValue([]),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InsightsService,
         { provide: SupabaseRepository, useValue: supabaseRepo },
         { provide: RolloverService, useValue: rolloverService },
+        { provide: NudgesService, useValue: nudgesService },
       ],
     }).compile();
 
@@ -97,6 +103,28 @@ describe('InsightsService', () => {
 
       expect(supabaseRepo.getBehaviorEventsByUserId).toHaveBeenCalledWith('user-123', 20);
       expect(result).toHaveLength(1);
+    });
+  });
+
+  describe('getNudges', () => {
+    it('delegates to NudgesService', async () => {
+      const runwayNudge = {
+        type: 'runway_low' as const,
+        pocketId: 'pocket-1',
+        pocketName: 'Transport',
+        dailyVelocity: 200,
+        availableBalance: 500,
+        projectedDaysToDeplete: 2,
+        horizonDays: 5,
+        horizonSource: 'calendar_month' as const,
+        daysShort: 3,
+      };
+      nudgesService.getNudges.mockResolvedValue([runwayNudge]);
+
+      const result = await service.getNudges('user-123');
+
+      expect(nudgesService.getNudges).toHaveBeenCalledWith('user-123');
+      expect(result).toEqual([runwayNudge]);
     });
   });
 });
