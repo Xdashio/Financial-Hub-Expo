@@ -35,23 +35,31 @@ export default function HabitsScreen() {
   const { setHabitsData, input } = useOnboardingStore();
   
   const [spendingHabit, setSpendingHabit] = React.useState<SpendingHabit>('tracker');
+  const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (input.spendingHabit) setSpendingHabit(input.spendingHabit);
   }, [input]);
 
-  const handleContinue = () => {
-    setHabitsData({ spendingHabit: spendingHabit as any });
-    router.push('/(onboarding)/about-you');
+  const handleContinue = async () => {
+    setIsLoading(true);
+    try {
+      setHabitsData({ spendingHabit: spendingHabit as any });
+      router.push('/(onboarding)/about-you');
+    } catch (error) {
+      Alert.alert('Error', 'Could not save your spending habits. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+        <BrandHeader onBack={() => router.back()} />
         <ProgressIndicator currentStep={2} totalSteps={5} />
 
-        <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
+        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 2 of 5 — Spending habits</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>When money runs low near month-end, what usually happens?</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>There&apos;s no wrong answer — this helps us understand your rhythm, not judge it.</Text>
@@ -96,6 +104,7 @@ export default function HabitsScreen() {
         <Button
           fullWidth
           size="lg"
+          loading={isLoading}
           onPress={handleContinue}
           rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >

@@ -56,6 +56,7 @@ export default function IncomeScreen() {
   const [incomeAmount, setIncomeAmount] = React.useState('');
   const [sourceCount, setSourceCount] = React.useState(1);
   const [incomeIntervalBand, setIncomeIntervalBand] = React.useState<IncomeIntervalBand | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (input.incomePattern) setIncomePattern(input.incomePattern);
@@ -88,13 +89,21 @@ export default function IncomeScreen() {
       return;
     }
 
-    setIncomeData({
-      incomePattern: incomePattern as any,
-      incomeAmount: amount,
-      sourceCount,
-      incomeIntervalBand: incomePattern === 'freelancer' ? incomeIntervalBand ?? undefined : undefined,
-    });
-    router.push('/(onboarding)/habits');
+    setIsLoading(true);
+    try {
+      setIncomeData({
+        incomePattern: incomePattern as any,
+        incomeAmount: amount,
+        sourceCount,
+        incomeIntervalBand: incomePattern === 'freelancer' ? incomeIntervalBand ?? undefined : undefined,
+      });
+      router.push('/(onboarding)/habits');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      await alert('Error', message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -213,6 +222,7 @@ export default function IncomeScreen() {
         <Button
           fullWidth
           size="lg"
+          loading={isLoading}
           onPress={handleContinue}
           rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >

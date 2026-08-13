@@ -11,10 +11,19 @@ const logger = new Logger('Bootstrap');
 // Falls back to FRONTEND_URL, then to the local Expo dev server.
 function corsOrigins(): string[] {
   const configured = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:8081';
-  return configured
+  // Always include production Railway URL for web client support
+  const productionUrl = 'https://api-production-8db1.up.railway.app';
+  const origins = configured
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
+  
+  // Add production URL if not already in the list
+  if (!origins.includes(productionUrl)) {
+    origins.push(productionUrl);
+  }
+  
+  return origins;
 }
 
 async function bootstrap() {
@@ -48,7 +57,12 @@ async function bootstrap() {
         const isNgrok = /^https:\/\/[a-zA-Z0-9\-]+\.ngrok(-free)?\.app$/.test(origin) ||
                         /^https:\/\/[a-zA-Z0-9\-]+\.ngrok\.io$/.test(origin) ||
                         /^https:\/\/[a-zA-Z0-9\-]+\.ngrok-free\.dev$/.test(origin);
-        if (isLocalhost || isNgrok) return callback(null, true);
+        const isRailway = /^https:\/\/[a-zA-Z0-9\-]+\.up\.railway\.app$/.test(origin);
+        if (isLocalhost || isNgrok || isRailway) return callback(null, true);
+      } else {
+        // In production, allow the production Railway URL
+        const isProductionRailway = /^https:\/\/api-production-8db1\.up\.railway\.app$/.test(origin);
+        if (isProductionRailway) return callback(null, true);
       }
 
       callback(new Error(`CORS: origin "${origin}" not allowed`), false);

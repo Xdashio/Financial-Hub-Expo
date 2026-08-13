@@ -1,7 +1,7 @@
 import { View, TextInput, Text, Pressable } from 'react-native';
 import { useRef } from 'react';
 import { useTheme } from '../../theme/ThemeContext';
-import { spacing, typography } from '../../theme';
+import { spacing, typography, radius } from '../../theme';
 
 interface OtpInputProps {
   value: string;
@@ -74,48 +74,61 @@ export function OtpInput({
         autoComplete="one-time-code"
       />
       
-      {/* Visual cells for sighted users */}
-      <View style={{ flexDirection: 'row', gap: 16, justifyContent: 'center', width: '100%' }} importantForAccessibility="no">
-        {Array.from({ length: OTP_LENGTH }, (_, i) => (
-          <Pressable
-            key={i}
-            onPress={handleCellPress}
-            disabled={disabled}
-            accessibilityLabel={`Digit ${i + 1}`}
-            accessibilityRole="button"
-            accessibilityState={{ selected: value.length === i }}
-            style={{ flex: 1 }}
-          >
-            <View
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingBottom: spacing.sm,
-                borderBottomWidth: 2,
-                borderBottomColor: value.length > i ? colors.emeraldDeep : error && shouldShowError ? colors.error : colors.line,
-                ...(value.length === i && !disabled && {
-                  borderBottomColor: colors.emeraldDeep,
-                  borderBottomWidth: 3,
-                }),
-                ...(disabled && {
-                  opacity: 0.5,
-                }),
-              }}
+      {/* Visual cells for sighted users - matching mockup design */}
+      <View style={{ flexDirection: 'row', gap: 10, justifyContent: 'center', width: '100%' }} importantForAccessibility="no">
+        {Array.from({ length: OTP_LENGTH }, (_, i) => {
+          const isFilled = value.length > i;
+          const isActive = value.length === i;
+          const isError = error && shouldShowError;
+          
+          return (
+            <Pressable
+              key={i}
+              onPress={handleCellPress}
+              disabled={disabled}
+              accessibilityLabel={`Digit ${i + 1}`}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              style={{ flex: 1, maxWidth: 52 }}
             >
-              <Text
+              <View
                 style={{
-                  ...typography.display,
-                  fontSize: 32,
-                  color: value.length > i ? colors.ink : colors.sage,
-                  fontWeight: '600',
-                  lineHeight: 40,
+                  width: 52,
+                  height: 60,
+                  borderWidth: 1.5,
+                  borderColor: isError ? colors.error : (isActive ? colors.emeraldDeep : colors.line),
+                  borderRadius: radius.sm,
+                  backgroundColor: isFilled ? colors.emeraldTint : colors.surface,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  ...(isActive && !disabled && !isError && {
+                    shadowColor: colors.emeraldTint,
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 1,
+                    shadowRadius: 12,
+                    elevation: 4,
+                  }),
+                  ...(disabled && {
+                    opacity: 0.5,
+                  }),
                 }}
               >
-                {value[i] || ''}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
+                <Text
+                  style={{
+                    ...typography.display,
+                    fontSize: 24,
+                    color: isFilled ? colors.ink : colors.sage,
+                    fontWeight: '700',
+                    lineHeight: 32,
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {value[i] || ''}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        })}
       </View>
       
       {shouldShowError ? <Text style={{ ...typography.caption, color: colors.error, marginTop: spacing.sm }}>{error}</Text> : null}
