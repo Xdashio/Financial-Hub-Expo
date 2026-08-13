@@ -53,7 +53,7 @@ export default function PocketCreateModal() {
     <ScreenContainer>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md }}>
-          <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8}>
+          <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.heading, color: colors.ink }}>Add Pocket</Text>
@@ -137,7 +137,7 @@ export default function PocketCreateModal() {
           </View>
 
           <View style={{ marginTop: spacing.lg }}>
-            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Monthly allocation (KES)</Text>
+            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Monthly allocation (KSh)</Text>
             <TextInput
               value={monthlyAllocation}
               onChangeText={setMonthlyAllocation}
@@ -159,7 +159,7 @@ export default function PocketCreateModal() {
 
           {kind === 'spendable' && (
             <View style={{ marginTop: spacing.lg }}>
-              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Daily cap (KES, optional)</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Daily cap (KSh, optional)</Text>
               <TextInput
                 value={dailyCap}
                 onChangeText={setDailyCap}
