@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, Pressable } from 'react-native';
-import { AlertCircle, RefreshCw } from 'lucide-react-native';
+import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography, radius } from '@/theme';
+import { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton } from './Skeleton';
 
 /**
  * Full-bleed loading state, used in place of the many one-off
@@ -10,8 +11,51 @@ import { spacing, typography, radius } from '@/theme';
  * slightly different sizing, color, and copy. Using this everywhere keeps
  * every "screen is loading" moment in the app looking and feeling the same.
  */
-export function LoadingState({ label }: { label?: string }) {
+export function LoadingState({ label, variant = 'spinner' }: { label?: string; variant?: 'spinner' | 'cards' | 'list' | 'pockets' }) {
   const { colors } = useTheme();
+
+  if (variant === 'spinner') {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md }}>
+        <ActivityIndicator size="large" color={colors.emeraldDeep} />
+        {!!label && (
+          <Text style={{ ...typography.caption, color: colors.sage }}>{label}</Text>
+        )}
+      </View>
+    );
+  }
+
+  if (variant === 'cards') {
+    return (
+      <View style={{ flex: 1, padding: spacing.lg, gap: spacing.md }}>
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'list') {
+    return (
+      <View style={{ flex: 1, padding: spacing.lg }}>
+        <ListItemSkeleton />
+        <ListItemSkeleton />
+        <ListItemSkeleton />
+        <ListItemSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'pockets') {
+    return (
+      <View style={{ flex: 1, padding: spacing.lg }}>
+        <PocketSkeleton />
+        <PocketSkeleton />
+        <PocketSkeleton />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md }}>
       <ActivityIndicator size="large" color={colors.emeraldDeep} />

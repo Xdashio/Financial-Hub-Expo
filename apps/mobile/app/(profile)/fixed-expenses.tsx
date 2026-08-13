@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Modal } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { profileApi } from '@/services/api';
-import { LoadingState, ErrorState } from '@/components/ui';
+import { LoadingState, ErrorState, SearchBar, Toast, BottomSheetModal, EmptyState } from '@/components/ui';
 import { getExpenseIcon } from '@/utils/expenseIcon';
 import {
   ArrowLeft,
@@ -57,6 +57,20 @@ export default function FixedExpensesScreen() {
   const [dueDay, setDueDay] = useState('');
   const [category, setCategory] = useState('');
   const [isSubmittingExpense, setIsSubmittingExpense] = useState(false);
+  
+  // Validation errors
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [amountError, setAmountError] = useState<string | null>(null);
+  const [dueDayError, setDueDayError] = useState<string | null>(null);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [toast, setToast] = useState<{ visible: boolean; message: string; type: 'success' | 'error' | 'info'; actionLabel?: string; onAction?: () => void }>({
+    visible: false,
+    message: '',
+    type: 'info',
+  });
+  const [deletedExpense, setDeletedExpense] = useState<FixedExpense | null>(null);
 
   const categories = [
     { id: 'food', name: 'Food & Groceries', icon: ShoppingCart },
@@ -108,11 +122,51 @@ export default function FixedExpensesScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadExpenses();
+    setRefreshing(false);
+  };
+
+  const filteredExpenses = expenses.filter(expense =>
+    expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    getCategoryDisplayName(expense.category).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const handleAddExpense = async () => {
-    if (!name || !amount || !dueDay || !category) {
-      alert('Missing Information', 'Please fill in all fields.');
-      return;
+    // Validate form
+    let isValid = true;
+    
+    if (!name.trim()) {
+      setNameError('Name is required');
+      isValid = false;
+    } else {
+      setNameError(null);
     }
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      setAmountError('Enter a valid amount');
+      isValid = false;
+    } else {
+      setAmountError(null);
+    }
+    
+    if (!dueDay || parseInt(dueDay) < 1 || parseInt(dueDay) > 31) {
+      setDueDayError('Due day must be between 1 and 31');
+      isValid = false;
+    } else {
+      setDueDayError(null);
+    }
+    
+    if (!category) {
+      setCategoryError('Category is required');
+      isValid = false;
+    } else {
+      setCategoryError(null);
+    }
+    
+    if (!isValid) return;
+    
     // Without this guard, a double-tap on "Add Expense" (slow network, or
     // just an eager tap) fired profileApi.createFixedExpense twice —
     // createFixedExpense always inserts unconditionally, so that produced
@@ -143,9 +197,43 @@ export default function FixedExpensesScreen() {
   };
 
   const handleUpdateExpense = async () => {
+    // Validate form
+    let isValid = true;
+    
     if (!editingExpense || !name || !amount || !dueDay || !category) {
       return;
     }
+    
+    if (!name.trim()) {
+      setNameError('Name is required');
+      isValid = false;
+    } else {
+      setNameError(null);
+    }
+    
+    if (!amount || parseFloat(amount) <= 0) {
+      setAmountError('Enter a valid amount');
+      isValid = false;
+    } else {
+      setAmountError(null);
+    }
+    
+    if (!dueDay || parseInt(dueDay) < 1 || parseInt(dueDay) > 31) {
+      setDueDayError('Due day must be between 1 and 31');
+      isValid = false;
+    } else {
+      setDueDayError(null);
+    }
+    
+    if (!category) {
+      setCategoryError('Category is required');
+      isValid = false;
+    } else {
+      setCategoryError(null);
+    }
+    
+    if (!isValid) return;
+    
     if (isSubmittingExpense) return;
 
     try {
@@ -183,10 +271,36 @@ export default function FixedExpensesScreen() {
     try {
       await profileApi.deleteFixedExpense(expense.id);
 
+      // Store for undo
+      setDeletedExpense(expense);
       setExpenses(expenses.filter((exp) => exp.id !== expense.id));
-      alert('Deleted', 'Fixed expense deleted successfully.');
+      
+      // Show toast with undo
+      setToast({
+        visible: true,
+        message: `"${expense.name}" removed`,
+        type: 'success',
+        actionLabel: 'Undo',
+        onAction: async () => {
+          if (deletedExpense) {
+            try {
+              const restored = await profileApi.createFixedExpense({
+                name: deletedExpense.name,
+                amount: deletedExpense.amount,
+                dueDay: deletedExpense.due_day,
+                category: deletedExpense.category,
+              });
+              setExpenses([...expenses, restored]);
+              setDeletedExpense(null);
+              setToast({ visible: true, message: 'Expense restored', type: 'success' });
+            } catch (error) {
+              setToast({ visible: true, message: 'Unable to restore expense', type: 'error' });
+            }
+          }
+        },
+      });
     } catch (error) {
-      alert('Error', 'Failed to delete expense. Please try again.');
+      setToast({ visible: true, message: 'Unable to remove expense', type: 'error' });
     }
   };
 
@@ -211,6 +325,10 @@ export default function FixedExpensesScreen() {
     setAmount('');
     setDueDay('');
     setCategory('');
+    setNameError(null);
+    setAmountError(null);
+    setDueDayError(null);
+    setCategoryError(null);
   };
 
   const formatCurrency = (amount: number) => {
@@ -227,60 +345,48 @@ export default function FixedExpensesScreen() {
   };
 
   const AddExpenseModal = () => (
-    <Modal
+    <BottomSheetModal
       visible={showAddModal}
-      transparent
-      animationType="slide"
-      onRequestClose={() => {
-        setShowAddModal(false);
-        resetForm();
-      }}
+      onClose={() => { setShowAddModal(false); resetForm(); }}
+      title="Add Fixed Expense"
     >
-      <SafeAreaView style={{ flex: 1, backgroundColor: `${colors.ink}80` }}>
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: spacing.xxl }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.line }}>
-              <Text style={{ ...typography.title, color: colors.ink }}>Add Fixed Expense</Text>
-              <Pressable onPress={() => { setShowAddModal(false); resetForm(); }} style={{ padding: spacing.sm }}>
-                <X size={24} color={colors.ink} />
-              </Pressable>
-            </View>
-
-            <ScrollView style={{ padding: spacing.lg }}>
-              {/* Quick Suggestions */}
-              <View style={{ marginBottom: spacing.lg }}>
-                <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick Add</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {suggestions.map((suggestion) => {
-                    const CategoryIcon = getIconFor(suggestion.name, suggestion.category);
-                    return (
-                      <Pressable
-                        key={suggestion.name}
-                        style={{
-                          marginRight: spacing.sm,
-                          padding: spacing.md,
-                          borderRadius: radius.md,
-                          backgroundColor: colors.surface,
-                          borderWidth: 1,
-                          borderColor: colors.line,
-                          minWidth: 120,
-                        }}
-                        onPress={() => handleUseSuggestion(suggestion)}
-                      >
-                        <View style={{ alignItems: 'center' }}>
-                          <CategoryIcon size={18} color={colors.sage} strokeWidth={2} />
-                          <Text style={{ ...typography.heading, color: colors.ink, marginTop: spacing.xs }}>
-                            {suggestion.name}
-                          </Text>
-                          <Text style={{ ...typography.caption, color: colors.sage }}>
-                            {formatCurrency(suggestion.amount)}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
+      <ScrollView>
+        {/* Quick Suggestions */}
+        <View style={{ marginBottom: spacing.lg }}>
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick Add</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {suggestions.map((suggestion) => {
+              const CategoryIcon = getIconFor(suggestion.name, suggestion.category);
+              return (
+                <Pressable
+                  key={suggestion.name}
+                  style={{
+                    marginRight: spacing.sm,
+                    padding: spacing.md,
+                    borderRadius: radius.md,
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.line,
+                    minWidth: 120,
+                  }}
+                  onPress={() => handleUseSuggestion(suggestion)}
+                  accessibilityLabel={`Add ${suggestion.name} suggestion`}
+                  accessibilityRole="button"
+                >
+                  <View style={{ alignItems: 'center' }}>
+                    <CategoryIcon size={18} color={colors.sage} strokeWidth={2} />
+                    <Text style={{ ...typography.heading, color: colors.ink, marginTop: spacing.xs }}>
+                      {suggestion.name}
+                    </Text>
+                    <Text style={{ ...typography.caption, color: colors.sage }}>
+                      {formatCurrency(suggestion.amount)}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
 
               {/* Form Fields */}
               <View style={{ marginBottom: spacing.md }}>
@@ -293,13 +399,17 @@ export default function FixedExpensesScreen() {
                     borderRadius: radius.md,
                     backgroundColor: colors.surface,
                     borderWidth: 1,
-                    borderColor: colors.line,
+                    borderColor: nameError ? colors.clay : colors.line,
                   }}
                   placeholder="e.g., Rent, Electricity"
                   placeholderTextColor={colors.sage}
                   value={name}
-                  onChangeText={setName}
+                  onChangeText={(text) => {
+                    setName(text);
+                    if (text.trim()) setNameError(null);
+                  }}
                 />
+                {nameError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{nameError}</Text>}
               </View>
 
               <View style={{ marginBottom: spacing.md }}>
@@ -312,14 +422,18 @@ export default function FixedExpensesScreen() {
                     borderRadius: radius.md,
                     backgroundColor: colors.surface,
                     borderWidth: 1,
-                    borderColor: colors.line,
+                    borderColor: amountError ? colors.clay : colors.line,
                   }}
                   placeholder="0.00"
                   placeholderTextColor={colors.sage}
                   value={amount}
-                  onChangeText={setAmount}
+                  onChangeText={(text) => {
+                    setAmount(text);
+                    if (text && parseFloat(text) > 0) setAmountError(null);
+                  }}
                   keyboardType="numeric"
                 />
+                {amountError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{amountError}</Text>}
               </View>
 
               <View style={{ marginBottom: spacing.md }}>
@@ -332,15 +446,20 @@ export default function FixedExpensesScreen() {
                     borderRadius: radius.md,
                     backgroundColor: colors.surface,
                     borderWidth: 1,
-                    borderColor: colors.line,
+                    borderColor: dueDayError ? colors.clay : colors.line,
                   }}
                   placeholder="e.g., 1 for 1st, 15 for 15th"
                   placeholderTextColor={colors.sage}
                   value={dueDay}
-                  onChangeText={setDueDay}
+                  onChangeText={(text) => {
+                    setDueDay(text);
+                    const day = parseInt(text);
+                    if (day >= 1 && day <= 31) setDueDayError(null);
+                  }}
                   keyboardType="numeric"
                   maxLength={2}
                 />
+                {dueDayError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{dueDayError}</Text>}
               </View>
 
               <View style={{ marginBottom: spacing.lg }}>
@@ -354,11 +473,14 @@ export default function FixedExpensesScreen() {
                         style={{
                           padding: spacing.sm,
                           borderRadius: radius.xs,
-                          backgroundColor: category === cat.id ? colors.emeraldDeep : colors.background,
+                          backgroundColor: category === cat.id ? colors.emeraldDeep : colors.surface,
                           borderWidth: 1,
                           borderColor: category === cat.id ? colors.emeraldDeep : colors.line,
                         }}
-                        onPress={() => setCategory(cat.id)}
+                        onPress={() => {
+                          setCategory(cat.id);
+                          setCategoryError(null);
+                        }}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
                           <CategoryIcon size={14} color={category === cat.id ? colors.surface : colors.ink} strokeWidth={2} />
@@ -373,6 +495,7 @@ export default function FixedExpensesScreen() {
                     );
                   })}
                 </View>
+                {categoryError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{categoryError}</Text>}
               </View>
 
               <Pressable
@@ -387,59 +510,48 @@ export default function FixedExpensesScreen() {
                 }}
                 onPress={handleAddExpense}
                 disabled={isSubmittingExpense}
+                accessibilityLabel="Add expense"
+                accessibilityRole="button"
               >
                 <Plus size={20} color={colors.surface} strokeWidth={2} />
                 <Text style={{ ...typography.heading, color: colors.surface, marginLeft: spacing.sm }}>
                   {isSubmittingExpense ? 'Adding…' : 'Add Expense'}
                 </Text>
               </Pressable>
-            </ScrollView>
-          </View>
-        </View>
-      </SafeAreaView>
-    </Modal>
+      </ScrollView>
+    </BottomSheetModal>
   );
 
   const EditExpenseModal = () => (
-    <Modal
+    <BottomSheetModal
       visible={showEditModal}
-      transparent
-      animationType="slide"
-      onRequestClose={() => {
-        setShowEditModal(false);
-        setEditingExpense(null);
-        resetForm();
-      }}
+      onClose={() => { setShowEditModal(false); setEditingExpense(null); resetForm(); }}
+      title="Edit Fixed Expense"
     >
-      <SafeAreaView style={{ flex: 1, backgroundColor: `${colors.ink}80` }}>
-        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: spacing.xxl }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.line }}>
-              <Text style={{ ...typography.title, color: colors.ink }}>Edit Fixed Expense</Text>
-              <Pressable onPress={() => { setShowEditModal(false); setEditingExpense(null); resetForm(); }} style={{ padding: spacing.sm }}>
-                <X size={24} color={colors.ink} />
-              </Pressable>
-            </View>
-
-            <ScrollView style={{ padding: spacing.lg }}>
-              <View style={{ marginBottom: spacing.md }}>
-                <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Name</Text>
-                <TextInput
-                  style={{
-                    ...typography.body,
-                    color: colors.ink,
-                    padding: spacing.md,
-                    borderRadius: radius.md,
-                    backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.line,
-                  }}
-                  placeholder="e.g., Rent, Electricity"
-                  placeholderTextColor={colors.sage}
-                  value={name}
-                  onChangeText={setName}
-                />
-              </View>
+      <ScrollView>
+        <View style={{ marginBottom: spacing.md }}>
+          <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Name</Text>
+          <TextInput
+            style={{
+              ...typography.body,
+              color: colors.ink,
+              padding: spacing.md,
+              borderRadius: radius.md,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: nameError ? colors.clay : colors.line,
+            }}
+            placeholder="e.g., Rent, Electricity"
+            placeholderTextColor={colors.sage}
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              if (text.trim()) setNameError(null);
+            }}
+            accessibilityLabel="Expense name"
+          />
+          {nameError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{nameError}</Text>}
+        </View>
 
               <View style={{ marginBottom: spacing.md }}>
                 <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Amount (KES)</Text>
@@ -451,14 +563,18 @@ export default function FixedExpensesScreen() {
                     borderRadius: radius.md,
                     backgroundColor: colors.surface,
                     borderWidth: 1,
-                    borderColor: colors.line,
+                    borderColor: amountError ? colors.clay : colors.line,
                   }}
                   placeholder="0.00"
                   placeholderTextColor={colors.sage}
                   value={amount}
-                  onChangeText={setAmount}
+                  onChangeText={(text) => {
+                    setAmount(text);
+                    if (text && parseFloat(text) > 0) setAmountError(null);
+                  }}
                   keyboardType="numeric"
                 />
+                {amountError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{amountError}</Text>}
               </View>
 
               <View style={{ marginBottom: spacing.md }}>
@@ -471,15 +587,20 @@ export default function FixedExpensesScreen() {
                     borderRadius: radius.md,
                     backgroundColor: colors.surface,
                     borderWidth: 1,
-                    borderColor: colors.line,
+                    borderColor: dueDayError ? colors.clay : colors.line,
                   }}
                   placeholder="e.g., 1 for 1st, 15 for 15th"
                   placeholderTextColor={colors.sage}
                   value={dueDay}
-                  onChangeText={setDueDay}
+                  onChangeText={(text) => {
+                    setDueDay(text);
+                    const day = parseInt(text);
+                    if (day >= 1 && day <= 31) setDueDayError(null);
+                  }}
                   keyboardType="numeric"
                   maxLength={2}
                 />
+                {dueDayError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{dueDayError}</Text>}
               </View>
 
               <View style={{ marginBottom: spacing.lg }}>
@@ -493,11 +614,14 @@ export default function FixedExpensesScreen() {
                         style={{
                           padding: spacing.sm,
                           borderRadius: radius.xs,
-                          backgroundColor: category === cat.id ? colors.emeraldDeep : colors.background,
+                          backgroundColor: category === cat.id ? colors.emeraldDeep : colors.surface,
                           borderWidth: 1,
                           borderColor: category === cat.id ? colors.emeraldDeep : colors.line,
                         }}
-                        onPress={() => setCategory(cat.id)}
+                        onPress={() => {
+                          setCategory(cat.id);
+                          setCategoryError(null);
+                        }}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
                           <CategoryIcon size={14} color={category === cat.id ? colors.surface : colors.ink} strokeWidth={2} />
@@ -512,6 +636,7 @@ export default function FixedExpensesScreen() {
                     );
                   })}
                 </View>
+                {categoryError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{categoryError}</Text>}
               </View>
 
               <Pressable
@@ -526,17 +651,16 @@ export default function FixedExpensesScreen() {
                 }}
                 onPress={handleUpdateExpense}
                 disabled={isSubmittingExpense}
+                accessibilityLabel="Update expense"
+                accessibilityRole="button"
               >
                 <Check size={20} color={colors.surface} strokeWidth={2} />
                 <Text style={{ ...typography.heading, color: colors.surface, marginLeft: spacing.sm }}>
                   {isSubmittingExpense ? 'Saving…' : 'Update Expense'}
                 </Text>
               </Pressable>
-            </ScrollView>
-          </View>
-        </View>
-      </SafeAreaView>
-    </Modal>
+      </ScrollView>
+    </BottomSheetModal>
   );
 
   if (isLoading) {
@@ -557,7 +681,18 @@ export default function FixedExpensesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: spacing.xxl }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.emeraldDeep}
+            colors={[colors.emeraldDeep]}
+          />
+        }
+      >
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
@@ -608,6 +743,8 @@ export default function FixedExpensesScreen() {
                 backgroundColor: colors.emeraldDeep,
               }}
               onPress={() => setShowAddModal(true)}
+              accessibilityLabel="Add fixed expense"
+              accessibilityRole="button"
             >
               <Plus size={16} color={colors.surface} strokeWidth={2} />
               <Text style={{ ...typography.caption, color: colors.surface, marginLeft: spacing.xs }}>
@@ -616,25 +753,31 @@ export default function FixedExpensesScreen() {
             </Pressable>
           </View>
 
-          {expenses.length === 0 ? (
-            <View style={{ 
-              padding: spacing.xl, 
-              borderRadius: radius.md, 
-              backgroundColor: colors.surface, 
-              borderWidth: 1, 
-              borderColor: colors.line,
-              alignItems: 'center'
-            }}>
-              <Package size={32} color={colors.sage} strokeWidth={2} style={{ marginBottom: spacing.md }} />
-              <Text style={{ ...typography.body, color: colors.sage }}>
-                No fixed expenses yet
-              </Text>
-              <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm }}>
-                Add your recurring costs to track them better
-              </Text>
-            </View>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search expenses..."
+            onClear={() => setSearchQuery('')}
+          />
+
+          {filteredExpenses.length === 0 && expenses.length > 0 ? (
+            <EmptyState
+              icon={Package}
+              title="No expenses match your search"
+              description="Try a different search term"
+              actionLabel="Clear search"
+              onAction={() => setSearchQuery('')}
+            />
+          ) : expenses.length === 0 ? (
+            <EmptyState
+              icon={Package}
+              title="No fixed expenses yet"
+              description="Add your recurring costs to track them better"
+              actionLabel="Add expense"
+              onAction={() => setShowAddModal(true)}
+            />
           ) : (
-            expenses.map((expense) => {
+            filteredExpenses.map((expense) => {
               const CategoryIcon = getIconFor(expense.name, expense.category);
               return (
                 <View 
@@ -676,12 +819,16 @@ export default function FixedExpensesScreen() {
                 <Pressable
                   style={{ padding: spacing.sm }}
                   onPress={() => handleEditExpense(expense)}
+                  accessibilityLabel={`Edit ${expense.name}`}
+                  accessibilityRole="button"
                 >
                   <Edit size={18} color={colors.sage} strokeWidth={2} />
                 </Pressable>
                 <Pressable
                   style={{ padding: spacing.sm }}
                   onPress={() => handleDeleteExpense(expense)}
+                  accessibilityLabel={`Delete ${expense.name}`}
+                  accessibilityRole="button"
                 >
                   <Trash2 size={18} color={colors.clay} strokeWidth={2} />
                 </Pressable>
@@ -696,6 +843,14 @@ export default function FixedExpensesScreen() {
         <EditExpenseModal />
       </ScrollView>
       {modal}
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        actionLabel={toast.actionLabel}
+        onAction={toast.onAction}
+        onDismiss={() => setToast({ ...toast, visible: false })}
+      />
     </SafeAreaView>
   );
 }

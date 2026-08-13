@@ -370,6 +370,8 @@ export default function PocketDetailScreen() {
       ? colors.emeraldDeep
       : pocket?.kind === 'fixed'
       ? colors.gold
+      : pocket?.kind === 'loan'
+      ? colors.plum
       : pocket?.category === 'transport'
       ? colors.plum
       : pocket?.category === 'leisure'
@@ -750,6 +752,42 @@ export default function PocketDetailScreen() {
             <Text style={{ ...typography.caption, color: colors.emeraldDeep, flex: 1, lineHeight: 18 }}>
               Savings are protected — minimum 10% of income is enforced here. Unspent daily amounts roll over into this pocket at midnight.
             </Text>
+          </View>
+        )}
+
+        {/* ── Loan information — loan pockets ── */}
+        {pocket?.kind === 'loan' && (
+          <View
+            style={{
+              marginHorizontal: spacing.lg,
+              marginTop: spacing.xl,
+              backgroundColor: colors.plum + '10',
+              borderRadius: radius.md,
+              borderWidth: 1,
+              borderColor: colors.plum,
+              padding: spacing.lg,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
+              <CircleDollarSign size={18} color={colors.plum} strokeWidth={2} />
+              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Loan Details</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+              <Text style={{ ...typography.caption, color: colors.sage }}>Total Amount</Text>
+              <Text style={{ ...typography.body, color: colors.ink, fontWeight: '600' }}>
+                KES {pocket.monthly_allocation.toLocaleString()}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+              <Text style={{ ...typography.caption, color: colors.sage }}>Status</Text>
+              <Text style={{ ...typography.caption, color: colors.plum, fontWeight: '600' }}>Active</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ ...typography.caption, color: colors.sage }}>Purpose</Text>
+              <Text style={{ ...typography.caption, color: colors.ink }}>
+                {pocket.category ? getMerchantCategoryLabel(pocket.category) : 'General purpose'}
+              </Text>
+            </View>
           </View>
         )}
 

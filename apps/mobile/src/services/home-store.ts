@@ -7,7 +7,7 @@ import { showMilestoneCelebration, showRolloverSuccess } from '@/services/notifi
 export interface Pocket {
   id: string;
   name: string;
-  kind: 'savings' | 'fixed' | 'spendable';
+  kind: 'savings' | 'fixed' | 'spendable' | 'loan';
   category?: string;
   monthlyAllocation: number;
   availableBalance: number;

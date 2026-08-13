@@ -195,6 +195,8 @@ export default function HomeScreen() {
                 paddingHorizontal: spacing.xl,
               }}
               onPress={() => router.push('/(onboarding)/income')}
+              accessibilityLabel="Start onboarding"
+              accessibilityRole="button"
             >
               <Text style={{ ...typography.heading, color: colors.surface, textAlign: 'center' }}>
                 Start Onboarding
@@ -236,6 +238,8 @@ export default function HomeScreen() {
             activeOpacity={0.8}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{ width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}
+            accessibilityLabel="Go to profile"
+            accessibilityRole="button"
           >
             <Text style={{ ...typography.heading, color: colors.gold, fontSize: 14 }}>{initials}</Text>
           </TouchableOpacity>
@@ -281,6 +285,8 @@ export default function HomeScreen() {
           style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
           activeOpacity={0.8}
           onPress={() => router.push('/(modals)/realloc-pick')}
+          accessibilityLabel="Reallocate money between pockets"
+          accessibilityRole="button"
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.plumTint, alignItems: 'center', justifyContent: 'center' }}>
@@ -294,6 +300,8 @@ export default function HomeScreen() {
           style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
           activeOpacity={0.8}
           onPress={() => router.push('/(income)/entry')}
+          accessibilityLabel="Add income"
+          accessibilityRole="button"
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
@@ -307,6 +315,8 @@ export default function HomeScreen() {
           style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
           activeOpacity={0.8}
           onPress={() => router.push('/(loans)')}
+          accessibilityLabel="Manage loans"
+          accessibilityRole="button"
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.plumTint, alignItems: 'center', justifyContent: 'center' }}>

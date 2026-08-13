@@ -19,6 +19,7 @@ import { ThemeProvider, useTheme } from '@/theme/ThemeContext';
 import { registerForPushNotifications } from '@/services/notifications';
 import { initSentry, Sentry } from '@/services/sentry';
 import { flushWriteQueue } from '@/services/offline-queue';
+import { OfflineIndicator } from '@/components/ui';
 
 initSentry();
 
@@ -98,6 +99,7 @@ function RootLayoutInner() {
   return (
     <View style={{ flex: 1, backgroundColor: themeColors.paper }}>
       <ThemedStatusBar />
+      <OfflineIndicator isOffline={false} />
 
       <Stack
         screenOptions={{
@@ -110,6 +112,7 @@ function RootLayoutInner() {
         <Stack.Screen name="(onboarding)" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="(profile)" />
+        <Stack.Screen name="(loans)" />
         <Stack.Screen name="(modals)" options={{ presentation: 'modal' }} />
         <Stack.Screen name="+not-found" />
       </Stack>
