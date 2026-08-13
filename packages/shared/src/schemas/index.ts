@@ -51,8 +51,26 @@ export const PlanNameSchema = z.enum([
   'Salaried — Daily Budget',
   'Freelancer — Structured',
   'Freelancer — Daily Budget',
+  // Income-concentration split within the 'freelancer' income pattern
+  // (audit_team.md item 8, Batch 4 / ONBOARDING_AND_SCORING_REDESIGN.md
+  // §2.1). Display-only — the underlying `IncomePattern` stored on the plan
+  // and used by runway/rollover logic is still just 'freelancer'; 'Gig' is
+  // a plan-name/reasons distinction, not a new stored income pattern.
+  'Gig — Structured',
+  'Gig — Daily Budget',
 ]);
 export type PlanName = z.infer<typeof PlanNameSchema>;
+
+// Income-concentration signal within the 'freelancer' income pattern
+// (audit_team.md item 8, Batch 4). Derived from `sourceCount`, already
+// collected at onboarding: a handful of sources reads as gig/platform-style
+// concentrated income (Bolt/Uber/delivery-app style — volatile day to day
+// but with some payout-cadence predictability); several distinct sources
+// reads as genuinely lumpy multi-client freelance income. Only meaningful
+// when the resolved income pattern is 'freelancer' — undefined for
+// salaried/mix.
+export const IncomeConcentrationSchema = z.enum(['concentrated', 'diversified']);
+export type IncomeConcentration = z.infer<typeof IncomeConcentrationSchema>;
 
 export const TransactionTypeSchema = z.enum([
   'allocation',
@@ -159,6 +177,15 @@ export const OnboardingInputSchema = z.object({
   hasDependents: z.boolean().optional(),
   emergencyBuffer: EmergencyBufferSchema.optional(),
   moneyPersonality: MoneyPersonalitySchema.optional(),
+  // Tri-state, same shape as `hasDependents`: does this person regularly
+  // spend money on transport/commuting? Left undefined when unasked/unknown
+  // (treated as "normal" transport need — today's default even weighting).
+  // Explicit `false` is the remote-worker signal from
+  // ONBOARDING_AND_SCORING_REDESIGN.md §2.5 ("no stated transport need") —
+  // folds the transport category into a smaller share of the spendable
+  // split instead of an even split, without removing the category outright
+  // (a remote worker still occasionally takes transport).
+  hasTransportNeed: z.boolean().optional(),
   // User-adjusted split across spendable category pockets, set on the
   // onboarding result screen (item 3 of audit_team.md). Optional — omitted
   // means "use the rules engine's default weighting". When present, must
@@ -182,6 +209,9 @@ export const OnboardingAssignResultSchema = z.object({
   plan: PlanNameSchema,
   planType: PlanTypeSchema,
   incomePattern: IncomePatternSchema,
+  // Set only when incomePattern resolves to 'freelancer' — see
+  // IncomeConcentrationSchema. Undefined for salaried/mix.
+  incomeConcentration: IncomeConcentrationSchema.optional(),
   reasons: z.array(PlanAssignReasonSchema),
   remainingAfterFixed: z.number(),
   savingsTarget: z.number(),
@@ -526,6 +556,7 @@ export const schemas = {
   PlanStatus: PlanStatusSchema,
   SpendableCategory: SpendableCategorySchema,
   CategoryPercentages: CategoryPercentagesSchema,
+  IncomeConcentration: IncomeConcentrationSchema,
   OnboardingInput: OnboardingInputSchema,
   PlanAssignReason: PlanAssignReasonSchema,
   OnboardingAssignResult: OnboardingAssignResultSchema,

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = void 0;
+exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -40,7 +40,23 @@ exports.PlanNameSchema = zod_1.z.enum([
     'Salaried — Daily Budget',
     'Freelancer — Structured',
     'Freelancer — Daily Budget',
+    // Income-concentration split within the 'freelancer' income pattern
+    // (audit_team.md item 8, Batch 4 / ONBOARDING_AND_SCORING_REDESIGN.md
+    // §2.1). Display-only — the underlying `IncomePattern` stored on the plan
+    // and used by runway/rollover logic is still just 'freelancer'; 'Gig' is
+    // a plan-name/reasons distinction, not a new stored income pattern.
+    'Gig — Structured',
+    'Gig — Daily Budget',
 ]);
+// Income-concentration signal within the 'freelancer' income pattern
+// (audit_team.md item 8, Batch 4). Derived from `sourceCount`, already
+// collected at onboarding: a handful of sources reads as gig/platform-style
+// concentrated income (Bolt/Uber/delivery-app style — volatile day to day
+// but with some payout-cadence predictability); several distinct sources
+// reads as genuinely lumpy multi-client freelance income. Only meaningful
+// when the resolved income pattern is 'freelancer' — undefined for
+// salaried/mix.
+exports.IncomeConcentrationSchema = zod_1.z.enum(['concentrated', 'diversified']);
 exports.TransactionTypeSchema = zod_1.z.enum([
     'allocation',
     'spend',
@@ -121,6 +137,15 @@ exports.OnboardingInputSchema = zod_1.z.object({
     hasDependents: zod_1.z.boolean().optional(),
     emergencyBuffer: exports.EmergencyBufferSchema.optional(),
     moneyPersonality: exports.MoneyPersonalitySchema.optional(),
+    // Tri-state, same shape as `hasDependents`: does this person regularly
+    // spend money on transport/commuting? Left undefined when unasked/unknown
+    // (treated as "normal" transport need — today's default even weighting).
+    // Explicit `false` is the remote-worker signal from
+    // ONBOARDING_AND_SCORING_REDESIGN.md §2.5 ("no stated transport need") —
+    // folds the transport category into a smaller share of the spendable
+    // split instead of an even split, without removing the category outright
+    // (a remote worker still occasionally takes transport).
+    hasTransportNeed: zod_1.z.boolean().optional(),
     // User-adjusted split across spendable category pockets, set on the
     // onboarding result screen (item 3 of audit_team.md). Optional — omitted
     // means "use the rules engine's default weighting". When present, must
@@ -140,6 +165,9 @@ exports.OnboardingAssignResultSchema = zod_1.z.object({
     plan: exports.PlanNameSchema,
     planType: exports.PlanTypeSchema,
     incomePattern: exports.IncomePatternSchema,
+    // Set only when incomePattern resolves to 'freelancer' — see
+    // IncomeConcentrationSchema. Undefined for salaried/mix.
+    incomeConcentration: exports.IncomeConcentrationSchema.optional(),
     reasons: zod_1.z.array(exports.PlanAssignReasonSchema),
     remainingAfterFixed: zod_1.z.number(),
     savingsTarget: zod_1.z.number(),
@@ -420,6 +448,7 @@ exports.schemas = {
     PlanStatus: exports.PlanStatusSchema,
     SpendableCategory: exports.SpendableCategorySchema,
     CategoryPercentages: exports.CategoryPercentagesSchema,
+    IncomeConcentration: exports.IncomeConcentrationSchema,
     OnboardingInput: exports.OnboardingInputSchema,
     PlanAssignReason: exports.PlanAssignReasonSchema,
     OnboardingAssignResult: exports.OnboardingAssignResultSchema,

@@ -4,6 +4,7 @@ import type {
   PlanName,
   PlanType,
   IncomePattern,
+  IncomeConcentration,
   NeedsBand,
   EmergencyBuffer,
   MoneyPersonality,
@@ -14,6 +15,13 @@ export interface PlanAssignment {
   plan: PlanName;
   planType: PlanType;
   incomePattern: IncomePattern;
+  // Income-concentration split within 'freelancer' (audit_team.md item 8,
+  // Batch 4 / ONBOARDING_AND_SCORING_REDESIGN.md §2.1) — gig/platform-style
+  // concentrated income vs. genuinely diversified multi-client freelancing.
+  // Undefined for salaried/mix. Display/reasons only: the stored
+  // `incomePattern` stays 'freelancer' either way, so runway/rollover/nudge
+  // logic (which gates on `income_pattern === 'freelancer'`) is unaffected.
+  incomeConcentration?: IncomeConcentration;
   reasons: PlanAssignReason[];
   remainingAfterFixed: number;
   savingsTarget: number;
@@ -32,7 +40,25 @@ export const MIN_SAVINGS_RATE = 0.10;
 export const NEEDS_RATIO_HIGH = 0.7;
 export const NEEDS_RATIO_MID = 0.4;
 
-function determineIncomePattern(input: OnboardingInput): { pattern: IncomePattern; reason: PlanAssignReason } {
+/**
+ * Income-concentration threshold (audit_team.md item 8, Batch 4).
+ * `sourceCount` is the only concentration signal collected at onboarding
+ * today (no per-source income share) — §2.1's research framing is ">50-75%
+ * of income from one or few platform sources" for gig/platform workers, so
+ * a low source count is used as the proxy: 1-2 sources reads as
+ * concentrated/gig-style, 3+ reads as genuinely diversified multi-client
+ * freelancing. Documented here as a named constant (not inlined) so it's
+ * inspectable and revisitable the same way NEEDS_RATIO_HIGH/MID are.
+ */
+export const GIG_CONCENTRATION_MAX_SOURCES = 2;
+
+function determineIncomeConcentration(sourceCount: number): IncomeConcentration {
+  return sourceCount <= GIG_CONCENTRATION_MAX_SOURCES ? 'concentrated' : 'diversified';
+}
+
+function determineIncomePattern(
+  input: OnboardingInput,
+): { pattern: IncomePattern; concentration?: IncomeConcentration; reason: PlanAssignReason } {
   const { incomePattern } = input;
 
   if (incomePattern === 'salaried') {
@@ -55,18 +81,27 @@ function determineIncomePattern(input: OnboardingInput): { pattern: IncomePatter
     };
   }
 
-  const concentration =
-    input.sourceCount >= 4
-      ? 'from several different places'
-      : input.sourceCount >= 2
-        ? 'from a few different places'
-        : 'mostly from one place';
+  const concentration = determineIncomeConcentration(input.sourceCount);
+
+  if (concentration === 'concentrated') {
+    return {
+      pattern: 'freelancer',
+      concentration,
+      reason: {
+        rule: 'income_pattern_freelancer_gig',
+        reason:
+          'Most of your income comes from one or a couple of platforms — gig/platform-style income. It can swing day to day, but usually follows a payout rhythm rather than being fully unpredictable.',
+      },
+    };
+  }
 
   return {
     pattern: 'freelancer',
+    concentration,
     reason: {
-      rule: 'income_pattern_freelancer',
-      reason: `Your income is irregular and lumpy (freelancer), arriving ${concentration} at unpredictable times.`,
+      rule: 'income_pattern_freelancer_multi_client',
+      reason:
+        'Your income comes from several different clients or sources — genuinely irregular and lumpy (freelancer), arriving at unpredictable times.',
     },
   };
 }
@@ -191,8 +226,13 @@ function determineAllocationStyle(
   };
 }
 
-function buildPlanName(incomePattern: IncomePattern, planType: PlanType): PlanName {
-  const patternLabel = incomePattern === 'salaried' ? 'Salaried' : 'Freelancer';
+function buildPlanName(
+  incomePattern: IncomePattern,
+  planType: PlanType,
+  concentration?: IncomeConcentration,
+): PlanName {
+  const patternLabel =
+    incomePattern === 'salaried' ? 'Salaried' : concentration === 'concentrated' ? 'Gig' : 'Freelancer';
   const styleLabel = planType === 'structured' ? 'Structured' : 'Daily Budget';
   return `${patternLabel} — ${styleLabel}` as PlanName;
 }
@@ -229,9 +269,9 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
   const needsRatio = computeNeedsRatio(incomeAmount, fixedTotal);
   const needsBand = classifyNeedsBand(needsRatio);
 
-  const { pattern: resolvedIncomePattern, reason: patternReason } = determineIncomePattern(input);
+  const { pattern: resolvedIncomePattern, concentration, reason: patternReason } = determineIncomePattern(input);
   const { planType, reason: styleReason } = determineAllocationStyle(input, needsRatio, needsBand);
-  const plan = buildPlanName(resolvedIncomePattern, planType);
+  const plan = buildPlanName(resolvedIncomePattern, planType, concentration);
 
   const savingsTarget = calculateSavingsTarget(incomeAmount, fixedTotal, input.emergencyBuffer);
   const spendableAmount = remainingAfterFixed - savingsTarget;
@@ -261,6 +301,7 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
     plan,
     planType,
     incomePattern: resolvedIncomePattern,
+    incomeConcentration: concentration,
     reasons,
     remainingAfterFixed,
     savingsTarget,

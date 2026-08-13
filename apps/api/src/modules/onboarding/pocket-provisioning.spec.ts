@@ -2,10 +2,12 @@ import type { OnboardingInput } from '@financial-hub/shared';
 import type { PlanAssignment } from './rules-engine';
 import {
   buildPocketInputs,
+  CATEGORY_WEIGHTS,
   defaultCategoryPercentages,
   hasDependentsSignal,
   nextDueDateIso,
   previewSpendableBreakdown,
+  resolveCategoryWeights,
   resolveSpendableCategories,
   validateCategoryPercentages,
 } from './pocket-provisioning';
@@ -141,12 +143,86 @@ describe('pocket-provisioning', () => {
     });
   });
 
+  describe('resolveCategoryWeights (audit_team.md item 8, Batch 5)', () => {
+    it('matches CATEGORY_WEIGHTS when no persona signal is present', () => {
+      const categories = resolveSpendableCategories(baseInput);
+      expect(resolveCategoryWeights(baseInput, categories)).toEqual({
+        food: CATEGORY_WEIGHTS.food,
+        transport: CATEGORY_WEIGHTS.transport,
+        leisure: CATEGORY_WEIGHTS.leisure,
+      });
+    });
+
+    it('folds transport into a smaller share for an explicit remote worker (hasTransportNeed: false)', () => {
+      const input: OnboardingInput = { ...baseInput, hasTransportNeed: false };
+      const categories = resolveSpendableCategories(input);
+      const weights = resolveCategoryWeights(input, categories);
+      expect(weights.transport).toBeLessThan(CATEGORY_WEIGHTS.transport);
+      expect(weights.transport).toBeGreaterThanOrEqual(1);
+      // Transport still exists as a category — just a smaller share, not removed.
+      expect(categories).toContain('transport');
+      // Untouched categories keep their default weight.
+      expect(weights.food).toBe(CATEGORY_WEIGHTS.food);
+    });
+
+    it('does not shrink transport when hasTransportNeed is true or unanswered', () => {
+      const trueInput: OnboardingInput = { ...baseInput, hasTransportNeed: true };
+      const unansweredInput: OnboardingInput = { ...baseInput };
+      expect(resolveCategoryWeights(trueInput, ['food', 'transport', 'leisure']).transport).toBe(
+        CATEGORY_WEIGHTS.transport,
+      );
+      expect(resolveCategoryWeights(unansweredInput, ['food', 'transport', 'leisure']).transport).toBe(
+        CATEGORY_WEIGHTS.transport,
+      );
+    });
+
+    it('elevates family to a first-class weight (matching food) when hasDependents is explicitly true', () => {
+      const input: OnboardingInput = { ...baseInput, hasDependents: true };
+      const categories = resolveSpendableCategories(input);
+      const weights = resolveCategoryWeights(input, categories);
+      expect(weights.family).toBe(CATEGORY_WEIGHTS.food);
+    });
+
+    it('keeps family at the default (smaller) weight when only inferred from a fixed expense, not explicitly confirmed', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        fixedExpenses: [{ name: 'School fees', amount: 5000, dueDay: 5, category: 'education' }],
+      };
+      const categories = resolveSpendableCategories(input);
+      expect(categories).toContain('family');
+      const weights = resolveCategoryWeights(input, categories);
+      expect(weights.family).toBe(CATEGORY_WEIGHTS.family);
+      expect(weights.family).toBeLessThan(weights.food);
+    });
+
+    it('combines both signals: remote worker with confirmed dependents', () => {
+      const input: OnboardingInput = { ...baseInput, hasDependents: true, hasTransportNeed: false };
+      const categories = resolveSpendableCategories(input);
+      const weights = resolveCategoryWeights(input, categories);
+      expect(weights.transport).toBeLessThan(CATEGORY_WEIGHTS.transport);
+      expect(weights.family).toBe(CATEGORY_WEIGHTS.food);
+    });
+  });
+
   describe('defaultCategoryPercentages', () => {
-    it('mirrors the relative weights (food 3 : transport 2 : leisure 2)', () => {
+    it('mirrors the relative weights (food 3 : transport 2 : leisure 2) with no input context', () => {
       const pct = defaultCategoryPercentages(['food', 'transport', 'leisure']);
       expect(pct.food).toBeCloseTo(42.86, 1);
       expect(pct.transport).toBeCloseTo(28.57, 1);
       expect(pct.leisure).toBeCloseTo(28.57, 1);
+    });
+
+    it('shapes the split around a remote worker (smaller transport share) when input is passed', () => {
+      const input: OnboardingInput = { ...baseInput, hasTransportNeed: false };
+      const pct = defaultCategoryPercentages(['food', 'transport', 'leisure'], input);
+      expect(pct.transport).toBeLessThan(28.57);
+      expect(pct.food! + pct.transport! + pct.leisure!).toBeCloseTo(100, 0);
+    });
+
+    it('shapes the split around confirmed dependents (family on par with food) when input is passed', () => {
+      const input: OnboardingInput = { ...baseInput, hasDependents: true };
+      const pct = defaultCategoryPercentages(['food', 'transport', 'leisure', 'family'], input);
+      expect(pct.family).toBeCloseTo(pct.food!, 1);
     });
   });
 
@@ -263,6 +339,26 @@ describe('pocket-provisioning', () => {
       const breakdown = previewSpendableBreakdown(structuredAssignment, input);
       expect(breakdown).toHaveLength(1);
       expect(breakdown[0].percentage).toBe(100);
+    });
+
+    it('folds transport into a smaller default share for a remote worker (Batch 5)', () => {
+      const remoteInput: OnboardingInput = { ...baseInput, hasTransportNeed: false };
+      const breakdown = previewSpendableBreakdown(structuredAssignment, remoteInput);
+      const byCategory = Object.fromEntries(breakdown.map((b) => [b.category, b]));
+      const defaultBreakdown = previewSpendableBreakdown(structuredAssignment, baseInput);
+      const defaultByCategory = Object.fromEntries(defaultBreakdown.map((b) => [b.category, b]));
+      expect(byCategory.transport.percentage).toBeLessThan(defaultByCategory.transport.percentage);
+      const total = breakdown.reduce((sum, b) => sum + b.amount, 0);
+      expect(total).toBeCloseTo(structuredAssignment.spendableAmount);
+    });
+
+    it('gives family a first-class default share for confirmed dependents (Batch 5)', () => {
+      const input: OnboardingInput = { ...baseInput, hasDependents: true };
+      const breakdown = previewSpendableBreakdown(structuredAssignment, input);
+      const byCategory = Object.fromEntries(breakdown.map((b) => [b.category, b]));
+      expect(byCategory.family.percentage).toBeCloseTo(byCategory.food.percentage, 0);
+      const total = breakdown.reduce((sum, b) => sum + b.amount, 0);
+      expect(total).toBeCloseTo(structuredAssignment.spendableAmount);
     });
   });
 });
