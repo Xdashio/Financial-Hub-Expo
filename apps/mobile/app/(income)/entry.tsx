@@ -199,10 +199,6 @@ export default function IncomeEntryScreen() {
     try {
       setIsSubmitting(true);
 
-      let allocationData: any = { target: optionId as 'main_pocket' | 'pocket' | 'new_pocket' };
-
-      // For now, we'll handle main_pocket directly
-      // pocket and new_pocket will need additional UI flows
       if (optionId === 'pocket') {
         // Navigate to pocket picker screen
         setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
@@ -232,7 +228,9 @@ export default function IncomeEntryScreen() {
       }
 
       // Handle main_pocket allocation
-      await incomeApi.allocateSurplus(surplusPrompt.incomeEventId, allocationData);
+      await incomeApi.allocateSurplus(surplusPrompt.incomeEventId, {
+        target: 'main_pocket',
+      });
 
       // Refresh data and navigate to success
       useDataSync.getState().bump();
@@ -251,6 +249,7 @@ export default function IncomeEntryScreen() {
     } catch (error: any) {
       const message = error?.message || 'Failed to allocate surplus. Please try again.';
       alert('Allocation failed', message);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -306,7 +305,7 @@ export default function IncomeEntryScreen() {
                 value={amount}
                 onChangeText={(text) => setAmount(formatAmountInput(text))}
                 keyboardType="number-pad"
-                placeholder="0"
+                placeholder="50,000"
                 placeholderTextColor={colors.sage}
                 style={{
                   flex: 1,

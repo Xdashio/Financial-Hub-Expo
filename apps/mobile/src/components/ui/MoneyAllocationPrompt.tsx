@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Modal, Pressable, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeContext';
-import { radius, spacing, typography, shadow, borderWidth, borderWidthThick } from '@/theme';
+import { radius, spacing, typography, shadow, borderWidth } from '@/theme';
 import { Button } from './Button';
 import { ArrowRight, Plus, Wallet, Building2 } from 'lucide-react-native';
 

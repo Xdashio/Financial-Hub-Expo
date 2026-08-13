@@ -111,7 +111,15 @@ export function StreakHeatmap() {
   }, []);
 
   React.useEffect(() => {
-    load(range);
+    let cancelled = false;
+    const fetchData = async () => {
+      if (cancelled) return;
+      await load(range);
+    };
+    fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [range, load]);
 
   // Prefer the backend under-cap streak (rollover successes + grace/freeze).
