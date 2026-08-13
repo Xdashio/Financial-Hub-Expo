@@ -9,7 +9,8 @@
       "distribution": "internal",
       "environment": "development",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-8db1.up.railway.app/api"
+        "EXPO_PUBLIC_API_URL": "https://api-production-8db1.up.railway.app/api",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
         "buildType": "apk"
@@ -19,7 +20,8 @@
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-8db1.up.railway.app/api"
+        "EXPO_PUBLIC_API_URL": "https://api-production-8db1.up.railway.app/api",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
         "buildType": "apk"
@@ -28,7 +30,9 @@
     "production": {
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-8db1.up.railway.app/api"
+        "EXPO_PUBLIC_API_URL": "https://api-production-8db1.up.railway.app/api",
+        "SENTRY_ORG": "singason",
+        "SENTRY_PROJECT": "financial_hub"
       },
       "android": {
         "buildType": "app-bundle"
