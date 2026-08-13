@@ -41,6 +41,7 @@ export class OnboardingService {
       plan: assignment.plan,
       planType: assignment.planType,
       incomePattern: assignment.incomePattern,
+      incomeConcentration: assignment.incomeConcentration,
       reasons: assignment.reasons,
       remainingAfterFixed: assignment.remainingAfterFixed,
       savingsTarget: assignment.savingsTarget,
@@ -65,12 +66,13 @@ export class OnboardingService {
     const categoryBreakdown = previewSpendableBreakdown(assignment, input);
     const categories = resolveSpendableCategories(input);
     const categoryPercentages =
-      input.categoryPercentages ?? defaultCategoryPercentages(categories);
+      input.categoryPercentages ?? defaultCategoryPercentages(categories, input);
 
     return {
       plan: assignment.plan,
       planType: assignment.planType,
       incomePattern: assignment.incomePattern,
+      incomeConcentration: assignment.incomeConcentration,
       reasons: assignment.reasons,
       remainingAfterFixed: assignment.remainingAfterFixed,
       savingsTarget: assignment.savingsTarget,
@@ -144,6 +146,7 @@ export class OnboardingService {
         planId,
         planType: assignment.planType,
         incomePattern: assignment.incomePattern,
+        incomeConcentration: assignment.incomeConcentration,
       },
     });
 
@@ -273,6 +276,7 @@ export class OnboardingService {
         planId,
         planType: assignment.planType,
         incomePattern: assignment.incomePattern,
+        incomeConcentration: assignment.incomeConcentration,
         totalMoved,
         movementCount: movementPlans.length,
       },

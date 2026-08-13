@@ -14,6 +14,6 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-// Main entry point for @financial-hub/shared
 __exportStar(require("./schemas"), exports);
 __exportStar(require("./merchant-categories"), exports);
+//# sourceMappingURL=index.d.ts.map

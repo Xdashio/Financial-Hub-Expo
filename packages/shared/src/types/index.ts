@@ -24,6 +24,7 @@ export type {
   EmergencyBuffer,
   MoneyPersonality,
   NeedsBand,
+  IncomeConcentration,
   User,
   Pocket,
   Plan,

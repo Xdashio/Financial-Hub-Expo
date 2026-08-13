@@ -12,8 +12,10 @@ export type IncomeIntervalBand = z.infer<typeof IncomeIntervalBandSchema>;
 export declare const IncomeIntervalDaysByBand: Record<IncomeIntervalBand, number>;
 export declare const SpendingHabitSchema: z.ZodEnum<["tracker", "week3", "off_guard"]>;
 export type SpendingHabit = z.infer<typeof SpendingHabitSchema>;
-export declare const PlanNameSchema: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+export declare const PlanNameSchema: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
 export type PlanName = z.infer<typeof PlanNameSchema>;
+export declare const IncomeConcentrationSchema: z.ZodEnum<["concentrated", "diversified"]>;
+export type IncomeConcentration = z.infer<typeof IncomeConcentrationSchema>;
 export declare const TransactionTypeSchema: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 export declare const ReallocationStatusSchema: z.ZodEnum<["pending", "cooling_off", "completed", "skipped"]>;
@@ -81,6 +83,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     hasDependents: z.ZodOptional<z.ZodBoolean>;
     emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
     moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
+    hasTransportNeed: z.ZodOptional<z.ZodBoolean>;
     categoryPercentages: z.ZodOptional<z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
     incomePattern: "salaried" | "freelancer" | "mix";
@@ -99,6 +102,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     hasDependents?: boolean | undefined;
     emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
     moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+    hasTransportNeed?: boolean | undefined;
     categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
@@ -117,6 +121,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     hasDependents?: boolean | undefined;
     emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
     moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+    hasTransportNeed?: boolean | undefined;
     categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
 }>;
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
@@ -138,9 +143,10 @@ export declare const PlanAssignReasonSchema: z.ZodObject<{
 }>;
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 export declare const OnboardingAssignResultSchema: z.ZodObject<{
-    plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+    plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
     planType: z.ZodEnum<["structured", "daily"]>;
     incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+    incomeConcentration: z.ZodOptional<z.ZodEnum<["concentrated", "diversified"]>>;
     reasons: z.ZodArray<z.ZodObject<{
         rule: z.ZodString;
         reason: z.ZodString;
@@ -166,7 +172,7 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
     incomePattern: "salaried" | "freelancer" | "mix";
     needsRatio: number;
     needsBand: "high" | "mid" | "low";
-    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
     planType: "structured" | "daily";
     reasons: {
         rule: string;
@@ -177,11 +183,12 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
     remainingAfterFixed: number;
     savingsTarget: number;
     spendableAmount: number;
+    incomeConcentration?: "concentrated" | "diversified" | undefined;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
     needsRatio: number;
     needsBand: "high" | "mid" | "low";
-    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
     planType: "structured" | "daily";
     reasons: {
         rule: string;
@@ -192,6 +199,7 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
     remainingAfterFixed: number;
     savingsTarget: number;
     spendableAmount: number;
+    incomeConcentration?: "concentrated" | "diversified" | undefined;
 }>;
 export type OnboardingAssignResult = z.infer<typeof OnboardingAssignResultSchema>;
 export declare const CategoryAllocationPreviewSchema: z.ZodObject<{
@@ -218,9 +226,10 @@ export type CategoryAllocationPreview = z.infer<typeof CategoryAllocationPreview
  *  per-category breakdown of the spendable amount, used by the onboarding
  *  result screen's percentage editor (audit_team.md item 3). */
 export declare const PlanPreviewResultSchema: z.ZodObject<{
-    plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+    plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
     planType: z.ZodEnum<["structured", "daily"]>;
     incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+    incomeConcentration: z.ZodOptional<z.ZodEnum<["concentrated", "diversified"]>>;
     reasons: z.ZodArray<z.ZodObject<{
         rule: z.ZodString;
         reason: z.ZodString;
@@ -268,7 +277,7 @@ export declare const PlanPreviewResultSchema: z.ZodObject<{
     categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
     needsRatio: number;
     needsBand: "high" | "mid" | "low";
-    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
     planType: "structured" | "daily";
     reasons: {
         rule: string;
@@ -286,12 +295,13 @@ export declare const PlanPreviewResultSchema: z.ZodObject<{
         percentage: number;
         dailyCap?: number | undefined;
     }[];
+    incomeConcentration?: "concentrated" | "diversified" | undefined;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
     categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
     needsRatio: number;
     needsBand: "high" | "mid" | "low";
-    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+    plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
     planType: "structured" | "daily";
     reasons: {
         rule: string;
@@ -309,6 +319,7 @@ export declare const PlanPreviewResultSchema: z.ZodObject<{
         percentage: number;
         dailyCap?: number | undefined;
     }[];
+    incomeConcentration?: "concentrated" | "diversified" | undefined;
 }>;
 export type PlanPreviewResult = z.infer<typeof PlanPreviewResultSchema>;
 export declare const OnboardingCommitResultSchema: z.ZodObject<{
@@ -1215,7 +1226,7 @@ export declare const schemas: {
     EmergencyBuffer: z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>;
     MoneyPersonality: z.ZodEnum<["spender", "saver", "avoider"]>;
     NeedsBand: z.ZodEnum<["high", "mid", "low"]>;
-    PlanName: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+    PlanName: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
     TransactionType: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
     ReallocationStatus: z.ZodEnum<["pending", "cooling_off", "completed", "skipped"]>;
     ReallocationReason: z.ZodEnum<["emergency", "unexpected_expense", "income_change", "priority_shift", "other"]>;
@@ -1223,6 +1234,7 @@ export declare const schemas: {
     PlanStatus: z.ZodEnum<["active", "inactive", "reassigned"]>;
     SpendableCategory: z.ZodEnum<["food", "transport", "leisure", "family"]>;
     CategoryPercentages: z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>;
+    IncomeConcentration: z.ZodEnum<["concentrated", "diversified"]>;
     OnboardingInput: z.ZodObject<{
         incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
         spendingHabit: z.ZodEnum<["tracker", "week3", "off_guard"]>;
@@ -1250,6 +1262,7 @@ export declare const schemas: {
         hasDependents: z.ZodOptional<z.ZodBoolean>;
         emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
         moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
+        hasTransportNeed: z.ZodOptional<z.ZodBoolean>;
         categoryPercentages: z.ZodOptional<z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>>;
     }, "strip", z.ZodTypeAny, {
         incomePattern: "salaried" | "freelancer" | "mix";
@@ -1268,6 +1281,7 @@ export declare const schemas: {
         hasDependents?: boolean | undefined;
         emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
         moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+        hasTransportNeed?: boolean | undefined;
         categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
@@ -1286,6 +1300,7 @@ export declare const schemas: {
         hasDependents?: boolean | undefined;
         emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
         moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
+        hasTransportNeed?: boolean | undefined;
         categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
     }>;
     PlanAssignReason: z.ZodObject<{
@@ -1305,9 +1320,10 @@ export declare const schemas: {
         needsBand?: "high" | "mid" | "low" | undefined;
     }>;
     OnboardingAssignResult: z.ZodObject<{
-        plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+        plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
         planType: z.ZodEnum<["structured", "daily"]>;
         incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+        incomeConcentration: z.ZodOptional<z.ZodEnum<["concentrated", "diversified"]>>;
         reasons: z.ZodArray<z.ZodObject<{
             rule: z.ZodString;
             reason: z.ZodString;
@@ -1333,7 +1349,7 @@ export declare const schemas: {
         incomePattern: "salaried" | "freelancer" | "mix";
         needsRatio: number;
         needsBand: "high" | "mid" | "low";
-        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
         planType: "structured" | "daily";
         reasons: {
             rule: string;
@@ -1344,11 +1360,12 @@ export declare const schemas: {
         remainingAfterFixed: number;
         savingsTarget: number;
         spendableAmount: number;
+        incomeConcentration?: "concentrated" | "diversified" | undefined;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
         needsRatio: number;
         needsBand: "high" | "mid" | "low";
-        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
         planType: "structured" | "daily";
         reasons: {
             rule: string;
@@ -1359,6 +1376,7 @@ export declare const schemas: {
         remainingAfterFixed: number;
         savingsTarget: number;
         spendableAmount: number;
+        incomeConcentration?: "concentrated" | "diversified" | undefined;
     }>;
     CategoryAllocationPreview: z.ZodObject<{
         category: z.ZodEnum<["food", "transport", "leisure", "family"]>;
@@ -1380,9 +1398,10 @@ export declare const schemas: {
         dailyCap?: number | undefined;
     }>;
     PlanPreviewResult: z.ZodObject<{
-        plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget"]>;
+        plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
         planType: z.ZodEnum<["structured", "daily"]>;
         incomePattern: z.ZodEnum<["salaried", "freelancer", "mix"]>;
+        incomeConcentration: z.ZodOptional<z.ZodEnum<["concentrated", "diversified"]>>;
         reasons: z.ZodArray<z.ZodObject<{
             rule: z.ZodString;
             reason: z.ZodString;
@@ -1430,7 +1449,7 @@ export declare const schemas: {
         categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
         needsRatio: number;
         needsBand: "high" | "mid" | "low";
-        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
         planType: "structured" | "daily";
         reasons: {
             rule: string;
@@ -1448,12 +1467,13 @@ export declare const schemas: {
             percentage: number;
             dailyCap?: number | undefined;
         }[];
+        incomeConcentration?: "concentrated" | "diversified" | undefined;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
         categoryPercentages: Partial<Record<"food" | "transport" | "leisure" | "family", number>>;
         needsRatio: number;
         needsBand: "high" | "mid" | "low";
-        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget";
+        plan: "Salaried — Structured" | "Salaried — Daily Budget" | "Freelancer — Structured" | "Freelancer — Daily Budget" | "Gig — Structured" | "Gig — Daily Budget";
         planType: "structured" | "daily";
         reasons: {
             rule: string;
@@ -1471,6 +1491,7 @@ export declare const schemas: {
             percentage: number;
             dailyCap?: number | undefined;
         }[];
+        incomeConcentration?: "concentrated" | "diversified" | undefined;
     }>;
     OnboardingCommitResult: z.ZodObject<{
         planId: z.ZodString;

@@ -19,13 +19,61 @@ export const CATEGORY_NAMES: Record<SpendableCategory, string> = {
   family: 'Family & obligations',
 };
 
-/** Relative weights when splitting spendable money across category pockets. */
+/** Default relative weights when splitting spendable money across category
+ *  pockets. This is the baseline `resolveCategoryWeights` starts from — kept
+ *  exported/named for tests and for `defaultCategoryPercentages` callers
+ *  that don't have persona context to shape from. */
 export const CATEGORY_WEIGHTS: Record<SpendableCategory, number> = {
   food: 3,
   transport: 2,
   leisure: 2,
   family: 2,
 };
+
+/**
+ * Persona-shaped category weights (ONBOARDING_AND_SCORING_REDESIGN.md §2.5,
+ * audit_team.md item 8 Batch 5) — starts from CATEGORY_WEIGHTS and adjusts:
+ *
+ * - Remote-worker transport handling: an explicit `hasTransportNeed: false`
+ *   ("no stated transport need") folds transport into a smaller share of
+ *   the split rather than an even weight — halved and floored at 1 so the
+ *   category still exists (a remote worker still occasionally takes
+ *   transport) but stops competing evenly with food/leisure/family.
+ * - Dependents-aware category folding: family's weight scales with how
+ *   confident the dependents signal is. An explicit `hasDependents: true`
+ *   answer is a strong, deliberate signal — family is folded in as a
+ *   first-class need on par with food (matches its weight) rather than the
+ *   smaller leftover share it gets when only inferred from a family/
+ *   education fixed expense line (`hasDependentsSignal` true but
+ *   `hasDependents` not explicitly answered) — that weaker, inferred case
+ *   keeps the original default weight.
+ *
+ * Only categories actually present in `categories` are included in the
+ * result (mirrors `resolveSpendableCategories`'s output), so callers can
+ * pass the result straight into a weighted split without filtering.
+ */
+export function resolveCategoryWeights(
+  input: OnboardingInput,
+  categories: SpendableCategory[],
+): Record<SpendableCategory, number> {
+  const weights = {} as Record<SpendableCategory, number>;
+
+  for (const category of categories) {
+    let weight = CATEGORY_WEIGHTS[category];
+
+    if (category === 'transport' && input.hasTransportNeed === false) {
+      weight = Math.max(1, Math.round(weight / 2));
+    }
+
+    if (category === 'family' && input.hasDependents === true) {
+      weight = CATEGORY_WEIGHTS.food;
+    }
+
+    weights[category] = weight;
+  }
+
+  return weights;
+}
 
 export interface PocketInsertInput {
   id: string;
@@ -176,8 +224,10 @@ export function previewSpendableBreakdown(
     ];
   }
 
+  const weights = resolveCategoryWeights(input, categories);
+
   if (assignment.planType === 'structured') {
-    const allocations = splitByWeights(assignment.spendableAmount, categories, overrides);
+    const allocations = splitByWeights(assignment.spendableAmount, categories, weights, overrides);
     return categories.map((category) => ({
       category,
       name: CATEGORY_NAMES[category],
@@ -191,7 +241,7 @@ export function previewSpendableBreakdown(
   // pocket's planning ceiling.
   const daysInMonth = spendableDaysInMonth(assignment);
   const dailySpendable = assignment.spendableAmount / daysInMonth;
-  const dailyByCategory = splitByWeights(dailySpendable, categories, overrides);
+  const dailyByCategory = splitByWeights(dailySpendable, categories, weights, overrides);
 
   return categories.map((category) => {
     const dailyCap = round2(dailyByCategory[category]);
@@ -207,9 +257,17 @@ export function previewSpendableBreakdown(
 }
 
 /** Default weighting (no user override) as percentages, for seeding the
- *  result-screen editor before the user has touched anything. */
-export function defaultCategoryPercentages(categories: SpendableCategory[]): CategoryPercentages {
-  const weights = categories.map((c) => CATEGORY_WEIGHTS[c]);
+ *  result-screen editor before the user has touched anything. `input` is
+ *  optional so existing category-only callers keep working (falls back to
+ *  the flat CATEGORY_WEIGHTS); pass it to get persona-shaped weights
+ *  (remote-worker transport folding, dependents-aware family weighting —
+ *  see `resolveCategoryWeights`). */
+export function defaultCategoryPercentages(
+  categories: SpendableCategory[],
+  input?: OnboardingInput,
+): CategoryPercentages {
+  const weightMap = input ? resolveCategoryWeights(input, categories) : CATEGORY_WEIGHTS;
+  const weights = categories.map((c) => weightMap[c]);
   const weightSum = weights.reduce((s, w) => s + w, 0);
   const result: CategoryPercentages = {};
   categories.forEach((category, i) => {
@@ -338,12 +396,14 @@ function daysInUtcMonth(year: number, monthIndex: number): number {
 /**
  * Splits `total` across `categories`, either by each category's percentage
  * in `overridePercentages` (user-edited split) or, when no override is
- * given, by the default relative weights. The last category always absorbs
- * the rounding remainder so the parts sum exactly to `total`.
+ * given, by `weights` (persona-shaped — see `resolveCategoryWeights`). The
+ * last category always absorbs the rounding remainder so the parts sum
+ * exactly to `total`.
  */
 function splitByWeights(
   total: number,
   categories: SpendableCategory[],
+  weights: Record<SpendableCategory, number>,
   overridePercentages?: CategoryPercentages,
 ): Record<SpendableCategory, number> {
   const result = {} as Record<SpendableCategory, number>;
@@ -352,9 +412,9 @@ function splitByWeights(
   const shares: number[] = overridePercentages
     ? categories.map((c) => (overridePercentages[c] ?? 0) / 100)
     : (() => {
-        const weights = categories.map((c) => CATEGORY_WEIGHTS[c]);
-        const weightSum = weights.reduce((s, w) => s + w, 0);
-        return weights.map((w) => w / weightSum);
+        const categoryWeights = categories.map((c) => weights[c]);
+        const weightSum = categoryWeights.reduce((s, w) => s + w, 0);
+        return categoryWeights.map((w) => w / weightSum);
       })();
 
   let assigned = 0;
