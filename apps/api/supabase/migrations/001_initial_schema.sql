@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.plans (
   type TEXT NOT NULL CHECK (type IN ('structured', 'daily')),
   income_pattern TEXT NOT NULL CHECK (income_pattern IN ('salaried', 'freelancer')),
   status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'reassigned')),
+  expected_income_amount NUMERIC CHECK (expected_income_amount IS NULL OR expected_income_amount >= 0),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   reassigned_at TIMESTAMPTZ
 );
@@ -92,6 +93,8 @@ CREATE TABLE IF NOT EXISTS public.income_events (
   label TEXT CHECK (label IS NULL OR char_length(label) <= 200),
   date DATE NOT NULL,
   run_allocation BOOLEAN NOT NULL DEFAULT TRUE,
+  unallocated_surplus NUMERIC CHECK (unallocated_surplus IS NULL OR unallocated_surplus >= 0),
+  surplus_allocation_status TEXT CHECK (surplus_allocation_status IN ('pending', 'allocated', 'skipped')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -325,6 +328,7 @@ CREATE INDEX IF NOT EXISTS idx_fixed_expenses_due_day ON public.fixed_expenses(d
 -- Income Events
 CREATE INDEX IF NOT EXISTS idx_income_events_user_id ON public.income_events(user_id);
 CREATE INDEX IF NOT EXISTS idx_income_events_date ON public.income_events(date);
+CREATE INDEX IF NOT EXISTS idx_income_events_surplus_status ON public.income_events(surplus_allocation_status) WHERE surplus_allocation_status = 'pending';
 
 -- Transactions
 CREATE INDEX IF NOT EXISTS idx_transactions_pocket_id ON public.transactions(pocket_id);
