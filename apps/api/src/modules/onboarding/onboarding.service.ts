@@ -100,6 +100,7 @@ export class OnboardingService {
       type: assignment.planType,
       income_pattern: dbIncomePattern,
       income_interval_days: assignment.incomeIntervalDays ?? null,
+      expected_income_amount: input.incomeAmount ?? null,
       status: 'active',
     });
 
@@ -216,6 +217,7 @@ export class OnboardingService {
         type: assignment.planType,
         income_pattern: dbIncomePattern,
         income_interval_days: assignment.incomeIntervalDays ?? null,
+        expected_income_amount: input.incomeAmount ?? null,
         status: 'active',
       });
 

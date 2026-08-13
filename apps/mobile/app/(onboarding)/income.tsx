@@ -179,7 +179,7 @@ export default function IncomeScreen() {
           label="Average monthly income (after tax)"
           value={incomeAmount}
           onChangeText={handleAmountChange}
-          placeholder="68,000"
+          placeholder="50,000"
           keyboardType="numeric"
           textContentType="none"
           leftElement={<Text style={{ ...typography.body, fontSize: 15, color: colors.sage }}>KSh</Text>}
