@@ -20,6 +20,7 @@ import { registerForPushNotifications } from '@/services/notifications';
 import { initSentry, Sentry } from '@/services/sentry';
 import { flushWriteQueue } from '@/services/offline-queue';
 import { OfflineIndicator } from '@/components/ui';
+import { AppLockGate } from '@/components/auth/AppLockGate';
 
 initSentry();
 
@@ -104,21 +105,27 @@ function RootLayoutInner() {
       <ThemedStatusBar />
       <OfflineIndicator isOffline={false} />
 
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="landing" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(onboarding)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="(profile)" />
-        <Stack.Screen name="(loans)" />
-        <Stack.Screen name="(modals)" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+      {/* Gates on cold start + on resume after backgrounding — see
+          AppLockGate for details. Wraps the whole navigator (not a
+          per-screen check) so it blocks all navigation until
+          authenticated, per FLUTTER_TO_EXPO_PORT_GUIDE.md §10. */}
+      <AppLockGate>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="landing" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(onboarding)" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="(profile)" />
+          <Stack.Screen name="(loans)" />
+          <Stack.Screen name="(modals)" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </AppLockGate>
     </View>
   );
 }
