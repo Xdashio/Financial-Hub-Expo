@@ -131,50 +131,54 @@ export class IncomeService {
     const normalAllocationAmount = hasSurplus ? plan.expected_income_amount! : dto.amount;
     const surplusAmount = hasSurplus ? dto.amount - plan.expected_income_amount! : 0;
 
-    // Create income event with surplus tracking.
-    // Use '' instead of null for label: older production DBs still have
-    // `label NOT NULL` (migration ALTER may not have been applied), which
-    // turned every unlabeled POST /income/manual into an opaque 500.
-    const incomeEvent: IncomeEventInsert = {
+    // Create income event. Production DBs that predate surplus columns
+    // reject inserts that mention those fields (PGRST204) — so we never
+    // include them on the initial insert. Surplus is applied via a
+    // best-effort update afterwards when the columns exist.
+    const incomeEventBase = {
       id: uuidv4(),
       user_id: userId,
       amount: dto.amount,
       source: dto.source,
+      // '' not null: older DBs still have label NOT NULL.
       label: dto.label?.trim() || '',
       date: dto.date,
       run_allocation: dto.run_allocation,
-      unallocated_surplus: hasSurplus ? surplusAmount : null,
-      surplus_allocation_status: hasSurplus ? 'pending' : null,
     };
 
     let createdIncomeEvent;
     try {
-      createdIncomeEvent = await this.repository.createIncomeEvent(incomeEvent);
+      createdIncomeEvent = await this.repository.createIncomeEvent(incomeEventBase);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Surplus columns may be missing on older DBs — retry without them
-      // so a basic income deposit still succeeds.
-      if (/unallocated_surplus|surplus_allocation_status/i.test(msg)) {
-        this.logger.warn(`income surplus columns missing; retrying without them: ${msg}`);
-        const { unallocated_surplus: _u, surplus_allocation_status: _s, ...base } = incomeEvent;
-        try {
-          createdIncomeEvent = await this.repository.createIncomeEvent(base as IncomeEventInsert);
-        } catch (retryErr) {
-          const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
-          this.logger.error(`createIncomeEvent retry failed: ${retryMsg}`);
-          throw new BadRequestException(`Could not save income event: ${retryMsg}`);
-        }
-      } else {
-        this.logger.error(`createIncomeEvent failed: ${msg}`);
-        throw new BadRequestException(
-          msg.includes('label')
-            ? 'Could not save income (label column). Re-run income_events migrations.'
-            : `Could not save income event: ${msg}`,
-        );
-      }
+      const msg =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === 'object' && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : String(err);
+      this.logger.error(`createIncomeEvent failed: ${msg}`);
+      throw new BadRequestException(`Could not save income event: ${msg}`);
     }
     if (!createdIncomeEvent) {
       throw new BadRequestException('Failed to create income event.');
+    }
+
+    if (hasSurplus) {
+      try {
+        const updated = await this.repository.updateIncomeEvent(createdIncomeEvent.id, {
+          unallocated_surplus: surplusAmount,
+          surplus_allocation_status: 'pending',
+        });
+        if (updated) {
+          createdIncomeEvent = updated;
+        }
+      } catch (err) {
+        this.logger.warn(
+          `surplus columns unavailable; income saved without surplus tracking: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
     }
 
     let allocation = {
@@ -281,7 +285,9 @@ export class IncomeService {
       surplus: {
         has_surplus: Boolean(hasSurplus),
         surplus_amount: surplusAmount,
-        allocation_status: createdIncomeEvent.surplus_allocation_status,
+        allocation_status:
+          createdIncomeEvent.surplus_allocation_status ??
+          (hasSurplus ? ('pending' as const) : null),
       },
       runway,
     };

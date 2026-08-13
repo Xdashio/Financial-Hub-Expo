@@ -95,21 +95,30 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
       if (!hasHardware || !isEnrolled) {
         // Device-level biometrics got removed after the user turned this
         // on in-app — don't hard-lock someone out of their own budget.
+        // Also covers Expo Go / emulator where hardware APIs are flaky.
         setIsLocked(false);
         return;
       }
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Financial Hub',
-        fallbackLabel: 'Use passcode',
-        cancelLabel: 'Cancel',
-      });
+      const result = await Promise.race([
+        LocalAuthentication.authenticateAsync({
+          promptMessage: 'Unlock Financial Hub',
+          fallbackLabel: 'Use passcode',
+          cancelLabel: 'Cancel',
+        }),
+        new Promise<{ success: false }>((resolve) =>
+          setTimeout(() => resolve({ success: false }), 15_000),
+        ),
+      ]);
       if (result.success) {
         setIsLocked(false);
       } else {
         setLastError('Authentication needed to continue.');
       }
     } catch {
-      setLastError('Authentication needed to continue.');
+      // Never hard-lock the app if the biometric module throws (common in
+      // Expo Go). Prefer entry over a permanent spinner.
+      setIsLocked(false);
+      setLastError(null);
     } finally {
       authenticatingRef.current = false;
       setIsAuthenticating(false);
