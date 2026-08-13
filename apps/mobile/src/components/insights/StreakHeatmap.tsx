@@ -3,7 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, ScrollView, Animated, Easing,
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography, radius } from '@/theme';
 import { insightsApi } from '@/services/api';
-import { mapBehaviorEvent } from '@/utils/behaviorEvent';
+import { mapBehaviorEvent, DisplayEvent } from '@/utils/behaviorEvent';
 import { TrendingUp, Award, Sparkles, Calendar } from 'lucide-react-native';
 import { BottomSheetModal } from '@/components/ui';
 
@@ -137,11 +137,13 @@ export function StreakHeatmap() {
 
   // Prefer the backend under-cap consistency (rollover successes + grace/freeze).
   // Fall back to a heatmap-derived consistency if the consistency endpoint fails.
+  // Only count days with actual activity (count > 0) to avoid fake streaks for new users.
   const heatmapStreak = React.useMemo(() => {
     if (!days || days.length === 0) return 0;
     let streak = 0;
     for (let i = days.length - 1; i >= 0; i--) {
-      if (days[i].points < 0) break;
+      // Require actual activity (count > 0) and non-negative points
+      if (days[i].count === 0 || days[i].points < 0) break;
       streak += 1;
     }
     return streak;
@@ -149,8 +151,9 @@ export function StreakHeatmap() {
   const currentStreak = apiStreak ?? heatmapStreak;
 
   // Detect streak milestones for celebration
+  // Only celebrate if there's actual activity (total count > 0) to avoid fake milestones for new users
   React.useEffect(() => {
-    if (currentStreak > 0) {
+    if (currentStreak > 0 && days && days.some(d => d.count > 0)) {
       const milestones = [7, 30, 100, 365];
       if (milestones.includes(currentStreak) && currentStreak !== streakMilestone) {
         setStreakMilestone(currentStreak);
@@ -176,7 +179,7 @@ export function StreakHeatmap() {
         setTimeout(() => setShowCelebration(false), 2000);
       }
     }
-  }, [currentStreak, streakMilestone]);
+  }, [currentStreak, streakMilestone, days]);
 
   // Pulsing animation for streak counter
   React.useEffect(() => {
@@ -376,10 +379,11 @@ export function StreakHeatmap() {
                     </View>
                   ) : (
                     <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
-                      {(selectedEvents ?? []).map((event, i) => {
-                        const display = mapBehaviorEvent(event, colors);
-                        return (
-                          <View key={event.id ?? i} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
+                      {(selectedEvents ?? [])
+                        .map((event, i) => mapBehaviorEvent(event, colors))
+                        .filter((display): display is DisplayEvent => display !== null)
+                        .map((display, i) => (
+                          <View key={i} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
                             <View style={{ width: 6, height: 6, borderRadius: 3, marginTop: 5, backgroundColor: display.color }} />
                             <View style={{ flex: 1 }}>
                               <Text style={{ ...typography.caption, color: colors.ink, fontWeight: '600' }}>{display.title}</Text>
@@ -388,8 +392,7 @@ export function StreakHeatmap() {
                               ) : null}
                             </View>
                           </View>
-                        );
-                      })}
+                        ))}
                     </View>
                   )
                 )}

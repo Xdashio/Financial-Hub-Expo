@@ -156,7 +156,7 @@ This is too much to build in one pass — grouping into an order that avoids rew
 2. ~~**Merchant category taxonomy check** (item 8)~~ — done, reconciled 2026-08-12 above.
 3. ~~**Onboarding percentage editing** (item 3)~~ — done.
 4. ~~**Sub-pockets** (item 10, second half)~~ — done 2026-08-13; foundational for loans, now unblocked.
-5. ~~**Income surplus detection + 3-option allocation prompt** (item 1)~~ — backend complete 2026-08-13, mobile component ready, integration pending.
-6. **Loans** (item 9) — unblocked by sub-pockets, but per this doc's own sequencing, build after #5 so it can reuse the prompt component instead of a bespoke one.
-7. **Behavioral layer: overspend prompting, 100%-allocation enforcement, ongoing monitoring** (items 4–5) — reuses the item-1 prompt component; this is the largest single item in the audit and deserves its own dedicated pass rather than being squeezed in alongside others.
+5. ~~**Income surplus detection + 3-option allocation prompt** (item 1)~~ — backend complete 2026-08-13, mobile component - complete
+6. **Loans** (item 9) — unblocked by sub-pockets, but per this doc's own sequencing, build after #5 so it can reuse the prompt component instead of a bespoke one.- complete
+7. **Behavioral layer: overspend prompting, 100%-allocation enforcement, ongoing monitoring** (items 4–5) — reuses the item-1 prompt component; this is the largest single item in the audit and deserves its own dedicated pass rather than being squeezed in alongside others. - behavioral layer done, 100% allocation done.
 8. **Persona/identity split for income × spending style** (item 2) — build from `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 once the team confirms that design still stands.

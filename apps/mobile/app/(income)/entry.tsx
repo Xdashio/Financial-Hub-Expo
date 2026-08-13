@@ -274,7 +274,7 @@ export default function IncomeEntryScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-            <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+            <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }} hitSlop={8}>
               <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
             </Pressable>
             <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>

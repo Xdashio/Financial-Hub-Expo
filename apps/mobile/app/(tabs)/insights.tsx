@@ -36,6 +36,8 @@ export default function InsightsScreen() {
 
   const [score, setScore] = React.useState<number | null>(null);
   const [delta, setDelta] = React.useState(0);
+  const [scorePeriod, setScorePeriod] = React.useState('');
+  const [hasScoreHistory, setHasScoreHistory] = React.useState(false);
   const [events, setEvents] = React.useState<any[]>([]);
   const [reallocationsThisMonth, setReallocationsThisMonth] = React.useState(0);
   const [coolingOffSkips, setCoolingOffSkips] = React.useState(0);
@@ -57,6 +59,8 @@ export default function InsightsScreen() {
       ]);
       setScore(scoreRes?.score ?? null);
       setDelta(scoreRes?.delta ?? 0);
+      setScorePeriod(scoreRes?.period ?? '');
+      setHasScoreHistory(scoreRes?.hasHistory ?? false);
       setEvents(Array.isArray(eventsRes?.events) ? eventsRes.events : []);
       setPage(1);
       setHasMore((eventsRes?.pagination?.page ?? 1) < (eventsRes?.pagination?.totalPages ?? 1));
@@ -111,7 +115,7 @@ export default function InsightsScreen() {
     }
   };
 
-  const displayEvents = events.map(event => mapBehaviorEvent(event, colors));
+  const displayEvents = events.map(event => mapBehaviorEvent(event, colors)).filter((e): e is NonNullable<typeof e> => e != null);
 
   const filteredEvents = displayEvents.filter(event =>
     event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -120,7 +124,7 @@ export default function InsightsScreen() {
 
   const metrics: Metric[] = [
     { label: 'Pocket adjustments this month', value: String(reallocationsThisMonth), icon: ArrowLeftRight, color: colors.plum },
-    { label: 'Plan adherence', value: score !== null ? `${score}%` : '—', icon: Target, color: colors.gold },
+    { label: 'Spending discipline', value: score !== null ? `${score}%` : '—', icon: Target, color: colors.gold },
     { label: 'Cooling-off skips', value: String(coolingOffSkips), icon: Timer, color: colors.clay },
   ];
 
@@ -146,15 +150,33 @@ export default function InsightsScreen() {
         <Text style={{ ...typography.title, color: colors.ink, marginTop: spacing.xl }}>Insights</Text>
 
         <View style={{ marginTop: spacing.xl, borderRadius: radius.lg, paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, backgroundColor: colors.emeraldDeep, alignItems: 'center' }}>
-          <View style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: `${colors.surface}33`, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md }}>
-            <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score ?? '—'}</Text>
-          </View>
-          <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Spending consistency score</Text>
-          <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: `${colors.surface}1E`, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
-            <Text style={{ ...typography.caption, color: colors.surface }}>
-              {delta > 0 ? `+${delta}` : delta} vs last week
-            </Text>
-          </View>
+          {score === null ? (
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ ...typography.body, color: colors.surface, textAlign: 'center', marginBottom: spacing.md }}>
+                Start tracking to see your spending discipline
+              </Text>
+              <Text style={{ ...typography.caption, color: `${colors.surface}80`, textAlign: 'center' }}>
+                Your discipline score will appear after your first spending activity
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: `${colors.surface}33`, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md }}>
+                <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score}</Text>
+              </View>
+              <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Spending discipline</Text>
+              {scorePeriod && (
+                <Text style={{ ...typography.caption, color: `${colors.surface}80`, marginTop: spacing.xs }}>
+                  {scorePeriod}
+                </Text>
+              )}
+              <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: `${colors.surface}1E`, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
+                <Text style={{ ...typography.caption, color: colors.surface }}>
+                  {delta > 0 ? `+${delta}` : delta} pts this period
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Metrics — previously a fixed row of hardcoded numbers with a

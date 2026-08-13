@@ -74,6 +74,9 @@ export const pocketsApi = {
   getRunway: () => api.get<RunwaySummary>('/pockets/runway'),
   getById: (id: string) => api.get<any>(`/pockets/${id}`),
   update: (id: string, data: any) => api.put<any>(`/pockets/${id}`, data),
+  create: (data: { name: string; kind?: string; category?: string; monthlyAllocation?: number; dailyCap?: number }) =>
+    api.post<any>('/pockets', data),
+  delete: (id: string) => api.delete<any>(`/pockets/${id}`),
   getSummary: (id: string) => api.get<any>(`/pockets/${id}/summary`),
   getTransactions: (id: string, page = 1, limit = 20) =>
     api.get<any>(`/pockets/${id}/transactions?page=${page}&limit=${limit}`),
@@ -89,7 +92,7 @@ export const pocketsApi = {
   getSubPockets: (parentId: string) => api.get<any[]>(`/pockets/${parentId}/sub-pockets`),
   createSubPocket: (parentId: string, data: { name: string; monthlyAllocation: number; category?: string }) =>
     api.post<any>(`/pockets/${parentId}/sub-pockets`, data),
-  deleteSubPocket: (id: string) => api.delete<any>(`/pockets/${id}`),
+  deleteSubPocket: (id: string) => api.delete<any>(`/pockets/${id}/sub-pocket`),
 };
 
 export const loansApi = {

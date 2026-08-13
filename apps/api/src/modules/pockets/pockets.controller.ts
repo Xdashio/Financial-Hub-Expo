@@ -39,6 +39,24 @@ export class PocketsController {
     return this.pocketsService.updateForUser(id, req.user.id, updates);
   }
 
+  @Post()
+  @ApiOperation({ summary: 'Create a new pocket for the active plan (max 6 pockets)' })
+  @ApiResponse({ status: 201, description: 'The created pocket' })
+  @ApiResponse({ status: 400, description: 'Invalid input or max pockets reached' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  create(@Body() input: unknown, @Request() req: any) {
+    return this.pocketsService.createForUser(req.user.id, input);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a pocket with balance redistribution to other pockets' })
+  @ApiResponse({ status: 200, description: 'Pocket deleted with redistribution details' })
+  @ApiResponse({ status: 400, description: 'Cannot delete - locked, has balance, or only pocket remaining' })
+  @ApiResponse({ status: 404, description: 'Pocket not found' })
+  async delete(@Param('id') id: string, @Request() req: any) {
+    return await this.pocketsService.deleteForUser(id, req.user.id);
+  }
+
   @Get(':id/transactions')
   @ApiOperation({ summary: 'Get transaction history for a specific pocket with pagination' })
   @ApiResponse({ status: 200, description: 'Paginated transaction history' })
@@ -119,7 +137,7 @@ export class PocketsController {
     return this.pocketsService.getSubPocketsForUser(id, req.user.id);
   }
 
-  @Delete(':id')
+  @Delete(':id/sub-pocket')
   @ApiOperation({ summary: 'Delete a sub-pocket (top-level pockets cannot be deleted this way; balance must be zero first)' })
   @ApiResponse({ status: 200, description: 'Sub-pocket deleted' })
   @ApiResponse({ status: 400, description: 'Not a sub-pocket, or it still holds a balance' })

@@ -802,6 +802,18 @@ export class SupabaseRepository {
     return data;
   }
 
+  async getDisciplineScoreHistory(userId: string, startDate: string, endDate: string): Promise<DisciplineScore[]> {
+    const { data, error } = await this.supabase
+      .from('discipline_scores')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('calculated_at', startDate)
+      .lte('calculated_at', endDate)
+      .order('calculated_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
   // Notification Preferences
   async getNotificationPreferencesByUserId(userId: string): Promise<NotificationPreferences | null> {
     const { data, error } = await this.supabase

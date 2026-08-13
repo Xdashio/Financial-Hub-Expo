@@ -25,27 +25,59 @@ import { DEFAULT_SCORE } from './discipline-score.constants';
 export { DEFAULT_SCORE } from './discipline-score.constants';
 
 export interface DisciplineScoreChange {
-  previousScore: number;
+  previousScore: number | null;
   newScore: number;
+}
+
+export interface DisciplineScoreWithContext {
+  score: number | null;
+  period: string;
+  hasHistory: boolean;
 }
 
 @Injectable()
 export class DisciplineScoreService {
   constructor(private readonly repo: SupabaseRepository) {}
 
+  /** Current score for the user with period context. Returns null for new users. */
+  async getCurrentScoreWithContext(userId: string): Promise<DisciplineScoreWithContext> {
+    const latest = await this.repo.getLatestDisciplineScore(userId);
+    if (!latest) {
+      return {
+        score: DEFAULT_SCORE,
+        period: this.currentPeriod(),
+        hasHistory: false,
+      };
+    }
+    return {
+      score: latest.score,
+      period: latest.period,
+      hasHistory: true,
+    };
+  }
+
   /** Current score for the user, defaulting to DEFAULT_SCORE with no history. */
-  async getCurrentScore(userId: string): Promise<number> {
+  async getCurrentScore(userId: string): Promise<number | null> {
     const latest = await this.repo.getLatestDisciplineScore(userId);
     return latest?.score ?? DEFAULT_SCORE;
   }
 
   /**
+   * Get score history for a date range for trend analysis.
+   */
+  async getScoreHistory(userId: string, startDate: string, endDate: string): Promise<any[]> {
+    return this.repo.getDisciplineScoreHistory(userId, startDate, endDate);
+  }
+
+  /**
    * Applies a signed delta (positive = bonus, negative = cost) to the
    * user's current-period discipline score and persists the result.
+   * If no score exists (null), starts from 0 and applies the delta.
    */
   async applyDelta(userId: string, delta: number): Promise<DisciplineScoreChange> {
     const previousScore = await this.getCurrentScore(userId);
-    const newScore = Math.max(0, Math.min(100, previousScore + delta));
+    const startingScore = previousScore ?? 0;
+    const newScore = Math.max(0, Math.min(100, startingScore + delta));
 
     await this.repo.upsertDisciplineScore({
       user_id: userId,

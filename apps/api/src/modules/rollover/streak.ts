@@ -114,6 +114,10 @@ export function collectSuccessDates(
   const dates = new Set<string>();
   for (const event of events) {
     if (event.type !== EVENT_DAILY_ROLLOVER_SUCCESS) continue;
+    // Only count events with actual rollover amount (not zero)
+    // This prevents fake streak days for new users with no spending
+    const amount = typeof event.payload?.amount === 'number' ? event.payload.amount : null;
+    if (amount === 0 || amount === null) continue;
     const payloadDate = typeof event.payload?.date === 'string' ? event.payload.date : null;
     dates.add(payloadDate && /^\d{4}-\d{2}-\d{2}$/.test(payloadDate) ? payloadDate : event.created_at.slice(0, 10));
   }

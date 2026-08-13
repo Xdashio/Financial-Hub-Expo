@@ -33,7 +33,7 @@ export interface HomeState {
   rolloverAmount: number;
   safeToSpendToday: number;
   totalBalance: number;
-  disciplineScore: number;
+  disciplineScore: number | null;
   scoreDelta: number;
   currentStreak: number;
   runway: RunwaySummary;
@@ -157,7 +157,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
   rolloverAmount: 0,
   safeToSpendToday: 0,
   totalBalance: 0,
-  disciplineScore: 100,
+  disciplineScore: null,
   scoreDelta: 0,
   currentStreak: 0,
   runway: { applicable: false },
@@ -190,7 +190,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
         rolloverAmount,
         safeToSpendToday,
         totalBalance,
-        disciplineScore: insightsRes?.score ?? 100,
+        disciplineScore: insightsRes?.score ?? null,
         scoreDelta: insightsRes?.delta ?? 0,
         currentStreak: rollover.currentStreak,
         runway: runwayRes || { applicable: false },
