@@ -17,6 +17,7 @@ describe('InsightsService', () => {
   beforeEach(async () => {
     supabaseRepo = {
       getLatestDisciplineScore: jest.fn(),
+      getActivePlanByUserId: jest.fn().mockResolvedValue(null),
     } as any;
     rolloverService = {
       getStreak: jest.fn().mockResolvedValue({
@@ -75,7 +76,13 @@ describe('InsightsService', () => {
 
       const result = await service.getDisciplineScore('user-123');
 
-      expect(result).toEqual({ score: 72, delta: -4, period: '2026-08', hasHistory: true });
+      expect(result).toEqual({
+        score: 72,
+        delta: -4,
+        period: '2026-08',
+        hasHistory: true,
+        cardOrder: expect.any(Array),
+      });
     });
   });
 

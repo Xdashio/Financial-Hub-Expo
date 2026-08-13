@@ -5,7 +5,7 @@ import { DEFAULT_SCORE } from '../discipline-score/discipline-score.constants';
 import { RolloverService } from '../rollover/rollover.service';
 import type { StreakSummary } from '../rollover/streak';
 import { NudgesService } from '../nudges/nudges.service';
-import type { RunwayLowNudge } from '../nudges/nudge.calculator';
+import type { NudgeItem } from '../nudges/nudge.calculator';
 import { insightPriorityOrderFor, type InsightKind } from '../../common/personality-modifiers';
 
 export interface DisciplineScoreResult {
@@ -78,11 +78,12 @@ export class InsightsService {
 
   /**
    * FLUTTER_TO_EXPO_PORT_GUIDE.md §7 / audit_team.md item 4/5 (part 3):
-   * proactive nudges computed server-side. Currently just the runway/
-   * spend-velocity check — see NudgesService for why the other §7 nudge
-   * types (surplus-sweep, streak-at-risk) aren't built yet.
+   * proactive nudges computed server-side. All three §7 MVP nudge types
+   * (runway/velocity, surplus-sweep, streak-at-risk) are included — see
+   * NudgesService for the per-type logic and NudgeItem for the
+   * discriminated union the client switches on.
    */
-  async getNudges(userId: string): Promise<RunwayLowNudge[]> {
+  async getNudges(userId: string): Promise<NudgeItem[]> {
     return this.nudgesService.getNudges(userId);
   }
 
