@@ -8,10 +8,13 @@ import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import {
   CAP_DAILY_OVERSPEND,
+  CAP_ESSENTIAL_OVERRIDE,
   CAP_GAMBLING_BLOCKED_ATTEMPT,
   EVENT_DAILY_OVERSPEND,
+  EVENT_ESSENTIAL_OVERRIDE,
   EVENT_GAMBLING_BLOCKED_ATTEMPT,
   POINTS_DAILY_OVERSPEND,
+  POINTS_ESSENTIAL_OVERRIDE,
   POINTS_GAMBLING_BLOCKED_ATTEMPT,
 } from '../rollover/rollover.constants';
 import { utcDayBounds } from '../rollover/rollover-planner';
@@ -38,6 +41,16 @@ export class SpendService {
       pocket_id: string;
       pocket_name: string;
       confidence: number;
+    }>;
+    // insufficient_funds context (audit_team.md item 4/5): lets the client
+    // offer "adjust this pocket's allocation" and "spend anyway" alongside
+    // "cancel", instead of the block being a dead end.
+    shortfall?: number;
+    overridable?: boolean;
+    reallocation_sources?: Array<{
+      pocket_id: string;
+      pocket_name: string;
+      available_balance: number;
     }>;
     pocket: {
       id: string;
@@ -77,10 +90,18 @@ export class SpendService {
 
     // Check if spend exceeds available balance
     if (dto.amount > availableBalance) {
+      const shortfall = round2(dto.amount - availableBalance);
+      const reallocationSources = await this.getReallocationSources(pocket);
       return {
         allowed: false,
         block_reason: 'insufficient_funds',
         message: `Insufficient funds. Available: ${availableBalance}, Requested: ${dto.amount}`,
+        // Soft block, unlike blocked_category / pocket_time_locked: the
+        // client can resubmit with `override: true` (see commitSpend) and
+        // log it as a deliberate choice rather than being stuck at "no".
+        shortfall,
+        overridable: true,
+        reallocation_sources: reallocationSources,
         pocket: {
           id: pocket.id,
           name: pocket.name,
@@ -194,6 +215,7 @@ export class SpendService {
     Awaited<ReturnType<SpendService['checkSpend']>> & {
       transaction_id?: string;
       idempotent_replay?: boolean;
+      overridden?: boolean;
     }
   > {
     if (dto.idempotency_key) {
@@ -212,7 +234,15 @@ export class SpendService {
 
     const result = await this.checkSpend(dto, userId);
 
-    if (!result.allowed) {
+    // audit_team.md item 4/5: `insufficient_funds` is a soft block — the
+    // client shows "adjust allocation" / "cancel" / "spend anyway" instead
+    // of a dead end (see checkSpend's `overridable`/`reallocation_sources`).
+    // Only this specific block reason can be overridden; blocked_category
+    // and pocket_time_locked ignore `dto.override` entirely and stay hard
+    // blocks no matter what the client sends.
+    const isOverride = !result.allowed && result.block_reason === 'insufficient_funds' && dto.override === true;
+
+    if (!result.allowed && !isOverride) {
       return result;
     }
 
@@ -228,18 +258,30 @@ export class SpendService {
     // this transaction was written, so it's the pre-spend balance. Re-read
     // the ledger now so the caller (and the "Spend logged" confirmation
     // modal) gets the true post-spend balance instead of a stale figure.
+    // Note: the ledger clamps available balance at 0 (see
+    // SupabaseRepository.getPocketSummary) rather than going negative, so
+    // an overridden spend's shortfall won't show up as a negative number
+    // here — it shows as 0 until the pocket is topped up by a reallocation.
     const postSpendSummary = await this.repository.getPocketSummary(dto.pocket_id);
+
+    const pocket = await this.repository.getPocketById(dto.pocket_id);
+
+    if (isOverride && pocket) {
+      await this.recordEssentialOverride(pocket, userId, dto.amount, result.shortfall ?? 0, dto.override_reason);
+    }
 
     // Batch 6: if this push a spendable pocket over its daily cap, emit
     // daily_overspend immediately so the heatmap/streak don't wait for
     // tomorrow's rollover catch-up.
-    const pocket = await this.repository.getPocketById(dto.pocket_id);
     if (pocket) {
       await this.maybeRecordDailyOverspend(pocket, userId);
     }
 
     const response = {
       ...result,
+      allowed: true,
+      block_reason: null,
+      ...(isOverride ? { overridden: true } : {}),
       pocket: {
         ...result.pocket,
         available_balance: postSpendSummary.available,
@@ -376,6 +418,54 @@ export class SpendService {
     });
   }
 
+  /**
+   * Ported from Flutter's discipline-score rule set (FLUTTER_TO_EXPO_PORT_GUIDE.md
+   * §3, audit_team.md item 4/5): fires when a user explicitly chooses to
+   * spend past a pocket's available balance instead of adjusting allocation
+   * or cancelling. Capped per calendar month using the same "sum this
+   * event's deductions since month start" pattern as
+   * maybeRecordDailyOverspend / recordGamblingBlockedAttempt, so a genuinely
+   * rough month doesn't spiral the score to zero.
+   */
+  private async recordEssentialOverride(
+    pocket: Pocket,
+    userId: string,
+    amount: number,
+    shortfall: number,
+    reason: string | undefined,
+  ): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const monthStart = `${nowIso.slice(0, 7)}-01T00:00:00.000Z`;
+    const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
+      userId,
+      [EVENT_ESSENTIAL_OVERRIDE],
+      monthStart,
+    );
+    let earned = 0;
+    for (const event of monthEvents) {
+      const deducted = (event.payload as any)?.points_deducted;
+      if (typeof deducted === 'number') earned -= deducted;
+    }
+    const apply = Math.max(POINTS_ESSENTIAL_OVERRIDE, Math.min(0, CAP_ESSENTIAL_OVERRIDE - earned));
+    if (apply !== 0) {
+      await this.disciplineScore.applyDelta(userId, apply);
+    }
+
+    await this.repository.createBehaviorEvent({
+      user_id: userId,
+      type: EVENT_ESSENTIAL_OVERRIDE,
+      payload: {
+        date: nowIso,
+        pocket_id: pocket.id,
+        pocket_kind: pocket.kind,
+        amount,
+        shortfall,
+        reason: reason ?? null,
+        points_deducted: apply < 0 ? -apply : 0,
+      },
+    });
+  }
+
   async getBlockedReasons(pocketId: string, userId: string): Promise<{
     pocket_id: string;
     pocket_name: string;
@@ -439,6 +529,40 @@ export class SpendService {
     return new Date(pocket.lock_until).getTime() > Date.now();
   }
 
+  /**
+   * Other top-level pockets in the same plan that could cover a shortfall
+   * (audit_team.md item 4/5) — surfaced on `insufficient_funds` so the
+   * client's "adjust allocation" option can suggest a source instead of
+   * sending the user in blind to POST /reallocations. Excludes the pocket
+   * itself, locked pockets (can't be a reallocation source — see
+   * ReallocationsService.isTimeLocked), and anything with a zero balance.
+   * Sorted richest-first and capped to a handful so the UI isn't listing
+   * every pocket. A pocket holding less than the full shortfall is still
+   * included — the client can combine sources or use one partially — this
+   * only decides what's a plausible source at all, not how to spend it.
+   */
+  private async getReallocationSources(
+    sourcePocket: Pocket,
+  ): Promise<Array<{ pocket_id: string; pocket_name: string; available_balance: number }>> {
+    const siblings = await this.repository.getTopLevelPocketsByPlanId(sourcePocket.plan_id);
+    const candidates = siblings.filter(
+      (p) => p.id !== sourcePocket.id && !this.isTimeLocked(p),
+    );
+
+    const withBalances = await Promise.all(
+      candidates.map(async (p) => {
+        const summary = await this.repository.getPocketSummary(p.id);
+        return { pocket_id: p.id, pocket_name: p.name, available_balance: summary.available };
+      }),
+    );
+
+    return withBalances
+      .filter((p) => p.available_balance > 0)
+      .sort((a, b) => b.available_balance - a.available_balance)
+      .slice(0, 3)
+      .map((p) => ({ ...p, available_balance: round2(p.available_balance) }));
+  }
+
   private getCategoryDisplayName(category: string): string {
     return getMerchantCategoryLabel(category);
   }
@@ -458,4 +582,8 @@ export class SpendService {
       confidence: 0.8, // Default confidence for suggestions
     }));
   }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }

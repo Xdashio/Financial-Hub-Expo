@@ -1,3 +1,3 @@
-// Main entry point for @financial-hub/shared
 export * from './schemas';
 export * from './merchant-categories';
+//# sourceMappingURL=index.d.ts.map

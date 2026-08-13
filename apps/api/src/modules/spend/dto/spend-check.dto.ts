@@ -22,4 +22,19 @@ export class SpendCheckDto {
   @MinLength(8)
   @MaxLength(128)
   idempotency_key?: string;
+
+  /**
+   * Set only on a resubmission after the client showed the user a
+   * `block_reason: 'insufficient_funds'` response and they chose "spend
+   * anyway" over adjusting the pocket's allocation or cancelling
+   * (audit_team.md item 4/5). Has no effect on any other block reason —
+   * blocked_category / pocket_time_locked stay hard blocks regardless.
+   */
+  @IsOptional()
+  override?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(280)
+  override_reason?: string;
 }

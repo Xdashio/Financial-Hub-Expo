@@ -3,7 +3,6 @@ import {
   LoanCreateInputSchema, 
   LoanUpdateInputSchema, 
   LoanPurposePocketInputSchema,
-  RepaymentScheduleSchema,
   RepaymentCadenceSchema 
 } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
@@ -75,8 +74,7 @@ export class LoansService {
     // Create system-created Repayment sub-pocket
     await this.createRepaymentSubPocket(
       loanPocket.id, 
-      schedule.repaymentAmount,
-      parsed.dueDay
+      schedule.repaymentAmount
     );
 
     // Record loan creation as positive behavioral event
@@ -371,8 +369,7 @@ export class LoansService {
    */
   private async createRepaymentSubPocket(
     loanId: string, 
-    repaymentAmount: number,
-    dueDay: number
+    repaymentAmount: number
   ): Promise<Pocket> {
     // Get the loan pocket to use its plan_id
     const loan = await this.repository.getPocketById(loanId);

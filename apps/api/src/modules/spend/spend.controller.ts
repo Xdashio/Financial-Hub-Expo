@@ -20,8 +20,8 @@ export class SpendController {
   }
 
   @Post('commit')
-  @ApiOperation({ summary: 'Record a simulated spend attempt; only writes a transaction if allowed' })
-  @ApiResponse({ status: 200, description: 'Spend result, with transaction_id set when allowed' })
+  @ApiOperation({ summary: "Record a simulated spend attempt; only writes a transaction if allowed, or if the caller resubmits an insufficient_funds block with override: true" })
+  @ApiResponse({ status: 200, description: 'Spend result, with transaction_id set when allowed; overridden: true when an insufficient_funds block was pushed through' })
   @ApiResponse({ status: 404, description: 'Pocket not found' })
   @ApiResponse({ status: 403, description: 'You do not have access to this pocket' })
   commitSpend(@Body() dto: SpendCheckDto, @Request() req: any) {

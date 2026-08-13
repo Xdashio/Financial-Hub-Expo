@@ -58,6 +58,7 @@ describe('SpendService.commitSpend', () => {
       | 'getBehaviorEventsByTypesSince'
       | 'getSpendTotalsByPocketBetween'
       | 'createBehaviorEvent'
+      | 'getTopLevelPocketsByPlanId'
     >
   >;
   let disciplineScore: { applyDelta: jest.Mock };
@@ -75,6 +76,7 @@ describe('SpendService.commitSpend', () => {
       getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
       getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([['pocket-1', 500]])),
       createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'evt-1' }),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([SPENDABLE_POCKET, FIXED_POCKET]),
     } as any;
     disciplineScore = { applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 100 }) };
     service = new SpendService(
@@ -212,5 +214,111 @@ describe('SpendService.commitSpend', () => {
     expect(result.block_reason).toBe('pocket_time_locked');
     expect(result.pocket.available_balance).toBe(3000);
     expect(repository.createTransaction).not.toHaveBeenCalled();
+  });
+
+  describe('insufficient_funds override (audit_team.md item 4/5)', () => {
+    const OTHER_POCKET = { ...SPENDABLE_POCKET, id: 'pocket-2', name: 'Transport' };
+
+    beforeEach(() => {
+      repository.getTopLevelPocketsByPlanId.mockResolvedValue([SPENDABLE_POCKET, OTHER_POCKET, FIXED_POCKET] as any);
+      // Source pocket (pocket-1) is short; the sibling (pocket-2) has room.
+      repository.getPocketSummary.mockImplementation(async (id: string) => {
+        if (id === 'pocket-1') return makePocketSummary({ available: 200 });
+        if (id === 'pocket-2') return makePocketSummary({ available: 900 });
+        return makePocketSummary({ available: 0 });
+      });
+    });
+
+    it('reports shortfall, overridable, and reallocation sources without writing a transaction', async () => {
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('insufficient_funds');
+      expect(result.shortfall).toBe(300);
+      expect(result.overridable).toBe(true);
+      expect(result.reallocation_sources).toEqual([
+        { pocket_id: 'pocket-2', pocket_name: 'Transport', available_balance: 900 },
+      ]);
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+    });
+
+    it('excludes the source pocket, zero-balance pockets, and locked pockets from reallocation sources', async () => {
+      const LOCKED_SIBLING = { ...SPENDABLE_POCKET, id: 'pocket-3', name: 'Savings', is_time_locked: true, lock_until: new Date(Date.now() + 60 * 60 * 1000).toISOString() };
+      repository.getTopLevelPocketsByPlanId.mockResolvedValue([SPENDABLE_POCKET, OTHER_POCKET, FIXED_POCKET, LOCKED_SIBLING] as any);
+      repository.getPocketSummary.mockImplementation(async (id: string) => {
+        if (id === 'pocket-1') return makePocketSummary({ available: 200 });
+        if (id === 'pocket-2') return makePocketSummary({ available: 900 });
+        if (id === 'pocket-3') return makePocketSummary({ available: 5000 }); // locked — must not appear
+        return makePocketSummary({ available: 0 }); // pocket-fixed — zero balance, must not appear
+      });
+
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
+
+      expect(result.reallocation_sources).toEqual([
+        { pocket_id: 'pocket-2', pocket_name: 'Transport', available_balance: 900 },
+      ]);
+    });
+
+    it('writes the transaction and logs essential_override when the client resubmits with override: true', async () => {
+      const result = await service.commitSpend(
+        { pocket_id: 'pocket-1', amount: 500, override: true, override_reason: 'car broke down' },
+        'user-1',
+      );
+
+      expect(result.allowed).toBe(true);
+      expect(result.block_reason).toBeNull();
+      expect((result as any).overridden).toBe(true);
+      expect(repository.createTransaction).toHaveBeenCalledWith({
+        pocket_id: 'pocket-1',
+        amount: 500,
+        type: 'spend',
+        merchant: null,
+        category: null,
+      });
+      expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: 'user-1',
+          type: 'essential_override',
+          payload: expect.objectContaining({
+            pocket_id: 'pocket-1',
+            amount: 500,
+            shortfall: 300,
+            reason: 'car broke down',
+            points_deducted: 10,
+          }),
+        }),
+      );
+      expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', -10);
+    });
+
+    it('never overrides blocked_category or pocket_time_locked, even with override: true', async () => {
+      repository.getPocketById.mockResolvedValue(FIXED_POCKET as any);
+      repository.getPocketSummary.mockImplementation(async () => makePocketSummary({ available: 5000 }));
+
+      const result = await service.commitSpend(
+        { pocket_id: 'pocket-fixed', amount: 500, category: 'gambling_betting', override: true },
+        'user-1',
+      );
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('blocked_category');
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+    });
+
+    it('caps essential_override deductions per calendar month like the other penalty events', async () => {
+      repository.getBehaviorEventsByTypesSince.mockResolvedValue([
+        { payload: { points_deducted: 10 } },
+        { payload: { points_deducted: 10 } },
+        { payload: { points_deducted: 8 } },
+      ] as any);
+
+      await service.commitSpend(
+        { pocket_id: 'pocket-1', amount: 500, override: true },
+        'user-1',
+      );
+
+      // Already -28 for the month; cap is -30, so only -2 more can apply.
+      expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', -2);
+    });
   });
 });
