@@ -58,6 +58,15 @@ export const PlanNameSchema = z.enum([
   // a plan-name/reasons distinction, not a new stored income pattern.
   'Gig — Structured',
   'Gig — Daily Budget',
+  // Salaried-with-side-income persona (audit_team.md item 2 /
+  // ONBOARDING_AND_SCORING_REDESIGN.md §2.1's other half, landed after the
+  // gig split). Display-only, same posture as 'Gig' above — the stored
+  // `IncomePattern` stays 'salaried' (the 'mix' onboarding answer already
+  // resolves to 'salaried' for runway/rollover purposes), this only changes
+  // the plan label/reasons/copy so a "stable base + side income" user isn't
+  // shown identical plan naming to a single-employer salaried user.
+  'Salaried + Side Income — Structured',
+  'Salaried + Side Income — Daily Budget',
 ]);
 export type PlanName = z.infer<typeof PlanNameSchema>;
 
@@ -287,6 +296,10 @@ export const OnboardingAssignResultSchema = z.object({
   // Set only when incomePattern resolves to 'freelancer' — see
   // IncomeConcentrationSchema. Undefined for salaried/mix.
   incomeConcentration: IncomeConcentrationSchema.optional(),
+  // Set only when the onboarding answer was 'mix' (stable base + irregular
+  // side income) — audit_team.md item 2's salaried-with-side-income
+  // persona. Undefined for pure 'salaried' and for 'freelancer'.
+  hasSideIncome: z.boolean().optional(),
   reasons: z.array(PlanAssignReasonSchema),
   remainingAfterFixed: z.number(),
   savingsTarget: z.number(),

@@ -42,6 +42,7 @@ export class OnboardingService {
       planType: assignment.planType,
       incomePattern: assignment.incomePattern,
       incomeConcentration: assignment.incomeConcentration,
+      hasSideIncome: assignment.hasSideIncome,
       reasons: assignment.reasons,
       remainingAfterFixed: assignment.remainingAfterFixed,
       savingsTarget: assignment.savingsTarget,
@@ -73,6 +74,7 @@ export class OnboardingService {
       planType: assignment.planType,
       incomePattern: assignment.incomePattern,
       incomeConcentration: assignment.incomeConcentration,
+      hasSideIncome: assignment.hasSideIncome,
       reasons: assignment.reasons,
       remainingAfterFixed: assignment.remainingAfterFixed,
       savingsTarget: assignment.savingsTarget,
@@ -147,6 +149,7 @@ export class OnboardingService {
         planType: assignment.planType,
         incomePattern: assignment.incomePattern,
         incomeConcentration: assignment.incomeConcentration,
+        hasSideIncome: assignment.hasSideIncome,
       },
     });
 
@@ -277,6 +280,7 @@ export class OnboardingService {
         planType: assignment.planType,
         incomePattern: assignment.incomePattern,
         incomeConcentration: assignment.incomeConcentration,
+        hasSideIncome: assignment.hasSideIncome,
         totalMoved,
         movementCount: movementPlans.length,
       },

@@ -47,6 +47,15 @@ exports.PlanNameSchema = zod_1.z.enum([
     // a plan-name/reasons distinction, not a new stored income pattern.
     'Gig — Structured',
     'Gig — Daily Budget',
+    // Salaried-with-side-income persona (audit_team.md item 2 /
+    // ONBOARDING_AND_SCORING_REDESIGN.md §2.1's other half, landed after the
+    // gig split). Display-only, same posture as 'Gig' above — the stored
+    // `IncomePattern` stays 'salaried' (the 'mix' onboarding answer already
+    // resolves to 'salaried' for runway/rollover purposes), this only changes
+    // the plan label/reasons/copy so a "stable base + side income" user isn't
+    // shown identical plan naming to a single-employer salaried user.
+    'Salaried + Side Income — Structured',
+    'Salaried + Side Income — Daily Budget',
 ]);
 // Income-concentration signal within the 'freelancer' income pattern
 // (audit_team.md item 8, Batch 4). Derived from `sourceCount`, already
@@ -234,6 +243,10 @@ exports.OnboardingAssignResultSchema = zod_1.z.object({
     // Set only when incomePattern resolves to 'freelancer' — see
     // IncomeConcentrationSchema. Undefined for salaried/mix.
     incomeConcentration: exports.IncomeConcentrationSchema.optional(),
+    // Set only when the onboarding answer was 'mix' (stable base + irregular
+    // side income) — audit_team.md item 2's salaried-with-side-income
+    // persona. Undefined for pure 'salaried' and for 'freelancer'.
+    hasSideIncome: zod_1.z.boolean().optional(),
     reasons: zod_1.z.array(exports.PlanAssignReasonSchema),
     remainingAfterFixed: zod_1.z.number(),
     savingsTarget: zod_1.z.number(),

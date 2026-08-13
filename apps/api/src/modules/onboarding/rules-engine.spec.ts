@@ -126,7 +126,7 @@ describe('Rules Engine — Plan Assignment', () => {
       {
         name: 'mix + tracker + meaningful remainder → Structured',
         input: createInput({ incomePattern: 'mix', spendingHabit: 'tracker', incomeAmount: 100000, fixedTotal: 30000 }),
-        expectedPlan: 'Salaried — Structured',
+        expectedPlan: 'Salaried + Side Income — Structured',
         expectedPlanType: 'structured',
         expectedIncomePattern: 'salaried',
         description: 'Mix with stable base treated as salaried, tracks spending, enough remaining',
@@ -134,7 +134,7 @@ describe('Rules Engine — Plan Assignment', () => {
       {
         name: 'mix + tracker + small remainder → Daily Budget',
         input: createInput({ incomePattern: 'mix', spendingHabit: 'tracker', incomeAmount: 50000, fixedTotal: 48000 }),
-        expectedPlan: 'Salaried — Daily Budget',
+        expectedPlan: 'Salaried + Side Income — Daily Budget',
         expectedPlanType: 'daily',
         expectedIncomePattern: 'salaried',
         description: 'Mix with stable base, tracks spending, but remaining too small',
@@ -142,7 +142,7 @@ describe('Rules Engine — Plan Assignment', () => {
       {
         name: 'mix + week3 → Daily Budget',
         input: createInput({ incomePattern: 'mix', spendingHabit: 'week3', incomeAmount: 100000, fixedTotal: 30000 }),
-        expectedPlan: 'Salaried — Daily Budget',
+        expectedPlan: 'Salaried + Side Income — Daily Budget',
         expectedPlanType: 'daily',
         expectedIncomePattern: 'salaried',
         description: 'Mix with stable base, runs low by week 3 → daily caps',
@@ -150,7 +150,7 @@ describe('Rules Engine — Plan Assignment', () => {
       {
         name: 'mix + off_guard → Daily Budget',
         input: createInput({ incomePattern: 'mix', spendingHabit: 'off_guard', incomeAmount: 100000, fixedTotal: 30000 }),
-        expectedPlan: 'Salaried — Daily Budget',
+        expectedPlan: 'Salaried + Side Income — Daily Budget',
         expectedPlanType: 'daily',
         expectedIncomePattern: 'salaried',
         description: 'Mix with stable base, caught off guard → daily caps',
@@ -313,9 +313,15 @@ describe('Rules Engine — Plan Assignment', () => {
         }
       }
 
-      expect(plans.size).toBe(6);
+      // 8 now, not 6: the mix→salaried persona split (audit_team.md item 2)
+      // adds 'Salaried + Side Income — Structured/Daily Budget' as distinct
+      // plan names from pure 'Salaried — Structured/Daily Budget', on top
+      // of the existing Gig/Freelancer split within the freelancer pattern.
+      expect(plans.size).toBe(8);
       expect(plans.has('Salaried — Structured|structured|salaried')).toBe(true);
       expect(plans.has('Salaried — Daily Budget|daily|salaried')).toBe(true);
+      expect(plans.has('Salaried + Side Income — Structured|structured|salaried')).toBe(true);
+      expect(plans.has('Salaried + Side Income — Daily Budget|daily|salaried')).toBe(true);
       expect(plans.has('Freelancer — Structured|structured|freelancer')).toBe(true);
       expect(plans.has('Freelancer — Daily Budget|daily|freelancer')).toBe(true);
       expect(plans.has('Gig — Structured|structured|freelancer')).toBe(true);
@@ -357,8 +363,22 @@ describe('Rules Engine — Plan Assignment', () => {
     it('mix pattern reason mentions stable base', () => {
       const result = assignPlan(createInput({ incomePattern: 'mix' }));
       const patternReason = result.reasons[0];
-      expect(patternReason.rule).toBe('income_pattern_mix_stable_base');
+      expect(patternReason.rule).toBe('income_pattern_salaried_side_income');
       expect(patternReason.reason).toContain('stable base');
+    });
+
+    it('mix pattern sets hasSideIncome true; salaried/freelancer leave it undefined', () => {
+      expect(assignPlan(createInput({ incomePattern: 'mix' })).hasSideIncome).toBe(true);
+      expect(assignPlan(createInput({ incomePattern: 'salaried' })).hasSideIncome).toBeUndefined();
+      expect(assignPlan(createInput({ incomePattern: 'freelancer', sourceCount: 4 })).hasSideIncome).toBeUndefined();
+    });
+
+    it('mix pattern produces a distinct "Salaried + Side Income" plan name from pure salaried', () => {
+      const mixResult = assignPlan(createInput({ incomePattern: 'mix', spendingHabit: 'tracker', incomeAmount: 100000, fixedTotal: 30000 }));
+      const salariedResult = assignPlan(createInput({ incomePattern: 'salaried', spendingHabit: 'tracker', incomeAmount: 100000, fixedTotal: 30000 }));
+      expect(mixResult.plan).toBe('Salaried + Side Income — Structured');
+      expect(salariedResult.plan).toBe('Salaried — Structured');
+      expect(mixResult.plan).not.toBe(salariedResult.plan);
     });
 
     it('tracker with meaningful remainder mentions tracking and meaningful division', () => {
