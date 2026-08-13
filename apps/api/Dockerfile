@@ -1,6 +1,7 @@
 # Build context: monorepo root (required — needs packages/shared)
 #   docker build -f apps/api/Dockerfile .
 #   Railway: railway.toml at repo root (dockerfilePath = apps/api/Dockerfile)
+# Force rebuild for CORS fix - Aug 13 2026
 
 # Node 22+: @supabase/supabase-js needs native WebSocket (Node 20 crashes at boot).
 FROM node:22-bookworm-slim AS build
