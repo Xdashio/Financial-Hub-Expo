@@ -37,7 +37,12 @@ export function initSentry(): void {
 export function wrapRoot<P extends object>(Root: ComponentType<P>): ComponentType<P> {
   if (!initialized) return Root;
   try {
-    return Sentry.wrap(Root);
+    // Sentry.wrap's typings are fixed to ComponentType<Record<string, unknown>>,
+    // which doesn't unify with the generic P callers pass in (e.g. Expo Router's
+    // root component type). The wrap itself is a runtime HOC that returns the
+    // same component shape it was given, so this double-cast is safe — it's
+    // narrowing/widening a type-level mismatch, not changing behavior.
+    return Sentry.wrap(Root as unknown as ComponentType<Record<string, unknown>>) as unknown as ComponentType<P>;
   } catch {
     return Root;
   }
