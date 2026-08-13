@@ -36,7 +36,7 @@ export default function Index() {
     return <LandingScreen />;
   }
 
-  // Logged in, plan check done — route based on result
+  // Logged in, plan check done → route based on result
   if (!hasPlan) {
     return <Redirect href="/(onboarding)/income" />;
   }

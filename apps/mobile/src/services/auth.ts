@@ -154,13 +154,17 @@ export const useAuthStore = create<AuthState>()(
           }
 
           if (lastKnown === false) {
+            // Conclusive response: user has no plan
+            // This is correct for new users who haven't completed onboarding
             set({ hasPlan: false, isCheckingPlan: false });
             return;
           }
 
-          // No conclusive response — keep cached hasPlan so a flaky hop
-          // doesn't bounce existing users into onboarding.
-          set({ isCheckingPlan: false });
+          // No conclusive response — preserve cached hasPlan so a flaky hop
+          // doesn't bounce existing users into onboarding
+          // If hasPlan was never set, default to false (new user case)
+          const currentHasPlan = get().hasPlan;
+          set({ hasPlan: currentHasPlan, isCheckingPlan: false });
         } catch {
           set({ isCheckingPlan: false });
         }
@@ -431,15 +435,16 @@ export const useAuthStore = create<AuthState>()(
           // Check for existing plan so returning users route correctly on cold start
           await get().checkHasPlan();
           
-          // RECOVERY: If hasPlan is false but user has partial onboarding state,
-          // attempt to recover from database to prevent getting stuck
+          // If plan check was inconclusive, retry once with longer delay
+          // to prevent existing users from being sent to onboarding due to network issues
           const hasPlan = get().hasPlan;
-          if (!hasPlan) {
-            // User is authenticated but hasPlan is false
-            // This could mean they completed onboarding but state wasn't updated
-            // Try to verify by checking the database one more time with longer delay
-            await new Promise<void>((resolve) => setTimeout(resolve, 500));
-            await get().checkHasPlan();
+          const isCheckingPlan = get().isCheckingPlan;
+          if (!hasPlan && !isCheckingPlan) {
+            // hasPlan is explicitly false (user has no plan) - this is correct for new users
+            // No recovery needed - user genuinely needs onboarding
+          } else if (isCheckingPlan) {
+            // Still checking - wait for completion
+            await new Promise<void>((resolve) => setTimeout(resolve, 1000));
           }
         } else {
           // No live session — don't trust a leftover local cache to grant
