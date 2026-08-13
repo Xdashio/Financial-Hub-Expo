@@ -38,7 +38,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const isProduction = process.env.NODE_ENV === 'production';
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      // JSON API — default Helmet CSP (script-src 'none') only confuses
+      // browsers that open an API URL or inspect Network responses.
+      contentSecurityPolicy: false,
+    }),
+  );
   app.setGlobalPrefix('api');
 
   const staticOrigins = corsOrigins();

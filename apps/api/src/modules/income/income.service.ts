@@ -131,20 +131,48 @@ export class IncomeService {
     const normalAllocationAmount = hasSurplus ? plan.expected_income_amount! : dto.amount;
     const surplusAmount = hasSurplus ? dto.amount - plan.expected_income_amount! : 0;
 
-    // Create income event with surplus tracking
+    // Create income event with surplus tracking.
+    // Use '' instead of null for label: older production DBs still have
+    // `label NOT NULL` (migration ALTER may not have been applied), which
+    // turned every unlabeled POST /income/manual into an opaque 500.
     const incomeEvent: IncomeEventInsert = {
       id: uuidv4(),
       user_id: userId,
       amount: dto.amount,
       source: dto.source,
-      label: dto.label || null,
+      label: dto.label?.trim() || '',
       date: dto.date,
       run_allocation: dto.run_allocation,
       unallocated_surplus: hasSurplus ? surplusAmount : null,
       surplus_allocation_status: hasSurplus ? 'pending' : null,
     };
 
-    const createdIncomeEvent = await this.repository.createIncomeEvent(incomeEvent);
+    let createdIncomeEvent;
+    try {
+      createdIncomeEvent = await this.repository.createIncomeEvent(incomeEvent);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Surplus columns may be missing on older DBs — retry without them
+      // so a basic income deposit still succeeds.
+      if (/unallocated_surplus|surplus_allocation_status/i.test(msg)) {
+        this.logger.warn(`income surplus columns missing; retrying without them: ${msg}`);
+        const { unallocated_surplus: _u, surplus_allocation_status: _s, ...base } = incomeEvent;
+        try {
+          createdIncomeEvent = await this.repository.createIncomeEvent(base as IncomeEventInsert);
+        } catch (retryErr) {
+          const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+          this.logger.error(`createIncomeEvent retry failed: ${retryMsg}`);
+          throw new BadRequestException(`Could not save income event: ${retryMsg}`);
+        }
+      } else {
+        this.logger.error(`createIncomeEvent failed: ${msg}`);
+        throw new BadRequestException(
+          msg.includes('label')
+            ? 'Could not save income (label column). Re-run income_events migrations.'
+            : `Could not save income event: ${msg}`,
+        );
+      }
+    }
     if (!createdIncomeEvent) {
       throw new BadRequestException('Failed to create income event.');
     }
@@ -181,7 +209,13 @@ export class IncomeService {
           category: null,
         }));
 
-        await this.repository.createTransactions(transactions);
+        try {
+          await this.repository.createTransactions(transactions);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.error(`createTransactions failed after income ${createdIncomeEvent.id}: ${msg}`);
+          throw new BadRequestException(`Income saved but allocation ledger failed: ${msg}`);
+        }
       }
 
       allocation = {
@@ -223,14 +257,21 @@ export class IncomeService {
     // docs/FREELANCER_RUNWAY.md.
     let runway: RunwaySummary = { applicable: false };
     if (plan.income_pattern === 'freelancer' && plan.type === 'daily') {
-      runway = await this.runway.getRunwayForPlan(userId, plan);
-      const caps = computeSpendableDailyCaps(pockets, runway);
-      if (caps.size > 0) {
-        await Promise.all(
-          Array.from(caps.entries()).map(([pocketId, dailyCap]) =>
-            this.repository.updatePocket(pocketId, { daily_cap: dailyCap })
-          )
+      try {
+        runway = await this.runway.getRunwayForPlan(userId, plan);
+        const caps = computeSpendableDailyCaps(pockets, runway);
+        if (caps.size > 0) {
+          await Promise.all(
+            Array.from(caps.entries()).map(([pocketId, dailyCap]) =>
+              this.repository.updatePocket(pocketId, { daily_cap: dailyCap })
+            )
+          );
+        }
+      } catch (err) {
+        this.logger.warn(
+          `runway refresh after income failed: ${err instanceof Error ? err.message : String(err)}`,
         );
+        runway = { applicable: false };
       }
     }
 

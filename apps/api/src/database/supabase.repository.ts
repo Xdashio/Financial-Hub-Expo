@@ -167,7 +167,15 @@ export class SupabaseRepository {
       .eq('plan_id', planId)
       .is('parent_pocket_id', null)
       .order('created_at', { ascending: true });
-    if (error) throw error;
+    // Migration 007 not applied yet: parent_pocket_id unknown → fall back
+    // to unfiltered plan pockets so income/home don't 500.
+    if (error) {
+      const msg = typeof error.message === 'string' ? error.message : '';
+      if (/parent_pocket_id/i.test(msg) || error.code === '42703') {
+        return this.getPocketsByPlanId(planId);
+      }
+      throw error;
+    }
     return data || [];
   }
 
