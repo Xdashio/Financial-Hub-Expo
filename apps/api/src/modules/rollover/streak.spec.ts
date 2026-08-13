@@ -67,10 +67,23 @@ describe('collectSuccessDates', () => {
     const dates = collectSuccessDates([
       {
         type: EVENT_DAILY_ROLLOVER_SUCCESS,
-        payload: { date: '2026-08-09' },
+        // amount must be present and nonzero — collectSuccessDates now
+        // requires it (anti-gaming: don't count a "streak day" for a new
+        // user who simply had no spending activity at all). Unrelated to
+        // what this test actually checks (date preference), but needed so
+        // the event isn't filtered out before that logic even runs.
+        payload: { date: '2026-08-09', amount: 250 },
         created_at: '2026-08-10T08:00:00.000Z',
       },
     ]);
     expect([...dates]).toEqual(['2026-08-09']);
+  });
+
+  it('excludes rollover-success events with a zero or missing amount (anti-gaming)', () => {
+    const dates = collectSuccessDates([
+      { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-09', amount: 0 }, created_at: '2026-08-10T08:00:00.000Z' },
+      { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-08' }, created_at: '2026-08-09T08:00:00.000Z' },
+    ]);
+    expect([...dates]).toEqual([]);
   });
 });

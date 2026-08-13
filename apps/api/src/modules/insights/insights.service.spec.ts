@@ -43,12 +43,18 @@ describe('InsightsService', () => {
   });
 
   describe('getDisciplineScore', () => {
-    it('returns the default score (100, no delta) when no score has been calculated yet', async () => {
+    it('returns null (no history) when no score has been calculated yet', async () => {
       supabaseRepo.getLatestDisciplineScore.mockResolvedValue(null);
 
       const result = await service.getDisciplineScore('user-123');
 
-      expect(result).toEqual({ score: 100, delta: 0 });
+      // discipline-score.constants.ts: DEFAULT_SCORE is intentionally null,
+      // not a fake 100 — "no history yet" is a distinct state from "scored
+      // 100", and the API surfaces that via hasHistory/score:null rather
+      // than pretending the user has a perfect starting score.
+      expect(result.score).toBeNull();
+      expect(result.delta).toBe(0);
+      expect(result.hasHistory).toBe(false);
       expect(supabaseRepo.getLatestDisciplineScore).toHaveBeenCalledWith('user-123');
     });
 
@@ -63,7 +69,7 @@ describe('InsightsService', () => {
 
       const result = await service.getDisciplineScore('user-123');
 
-      expect(result).toEqual({ score: 72, delta: -4 });
+      expect(result).toEqual({ score: 72, delta: -4, period: '2026-08', hasHistory: true });
     });
   });
 
