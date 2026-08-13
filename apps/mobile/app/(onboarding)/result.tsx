@@ -200,7 +200,7 @@ export default function ResultScreen() {
     return null;
   }
 
-  const { plan, planType, incomePattern, incomeConcentration, reasons, remainingAfterFixed, savingsTarget, spendableAmount, needsRatio, needsBand } = assignResult;
+  const { plan, planType, incomePattern, incomeConcentration, hasSideIncome, reasons, remainingAfterFixed, savingsTarget, spendableAmount, needsRatio, needsBand } = assignResult;
   const incomeAmount = input?.incomeAmount || remainingAfterFixed + savingsTarget + spendableAmount;
   // Prefer API needsRatio; fall back if an older assign payload omitted it.
   const displayNeedsPercent = typeof needsRatio === 'number'
@@ -294,21 +294,20 @@ export default function ResultScreen() {
   };
 
   const getPlanTag = () => {
-    // rules-engine.ts's determineIncomePattern always resolves 'mix' down to
-    // 'salaried' before this reaches the client, so the 'mix' branch below is
-    // defensive (in case that resolution ever changes) rather than reachable
-    // today. The real, currently-reachable gap this fixes: 'freelancer'
-    // splits into Gig vs Freelancer by incomeConcentration, same as
-    // buildPlanName does for the plan string itself — this label was
-    // ignoring that split.
+    // rules-engine.ts's determineIncomePattern resolves both pure 'salaried'
+    // and 'mix' (stable base + side income) down to the stored 'salaried'
+    // pattern, and both 'freelancer' concentration buckets down to stored
+    // 'freelancer' — `hasSideIncome`/`incomeConcentration` carry the real
+    // persona distinction for display, same split buildPlanName does for
+    // the plan name string itself (audit_team.md item 2).
     const patternLabel =
       incomePattern === 'salaried'
-        ? 'Salaried income'
-        : incomePattern === 'mix'
-          ? 'Mixed income'
-          : incomeConcentration === 'concentrated'
-            ? 'Gig income'
-            : 'Freelancer income';
+        ? hasSideIncome
+          ? 'Salaried + side income'
+          : 'Salaried income'
+        : incomeConcentration === 'concentrated'
+          ? 'Gig income'
+          : 'Freelancer income';
     const styleLabel = planType === 'structured' ? 'Planner behaviour' : 'Daily budget style';
     return `${patternLabel} · ${styleLabel}`;
   };

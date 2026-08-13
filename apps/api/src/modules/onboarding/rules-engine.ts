@@ -24,6 +24,11 @@ export interface PlanAssignment {
   // `incomePattern` stays 'freelancer' either way, so runway/rollover/nudge
   // logic (which gates on `income_pattern === 'freelancer'`) is unaffected.
   incomeConcentration?: IncomeConcentration;
+  // Set only when the onboarding answer was 'mix' (audit_team.md item 2 —
+  // salaried-with-side-income persona). Undefined for pure 'salaried' and
+  // for 'freelancer'. Stored `incomePattern` stays 'salaried' either way —
+  // display/reasons only, same posture as `incomeConcentration` above.
+  hasSideIncome?: boolean;
   reasons: PlanAssignReason[];
   remainingAfterFixed: number;
   savingsTarget: number;
@@ -82,9 +87,12 @@ function determineIncomeConcentration(sourceCount: number): IncomeConcentration 
   return sourceCount <= GIG_CONCENTRATION_MAX_SOURCES ? 'concentrated' : 'diversified';
 }
 
-function determineIncomePattern(
-  input: OnboardingInput,
-): { pattern: IncomePattern; concentration?: IncomeConcentration; reason: PlanAssignReason } {
+function determineIncomePattern(input: OnboardingInput): {
+  pattern: IncomePattern;
+  concentration?: IncomeConcentration;
+  hasSideIncome?: boolean;
+  reason: PlanAssignReason;
+} {
   const { incomePattern } = input;
 
   if (incomePattern === 'salaried') {
@@ -98,11 +106,19 @@ function determineIncomePattern(
   }
 
   if (incomePattern === 'mix') {
+    // Salaried-with-side-income persona (audit_team.md item 2 /
+    // ONBOARDING_AND_SCORING_REDESIGN.md §2.1's "stable core, flexible
+    // edge" framing) — previously collapsed into an undifferentiated
+    // 'salaried' reason string. Stored pattern still resolves to 'salaried'
+    // (runway/rollover logic keys off that), but the persona is now
+    // surfaced distinctly for plan naming and copy.
     return {
       pattern: 'salaried',
+      hasSideIncome: true,
       reason: {
-        rule: 'income_pattern_mix_stable_base',
-        reason: 'You have a stable base income with occasional variable earnings — treated as salaried for plan stability.',
+        rule: 'income_pattern_salaried_side_income',
+        reason:
+          'You have a stable base income plus irregular side income — we keep your core plan steady like a salaried budget, while leaving room for the extra to move around.',
       },
     };
   }
@@ -256,9 +272,16 @@ function buildPlanName(
   incomePattern: IncomePattern,
   planType: PlanType,
   concentration?: IncomeConcentration,
+  hasSideIncome?: boolean,
 ): PlanName {
   const patternLabel =
-    incomePattern === 'salaried' ? 'Salaried' : concentration === 'concentrated' ? 'Gig' : 'Freelancer';
+    incomePattern === 'salaried'
+      ? hasSideIncome
+        ? 'Salaried + Side Income'
+        : 'Salaried'
+      : concentration === 'concentrated'
+        ? 'Gig'
+        : 'Freelancer';
   const styleLabel = planType === 'structured' ? 'Structured' : 'Daily Budget';
   return `${patternLabel} — ${styleLabel}` as PlanName;
 }
@@ -361,9 +384,14 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
   const needsRatio = computeNeedsRatio(incomeAmount, fixedTotal);
   const needsBand = classifyNeedsBand(needsRatio);
 
-  const { pattern: resolvedIncomePattern, concentration, reason: patternReason } = determineIncomePattern(input);
+  const {
+    pattern: resolvedIncomePattern,
+    concentration,
+    hasSideIncome,
+    reason: patternReason,
+  } = determineIncomePattern(input);
   const { planType, reason: styleReason } = determineAllocationStyle(input, needsRatio, needsBand);
-  const plan = buildPlanName(resolvedIncomePattern, planType, concentration);
+  const plan = buildPlanName(resolvedIncomePattern, planType, concentration, hasSideIncome);
 
   const savingsTargetResult = calculateSavingsTarget(
     incomeAmount,
@@ -417,6 +445,7 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
     planType,
     incomePattern: resolvedIncomePattern,
     incomeConcentration: concentration,
+    hasSideIncome,
     reasons,
     remainingAfterFixed,
     savingsTarget,
