@@ -9,6 +9,7 @@ import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } fr
 import { OtpInput } from '@/components/auth/OtpInput';
 import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
+import { safeGoBack } from '@/utils/navigation';
 
 type VerifyOtpParams = {
   phone: string;
@@ -124,7 +125,7 @@ export default function VerifyOtpScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
-        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+        <BrandHeader onBack={() => {}} fallbackHref="/(auth)/signin" />
         
         <View style={{ alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xxl }}>
           <Text style={{ ...typography.eyebrow, color: colors.sage }}>One-time code</Text>
@@ -168,7 +169,7 @@ export default function VerifyOtpScreen() {
 
         <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.xxl, alignItems: 'center', paddingBottom: spacing.xl }}>
           <Text style={{ ...typography.body, color: colors.sage }}>Wrong number?</Text>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => safeGoBack(router, '/(auth)/signin')}>
             <Text style={{ color: colors.emeraldDeep }}>Edit it</Text>
           </TouchableOpacity>
         </View>

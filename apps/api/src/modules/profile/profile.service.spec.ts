@@ -293,7 +293,6 @@ describe('ProfileService', () => {
     supabaseRepo.getPocketSummary = jest.fn().mockResolvedValue({ available: 0 });
     supabaseRepo.updatePocket.mockResolvedValue({ id: 'pocket-util' } as any);
     supabaseRepo.deletePocket = jest.fn().mockResolvedValue(undefined);
-    supabaseRepo.createTransactions = jest.fn();
 
     await service.deleteFixedExpense('user-123', 'fe-1');
 
@@ -305,7 +304,7 @@ describe('ProfileService', () => {
     expect(supabaseRepo.deletePocket).toHaveBeenCalledWith('pocket-util');
   });
 
-  it('deleteFixedExpense moves leftover balance into Savings before removing the pocket', async () => {
+  it('deleteFixedExpense refuses when the matching pocket still holds money', async () => {
     supabaseRepo.getFixedExpenseById.mockResolvedValue({
       id: 'fe-1',
       user_id: 'user-123',
@@ -318,19 +317,10 @@ describe('ProfileService', () => {
       { id: 'pocket-savings', name: 'Savings', kind: 'savings', category: null, is_time_locked: true },
     ] as any);
     supabaseRepo.getPocketSummary = jest.fn().mockResolvedValue({ available: 1200 });
-    supabaseRepo.updatePocket.mockResolvedValue({ id: 'pocket-util' } as any);
-    supabaseRepo.deletePocket = jest.fn().mockResolvedValue(undefined);
-    supabaseRepo.createTransactions = jest.fn().mockResolvedValue([]);
 
-    await service.deleteFixedExpense('user-123', 'fe-1');
-
-    expect(supabaseRepo.createTransactions).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ pocket_id: 'pocket-util', amount: -1200, type: 'reallocation_out' }),
-        expect.objectContaining({ pocket_id: 'pocket-savings', amount: 1200, type: 'reallocation_in' }),
-      ]),
-    );
-    expect(supabaseRepo.deletePocket).toHaveBeenCalledWith('pocket-util');
+    await expect(service.deleteFixedExpense('user-123', 'fe-1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(supabaseRepo.deleteFixedExpense).not.toHaveBeenCalled();
+    expect(supabaseRepo.deletePocket).not.toHaveBeenCalled();
   });
 
   it('retakePlan validates input then delegates to OnboardingService.retake', async () => {

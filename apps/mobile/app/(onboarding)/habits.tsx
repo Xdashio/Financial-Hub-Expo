@@ -56,7 +56,7 @@ export default function HabitsScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => router.back()} />
+        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/about-you" />
         <ProgressIndicator currentStep={2} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>

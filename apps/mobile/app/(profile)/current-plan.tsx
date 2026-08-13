@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { LoadingState, ErrorState } from '@/components/ui';
 import { profileApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
+import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft, BarChart3, Calendar, Briefcase, PiggyBank, House, ShoppingBasket } from 'lucide-react-native';
 
 function fmt(amount: number) {
@@ -88,7 +89,7 @@ export default function CurrentPlanScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-        <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+        <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
           <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
         </Pressable>
         <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Current Plan</Text>

@@ -11,6 +11,7 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight, Minus, Plus, RotateCcw, Target, AlertTriangle } from 'lucide-react-native';
 import type { CategoryPercentages, SpendableCategory } from '@financial-hub/shared';
+import { safeGoBack } from '@/utils/navigation';
 
 const PERCENT_STEP = 5;
 
@@ -290,7 +291,7 @@ export default function ResultScreen() {
 
   const handleAdjust = () => {
     // Navigate back to previous step for adjustments
-    router.back();
+    safeGoBack(router, '/(onboarding)/fixed');
   };
 
   const getPlanTag = () => {
@@ -340,7 +341,7 @@ export default function ResultScreen() {
   return (
     <ScreenContainer>
       <View style={{ flex: 1 }}>
-        <BrandHeader onBack={() => router.back()} />
+        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/fixed" />
         <ScrollView
           ref={scrollViewRef}
           horizontal

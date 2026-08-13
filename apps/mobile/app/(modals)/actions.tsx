@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer } from '@/components/ui';
+import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft, ArrowLeftRight, Plus, Wallet, TrendingUp } from 'lucide-react-native';
 
 export default function ActionsModal() {
@@ -53,7 +54,7 @@ export default function ActionsModal() {
     <ScreenContainer>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md }}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+          <TouchableOpacity onPress={() => safeGoBack(router, '/(tabs)')} hitSlop={8}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </TouchableOpacity>
           <Text style={{ ...typography.heading, color: colors.ink }}>Manage your money</Text>

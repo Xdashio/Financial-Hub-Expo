@@ -23,6 +23,7 @@ import {
   Home,
   Users,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 interface FixedExpense {
   id: string;
@@ -41,8 +42,6 @@ export default function FixedExpenseFormScreen() {
   const { alert } = useAlertModal();
   const { addExpense, updateExpense, expenses } = useFixedExpensesStore();
   const dataSync = useDataSync();
-  const canGoBack = router.canGoBack();
-  
   const [expense, setExpense] = useState<FixedExpense | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(mode === 'edit');
@@ -157,11 +156,7 @@ export default function FixedExpenseFormScreen() {
         alert('Success', 'Fixed expense added successfully.');
       }
       
-      if (canGoBack) {
-        router.back();
-      } else {
-        router.replace('/(profile)/fixed-expenses');
-      }
+      safeGoBack(router, '/(profile)/fixed-expenses');
     } catch (error) {
       alert('Error', 'Failed to save expense. Please try again.');
     } finally {
@@ -204,7 +199,7 @@ export default function FixedExpenseFormScreen() {
           {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
             <Pressable 
-              onPress={() => canGoBack ? router.back() : router.replace('/(profile)/fixed-expenses')} 
+              onPress={() => safeGoBack(router, '/(profile)/fixed-expenses')} 
               hitSlop={8}
             >
               <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />

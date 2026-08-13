@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer, Button } from '@/components/ui';
+import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft, Check } from 'lucide-react-native';
 
 export default function PocketCreateModal() {
@@ -34,7 +35,7 @@ export default function PocketCreateModal() {
         dailyCap: kind === 'spendable' && dailyCap ? parseFloat(dailyCap) : undefined,
       });
       dataSync.bump();
-      router.back();
+      safeGoBack(router, '/(modals)/pockets-manage');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Could not create pocket');
     } finally {
@@ -52,7 +53,7 @@ export default function PocketCreateModal() {
     <ScreenContainer>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md }}>
-          <Pressable onPress={() => router.back()} hitSlop={8}>
+          <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.heading, color: colors.ink }}>Add Pocket</Text>

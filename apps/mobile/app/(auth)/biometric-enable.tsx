@@ -8,6 +8,7 @@ import { radius, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/services/auth';
 import { Button, Card } from '@/components/ui';
 import { Fingerprint, ScanFace, Shield, ArrowLeft } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 type BiometricEnableParams = {
   fromSignup?: string;
@@ -111,10 +112,10 @@ export default function BiometricEnableScreen() {
           if (result.success) {
             setIsUnlocked(true);
           } else {
-            router.back();
+            safeGoBack(router, '/(tabs)/profile');
           }
         } catch {
-          if (!cancelled) router.back();
+          if (!cancelled) safeGoBack(router, '/(tabs)/profile');
         } finally {
           confirmingRef.current = false;
         }
@@ -174,7 +175,7 @@ export default function BiometricEnableScreen() {
 
   const handleContinue = async () => {
     if (!fromSignup) {
-      router.back();
+      safeGoBack(router, '/(tabs)/profile');
       return;
     }
     await checkHasPlan();
@@ -200,7 +201,7 @@ export default function BiometricEnableScreen() {
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-            <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+            <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
               <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
             </Pressable>
             <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>
@@ -240,7 +241,7 @@ export default function BiometricEnableScreen() {
           </View>
 
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-            <Button fullWidth size="lg" onPress={() => router.back()}>
+            <Button fullWidth size="lg" onPress={() => safeGoBack(router, '/(tabs)/profile')}>
               Back to Settings
             </Button>
           </View>
@@ -254,7 +255,7 @@ export default function BiometricEnableScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>
@@ -276,7 +277,7 @@ export default function BiometricEnableScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           {!fromSignup && (
-            <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+            <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
               <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
             </Pressable>
           )}

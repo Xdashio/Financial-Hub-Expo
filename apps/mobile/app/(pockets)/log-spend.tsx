@@ -10,6 +10,7 @@ import { useDataSync } from '@/services/data-sync';
 import { Button } from '@/components/ui';
 import { ArrowLeft, ShoppingCart } from 'lucide-react-native';
 import { enqueueWrite } from '@/services/offline-queue';
+import { safeGoBack } from '@/utils/navigation';
 
 const CATEGORIES: { id: string; name: string }[] = [
   { id: '', name: "Don't know yet" },
@@ -65,7 +66,7 @@ export default function LogSpendScreen() {
       if (result.allowed) {
         useDataSync.getState().bump();
         await alert('Spend logged', `${result.pocket.name} now has KES ${Math.round(result.pocket.available_balance).toLocaleString()} left.`);
-        router.back();
+        safeGoBack(router, '/(tabs)');
         return;
       }
 
@@ -127,7 +128,7 @@ export default function LogSpendScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-            <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+            <Pressable onPress={() => safeGoBack(router, '/(tabs)')} style={{ padding: spacing.sm }}>
               <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
             </Pressable>
             <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>

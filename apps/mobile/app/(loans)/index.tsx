@@ -19,6 +19,7 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -201,11 +202,7 @@ export default function LoansScreen() {
   };
 
   const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)');
-    }
+    safeGoBack(router, '/(tabs)');
   };
 
   const goToCreate = () => {

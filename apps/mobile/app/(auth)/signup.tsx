@@ -110,7 +110,7 @@ export default function SignUpScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
-        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+        <BrandHeader onBack={() => {}} fallbackHref="/landing" />
         
         <View style={{ alignItems: 'center', marginTop: spacing.lg, marginBottom: spacing.xxl }}>
           <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money, in pockets</Text>

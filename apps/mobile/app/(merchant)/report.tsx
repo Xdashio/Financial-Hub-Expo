@@ -12,6 +12,7 @@ import {
   Check,
   LucideIcon,
 } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 export default function ReportMerchantScreen() {
   const { colors } = useTheme();
@@ -51,7 +52,7 @@ export default function ReportMerchantScreen() {
       });
 
       await alert('Report submitted', message || 'Thank you for your report. We will review it and improve our classification.');
-      router.back();
+      safeGoBack(router, '/(tabs)');
     } catch (error) {
       alert('Error', 'Failed to submit report. Please try again.');
     } finally {
@@ -64,7 +65,7 @@ export default function ReportMerchantScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
-          <Pressable onPress={() => router.back()} style={{ padding: spacing.sm }}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>

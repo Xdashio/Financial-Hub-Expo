@@ -96,7 +96,7 @@ export default function ReallocPickScreen() {
 
   return (
     <ScreenContainer>
-      <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+      <BrandHeader onBack={() => {}} fallbackHref="/(tabs)" />
       <SafeScrollView>
         <View style={{ marginTop: spacing.lg }}>
           <Text style={styles.title}>Move money between pockets</Text>

@@ -43,7 +43,7 @@ function toApiBody(expense: Partial<FixedExpense> & { name?: string; amount?: nu
 }
 
 function matchFixedPocket(
-  pockets: Array<{ id: string; name: string; kind: string; category?: string | null }>,
+  pockets: Array<{ id: string; name: string; kind: string; category?: string | null; availableBalance?: number; available_balance?: number }>,
   name: string,
   category?: string,
 ) {
@@ -60,6 +60,16 @@ function matchFixedPocket(
   }
   if (fixed.length === 1) return fixed[0];
   return undefined;
+}
+
+export function getFixedPocketBalance(
+  pockets: Array<{ id: string; name: string; kind: string; category?: string | null; availableBalance?: number; available_balance?: number }>,
+  name: string,
+  category?: string,
+): number {
+  const match = matchFixedPocket(pockets, name, category);
+  if (!match) return 0;
+  return match.availableBalance ?? match.available_balance ?? 0;
 }
 
 /**

@@ -96,7 +96,7 @@ export default function SurplusPocketPickerScreen() {
 
   return (
     <ScreenContainer>
-      <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+      <BrandHeader onBack={() => {}} fallbackHref="/(tabs)" />
       <SafeScrollView>
         <View style={{ marginTop: spacing.lg }}>
           <Text style={styles.title}>Choose a pocket</Text>
