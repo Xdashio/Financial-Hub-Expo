@@ -25,6 +25,9 @@ describe('ProfileService', () => {
       getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([]),
       updatePocket: jest.fn(),
       createPocket: jest.fn(),
+      getPocketSummary: jest.fn().mockResolvedValue({ available: 0 }),
+      deletePocket: jest.fn(),
+      createTransactions: jest.fn(),
     } as any;
 
     onboardingService = {
@@ -276,11 +279,58 @@ describe('ProfileService', () => {
   });
 
   it('deleteFixedExpense deletes once ownership is confirmed', async () => {
-    supabaseRepo.getFixedExpenseById.mockResolvedValue({ id: 'fe-1', user_id: 'user-123' } as any);
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'UTILITIES',
+      category: 'utilities',
+    } as any);
+    supabaseRepo.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1' } as any);
+    supabaseRepo.getTopLevelPocketsByPlanId.mockResolvedValue([
+      { id: 'pocket-util', name: 'UTILITIES', kind: 'fixed', category: 'utilities', is_time_locked: true },
+      { id: 'pocket-savings', name: 'Savings', kind: 'savings', category: null, is_time_locked: true },
+    ] as any);
+    supabaseRepo.getPocketSummary = jest.fn().mockResolvedValue({ available: 0 });
+    supabaseRepo.updatePocket.mockResolvedValue({ id: 'pocket-util' } as any);
+    supabaseRepo.deletePocket = jest.fn().mockResolvedValue(undefined);
+    supabaseRepo.createTransactions = jest.fn();
 
     await service.deleteFixedExpense('user-123', 'fe-1');
 
     expect(supabaseRepo.deleteFixedExpense).toHaveBeenCalledWith('fe-1');
+    expect(supabaseRepo.updatePocket).toHaveBeenCalledWith(
+      'pocket-util',
+      expect.objectContaining({ is_time_locked: false }),
+    );
+    expect(supabaseRepo.deletePocket).toHaveBeenCalledWith('pocket-util');
+  });
+
+  it('deleteFixedExpense moves leftover balance into Savings before removing the pocket', async () => {
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'UTILITIES',
+      category: 'utilities',
+    } as any);
+    supabaseRepo.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1' } as any);
+    supabaseRepo.getTopLevelPocketsByPlanId.mockResolvedValue([
+      { id: 'pocket-util', name: 'UTILITIES', kind: 'fixed', category: 'utilities', is_time_locked: true },
+      { id: 'pocket-savings', name: 'Savings', kind: 'savings', category: null, is_time_locked: true },
+    ] as any);
+    supabaseRepo.getPocketSummary = jest.fn().mockResolvedValue({ available: 1200 });
+    supabaseRepo.updatePocket.mockResolvedValue({ id: 'pocket-util' } as any);
+    supabaseRepo.deletePocket = jest.fn().mockResolvedValue(undefined);
+    supabaseRepo.createTransactions = jest.fn().mockResolvedValue([]);
+
+    await service.deleteFixedExpense('user-123', 'fe-1');
+
+    expect(supabaseRepo.createTransactions).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ pocket_id: 'pocket-util', amount: -1200, type: 'reallocation_out' }),
+        expect.objectContaining({ pocket_id: 'pocket-savings', amount: 1200, type: 'reallocation_in' }),
+      ]),
+    );
+    expect(supabaseRepo.deletePocket).toHaveBeenCalledWith('pocket-util');
   });
 
   it('retakePlan validates input then delegates to OnboardingService.retake', async () => {

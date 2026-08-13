@@ -36,7 +36,19 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     throw new Error(error.message || `HTTP ${response.status}`);
   }
 
-  return response.json();
+  // DELETE /profile/fixed-expenses/:id returns 204 No Content. Calling
+  // response.json() on an empty body throws and made delete look broken
+  // (optimistic remove rolled back even when the server deleted the row).
+  if (response.status === 204 || response.status === 205) {
+    return undefined as T;
+  }
+
+  const text = await response.text();
+  if (!text) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 export const api = {
