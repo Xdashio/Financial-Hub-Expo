@@ -333,7 +333,7 @@ export default function ProfileScreen() {
         ))}
 
         <Pressable 
-          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md }} 
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, minHeight: 44, marginTop: spacing.md }} 
           onPress={handleSignOutPress}
           accessibilityLabel="Sign out"
           accessibilityRole="button"
@@ -356,7 +356,12 @@ export default function ProfileScreen() {
             <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingBottom: spacing.xxl }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: spacing.lg, borderBottomWidth: 1, borderBottomColor: colors.line }}>
                 <Text style={{ ...typography.title, color: colors.ink }}>Appearance</Text>
-                <Pressable onPress={() => setShowThemePicker(false)} style={{ padding: spacing.sm }}>
+                <Pressable
+                  onPress={() => setShowThemePicker(false)}
+                  style={{ padding: spacing.sm, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+                  accessibilityLabel="Close"
+                  accessibilityRole="button"
+                >
                   <X size={24} color={colors.ink} />
                 </Pressable>
               </View>
@@ -364,11 +369,14 @@ export default function ProfileScreen() {
                 {themeOptions.map((option) => (
                   <Pressable
                     key={option.id}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderRadius: radius.md, backgroundColor: mode === option.id ? colors.emeraldTint : 'transparent' }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, minHeight: 44, borderRadius: radius.md, backgroundColor: mode === option.id ? colors.emeraldTint : 'transparent' }}
                     onPress={() => {
                       setMode(option.id);
                       setShowThemePicker(false);
                     }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: mode === option.id }}
+                    accessibilityLabel={`${option.label}, ${option.desc}`}
                   >
                     <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
                       <option.icon size={20} color={colors.ink} strokeWidth={2} />

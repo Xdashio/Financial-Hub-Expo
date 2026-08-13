@@ -44,10 +44,15 @@ function cellColor(day: HeatmapDay, colors: any) {
   // both light and dark paper — lineSoft failed WCAG-ish contrast checks.
   if (day.count === 0) return colors.line;
   if (day.points < 0) {
+    // Mirrors the positive branch below: three visually distinct steps
+    // (light tint → mid → full clay) so a barely-over-cap day doesn't
+    // render identically to a badly-over-cap one. Previously the top two
+    // intensity bands both returned `colors.clay`, collapsing "somewhat
+    // bad" and "very bad" days into the same color.
     const intensity = Math.min(1, Math.abs(day.points) / NEGATIVE_POINTS_SCALE);
     if (intensity > 0.66) return colors.clay;
-    if (intensity > 0.33) return colors.clay;
-    return colors.clayTint || colors.clay + 'CC';
+    if (intensity > 0.33) return colors.clay + '99';
+    return colors.clayTint;
   }
   // Positive but zero net points (e.g. neutral logging activity) still
   // gets the lightest green tint rather than looking identical to a
@@ -354,7 +359,7 @@ export function StreakHeatmap() {
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginLeft: spacing.md }}>
               <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage }}>Negative</Text>
-              {[colors.line, colors.clayTint || colors.clay, colors.clay, colors.clay].map((c, i) => (
+              {[colors.line, colors.clayTint, colors.clay + '99', colors.clay].map((c, i) => (
                 <View key={i} style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: c }} />
               ))}
             </View>
