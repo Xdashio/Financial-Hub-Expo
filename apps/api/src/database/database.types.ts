@@ -80,7 +80,7 @@ export interface Database {
           id: string
           plan_id: string
           name: string
-          kind: 'savings' | 'fixed' | 'spendable'
+          kind: 'savings' | 'fixed' | 'spendable' | 'loan'
           category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
           is_time_locked: boolean
           lock_until: string | null
@@ -91,6 +91,11 @@ export interface Database {
           // 007_sub_pockets.sql — depth is capped at one level, enforced in
           // pockets.service.ts, not here.
           parent_pocket_id: string | null
+          // Loan-specific fields (audit_team.md item 9)
+          repayment_schedule: Json | null
+          loan_provider: string | null
+          loan_purpose: string | null
+          due_day: number | null
           created_at: string
           updated_at: string
         }
@@ -98,13 +103,17 @@ export interface Database {
           id?: string
           plan_id: string
           name: string
-          kind: 'savings' | 'fixed' | 'spendable'
+          kind: 'savings' | 'fixed' | 'spendable' | 'loan'
           category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation: number
           daily_cap?: number | null
           parent_pocket_id?: string | null
+          repayment_schedule?: Json | null
+          loan_provider?: string | null
+          loan_purpose?: string | null
+          due_day?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -112,13 +121,17 @@ export interface Database {
           id?: string
           plan_id?: string
           name?: string
-          kind?: 'savings' | 'fixed' | 'spendable'
+          kind?: 'savings' | 'fixed' | 'spendable' | 'loan'
           category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation?: number
           daily_cap?: number | null
           parent_pocket_id?: string | null
+          repayment_schedule?: Json | null
+          loan_provider?: string | null
+          loan_purpose?: string | null
+          due_day?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -436,6 +449,7 @@ export interface NotificationPreferences {
   savings_milestones: boolean;
   monthly_insights: boolean;
   tips_nudges: boolean;
+  loan_reminders: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -448,6 +462,7 @@ export interface NotificationPreferencesInsert {
   savings_milestones?: boolean;
   monthly_insights?: boolean;
   tips_nudges?: boolean;
+  loan_reminders?: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -458,6 +473,7 @@ export interface NotificationPreferencesUpdate {
   savings_milestones?: boolean;
   monthly_insights?: boolean;
   tips_nudges?: boolean;
+  loan_reminders?: boolean;
   updated_at?: string;
 }
 
@@ -504,7 +520,7 @@ export interface NotificationDeliveryInsert {
   sent_at?: string;
 }
 
-export type IdempotencyScope = 'income' | 'spend';
+export type IdempotencyScope = 'income' | 'spend' | 'loan_reminder';
 
 export interface IdempotencyRecord {
   id: string;

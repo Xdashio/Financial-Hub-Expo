@@ -16,6 +16,7 @@ import { MerchantReportModule } from './modules/merchant-report/merchant-report.
 import { SpendModule } from './modules/spend/spend.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RolloverModule } from './modules/rollover/rollover.module';
+import { LoansModule } from './modules/loans/loans.module';
 import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 
 @Module({
@@ -47,6 +48,7 @@ import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
     SpendModule,
     NotificationsModule,
     RolloverModule,
+    LoansModule,
   ],
   providers: [
     // Authenticated-by-default: new controllers are locked unless marked @Public().

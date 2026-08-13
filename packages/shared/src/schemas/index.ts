@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const PlanTypeSchema = z.enum(['structured', 'daily']);
 export type PlanType = z.infer<typeof PlanTypeSchema>;
 
-export const PocketKindSchema = z.enum(['savings', 'fixed', 'spendable']);
+export const PocketKindSchema = z.enum(['savings', 'fixed', 'spendable', 'loan']);
 export type PocketKind = z.infer<typeof PocketKindSchema>;
 
 export const PocketCategorySchema = z.enum([
@@ -218,7 +218,7 @@ export const OnboardingCommitResultSchema = z.object({
   pockets: z.array(z.object({
     id: z.string().uuid(),
     name: z.string(),
-    kind: PocketKindSchema,
+    kind: PocketKindSchema, // Includes 'loan' for compatibility, though onboarding doesn't create loans
     category: PocketCategorySchema.optional(),
     monthlyAllocation: z.number().nonnegative(),
     dailyCap: z.number().nonnegative().optional(),
@@ -360,6 +360,62 @@ export const SubPocketCreateInputSchema = z.object({
 });
 export type SubPocketCreateInput = z.infer<typeof SubPocketCreateInputSchema>;
 
+// ============================================================================
+// Loan Schemas - audit_team.md item 9
+// ============================================================================
+
+export const RepaymentCadenceSchema = z.enum(['weekly', 'biweekly', 'monthly']);
+export type RepaymentCadence = z.infer<typeof RepaymentCadenceSchema>;
+
+export const RepaymentScheduleSchema = z.object({
+  totalAmount: z.number().positive(),
+  repaymentAmount: z.number().positive(),
+  cadence: RepaymentCadenceSchema,
+  startDate: z.string(), // ISO date string
+  endDate: z.string(), // ISO date string
+  nextDueDate: z.string(), // ISO date string
+  totalPayments: z.number().int().positive(),
+  paymentsMade: z.number().int().nonnegative(),
+});
+export type RepaymentSchedule = z.infer<typeof RepaymentScheduleSchema>;
+
+export const LoanCreateInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  totalAmount: z.number().positive(),
+  repaymentAmount: z.number().positive(),
+  cadence: RepaymentCadenceSchema,
+  startDate: z.string(), // ISO date string
+  endDate: z.string(), // ISO date string
+  dueDay: z.number().int().min(1).max(31),
+  loanProvider: z.string().min(1).max(100).optional(),
+  loanPurpose: z.string().min(1).max(200).optional(),
+});
+export type LoanCreateInput = z.infer<typeof LoanCreateInputSchema>;
+
+export const LoanUpdateInputSchema = z.object({
+  repaymentSchedule: RepaymentScheduleSchema.partial().optional(),
+  loanProvider: z.string().min(1).max(100).optional(),
+  loanPurpose: z.string().min(1).max(200).optional(),
+}).partial();
+export type LoanUpdateInput = z.infer<typeof LoanUpdateInputSchema>;
+
+export const LoanPurposePocketInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  category: PocketCategorySchema,
+  monthlyAllocation: z.number().nonnegative(),
+});
+export type LoanPurposePocketInput = z.infer<typeof LoanPurposePocketInputSchema>;
+
+export const LoanDetailSchema = PocketSchema.extend({
+  kind: z.literal('loan'),
+  repaymentSchedule: RepaymentScheduleSchema,
+  loanProvider: z.string().nullable(),
+  loanPurpose: z.string().nullable(),
+  dueDay: z.number().int().min(1).max(31),
+  subPockets: z.array(PocketSchema).optional(), // Repayment + purpose sub-pockets
+});
+export type LoanDetail = z.infer<typeof LoanDetailSchema>;
+
 export const FixedExpenseSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(), // per user
@@ -483,6 +539,12 @@ export const schemas = {
   Pocket: PocketSchema,
   PocketUpdateInput: PocketUpdateInputSchema,
   SubPocketCreateInput: SubPocketCreateInputSchema,
+  RepaymentCadence: RepaymentCadenceSchema,
+  RepaymentSchedule: RepaymentScheduleSchema,
+  LoanCreateInput: LoanCreateInputSchema,
+  LoanUpdateInput: LoanUpdateInputSchema,
+  LoanPurposePocketInput: LoanPurposePocketInputSchema,
+  LoanDetail: LoanDetailSchema,
   FixedExpense: FixedExpenseSchema,
   IncomeEvent: IncomeEventSchema,
   Transaction: TransactionSchema,

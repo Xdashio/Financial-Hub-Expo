@@ -6,11 +6,12 @@ import { useTheme } from '@/theme/ThemeContext';
 import {
   Shield, RefreshCw, PiggyBank, House, ShoppingBasket, User, Car, Lock,
   ArrowLeftRight, Plus, Lightbulb, HeartPulse, GraduationCap, Wifi, Package,
-  Calendar,
+  Calendar, TrendingUp,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { useAuthStore } from '@/services/auth';
+import { loansApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
 
 // Pocket icons — using lucide-react-native so pocket icons stay visually
@@ -32,6 +33,8 @@ const getPocketIcon = (category?: string, kind?: string) => {
   switch (kind) {
     case 'savings':
       return PocketIconSavings;
+    case 'loan':
+      return TrendingUp;
     case 'fixed':
       // For fixed pockets, use category to determine icon — previously every
       // category fell through to the same House icon, making the "Fixed &
@@ -297,6 +300,19 @@ export default function HomeScreen() {
               <Plus size={16} color={colors.emeraldDeep} strokeWidth={2} />
             </View>
             <Text style={{ ...typography.body, color: colors.ink }}>Add income</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{ marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}
+          activeOpacity={0.8}
+          onPress={() => router.push('/(loans)')}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ width: 28, height: 28, borderRadius: radius.pill, backgroundColor: colors.plumTint, alignItems: 'center', justifyContent: 'center' }}>
+              <TrendingUp size={16} color={colors.plum} strokeWidth={2} />
+            </View>
+            <Text style={{ ...typography.body, color: colors.ink }}>Manage loans</Text>
           </View>
         </TouchableOpacity>
 
