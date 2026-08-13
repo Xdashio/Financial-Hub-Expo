@@ -33,7 +33,11 @@ describe('RolloverService.runForUser', () => {
 
   beforeEach(() => {
     repository = {
-      getActivePlanByUserId: jest.fn().mockResolvedValue({ id: 'plan-1', user_id: 'user-1' }),
+      getActivePlanByUserId: jest.fn().mockResolvedValue({
+        id: 'plan-1',
+        user_id: 'user-1',
+        created_at: '2026-07-01T00:00:00.000Z',
+      }),
       getPocketsByPlanId: jest.fn().mockResolvedValue([FOOD, SAVINGS]),
       getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
       getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([[FOOD.id, 200]])),
@@ -140,5 +144,23 @@ describe('RolloverService.runForUser', () => {
     );
     expect(result.latestAmount).toBe(0);
     expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', -3);
+  });
+
+  it('does not invent catch-up wins for days before the plan existed', async () => {
+    // Plan created today — catch-up window is yesterday..-7d, all before
+    // planCreatedDate, so no days should be processed.
+    repository.getActivePlanByUserId.mockResolvedValue({
+      id: 'plan-1',
+      user_id: 'user-1',
+      created_at: '2026-08-10T15:00:00.000Z',
+    });
+
+    const result = await service.runForUser('user-1', new Date('2026-08-10T18:00:00.000Z'));
+
+    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(repository.createBehaviorEvent).not.toHaveBeenCalled();
+    expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+    expect(result.days).toEqual([]);
+    expect(result.milestoneAwarded).toBeNull();
   });
 });

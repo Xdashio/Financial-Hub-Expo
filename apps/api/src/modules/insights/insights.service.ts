@@ -59,13 +59,52 @@ export class InsightsService {
     if (!latest) {
       return { ...DEFAULT_DISCIPLINE_SCORE, cardOrder };
     }
-    return { 
-      score: latest.score, 
-      delta: latest.delta,
-      period: latest.period,
+
+    // `discipline_scores.delta` is the *last* applyDelta write, not the
+    // period net — surfacing it as "pts this period" made a single streak
+    // milestone look like a month of progress. Sum signed points from this
+    // month's behavior events instead.
+    const period = latest.period || new Date().toISOString().slice(0, 7);
+    const periodDelta = await this.sumPeriodDisciplinePoints(userId, period);
+
+    return {
+      score: latest.score,
+      delta: periodDelta,
+      period,
       hasHistory: true,
       cardOrder,
     };
+  }
+
+  /** Net discipline points from behavior events in YYYY-MM. */
+  private async sumPeriodDisciplinePoints(userId: string, period: string): Promise<number> {
+    const monthStart = `${period}-01T00:00:00.000Z`;
+    const [y, m] = period.split('-').map(Number);
+    const nextMonth = new Date(Date.UTC(y, m, 1)).toISOString(); // m is 1-based month number → Date.UTC month index = m (next month)
+
+    const events = await this.supabaseRepo.getBehaviorEventsByTypesSince(
+      userId,
+      [
+        'daily_rollover_success',
+        'daily_overspend',
+        'streak_milestone',
+        'gambling_blocked_attempt',
+        'essential_override',
+        'fixed_payment_on_time',
+        'goal_achieved',
+        'streak_freeze_used',
+      ],
+      monthStart,
+    );
+
+    let net = 0;
+    for (const event of events) {
+      if (event.created_at >= nextMonth) continue;
+      const payload = (event.payload || {}) as Record<string, unknown>;
+      if (typeof payload.points_added === 'number') net += payload.points_added;
+      if (typeof payload.points_deducted === 'number') net -= payload.points_deducted;
+    }
+    return net;
   }
 
   async getDisciplineScoreHistory(userId: string, startDate: string, endDate: string) {

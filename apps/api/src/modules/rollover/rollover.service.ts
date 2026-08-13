@@ -87,7 +87,27 @@ export class RolloverService {
       };
     }
 
-    const dates = catchupDateIsos(now, ROLLOVER_CATCHUP_DAYS);
+    const planCreatedDate =
+      typeof plan.created_at === 'string' && /^\d{4}-\d{2}-\d{2}/.test(plan.created_at)
+        ? plan.created_at.slice(0, 10)
+        : null;
+
+    // Never invent under-cap "wins" for calendar days before the plan
+    // existed. Catch-up of ROLLOVER_CATCHUP_DAYS (7) against an empty spend
+    // history was minting a 7-day streak + milestone (+5 pts) on a brand-new
+    // user's first home load — Insights then showed "100 / +5 pts this period".
+    const dates = catchupDateIsos(now, ROLLOVER_CATCHUP_DAYS).filter(
+      (d) => !planCreatedDate || d >= planCreatedDate,
+    );
+    if (dates.length === 0) {
+      return {
+        days: [],
+        totalAmount: 0,
+        latestAmount: 0,
+        streak: await this.getStreak(userId, now),
+        milestoneAwarded: null,
+      };
+    }
     const lookbackStart = `${dates[0]}T00:00:00.000Z`;
     const priorEvents = await this.repository.getBehaviorEventsByTypesSince(
       userId,
@@ -128,7 +148,12 @@ export class RolloverService {
     }
 
     const streakBeforeMilestone = await this.getStreak(userId, now);
-    const milestoneAwarded = await this.maybeAwardMilestone(userId, streakBeforeMilestone);
+    const milestoneAwarded = await this.maybeAwardMilestone(
+      userId,
+      streakBeforeMilestone,
+      planCreatedDate,
+      now,
+    );
     const streak = milestoneAwarded ? await this.getStreak(userId, now) : streakBeforeMilestone;
 
     // Batch 7: fire-and-forget pushes. Failures must not fail the rollover.
@@ -367,8 +392,21 @@ export class RolloverService {
   private async maybeAwardMilestone(
     userId: string,
     streak: StreakSummary,
+    planCreatedDate: string | null,
+    now: Date,
   ): Promise<number | null> {
     if (!streak.hitMilestone) return null;
+
+    // Plan must have existed at least as long as the milestone claims.
+    // Stops a same-day catch-up batch from awarding "7-day streak" points.
+    if (planCreatedDate) {
+      const planMs = Date.parse(`${planCreatedDate}T00:00:00.000Z`);
+      const todayMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      const planAgeDays = Math.floor((todayMs - planMs) / 86400000);
+      if (planAgeDays < streak.hitMilestone) {
+        return null;
+      }
+    }
 
     const since = new Date(Date.now() - 120 * 86400000).toISOString();
     const lifetime = await this.repository.getBehaviorEventsByTypesSince(
