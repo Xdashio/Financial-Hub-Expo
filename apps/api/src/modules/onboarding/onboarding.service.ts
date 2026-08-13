@@ -106,6 +106,12 @@ export class OnboardingService {
       income_interval_days: assignment.incomeIntervalDays ?? null,
       expected_income_amount: input.incomeAmount ?? null,
       status: 'active',
+      // Money-personality modifier layer (audit_team.md item 2 batch 2 /
+      // ONBOARDING_AND_SCORING_REDESIGN.md §2.3) — persisted so it survives
+      // past onboarding for reallocations/notifications/insights to read.
+      // Falls back to 'saver', matching rules-engine.ts's own fallback for
+      // a skipped answer.
+      money_personality: input.moneyPersonality ?? 'saver',
     });
 
     if (!plan) {
@@ -225,6 +231,10 @@ export class OnboardingService {
         income_interval_days: assignment.incomeIntervalDays ?? null,
         expected_income_amount: input.incomeAmount ?? null,
         status: 'active',
+        // See the money_personality comment on the commit() createPlan call
+        // above — same modifier-layer persistence, applies on retake too
+        // since a retake can change the stated personality.
+        money_personality: input.moneyPersonality ?? 'saver',
       });
 
       if (!plan) {

@@ -38,6 +38,7 @@ export default function InsightsScreen() {
   const [delta, setDelta] = React.useState(0);
   const [scorePeriod, setScorePeriod] = React.useState('');
   const [hasScoreHistory, setHasScoreHistory] = React.useState(false);
+  const [cardOrder, setCardOrder] = React.useState<string[]>([]);
   const [events, setEvents] = React.useState<any[]>([]);
   const [reallocationsThisMonth, setReallocationsThisMonth] = React.useState(0);
   const [coolingOffSkips, setCoolingOffSkips] = React.useState(0);
@@ -61,6 +62,7 @@ export default function InsightsScreen() {
       setDelta(scoreRes?.delta ?? 0);
       setScorePeriod(scoreRes?.period ?? '');
       setHasScoreHistory(scoreRes?.hasHistory ?? false);
+      setCardOrder(Array.isArray(scoreRes?.cardOrder) ? scoreRes.cardOrder : []);
       setEvents(Array.isArray(eventsRes?.events) ? eventsRes.events : []);
       setPage(1);
       setHasMore((eventsRes?.pagination?.page ?? 1) < (eventsRes?.pagination?.totalPages ?? 1));
@@ -122,11 +124,22 @@ export default function InsightsScreen() {
     (event.desc && event.desc.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const metrics: Metric[] = [
-    { label: 'Pocket adjustments this month', value: String(reallocationsThisMonth), icon: ArrowLeftRight, color: colors.plum },
-    { label: 'Spending discipline', value: score !== null ? `${score}%` : '—', icon: Target, color: colors.gold },
-    { label: 'Cooling-off skips', value: String(coolingOffSkips), icon: Timer, color: colors.clay },
+  const metrics: (Metric & { kind: string })[] = [
+    { kind: 'reallocation_frequency', label: 'Pocket adjustments this month', value: String(reallocationsThisMonth), icon: ArrowLeftRight, color: colors.plum },
+    { kind: 'discipline_score', label: 'Spending discipline', value: score !== null ? `${score}%` : '—', icon: Target, color: colors.gold },
+    { kind: 'cooling_off_skips', label: 'Cooling-off skips', value: String(coolingOffSkips), icon: Timer, color: colors.clay },
   ];
+  // Money-personality modifier layer (§2.3) — reorders these cards by the
+  // priority order the API returned (insightPriorityOrderFor), without
+  // changing which cards exist. Falls back to the order above when the API
+  // didn't send one (older server build).
+  const orderedMetrics = cardOrder.length
+    ? [...metrics].sort((a, b) => {
+        const ai = cardOrder.indexOf(a.kind);
+        const bi = cardOrder.indexOf(b.kind);
+        return (ai === -1 ? cardOrder.length : ai) - (bi === -1 ? cardOrder.length : bi);
+      })
+    : metrics;
 
   if (isLoading) {
     return (
@@ -185,7 +198,7 @@ export default function InsightsScreen() {
             layout so the value/label pair lines up the same way across all
             three cards regardless of label length. */}
         <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
-          {metrics.map((metric, i) => (
+          {orderedMetrics.map((metric, i) => (
             <View
               key={i}
               style={{

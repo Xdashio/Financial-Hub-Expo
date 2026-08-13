@@ -15,6 +15,13 @@ describe('NotificationSchedulerService', () => {
       getCoolingOffReallocationsEndingBetween: jest.fn().mockResolvedValue([]),
       resolveUserIdForPocket: jest.fn().mockResolvedValue('user-1'),
       getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
+      // Money-personality modifier layer (§2.3) — sendStreakAtRiskNudges
+      // reads the user's plan personality for its cadence gate. Default to
+      // a plan with no personality set (falls back to 'saver' inside
+      // notificationCadenceFor), same as a plan that predates the
+      // migration; individual tests override this when the personality
+      // itself matters.
+      getActivePlanByUserId: jest.fn().mockResolvedValue({ money_personality: undefined }),
     };
     push = {
       notifyCoolingOffReady: jest.fn().mockResolvedValue({ sent: true }),
@@ -78,7 +85,32 @@ describe('NotificationSchedulerService', () => {
     const result = await service.sendStreakAtRiskNudges(new Date('2026-08-10T18:00:00.000Z'));
 
     expect(result.sent).toBe(1);
-    expect(push.notifyStreakAtRisk).toHaveBeenCalledWith('user-1', expect.any(Number), '2026-08-10');
+    expect(push.notifyStreakAtRisk).toHaveBeenCalledWith('user-1', expect.any(Number), '2026-08-10', 'neutral');
+  });
+
+  it('gates a saver to every other day, but always nudges an avoider (§2.3 cadence)', async () => {
+    repository.getBehaviorEventsByTypesSince.mockImplementation(
+      async (_u: string, types: string[]) => {
+        if (types.includes(EVENT_DAILY_ROLLOVER_SUCCESS)) {
+          return [
+            { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-10', amount: 150 }, created_at: '2026-08-10T01:00:00.000Z' },
+          ];
+        }
+        return [];
+      },
+    );
+
+    // 2026-08-11 is an odd day-of-year (223) — a saver's every-2-days gate
+    // should skip it; an avoider's gate (round(0.5)=1) never skips.
+    repository.getActivePlanByUserId.mockResolvedValue({ money_personality: 'saver' });
+    const saverResult = await service.sendStreakAtRiskNudges(new Date('2026-08-11T18:00:00.000Z'));
+    expect(saverResult.sent).toBe(0);
+    expect(push.notifyStreakAtRisk).not.toHaveBeenCalled();
+
+    repository.getActivePlanByUserId.mockResolvedValue({ money_personality: 'avoider' });
+    const avoiderResult = await service.sendStreakAtRiskNudges(new Date('2026-08-11T18:00:00.000Z'));
+    expect(avoiderResult.sent).toBe(1);
+    expect(push.notifyStreakAtRisk).toHaveBeenCalledWith('user-1', expect.any(Number), '2026-08-11', 'gentle_frequent');
   });
 
   it('sends monthly insights with the current discipline score', async () => {

@@ -4,6 +4,7 @@ import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { PushDeliveryService } from '../notifications/push-delivery.service';
 import { Pocket, Reallocation } from '../../database/database.types';
+import { coolingOffModifierFor, CoolingOffModifier } from '../../common/personality-modifiers';
 import {
   ReallocationInputSchema,
   ReallocationInput,
@@ -34,7 +35,10 @@ export class ReallocationsService {
     private readonly pushDelivery: PushDeliveryService,
   ) {}
 
-  async create(userId: string, input: unknown): Promise<Reallocation> {
+  async create(
+    userId: string,
+    input: unknown,
+  ): Promise<Reallocation & { cooling_off_framing?: CoolingOffModifier }> {
     const parsed = this.parseCreateInput(input);
 
     if (parsed.fromPocketId === parsed.toPocketId) {
@@ -69,8 +73,17 @@ export class ReallocationsService {
     }
 
     const coolingOffApplies = this.isEssential(fromPocket) && this.isLeisure(toPocket);
-    const coolingOffEndsAt = coolingOffApplies
-      ? new Date(Date.now() + COOLING_OFF_HOURS * 60 * 60 * 1000).toISOString()
+
+    // Money-personality modifier layer (§2.3): duration + framing come from
+    // the user's plan personality rather than the flat COOLING_OFF_HOURS
+    // default for everyone. Only computed when cooling-off actually
+    // applies — an unaffected move doesn't need a personality lookup.
+    let coolingOffModifier: CoolingOffModifier | null = null;
+    if (coolingOffApplies) {
+      coolingOffModifier = coolingOffModifierFor(plan.money_personality, COOLING_OFF_HOURS);
+    }
+    const coolingOffEndsAt = coolingOffModifier
+      ? new Date(Date.now() + coolingOffModifier.hours * 60 * 60 * 1000).toISOString()
       : null;
 
     const reallocation = await this.repo.createReallocation({
@@ -100,7 +113,10 @@ export class ReallocationsService {
       },
     });
 
-    return reallocation;
+    // cooling_off_framing is additive, display-only context for the mobile
+    // cooling-off screen (title/message tuned to the plan's money
+    // personality) — undefined when cooling-off doesn't apply to this move.
+    return coolingOffModifier ? { ...reallocation, cooling_off_framing: coolingOffModifier } : reallocation;
   }
 
   async complete(userId: string, reallocationId: string, input: unknown): Promise<Reallocation> {
