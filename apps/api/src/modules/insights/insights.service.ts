@@ -4,6 +4,8 @@ import { BehaviorEvent } from '../../database/database.types';
 import { DEFAULT_SCORE } from '../discipline-score/discipline-score.constants';
 import { RolloverService } from '../rollover/rollover.service';
 import type { StreakSummary } from '../rollover/streak';
+import { NudgesService } from '../nudges/nudges.service';
+import type { RunwayLowNudge } from '../nudges/nudge.calculator';
 
 export interface DisciplineScoreResult {
   score: number | null;
@@ -40,6 +42,7 @@ export class InsightsService {
   constructor(
     private readonly supabaseRepo: SupabaseRepository,
     private readonly rolloverService: RolloverService,
+    private readonly nudgesService: NudgesService,
   ) {}
 
   async getDisciplineScore(userId: string): Promise<DisciplineScoreResult> {
@@ -61,6 +64,16 @@ export class InsightsService {
 
   async getStreak(userId: string): Promise<StreakSummary> {
     return this.rolloverService.getStreak(userId);
+  }
+
+  /**
+   * FLUTTER_TO_EXPO_PORT_GUIDE.md §7 / audit_team.md item 4/5 (part 3):
+   * proactive nudges computed server-side. Currently just the runway/
+   * spend-velocity check — see NudgesService for why the other §7 nudge
+   * types (surplus-sweep, streak-at-risk) aren't built yet.
+   */
+  async getNudges(userId: string): Promise<RunwayLowNudge[]> {
+    return this.nudgesService.getNudges(userId);
   }
 
   async getBehaviorEvents(userId: string): Promise<BehaviorEvent[]> {

@@ -2,6 +2,7 @@ import { Controller, Get, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { InsightsService, DisciplineScoreResult, PaginatedBehaviorEvents, HeatmapDay } from './insights.service';
 import { BehaviorEvent } from '../../database/database.types';
+import type { RunwayLowNudge } from '../nudges/nudge.calculator';
 
 @ApiTags('Insights')
 @Controller('insights')
@@ -75,5 +76,12 @@ export class InsightsController {
   @ApiQuery({ name: 'date', required: true, type: String, description: 'YYYY-MM-DD' })
   getActivityHeatmapDay(@Request() req: any, @Query('date') date: string): Promise<BehaviorEvent[]> {
     return this.insightsService.getEventsForDay(req.user.id, date);
+  }
+
+  @Get('nudges')
+  @ApiOperation({ summary: "Get the current user's proactive nudges (FLUTTER_TO_EXPO_PORT_GUIDE.md §7)" })
+  @ApiResponse({ status: 200, description: 'Nudges computed server-side, most urgent first' })
+  getNudges(@Request() req: any): Promise<RunwayLowNudge[]> {
+    return this.insightsService.getNudges(req.user.id);
   }
 }
