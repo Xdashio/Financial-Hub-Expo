@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ViewStyle, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography } from '@/theme';
@@ -23,7 +24,7 @@ export function SafeScrollView({ children, contentContainerStyle, ...props }: {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={[{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }, contentContainerStyle]}
+        contentContainerStyle={[{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl, paddingTop: spacing.sm }, contentContainerStyle]}
         showsVerticalScrollIndicator={false}
         {...props}
       >
@@ -55,15 +56,26 @@ export function ProgressIndicator({ currentStep, totalSteps = 4 }: { currentStep
 
 export function BrandHeader({ onBack }: { onBack?: () => void }) {
   const { colors } = useTheme();
+  const router = useRouter();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else if (router.canGoBack()) {
+      router.back();
+    }
+  };
 
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: onBack ? 'space-between' : 'center', paddingTop: onBack ? spacing.sm : spacing.lg }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: onBack ? 'space-between' : 'center', paddingTop: onBack ? spacing.md : spacing.lg, marginBottom: spacing.md }}>
       {!!onBack && (
         <TouchableOpacity
           style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
-          onPress={onBack}
+          onPress={handleBack}
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Go back"
+          accessibilityRole="button"
         >
           <ChevronLeft size={20} color={colors.ink} />
         </TouchableOpacity>

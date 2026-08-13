@@ -8,7 +8,7 @@ import { useAuthStore } from '@/services/auth';
 import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { Button, ScreenContainer, SafeScrollView, SectionTitle } from '@/components/ui';
+import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader } from '@/components/ui';
 import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight, Minus, Plus, RotateCcw } from 'lucide-react-native';
 import type { CategoryPercentages, SpendableCategory } from '@financial-hub/shared';
 
@@ -275,8 +275,8 @@ export default function ResultScreen() {
 
 
   const handleAdjust = () => {
-    // Navigate back to fixed screen, user can continue back from there
-    router.replace('/(onboarding)/fixed');
+    // Navigate back to previous step for adjustments
+    router.back();
   };
 
   const getPlanTag = () => {
@@ -313,6 +313,7 @@ export default function ResultScreen() {
   return (
     <ScreenContainer>
       <View style={{ flex: 1 }}>
+        <BrandHeader onBack={() => router.back()} />
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -323,7 +324,7 @@ export default function ResultScreen() {
           style={{ flex: 1 }}
         >
           {/* Slide 1: Plan Overview */}
-          <View style={{ width, paddingHorizontal: spacing.xl, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
             <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
               <View style={{ width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
                 <Check size={26} color={colors.surface} strokeWidth={1.7} />
@@ -450,7 +451,7 @@ export default function ResultScreen() {
                   Enter my plan
                 </Button>
                 <View style={{ alignItems: 'center' }}>
-                  <Button variant="ghost" onPress={handleAdjust} accessibilityLabel="Go back and adjust onboarding answers" accessibilityRole="button">
+                  <Button variant="ghost" onPress={handleAdjust} accessibilityLabel="Go back to previous step" accessibilityRole="button">
                     Adjust before I start
                   </Button>
                 </View>

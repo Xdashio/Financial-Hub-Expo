@@ -45,19 +45,27 @@ export default function AboutYouScreen() {
   const [moneyPersonality, setMoneyPersonality] = React.useState<MoneyPersonality>(
     input.moneyPersonality ?? 'saver',
   );
+  const [isLoading, setIsLoading] = React.useState(false);
 
-  const handleContinue = () => {
-    setAboutYouData({ lifeStage, hasDependents, emergencyBuffer, moneyPersonality });
-    router.push('/(onboarding)/fixed');
+  const handleContinue = async () => {
+    setIsLoading(true);
+    try {
+      setAboutYouData({ lifeStage, hasDependents, emergencyBuffer, moneyPersonality });
+      router.push('/(onboarding)/fixed');
+    } catch (error) {
+      console.error('Error saving about you data:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+        <BrandHeader onBack={() => router.back()} />
         <ProgressIndicator currentStep={3} totalSteps={5} />
 
-        <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
+        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 3 of 5 — About you</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>
             A few details so the plan fits your life
@@ -132,6 +140,7 @@ export default function AboutYouScreen() {
         <Button
           fullWidth
           size="lg"
+          loading={isLoading}
           onPress={handleContinue}
           rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
         >

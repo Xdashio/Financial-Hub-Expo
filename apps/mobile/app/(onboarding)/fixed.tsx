@@ -193,10 +193,10 @@ export default function FixedScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => router.canGoBack() && router.back()} />
+        <BrandHeader onBack={() => router.back()} />
         <ProgressIndicator currentStep={4} totalSteps={5} />
 
-        <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
+        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 4 of 5 — Fixed costs</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>What repeats every month?</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>
