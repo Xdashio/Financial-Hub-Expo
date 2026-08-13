@@ -56,7 +56,8 @@
           "color": "#0F6E56",
           "defaultChannel": "financial-hub-default"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "scheme": "financialhub",
     "extra": {
