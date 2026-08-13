@@ -10,6 +10,7 @@ import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, SectionTit
 function dotColor(pocket: Pocket, colors: any): string {
   if (pocket.kind === 'savings') return colors.emeraldDeep;
   if (pocket.kind === 'fixed') return colors.gold;
+  if (pocket.kind === 'loan') return colors.plum;
   const categoryColors: Record<string, string> = {
     food: colors.emerald,
     transport: colors.plum,
@@ -22,6 +23,7 @@ function subtitle(pocket: Pocket): string {
   if (pocket.isTimeLocked) return 'Time-locked · cannot be moved from';
   if (pocket.kind === 'fixed') return 'Essential · Fixed';
   if (pocket.kind === 'savings') return 'Protected · Savings';
+  if (pocket.kind === 'loan') return 'Loan · Repayment required';
   if (pocket.category === 'leisure') return 'Discretionary · Spendable';
   return 'Essential · Spendable';
 }

@@ -68,10 +68,6 @@ export interface AuthState {
   updateFullName: (fullName: string) => Promise<void>;
 }
 
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-}
-
 function getStoredUser(): Promise<User | null> {
   return storageAdapter.getItem('user').then((data) => (data ? JSON.parse(data) : null));
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { CalendarCheck, ArrowLeftRight, Target, Timer } from 'lucide-react-native';
@@ -7,7 +7,7 @@ import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { LoadingState, ErrorState, InlineLoading } from '@/components/ui';
+import { LoadingState, ErrorState, InlineLoading, SearchBar, EmptyState } from '@/components/ui';
 import { StreakHeatmap } from '@/components/insights/StreakHeatmap';
 import { mapBehaviorEvent } from '@/utils/behaviorEvent';
 
@@ -44,6 +44,7 @@ export default function InsightsScreen() {
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const load = React.useCallback(async () => {
     try {
@@ -112,8 +113,13 @@ export default function InsightsScreen() {
 
   const displayEvents = events.map(event => mapBehaviorEvent(event, colors));
 
+  const filteredEvents = displayEvents.filter(event =>
+    event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (event.desc && event.desc.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   const metrics: Metric[] = [
-    { label: 'Reallocations this month', value: String(reallocationsThisMonth), icon: ArrowLeftRight, color: colors.plum },
+    { label: 'Pocket adjustments this month', value: String(reallocationsThisMonth), icon: ArrowLeftRight, color: colors.plum },
     { label: 'Plan adherence', value: score !== null ? `${score}%` : '—', icon: Target, color: colors.gold },
     { label: 'Cooling-off skips', value: String(coolingOffSkips), icon: Timer, color: colors.clay },
   ];
@@ -143,7 +149,7 @@ export default function InsightsScreen() {
           <View style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: `${colors.surface}33`, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md }}>
             <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score ?? '—'}</Text>
           </View>
-          <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Discipline Score</Text>
+          <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Spending consistency score</Text>
           <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: `${colors.surface}1E`, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
             <Text style={{ ...typography.caption, color: colors.surface }}>
               {delta > 0 ? `+${delta}` : delta} vs last week
@@ -180,25 +186,42 @@ export default function InsightsScreen() {
           ))}
         </View>
 
-        {/* Streak heatmap — real day-by-day activity from the backend
-            (see /insights/activity-heatmap), not an emoji streak counter. */}
+        {/* Spending consistency heatmap — day-by-day spending behavior from the backend
+            (see /insights/activity-heatmap), showing under-cap spending patterns. */}
         <View style={{ marginTop: spacing.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg }}>
             <CalendarCheck size={15} color={colors.ink} strokeWidth={2} />
-            <Text style={{ ...typography.eyebrow, color: colors.ink }}>Activity streak</Text>
+            <Text style={{ ...typography.eyebrow, color: colors.ink }}>Spending consistency</Text>
           </View>
           <StreakHeatmap />
         </View>
 
-        <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Recent activity</Text>
+        <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spending behavior insights</Text>
 
-        {displayEvents.length === 0 ? (
-          <View style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
-            <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center' }}>No activity yet — complete a week to see insights</Text>
-          </View>
+        <SearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search spending patterns..."
+          onClear={() => setSearchQuery('')}
+        />
+
+        {filteredEvents.length === 0 && displayEvents.length > 0 ? (
+          <EmptyState
+            icon={CalendarCheck}
+            title="No activity matches your search"
+            description="Try adjusting your search terms or filters"
+            actionLabel="Clear search"
+            onAction={() => setSearchQuery('')}
+          />
+        ) : displayEvents.length === 0 ? (
+          <EmptyState
+            icon={CalendarCheck}
+            title="No spending activity yet"
+            description="Start tracking your spending to see insights and patterns"
+          />
         ) : (
           <>
-            {displayEvents.map((event, i) => (
+            {filteredEvents.map((event, i) => (
               <View key={i} style={{ flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
                 <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 6, backgroundColor: event.color }} />
                 <View style={{ flex: 1 }}>
@@ -212,12 +235,16 @@ export default function InsightsScreen() {
               loadingMore ? (
                 <InlineLoading />
               ) : (
-                <Text
+                <Pressable
                   onPress={loadMoreEvents}
-                  style={{ ...typography.caption, color: colors.emeraldDeep, textAlign: 'center', paddingVertical: spacing.md }}
+                  style={{ paddingVertical: spacing.md, alignItems: 'center' }}
+                  accessibilityLabel="Load more activity"
+                  accessibilityRole="button"
                 >
-                  Load more
-                </Text>
+                  <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                    Load more
+                  </Text>
+                </Pressable>
               )
             )}
           </>

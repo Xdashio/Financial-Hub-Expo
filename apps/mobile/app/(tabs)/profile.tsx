@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable, Modal } from 'react-native';
+import { View, Text, ScrollView, ActivityIndicator, Pressable, Modal, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
@@ -45,6 +45,7 @@ export default function ProfileScreen() {
   const [showThemePicker, setShowThemePicker] = React.useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = React.useState(false);
   const [isSigningOut, setIsSigningOut] = React.useState(false);
+  const [refreshing, setRefreshing] = React.useState(false);
 
   const [plan, setPlan] = React.useState<any>(null);
   const [fixedExpenseCount, setFixedExpenseCount] = React.useState<number | null>(null);
@@ -65,6 +66,12 @@ export default function ProfileScreen() {
     setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
     setRetakeEligibility(eligibility);
   }, []);
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    await loadProfileMeta();
+    setRefreshing(false);
+  }, [loadProfileMeta]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -231,7 +238,18 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.emeraldDeep}
+            colors={[colors.emeraldDeep]}
+          />
+        }
+      >
         <View style={{ alignItems: 'center', paddingTop: spacing.lg }}>
           <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
             <User size={32} color={colors.gold} strokeWidth={2} />
@@ -275,7 +293,12 @@ export default function ProfileScreen() {
           </View>
         ))}
 
-        <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md }} onPress={handleSignOutPress}>
+        <Pressable 
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, marginTop: spacing.md }} 
+          onPress={handleSignOutPress}
+          accessibilityLabel="Sign out"
+          accessibilityRole="button"
+        >
           <View style={{ width: 34, height: 34, borderRadius: radius.xs, backgroundColor: colors.clayTint, alignItems: 'center', justifyContent: 'center' }}>
             <LogOut size={18} color={colors.clay} strokeWidth={2.5} />
           </View>

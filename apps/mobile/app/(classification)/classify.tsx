@@ -244,7 +244,7 @@ export default function ClassificationScreen() {
                   padding: spacing.md,
                   borderRadius: radius.md,
                   backgroundColor:
-                    selectedCategory === category.id ? colors.emeraldDeep : colors.background,
+                    selectedCategory === category.id ? colors.emeraldDeep : colors.surface,
                   borderWidth: 1,
                   borderColor: selectedCategory === category.id ? colors.emeraldDeep : colors.line,
                   minWidth: 120,
@@ -321,7 +321,7 @@ export default function ClassificationScreen() {
                 alignItems: 'center',
                 padding: spacing.md,
                 borderRadius: radius.md,
-                backgroundColor: selectedPocket === pocket.id ? colors.emeraldDeep : colors.background,
+                backgroundColor: selectedPocket === pocket.id ? colors.emeraldDeep : colors.surface,
                 borderWidth: 1,
                 borderColor: selectedPocket === pocket.id ? colors.emeraldDeep : colors.line,
                 marginBottom: spacing.sm,

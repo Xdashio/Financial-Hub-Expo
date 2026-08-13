@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Bell, ToggleRight, LucideIcon } from 'lucide-react-native';
-import { Card, useMakeStyles, LoadingState, ErrorState } from '@/components/ui';
+import { Bell } from 'lucide-react-native';
+import { Card, useMakeStyles, LoadingState, ErrorState, ToggleRow } from '@/components/ui';
 import { notificationsApi } from '@/services/api';
 import {
   clearNotificationPreferencesCache,
@@ -31,6 +31,7 @@ interface NotificationPreferences {
   savings_milestones: boolean;
   monthly_insights: boolean;
   tips_nudges: boolean;
+  loan_reminders: boolean;
 }
 
 export default function NotificationsScreen() {
@@ -42,6 +43,7 @@ export default function NotificationsScreen() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // useMakeStyles returns the styles object directly, so we assign it to 'styles'
   const styles = useMakeStyles((theme: Theme) => ({
@@ -60,33 +62,6 @@ export default function NotificationsScreen() {
       ...typography.eyebrow,
       color: theme.ink,
       marginBottom: spacing.md,
-    },
-    toggleContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: spacing.md,
-      borderRadius: radius.md,
-      backgroundColor: theme.surface,
-      marginBottom: spacing.sm,
-    },
-    toggleTrack: {
-      width: 48,
-      height: 28,
-      borderRadius: 14,
-      padding: 2,
-    },
-    toggleThumb: {
-      width: 24,
-      height: 24,
-      borderRadius: 12,
-      backgroundColor: theme.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      shadowColor: theme.ink,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 2,
-      elevation: 2,
     },
   }));
 
@@ -114,6 +89,12 @@ export default function NotificationsScreen() {
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadPreferences();
+    setRefreshing(false);
+  };
+
   const updatePreference = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!preferences) return;
 
@@ -138,62 +119,6 @@ export default function NotificationsScreen() {
       setIsUpdating(false);
     }
   };
-
-  const NotificationToggle = ({ 
-    icon: Icon, 
-    title, 
-    description, 
-    value, 
-    onToggle 
-  }: { 
-    icon: LucideIcon; 
-    title: string; 
-    description: string; 
-    value: boolean; 
-    onToggle: (value: boolean) => void; 
-  }) => (
-    <Pressable
-      style={[
-        styles.toggleContainer,
-        { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }
-      ]}
-      onPress={() => onToggle(!value)}
-      disabled={isUpdating}
-    >
-      <View style={{ 
-        width: 36, 
-        height: 36, 
-        borderRadius: radius.xs, 
-        backgroundColor: colors.lineSoft, 
-        alignItems: 'center', 
-        justifyContent: 'center' 
-      }}>
-        <Icon size={18} color={colors.ink} strokeWidth={2} />
-      </View>
-      <View style={{ marginLeft: spacing.md, flex: 1 }}>
-        <Text style={{ ...typography.heading, color: colors.ink }}>
-          {title}
-        </Text>
-        <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
-          {description}
-        </Text>
-      </View>
-      <View style={[
-        styles.toggleTrack,
-        { backgroundColor: value ? colors.emeraldDeep : colors.lineSoft }
-      ]}>
-        <View style={[
-          styles.toggleThumb,
-          value && { 
-            transform: [{ translateX: 20 }],
-            backgroundColor: colors.surface 
-          }
-        ]}>
-          {value && <ToggleRight size={14} color={colors.emeraldDeep} strokeWidth={2} />}
-        </View>
-      </View>
-    </Pressable>
-  );
 
   if (isLoading) {
     return (
@@ -223,7 +148,18 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
+      <ScrollView 
+        style={{ flex: 1 }} 
+        contentContainerStyle={{ paddingBottom: spacing.xxl }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.emeraldDeep}
+            colors={[colors.emeraldDeep]}
+          />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={{ ...typography.title, color: colors.ink }}>
@@ -252,28 +188,40 @@ export default function NotificationsScreen() {
                 Alerts
               </Text>
               
-              <NotificationToggle
+              <ToggleRow
                 icon={Bell}
                 title="Reallocation confirms"
                 description="Confirm before moving money between pockets"
                 value={preferences.reallocation_confirms}
                 onToggle={(value) => updatePreference('reallocation_confirms', value)}
+                disabled={isUpdating}
               />
               
-              <NotificationToggle
+              <ToggleRow
                 icon={Bell}
                 title="Cooling-off reminders"
                 description="Remind when cooling-off period ends"
                 value={preferences.cooling_off_reminders}
                 onToggle={(value) => updatePreference('cooling_off_reminders', value)}
+                disabled={isUpdating}
               />
               
-              <NotificationToggle
+              <ToggleRow
                 icon={Bell}
                 title="Savings milestones"
                 description="Celebrate streak milestones, daily rollovers, and income allocations"
                 value={preferences.savings_milestones}
                 onToggle={(value) => updatePreference('savings_milestones', value)}
+                disabled={isUpdating}
+              />
+              
+              <ToggleRow
+                icon={Bell}
+                title="Loan reminders"
+                description="Get notified when loan payments are due"
+                value={preferences.loan_reminders}
+                onToggle={(value) => updatePreference('loan_reminders', value)}
+                disabled={isUpdating}
               />
             </View>
 
@@ -283,20 +231,22 @@ export default function NotificationsScreen() {
                 Promotional
               </Text>
               
-              <NotificationToggle
+              <ToggleRow
                 icon={Bell}
                 title="Monthly insights"
                 description="Receive monthly spending summaries"
                 value={preferences.monthly_insights}
                 onToggle={(value) => updatePreference('monthly_insights', value)}
+                disabled={isUpdating}
               />
               
-              <NotificationToggle
+              <ToggleRow
                 icon={Bell}
                 title="Tips & nudges"
                 description="Helpful money management tips"
                 value={preferences.tips_nudges}
                 onToggle={(value) => updatePreference('tips_nudges', value)}
+                disabled={isUpdating}
               />
             </View>
 
