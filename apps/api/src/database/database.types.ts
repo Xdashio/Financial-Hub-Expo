@@ -48,6 +48,7 @@ export interface Database {
           income_interval_days: number | null
           expected_income_amount: number | null
           status: 'active' | 'inactive' | 'reassigned'
+          money_personality: 'spender' | 'saver' | 'avoider'
           created_at: string
           reassigned_at: string | null
         }
@@ -59,6 +60,7 @@ export interface Database {
           income_interval_days?: number | null
           expected_income_amount?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
+          money_personality?: 'spender' | 'saver' | 'avoider'
           created_at?: string
           reassigned_at?: string | null
         }
@@ -70,6 +72,7 @@ export interface Database {
           income_interval_days?: number | null
           expected_income_amount?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
+          money_personality?: 'spender' | 'saver' | 'avoider'
           created_at?: string
           reassigned_at?: string | null
         }

@@ -6,17 +6,23 @@ import { RolloverService } from '../rollover/rollover.service';
 import type { StreakSummary } from '../rollover/streak';
 import { NudgesService } from '../nudges/nudges.service';
 import type { RunwayLowNudge } from '../nudges/nudge.calculator';
+import { insightPriorityOrderFor, type InsightKind } from '../../common/personality-modifiers';
 
 export interface DisciplineScoreResult {
   score: number | null;
   delta: number;
   period: string;
   hasHistory: boolean;
+  // Money-personality modifier layer (§2.3) — which of the Insights
+  // screen's metric cards to lead with, in priority order. The client
+  // reorders its existing cards by this; it doesn't change what's shown,
+  // only the order.
+  cardOrder: InsightKind[];
 }
 
 // A freshly onboarded user has no behavioral history yet, so return null
 // to indicate "No data yet" instead of a fake 100 score.
-const DEFAULT_DISCIPLINE_SCORE: DisciplineScoreResult = { 
+const DEFAULT_DISCIPLINE_SCORE: Omit<DisciplineScoreResult, 'cardOrder'> = {
   score: DEFAULT_SCORE, 
   delta: 0, 
   period: new Date().toISOString().slice(0, 7),
@@ -46,15 +52,19 @@ export class InsightsService {
   ) {}
 
   async getDisciplineScore(userId: string): Promise<DisciplineScoreResult> {
+    const plan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    const cardOrder = insightPriorityOrderFor(plan?.money_personality);
+
     const latest = await this.supabaseRepo.getLatestDisciplineScore(userId);
     if (!latest) {
-      return DEFAULT_DISCIPLINE_SCORE;
+      return { ...DEFAULT_DISCIPLINE_SCORE, cardOrder };
     }
     return { 
       score: latest.score, 
       delta: latest.delta,
       period: latest.period,
-      hasHistory: true
+      hasHistory: true,
+      cardOrder,
     };
   }
 

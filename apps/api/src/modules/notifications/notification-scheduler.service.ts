@@ -4,6 +4,7 @@ import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { PushDeliveryService } from './push-delivery.service';
 import { COOLING_OFF_REMINDER_GRACE_MS } from './notification.constants';
+import { notificationCadenceFor } from '../../common/personality-modifiers';
 import {
   EVENT_DAILY_OVERSPEND,
   EVENT_DAILY_ROLLOVER_SUCCESS,
@@ -97,6 +98,15 @@ export class NotificationSchedulerService {
       const userIds = await this.push.listUserIdsWithPreferenceAndTokens('tips_nudges');
       const todayIso = now.toISOString().slice(0, 10);
       const dayStart = `${todayIso}T00:00:00.000Z`;
+      // Day-of-year, used by the money-personality cadence gate below —
+      // stable across all three daily cron windows so a 'saver' (gated to
+      // every other day) doesn't get bumped onto a different day depending
+      // on which window computed it.
+      const dayOfYear = Math.floor(
+        (Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) -
+          Date.UTC(now.getUTCFullYear(), 0, 0)) /
+          86400000,
+      );
       let sent = 0;
 
       for (const userId of userIds) {
@@ -111,7 +121,19 @@ export class NotificationSchedulerService {
         const streak = await this.computeStreakForUser(userId, now);
         if (streak.currentStreak <= 0) continue;
 
-        const result = await this.push.notifyStreakAtRisk(userId, streak.currentStreak, todayIso);
+        // Money-personality modifier layer (§2.3): "a Saver doesn't need
+        // much nudging; an Avoider benefits from very low-friction,
+        // frequent, small check-ins rather than infrequent heavy ones."
+        // intervalMultiplier >1 (saver) gates to every Nth day; <=1
+        // (avoider/spender) sends every eligible day, same as before this
+        // layer existed — the 3x/day cron window itself already gives
+        // avoiders the "frequent" cadence the doc calls for.
+        const plan = await this.repository.getActivePlanByUserId(userId);
+        const cadence = notificationCadenceFor(plan?.money_personality);
+        const sendEveryNDays = Math.max(1, Math.round(cadence.intervalMultiplier));
+        if (dayOfYear % sendEveryNDays !== 0) continue;
+
+        const result = await this.push.notifyStreakAtRisk(userId, streak.currentStreak, todayIso, cadence.tone);
         if (result.sent) sent += 1;
       }
 

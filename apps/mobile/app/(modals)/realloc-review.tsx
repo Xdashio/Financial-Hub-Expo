@@ -121,6 +121,11 @@ export default function ReallocReviewScreen() {
             fromName: fromPocket.name,
             toName: toPocket.name,
             amount: String(amount),
+            // Money-personality modifier layer (§2.3) — title/message tuned
+            // to the plan's personality; falls back to the screen's own
+            // defaults when absent (older API build, or personality-neutral).
+            coolingOffTitle: created.cooling_off_framing?.title,
+            coolingOffMessage: created.cooling_off_framing?.message,
           },
         });
         return;

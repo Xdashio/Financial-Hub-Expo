@@ -236,6 +236,69 @@ describe('ReallocationsService', () => {
       expect(insertArg.status).toBe('cooling_off');
       expect(insertArg.cooling_off_ends_at).toBeTruthy();
     });
+
+    it('gives an avoider a longer cooling-off window than a spender (money-personality modifier layer, §2.3)', async () => {
+      repo.getPocketById.mockImplementation(async (id: string) => {
+        if (id === FOOD_POCKET.id) return FOOD_POCKET as any;
+        return LEISURE_POCKET as any;
+      });
+      repo.createReallocation.mockResolvedValue({ id: 'realloc-x', status: 'cooling_off' } as any);
+
+      repo.getActivePlanByUserId.mockResolvedValue({ ...PLAN, money_personality: 'avoider' } as any);
+      await service.create('user-avoider', {
+        fromPocketId: FOOD_POCKET.id,
+        toPocketId: LEISURE_POCKET.id,
+        amount: 500,
+        reason: 'other',
+      });
+      const avoiderEndsAt = new Date(repo.createReallocation.mock.calls[0][0].cooling_off_ends_at as string).getTime();
+
+      repo.getActivePlanByUserId.mockResolvedValue({ ...PLAN, money_personality: 'spender' } as any);
+      await service.create('user-spender', {
+        fromPocketId: FOOD_POCKET.id,
+        toPocketId: LEISURE_POCKET.id,
+        amount: 500,
+        reason: 'other',
+      });
+      const spenderEndsAt = new Date(repo.createReallocation.mock.calls[1][0].cooling_off_ends_at as string).getTime();
+
+      // Both computed close to "now" in the same test tick, so comparing the
+      // gap between them (rather than absolute values) avoids flakiness.
+      expect(avoiderEndsAt - spenderEndsAt).toBeGreaterThan(30 * 60 * 1000); // >30 min further out
+    });
+
+    it('attaches cooling_off_framing to the response only when cooling-off applies', async () => {
+      repo.getActivePlanByUserId.mockResolvedValue({ ...PLAN, money_personality: 'avoider' } as any);
+      repo.getPocketById.mockImplementation(async (id: string) => {
+        if (id === FOOD_POCKET.id) return FOOD_POCKET as any;
+        return LEISURE_POCKET as any;
+      });
+      repo.createReallocation.mockResolvedValue({ id: 'realloc-y', status: 'cooling_off' } as any);
+
+      const result = await service.create('user-123', {
+        fromPocketId: FOOD_POCKET.id,
+        toPocketId: LEISURE_POCKET.id,
+        amount: 500,
+        reason: 'other',
+      });
+
+      expect(result.cooling_off_framing).toBeDefined();
+      expect(result.cooling_off_framing?.title).toEqual(expect.any(String));
+
+      repo.getPocketById.mockImplementation(async (id: string) => {
+        if (id === TRANSPORT_POCKET.id) return TRANSPORT_POCKET as any;
+        return LEISURE_POCKET as any;
+      });
+      repo.createReallocation.mockResolvedValue({ id: 'realloc-z', status: 'pending' } as any);
+
+      const pendingResult = await service.create('user-123', {
+        fromPocketId: TRANSPORT_POCKET.id,
+        toPocketId: LEISURE_POCKET.id,
+        amount: 100,
+        reason: 'other',
+      });
+      expect(pendingResult.cooling_off_framing).toBeUndefined();
+    });
   });
 
   describe('complete', () => {

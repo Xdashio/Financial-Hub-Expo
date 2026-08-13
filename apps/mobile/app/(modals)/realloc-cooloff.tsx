@@ -17,6 +17,11 @@ type CooloffParams = {
   fromName: string;
   toName: string;
   amount: string;
+  // Money-personality modifier layer (§2.3) — optional; falls back to the
+  // existing static copy below when the API didn't send framing (e.g. an
+  // older client/server pairing).
+  coolingOffTitle?: string;
+  coolingOffMessage?: string;
 };
 
 function formatCurrency(amount: number) {
@@ -206,10 +211,10 @@ export default function ReallocCooloffScreen() {
           <View style={styles.icon}>
             <Clock size={28} color={colors.plum} strokeWidth={1.7} />
           </View>
-          <Text style={styles.title}>This move can wait a bit</Text>
+          <Text style={styles.title}>{params.coolingOffTitle || 'This move can wait a bit'}</Text>
           <Text style={styles.subtext}>
-            Moving {formatCurrency(Number(params.amount) || 0)} from {params.fromName} to {params.toName} triggers a
-            short pause — a chance to sit with it. Nothing is lost, no judgement.
+            {params.coolingOffMessage ||
+              `Moving ${formatCurrency(Number(params.amount) || 0)} from ${params.fromName} to ${params.toName} triggers a short pause — a chance to sit with it. Nothing is lost, no judgement.`}
           </Text>
         </View>
 

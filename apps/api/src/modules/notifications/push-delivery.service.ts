@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import type { NotificationCadenceModifier } from '../../common/personality-modifiers';
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   EXPO_PUSH_URL,
@@ -187,13 +188,32 @@ export class PushDeliveryService {
     );
   }
 
-  async notifyStreakAtRisk(userId: string, currentStreak: number, dateIso: string): Promise<PushSendResult> {
+  async notifyStreakAtRisk(
+    userId: string,
+    currentStreak: number,
+    dateIso: string,
+    tone: NotificationCadenceModifier['tone'] = 'neutral',
+  ): Promise<PushSendResult> {
+    // Money-personality modifier layer (§2.3): tone comes from
+    // notificationCadenceFor(), not a plan-type decision — same title,
+    // gentler/firmer body wording per persona. 'neutral' keeps the
+    // pre-existing copy for callers that don't pass a tone.
+    const body =
+      tone === 'gentle_frequent'
+        ? currentStreak > 0
+          ? `No pressure — a small spend under budget today keeps your ${currentStreak}-day streak going.`
+          : 'Whenever you\u2019re ready, a spend under budget today starts a streak.'
+        : tone === 'direct_light'
+          ? currentStreak > 0
+            ? `${currentStreak}-day streak on the line — log a spend under budget today.`
+            : 'Log a spend under budget today to start a streak.'
+          : currentStreak > 0
+            ? `Log a spend under budget today to keep your ${currentStreak}-day streak alive.`
+            : 'Log a spend under budget today to start a streak.';
+
     return this.sendIfAllowed(userId, NOTIFICATION_KIND.STREAK_AT_RISK, `streak_risk:${dateIso}`, {
       title: 'Streak at risk',
-      body:
-        currentStreak > 0
-          ? `Log a spend under budget today to keep your ${currentStreak}-day streak alive.`
-          : 'Log a spend under budget today to start a streak.',
+      body,
       data: { kind: NOTIFICATION_KIND.STREAK_AT_RISK, currentStreak, screen: '/(tabs)' },
     });
   }
