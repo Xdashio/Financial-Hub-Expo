@@ -7,6 +7,8 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore, Pocket } from '@/services/home-store';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
+import { incomeApi } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 
 function dotColor(pocket: Pocket, colors: any): string {
   if (pocket.kind === 'savings') return colors.emeraldDeep;
@@ -52,17 +54,13 @@ export default function SurplusPocketPickerScreen() {
 
     try {
       setIsSubmitting(true);
-      
-      // Import dynamically to avoid circular dependency
-      const { incomeApi } = await import('@/services/api');
-      
+
       await incomeApi.allocateSurplus(params.incomeEventId, {
         target: 'pocket',
         pocket_id: selectedPocketId,
       });
 
       // Refresh data and navigate to success
-      const { useDataSync } = await import('@/services/data-sync');
       useDataSync.getState().bump();
 
       router.replace({
