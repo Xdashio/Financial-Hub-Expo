@@ -1,6 +1,6 @@
 # Team Audit Response — 2026-08-12
 
-**Update 2026-08-13:** items 2 (partially), 4 & 5 are now built — see those sections below and the revised sequencing at the bottom. All backend tests pass (326/326) with a clean typecheck across `apps/api`, `apps/mobile`, and `packages/shared`. A net-new addition not in the original 10 numbered items — goal-driven savings (`ONBOARDING_AND_SCORING_REDESIGN.md` Part 4) — also shipped in this pass; see the new section after item 10.
+**Update 2026-08-13:** items 2 (fully, including salaried-with-side-income and the money-personality-as-modifier-layer), 4 & 5, and item 7's biometric app-lock gate are now built, and item 3's section below has been corrected to match — it was already built but the write-up hadn't caught up. See those sections below and the revised sequencing at the bottom. All backend tests pass (326/326) with a clean typecheck across `apps/api`, `apps/mobile`, and `packages/shared`. A net-new addition not in the original 10 numbered items — goal-driven savings (`ONBOARDING_AND_SCORING_REDESIGN.md` Part 4) — also shipped in this pass; see the new section after item 10.
 
 **Purpose:** the team's 10-point audit, checked line-by-line against the actual codebase (not against memory of what the docs say should be there). Each item below is tagged:
 
@@ -45,7 +45,7 @@ This is the same interaction shape as item 4 (overspend prompting) and item 5 (b
 
 ## 2. Separate identities for Structured vs. Freelancer income × Structured/Daily spending
 
-**Status: 🐛→📋 partially built (2026-08-13) — the gig/platform-worker split from §2.1 landed; salaried-with-side-income and the money-personality-as-modifier-layer (§2.3) did not.**
+**Status: ✅ fully built (2026-08-13) — gig/platform-worker split, salaried-with-side-income persona, and the money-personality-as-modifier-layer (§2.3) have all now landed.**
 
 Original finding: current code (`rules-engine.ts`) only knew a flat `salaried | mix | freelancer` income pattern crossed with `daily | structured` style — four plan types total, no deeper personalization. `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1 proposed expanding this with **salaried-with-side-income** and **gig/platform worker** as distinct personas, plus **money-personality as a modifier layer** (§2.3) on top.
 
@@ -55,26 +55,29 @@ Original finding: current code (`rules-engine.ts`) only knew a flat `salaried | 
 - `result.tsx`'s "why this plan" tag and reasoning copy updated to surface "Gig income" vs "Freelancer income" instead of collapsing both into one label.
 - Covered by expanded `rules-engine.spec.ts` (38 cases).
 
-**Still not built — do not check this item off yet:**
-- **Salaried-with-side-income** persona (§2.1's other half) — nothing changed for the `salaried`/`mix` branch of `determineIncomePattern`. Salaried users with irregular top-up income are still treated identically to a salaried user with none.
-- **Money-personality-as-modifier-layer** (§2.3) — `moneyPersonality` is still read as a flat input (`input.moneyPersonality ?? 'saver'`) the same way it was before this batch, not layered on top of the income persona as §2.3 describes. No regression here, just not yet built.
+**Built — salaried-with-side-income persona:**
+- `determineIncomePattern` (`rules-engine.ts`) now branches the `mix` onboarding answer into its own persona instead of collapsing it into plain `salaried`: stored `income_pattern` still resolves to `'salaried'` (so runway/rollover/nudge logic that gates on it is unaffected), but `hasSideIncome: true` is carried on the `PlanAssignment` with its own reason (`income_pattern_salaried_side_income`) and copy: "You have a stable base income plus irregular side income — we keep your core plan steady like a salaried budget, while leaving room for the extra to move around."
+- `buildPlanName` produces a distinct label — **"Salaried + Side Income — Structured"** / **"Salaried + Side Income — Daily Budget"** — added to `PlanNameSchema` in `packages/shared`, so a stable-base-plus-side-income user is no longer shown identical plan naming to a single-employer salaried user.
 
-**Recommendation:** the gig/multi-client split is a real, tested slice of §2.1 — safe to demo. The remaining two pieces (salaried-side-income persona, personality-as-modifier) are still open; read `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 as a team to confirm the design still stands before picking those up, same recommendation as before.
+**Built 2026-08-13 — money-personality-as-modifier-layer (§2.3):**
+- New `money_personality` column on `plans` (migration 009, defaults `'saver'`) — previously `moneyPersonality` was captured at onboarding and then discarded after plan assignment, so nothing downstream had it to read. `onboarding.service.ts` now persists it on both initial create and retake.
+- New `apps/api/src/common/personality-modifiers.ts` implements the three modifier hooks §2.3 called for, explicitly *not* as a plan-type driver (Structured vs. Daily stays driven by income stability + fixed-cost ratio + persona, unchanged):
+  1. `coolingOffModifierFor` — Avoider gets a longer, reassuring cooling-off window; Spender gets a firmer (still non-punitive) one; Saver keeps the flat default. Wired into `reallocations.service.ts`, surfaced in `realloc-cooloff.tsx` / `realloc-review.tsx`.
+  2. `notificationCadenceFor` — Avoider gets more frequent, gentle check-ins; Spender gets direct/light at the base cadence; Saver is nudged less often. Wired into `notification-scheduler.service.ts` and `push-delivery.service.ts`.
+  3. `sortInsightsByPersonality` — reorders the Insights screen's metric cards per personality (e.g. Spender leads with reallocation frequency, Saver/Avoider lead with discipline score). Wired into `insights.service.ts` and rendered in `insights.tsx`.
+- Covered by expanded `reallocations.service.spec.ts` and `notification-scheduler.service.spec.ts`.
+
+**Recommendation:** all three sub-pieces of item 2 are now real, tested, and wired end-to-end — safe to demo and safe to check this item off in full.
 
 ---
 
 ## 3. Onboarding: user-set percentages, adjustable suggested plan
 
-**Status: 🐛 real bug / gap, and 📋 partially already scoped.**
+**Status: ✅ built — this section was stale, code now matches the sequencing note below marking it done.**
 
-Confirmed in code: `onboarding.service.ts`'s `createPocketInputs` assigns pocket percentages entirely from the rules engine. There is no onboarding step, DTO field, or UI screen where the user sets or edits a percentage before the plan is created. The user gets the assigned plan and that's it — matches the audit's complaint exactly.
+Confirmed in code, superseding the original finding below: `onboarding.controller.ts` now exposes `PATCH /onboarding/plan-preview` ("Pre-commit preview: re-validates a user-edited category percentage split and re-runs pocket amount math, no persistence"), backed by `pocket-provisioning.ts`'s percentage-breakdown/validation helpers (rejects splits that don't sum to 100, flags missing categories). The mobile result screen (`(onboarding)/result.tsx`) has a `CategorySplitEditor` with +/- steppers per spendable category (food/transport/leisure/family), staged locally and only sent to `plan-preview` on Save — so edits never spam the API and an invalid split never silently reaches `POST /onboarding/complete`. This is exactly the shape recommended below: the rules engine's output is the *default*, the user's edited split is the *final* value.
 
-`ONBOARDING_AND_SCORING_REDESIGN.md` Part 3 already scopes a related but bigger change: itemized, user-named fixed pockets (replacing the single lump "Fixed Expenses" pocket) with per-pocket due dates and single-purpose enforcement. That solves *fixed* pocket personalization but doesn't cover the audit's specific ask here, which is **percentage control over spendable categories** (food/transport/leisure/clubbing/fees) at onboarding time, before the plan is committed.
-
-**Recommended build (net new on top of the redesign doc, not replacing it):**
-- Onboarding result screen (`result.tsx` / `ui-mockups/result.html`) already shows a "preview of the actual split before the user commits" per PRD §3.1 step 5 — this is the right place to add editable percentage sliders/inputs, not a new screen.
-- Add a `PATCH /onboarding/plan-preview` step (pre-commit) that re-validates the user's edited percentages sum to 100% and re-runs pocket amount math, before final `POST /onboarding/complete`.
-- The rules engine's output becomes the *default*, not the *final* value — matches the audit's own framing ("the app should do the heavy lifting... but add the freedom to adjust").
+*(Original finding, now resolved — kept for context:)* `ONBOARDING_AND_SCORING_REDESIGN.md` Part 3 already scopes a related but bigger change: itemized, user-named fixed pockets (replacing the single lump "Fixed Expenses" pocket) with per-pocket due dates and single-purpose enforcement. That solves *fixed* pocket personalization and is separate from this item's ask, which was percentage control over spendable categories at onboarding time.
 
 ---
 
@@ -100,10 +103,10 @@ This is a product principle, not a build item — it's already the stated positi
 
 ## 7. Bugs: notifications screen, biometric setup, hidden/unfinished features
 
-**Status: mixed — notifications is 🐛 smaller than it looks, biometrics is 🐛 confirmed, "hidden features" needs specifics from the team.**
+**Status: mixed — notifications is 🐛 smaller than it looks, biometrics is ✅ built (2026-08-13), "hidden features" needs specifics from the team.**
 
 - **Notifications:** `FLUTTER_TO_EXPO_PORT_GUIDE.md` §6 (written earlier in the project) says nothing sends. That's now stale — the current code has a real `NotificationSchedulerService` with cron-based cooling-off reminders, streak-at-risk tips, and monthly insights, plus a `PushDeliveryService`. So real delivery infrastructure exists. If the team is seeing bugs on the notifications *screen* specifically, I need the actual repro (which toggle, what happens vs. what's expected) — I don't want to guess and "fix" something that isn't broken. Can you get me specifics (screenshots, steps) or should I do a fresh pass through `notifications.tsx` and the preferences API and report back what I find?
-- **Biometrics:** confirmed gap. `expo-local-authentication` is referenced from `services/auth.ts` and `services/api.ts` but I don't see a dedicated app-lock gate. `FLUTTER_TO_EXPO_PORT_GUIDE.md` §10 already scoped the fix: gate on `AppState` change to `active` after >60s backgrounded, implemented once in `app/_layout.tsx`, not per-screen. This is a small, well-defined fix — worth picking up next regardless of what else gets prioritized.
+- **Biometrics — built 2026-08-13.** New `AppLockGate` component (`src/components/auth/AppLockGate.tsx`), wired once into `app/_layout.tsx` around the whole `<Stack>` per §10's explicit recommendation (not per-screen). Engages only for users who have biometrics turned on (`user.biometricEnabled`, the existing Settings toggle in `(auth)/biometric-enable.tsx`, untouched by this change). Locks on cold start (mirrors Flutter's "not just on launch" behavior) and re-locks on `AppState` transitioning to `active` after ≥60s spent `background`/`inactive`, matching §10's threshold exactly. Renders an opaque full-screen overlay on top of the still-mounted navigator (so in-flight navigation state survives a lock/unlock cycle) and auto-prompts `LocalAuthentication.authenticateAsync`, with a manual "Unlock" button as the retry path if the OS prompt is dismissed or fails. Falls open (doesn't hard-lock the user out) if device-level biometrics get removed after the in-app toggle was turned on. No component-test precedent exists yet for mobile UI in this repo, so none were added here, consistent with how other mobile-only changes in this audit shipped.
 - **"Some features feel left out or hidden":** too vague for me to act on without specifics. Can the team name which screens/flows feel hidden? If it's about discoverability (e.g. a feature exists but there's no nav entry point to it), that's a quick fix once named. If it's about features that were designed (in the mockups under `ui-mockups/`) but never wired to real data, that's a different, bigger fix per-screen.
 
 ---
@@ -175,12 +178,43 @@ Two different things bundled in this line item, worth separating:
 
 This is too much to build in one pass — grouping into an order that avoids rework (later items depending on earlier ones being in place first):
 
-1. ~~**Biometric app-lock gate** (item 7)~~ — done.
+1. ~~**Biometric app-lock gate** (item 7)~~ — done 2026-08-13 (this line was stale before — the item 7 section itself still said "confirmed gap" until this pass; now they match).
 2. ~~**Merchant category taxonomy check** (item 8)~~ — done, reconciled 2026-08-12 above.
 3. ~~**Onboarding percentage editing** (item 3)~~ — done.
 4. ~~**Sub-pockets** (item 10, second half)~~ — done 2026-08-13; foundational for loans, now unblocked.
 5. ~~**Income surplus detection + 3-option allocation prompt** (item 1)~~ — backend complete 2026-08-13, mobile component - complete
 6. ~~**Loans** (item 9)~~ — done.
 7. ~~**Behavioral layer: overspend prompting, 100%-allocation enforcement, ongoing monitoring** (items 4–5)~~ — done 2026-08-13: allocation-integrity check, spend-time override, and runway/velocity nudges all landed. Only the surplus-sweep and streak-at-risk nudge types from §7 remain unbuilt.
-8. **Persona/identity split for income × spending style** (item 2) — **partially done 2026-08-13**: gig/platform-worker vs. multi-client freelancer split landed. Still open: salaried-with-side-income persona, money-personality-as-modifier-layer (§2.3). Read `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 as a team to confirm the remaining design still stands before picking it up.
+8. ~~**Persona/identity split for income × spending style** (item 2)~~ — done 2026-08-13: gig/platform-worker vs. multi-client freelancer split, salaried-with-side-income persona, and money-personality-as-modifier-layer (§2.3) all landed.
 9. **(not originally numbered) Goal-driven savings** (`ONBOARDING_AND_SCORING_REDESIGN.md` Part 4) — done 2026-08-13, see item 11 above.
+
+
+
+NB:
+Plan types (the "shape" of your budget)
+
+There are really only two mechanical plan types, and everything else is a label layered on top of one of them:
+
+Structured — your money gets split into fixed percentage-based pockets (food, transport, leisure, etc.) up front, each with its own spendable amount for the period.
+Daily Budget — instead of category pockets, you get one adaptive daily spending cap that adjusts based on rollover/streak logic.
+
+Which one you get is decided by your income stability and how much of your income goes to fixed costs (needs ratio) — not by your personality.
+
+Income personas (why you got that plan)
+
+Layered on top of Structured/Daily is a label describing your income pattern — this changes plan naming, reasoning copy, and things like runway calculations, but not which of the two mechanical types you get:
+
+Salaried — regular, predictable income, one source.
+Salaried + Side Income — a stable primary salary plus irregular extra income. Core plan behaves like salaried; the side income has more flexibility.
+Freelancer — genuinely lumpy income from 3+ distinct clients/sources.
+Gig — freelancer-pattern income concentrated in 1–2 sources (think Uber/delivery-app style) — volatile day-to-day but with more payout-cadence predictability than true multi-client freelancing.
+
+So you'll see plan names like "Salaried — Structured," "Gig — Daily Budget," "Salaried + Side Income — Structured," etc.
+
+Money personality (how the app talks to you)
+
+This is explicitly not a plan-type driver — it never changes Structured vs. Daily. It's a modifier layer that changes how the app behaves around you:
+
+Saver — least hand-holding: infrequent, neutral-toned check-ins; standard cooling-off pause before risky reallocations; insights lead with your overall discipline score.
+Spender — a firmer (but still non-punitive) cooling-off pause before moving money out of savings/essentials; direct, lightweight notifications at normal frequency; insights lead with how often you're pulling money around.
+Avoider — gentler, more reassuring copy; a slightly longer cooling-off window so decisions don't feel rushed; more frequent, low-friction nudges since infrequent heavy check-ins tend not to land with this type.
