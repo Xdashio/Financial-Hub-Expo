@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useDataSync } from '@/services/data-sync';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
+import { incomeApi } from '@/services/api';
 
 export default function SurplusCreatePocketScreen() {
   const { colors } = useTheme();
@@ -26,9 +27,6 @@ export default function SurplusCreatePocketScreen() {
 
     setIsSubmitting(true);
     try {
-      // Create new pocket with the surplus allocation
-      const { incomeApi } = await import('@/services/api');
-      
       await incomeApi.allocateSurplus(params.incomeEventId, {
         target: 'new_pocket',
         new_pocket_name: name.trim(),
