@@ -71,7 +71,7 @@ All screens in the original sequencing list are now wired — kept below as a hi
 8. ~~Manual income entry screen~~ — done, `app/(income)/entry.tsx` wired to `incomeApi`
 
 ## Phase 2 — Depth on Individual segment
-- [ ] Freelancer income pattern support (irregular income handling, not just salaried)
+- [ ] Freelancer income pattern support (irregular income handling, not just salaried) — **partially done 2026-08-13**: gig/platform-worker vs. multi-client freelancer split landed (see `audit_team.md` item 2). Remaining: salaried-with-side-income persona, money-personality-as-modifier-layer (`ONBOARDING_AND_SCORING_REDESIGN.md` §2.3).
 - [ ] Retake/adjust plan flow from Profile
 - [ ] Real fixed-expense detection (statement upload or account-link integration — pick based on Phase 0 decision)
 - [ ] Discipline score refinement — validate with real/test users whether the numeric score framing lands well or needs to change (flagged as open question in PRD)

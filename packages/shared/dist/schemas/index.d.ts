@@ -39,6 +39,29 @@ export declare const SpendableCategorySchema: z.ZodEnum<["food", "transport", "l
 export type SpendableCategory = z.infer<typeof SpendableCategorySchema>;
 export declare const CategoryPercentagesSchema: z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>;
 export type CategoryPercentages = z.infer<typeof CategoryPercentagesSchema>;
+export declare const SavingsGoalTypeSchema: z.ZodEnum<["emergency_fund", "purchase", "dependent_education", "other"]>;
+export type SavingsGoalType = z.infer<typeof SavingsGoalTypeSchema>;
+export declare const SavingsGoalTimeframeSchema: z.ZodEnum<["3_months", "6_months", "1_year", "2_plus_years"]>;
+export type SavingsGoalTimeframe = z.infer<typeof SavingsGoalTimeframeSchema>;
+export declare const SavingsGoalTimeframeMonths: Record<SavingsGoalTimeframe, number>;
+export declare const SavingsGoalLockDays: Record<SavingsGoalTimeframe, number>;
+export declare const SavingsGoalInputSchema: z.ZodObject<{
+    goalType: z.ZodEnum<["emergency_fund", "purchase", "dependent_education", "other"]>;
+    goalLabel: z.ZodOptional<z.ZodString>;
+    goalAmount: z.ZodOptional<z.ZodNumber>;
+    goalTimeframe: z.ZodEnum<["3_months", "6_months", "1_year", "2_plus_years"]>;
+}, "strip", z.ZodTypeAny, {
+    goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+    goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+    goalLabel?: string | undefined;
+    goalAmount?: number | undefined;
+}, {
+    goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+    goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+    goalLabel?: string | undefined;
+    goalAmount?: number | undefined;
+}>;
+export type SavingsGoalInput = z.infer<typeof SavingsGoalInputSchema>;
 export declare const FixedExpenseInputSchema: z.ZodObject<{
     name: z.ZodString;
     amount: z.ZodNumber;
@@ -84,6 +107,22 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
     moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
     hasTransportNeed: z.ZodOptional<z.ZodBoolean>;
+    savingsGoal: z.ZodOptional<z.ZodObject<{
+        goalType: z.ZodEnum<["emergency_fund", "purchase", "dependent_education", "other"]>;
+        goalLabel: z.ZodOptional<z.ZodString>;
+        goalAmount: z.ZodOptional<z.ZodNumber>;
+        goalTimeframe: z.ZodEnum<["3_months", "6_months", "1_year", "2_plus_years"]>;
+    }, "strip", z.ZodTypeAny, {
+        goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+        goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+        goalLabel?: string | undefined;
+        goalAmount?: number | undefined;
+    }, {
+        goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+        goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+        goalLabel?: string | undefined;
+        goalAmount?: number | undefined;
+    }>>;
     categoryPercentages: z.ZodOptional<z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>>;
 }, "strip", z.ZodTypeAny, {
     incomePattern: "salaried" | "freelancer" | "mix";
@@ -103,6 +142,12 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
     moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
     hasTransportNeed?: boolean | undefined;
+    savingsGoal?: {
+        goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+        goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+        goalLabel?: string | undefined;
+        goalAmount?: number | undefined;
+    } | undefined;
     categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
 }, {
     incomePattern: "salaried" | "freelancer" | "mix";
@@ -122,6 +167,12 @@ export declare const OnboardingInputSchema: z.ZodObject<{
     emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
     moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
     hasTransportNeed?: boolean | undefined;
+    savingsGoal?: {
+        goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+        goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+        goalLabel?: string | undefined;
+        goalAmount?: number | undefined;
+    } | undefined;
     categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
 }>;
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
@@ -130,16 +181,22 @@ export declare const PlanAssignReasonSchema: z.ZodObject<{
     reason: z.ZodString;
     needsRatio: z.ZodOptional<z.ZodNumber>;
     needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+    goalMonthsNeeded: z.ZodOptional<z.ZodNumber>;
+    goalRequiredSharePercent: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     rule: string;
     reason: string;
     needsRatio?: number | undefined;
     needsBand?: "high" | "mid" | "low" | undefined;
+    goalMonthsNeeded?: number | undefined;
+    goalRequiredSharePercent?: number | undefined;
 }, {
     rule: string;
     reason: string;
     needsRatio?: number | undefined;
     needsBand?: "high" | "mid" | "low" | undefined;
+    goalMonthsNeeded?: number | undefined;
+    goalRequiredSharePercent?: number | undefined;
 }>;
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 export declare const OnboardingAssignResultSchema: z.ZodObject<{
@@ -152,16 +209,22 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
         reason: z.ZodString;
         needsRatio: z.ZodOptional<z.ZodNumber>;
         needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+        goalMonthsNeeded: z.ZodOptional<z.ZodNumber>;
+        goalRequiredSharePercent: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         rule: string;
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }, {
         rule: string;
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }>, "many">;
     remainingAfterFixed: z.ZodNumber;
     savingsTarget: z.ZodNumber;
@@ -179,6 +242,8 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }[];
     remainingAfterFixed: number;
     savingsTarget: number;
@@ -195,6 +260,8 @@ export declare const OnboardingAssignResultSchema: z.ZodObject<{
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }[];
     remainingAfterFixed: number;
     savingsTarget: number;
@@ -235,16 +302,22 @@ export declare const PlanPreviewResultSchema: z.ZodObject<{
         reason: z.ZodString;
         needsRatio: z.ZodOptional<z.ZodNumber>;
         needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+        goalMonthsNeeded: z.ZodOptional<z.ZodNumber>;
+        goalRequiredSharePercent: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         rule: string;
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }, {
         rule: string;
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }>, "many">;
     remainingAfterFixed: z.ZodNumber;
     savingsTarget: z.ZodNumber;
@@ -284,6 +357,8 @@ export declare const PlanPreviewResultSchema: z.ZodObject<{
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }[];
     remainingAfterFixed: number;
     savingsTarget: number;
@@ -308,6 +383,8 @@ export declare const PlanPreviewResultSchema: z.ZodObject<{
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }[];
     remainingAfterFixed: number;
     savingsTarget: number;
@@ -1226,6 +1303,24 @@ export declare const schemas: {
     EmergencyBuffer: z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>;
     MoneyPersonality: z.ZodEnum<["spender", "saver", "avoider"]>;
     NeedsBand: z.ZodEnum<["high", "mid", "low"]>;
+    SavingsGoalType: z.ZodEnum<["emergency_fund", "purchase", "dependent_education", "other"]>;
+    SavingsGoalTimeframe: z.ZodEnum<["3_months", "6_months", "1_year", "2_plus_years"]>;
+    SavingsGoalInput: z.ZodObject<{
+        goalType: z.ZodEnum<["emergency_fund", "purchase", "dependent_education", "other"]>;
+        goalLabel: z.ZodOptional<z.ZodString>;
+        goalAmount: z.ZodOptional<z.ZodNumber>;
+        goalTimeframe: z.ZodEnum<["3_months", "6_months", "1_year", "2_plus_years"]>;
+    }, "strip", z.ZodTypeAny, {
+        goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+        goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+        goalLabel?: string | undefined;
+        goalAmount?: number | undefined;
+    }, {
+        goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+        goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+        goalLabel?: string | undefined;
+        goalAmount?: number | undefined;
+    }>;
     PlanName: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
     TransactionType: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
     ReallocationStatus: z.ZodEnum<["pending", "cooling_off", "completed", "skipped"]>;
@@ -1263,6 +1358,22 @@ export declare const schemas: {
         emergencyBuffer: z.ZodOptional<z.ZodEnum<["none", "under_month", "1_to_3_months", "3_plus_months"]>>;
         moneyPersonality: z.ZodOptional<z.ZodEnum<["spender", "saver", "avoider"]>>;
         hasTransportNeed: z.ZodOptional<z.ZodBoolean>;
+        savingsGoal: z.ZodOptional<z.ZodObject<{
+            goalType: z.ZodEnum<["emergency_fund", "purchase", "dependent_education", "other"]>;
+            goalLabel: z.ZodOptional<z.ZodString>;
+            goalAmount: z.ZodOptional<z.ZodNumber>;
+            goalTimeframe: z.ZodEnum<["3_months", "6_months", "1_year", "2_plus_years"]>;
+        }, "strip", z.ZodTypeAny, {
+            goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+            goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+            goalLabel?: string | undefined;
+            goalAmount?: number | undefined;
+        }, {
+            goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+            goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+            goalLabel?: string | undefined;
+            goalAmount?: number | undefined;
+        }>>;
         categoryPercentages: z.ZodOptional<z.ZodRecord<z.ZodEnum<["food", "transport", "leisure", "family"]>, z.ZodNumber>>;
     }, "strip", z.ZodTypeAny, {
         incomePattern: "salaried" | "freelancer" | "mix";
@@ -1282,6 +1393,12 @@ export declare const schemas: {
         emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
         moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
         hasTransportNeed?: boolean | undefined;
+        savingsGoal?: {
+            goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+            goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+            goalLabel?: string | undefined;
+            goalAmount?: number | undefined;
+        } | undefined;
         categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
     }, {
         incomePattern: "salaried" | "freelancer" | "mix";
@@ -1301,6 +1418,12 @@ export declare const schemas: {
         emergencyBuffer?: "none" | "under_month" | "1_to_3_months" | "3_plus_months" | undefined;
         moneyPersonality?: "spender" | "saver" | "avoider" | undefined;
         hasTransportNeed?: boolean | undefined;
+        savingsGoal?: {
+            goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
+            goalTimeframe: "3_months" | "6_months" | "1_year" | "2_plus_years";
+            goalLabel?: string | undefined;
+            goalAmount?: number | undefined;
+        } | undefined;
         categoryPercentages?: Partial<Record<"food" | "transport" | "leisure" | "family", number>> | undefined;
     }>;
     PlanAssignReason: z.ZodObject<{
@@ -1308,16 +1431,22 @@ export declare const schemas: {
         reason: z.ZodString;
         needsRatio: z.ZodOptional<z.ZodNumber>;
         needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+        goalMonthsNeeded: z.ZodOptional<z.ZodNumber>;
+        goalRequiredSharePercent: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         rule: string;
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }, {
         rule: string;
         reason: string;
         needsRatio?: number | undefined;
         needsBand?: "high" | "mid" | "low" | undefined;
+        goalMonthsNeeded?: number | undefined;
+        goalRequiredSharePercent?: number | undefined;
     }>;
     OnboardingAssignResult: z.ZodObject<{
         plan: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Structured", "Freelancer — Daily Budget", "Gig — Structured", "Gig — Daily Budget"]>;
@@ -1329,16 +1458,22 @@ export declare const schemas: {
             reason: z.ZodString;
             needsRatio: z.ZodOptional<z.ZodNumber>;
             needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+            goalMonthsNeeded: z.ZodOptional<z.ZodNumber>;
+            goalRequiredSharePercent: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             rule: string;
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }, {
             rule: string;
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }>, "many">;
         remainingAfterFixed: z.ZodNumber;
         savingsTarget: z.ZodNumber;
@@ -1356,6 +1491,8 @@ export declare const schemas: {
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }[];
         remainingAfterFixed: number;
         savingsTarget: number;
@@ -1372,6 +1509,8 @@ export declare const schemas: {
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }[];
         remainingAfterFixed: number;
         savingsTarget: number;
@@ -1407,16 +1546,22 @@ export declare const schemas: {
             reason: z.ZodString;
             needsRatio: z.ZodOptional<z.ZodNumber>;
             needsBand: z.ZodOptional<z.ZodEnum<["high", "mid", "low"]>>;
+            goalMonthsNeeded: z.ZodOptional<z.ZodNumber>;
+            goalRequiredSharePercent: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             rule: string;
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }, {
             rule: string;
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }>, "many">;
         remainingAfterFixed: z.ZodNumber;
         savingsTarget: z.ZodNumber;
@@ -1456,6 +1601,8 @@ export declare const schemas: {
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }[];
         remainingAfterFixed: number;
         savingsTarget: number;
@@ -1480,6 +1627,8 @@ export declare const schemas: {
             reason: string;
             needsRatio?: number | undefined;
             needsBand?: "high" | "mid" | "low" | undefined;
+            goalMonthsNeeded?: number | undefined;
+            goalRequiredSharePercent?: number | undefined;
         }[];
         remainingAfterFixed: number;
         savingsTarget: number;

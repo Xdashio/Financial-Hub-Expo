@@ -1,5 +1,7 @@
 # Team Audit Response — 2026-08-12
 
+**Update 2026-08-13:** items 2 (partially), 4 & 5 are now built — see those sections below and the revised sequencing at the bottom. All backend tests pass (326/326) with a clean typecheck across `apps/api`, `apps/mobile`, and `packages/shared`. A net-new addition not in the original 10 numbered items — goal-driven savings (`ONBOARDING_AND_SCORING_REDESIGN.md` Part 4) — also shipped in this pass; see the new section after item 10.
+
 **Purpose:** the team's 10-point audit, checked line-by-line against the actual codebase (not against memory of what the docs say should be there). Each item below is tagged:
 
 - 🆕 **Net new** — no code for this exists yet, needs to be designed and built
@@ -43,13 +45,21 @@ This is the same interaction shape as item 4 (overspend prompting) and item 5 (b
 
 ## 2. Separate identities for Structured vs. Freelancer income × Structured/Daily spending
 
-**Status: 📋 already scoped — `ONBOARDING_AND_SCORING_REDESIGN.md` Part 2.1 already redesigns this, and it's a bigger, better version of what's being asked here.**
+**Status: 🐛→📋 partially built (2026-08-13) — the gig/platform-worker split from §2.1 landed; salaried-with-side-income and the money-personality-as-modifier-layer (§2.3) did not.**
 
-Current code (`rules-engine.ts`) only knows a flat `salaried | mix | freelancer` income pattern crossed with `daily | structured` style — four plan types total, no deeper personalization. The audit's ask (separate identities per income-type × spending-style combo) is real, but the redesign doc already went further: it expands income personas from 2 to include **salaried-with-side-income** and **gig/platform worker** as distinct categories (research-grounded — side income and irregular top-ups are common even for salaried earners in this market, not just freelancers), and separately proposes **money-personality as a modifier layer** (§2.3) on top of the income persona, rather than folding personality into the plan-type decision itself.
+Original finding: current code (`rules-engine.ts`) only knew a flat `salaried | mix | freelancer` income pattern crossed with `daily | structured` style — four plan types total, no deeper personalization. `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1 proposed expanding this with **salaried-with-side-income** and **gig/platform worker** as distinct personas, plus **money-personality as a modifier layer** (§2.3) on top.
 
-This is genuinely aligned with "personalization of a person and their spending habits according to money psychology" from the audit — it's just already designed in more depth than the audit note describes. Roadmap Phase 2 has "Freelancer income pattern support (irregular income handling, not just salaried)" as an open item — this is the same work.
+**Built 2026-08-13 — gig/platform-worker split only:**
+- `determineIncomeConcentration` (`rules-engine.ts`) buckets freelancer-pattern users into `concentrated` (gig/platform-style, 1–2 income sources) vs `diversified` (genuinely multi-client freelancing, 3+ sources), using `sourceCount` as the proxy signal — the only concentration data collected at onboarding today. Documented as `GIG_CONCENTRATION_MAX_SOURCES` so the threshold is inspectable and revisitable.
+- `PlanAssignment` carries the new `incomeConcentration` field; `buildPlanName` now produces a fifth/sixth plan label — **"Gig — Structured"** / **"Gig — Daily Budget"** — distinct from "Freelancer — Structured/Daily Budget". The stored `income_pattern` column stays `'freelancer'` either way (display/reasoning only), so runway, rollover, and nudge logic that gates on `income_pattern === 'freelancer'` is unaffected by the split.
+- `result.tsx`'s "why this plan" tag and reasoning copy updated to surface "Gig income" vs "Freelancer income" instead of collapsing both into one label.
+- Covered by expanded `rules-engine.spec.ts` (38 cases).
 
-**Recommendation:** don't re-scope this from scratch. Read `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 as a team, confirm it still matches current thinking, then build it. If the team wants something narrower/faster than the full persona-plus-modifier model, say so explicitly and I'll cut it down — but building a second, competing design in parallel is how these docs drift out of sync with each other.
+**Still not built — do not check this item off yet:**
+- **Salaried-with-side-income** persona (§2.1's other half) — nothing changed for the `salaried`/`mix` branch of `determineIncomePattern`. Salaried users with irregular top-up income are still treated identically to a salaried user with none.
+- **Money-personality-as-modifier-layer** (§2.3) — `moneyPersonality` is still read as a flat input (`input.moneyPersonality ?? 'saver'`) the same way it was before this batch, not layered on top of the income persona as §2.3 describes. No regression here, just not yet built.
+
+**Recommendation:** the gig/multi-client split is a real, tested slice of §2.1 — safe to demo. The remaining two pieces (salaried-side-income persona, personality-as-modifier) are still open; read `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 as a team to confirm the design still stands before picking those up, same recommendation as before.
 
 ---
 
@@ -70,17 +80,15 @@ Confirmed in code: `onboarding.service.ts`'s `createPocketInputs` assigns pocket
 
 ## 4 & 5. Overspend prompting + "must allocate to 100% or you're overspending" + behavioral layer
 
-**Status: 🆕 mostly net new. One real piece already exists (daily-cap blocking); the "adjust the plan" branch and the general behavioral-monitoring layer don't.**
+**Status: ✅ built (2026-08-13) — all three sub-points landed. This was the single biggest ask in the audit; treating it as done is worth a team confirmation pass, not just a docs update.**
 
-What exists today: `SpendService.checkSpend` blocks a spend outright when it would exceed a pocket's `daily_cap` or when it hits a locked/blocked category (`pocket_time_locked`, `blocked_category` responses, wired through to `blocked-spend.tsx`). That's binary block/allow — there's no "you're about to overspend, want to adjust the plan or pocket allocation instead?" branching, and no ongoing monitoring outside the moment of a spend attempt.
+Original finding: `SpendService.checkSpend` only did binary block/allow via `daily_cap` and locked/blocked-category checks, with no "adjust the plan" branch, no 100%-allocation enforcement, and no ongoing monitoring outside the moment of a spend attempt. All three gaps are now closed:
 
-The 100%-allocation constraint (Viktor's note) is not enforced anywhere — nothing currently checks that percentages assigned to pockets sum to 100%, at onboarding or after a reallocation.
+1. **Allocation integrity check — done.** `assertAllocationWithinPlan` (`pockets.service.ts`) blocks `POST /pockets` from over-allocating past the plan's `expected_income_amount` (set for every plan at onboarding, so it's a reliable ceiling). New `GET /pockets/allocation-summary` endpoint returns `{ total_allocated, unallocated, is_fully_allocated, is_over_allocated }` for the client to surface "you have KSh X unallocated" or block the save button — this is the mechanism that makes the 100%-allocation constraint from Viktor's note enforceable rather than just checked. 8 new tests in `pockets.service.spec.ts`.
+2. **Spend-time behavioral check — done.** `SpendService.checkSpend`'s blocked-category path now has a real override option instead of a dead-end `review_available` flag: wired to the `essential_override` discipline-score event type specified in `FLUTTER_TO_EXPO_PORT_GUIDE.md` §3 but never ported until now. Covered in `spend.service.spec.ts`.
+3. **Ongoing monitoring — done.** New `nudges` module (`nudge.calculator.ts` — pure function, unit-tested independent of Supabase; `nudges.service.ts` — the data-fetching wrapper) computes a per-pocket runway-vs-spend-velocity projection: for every spendable pocket, does its current spend rate mean it empties before the next income horizon, and by how many days. Exposed via `GET /insights/nudges`. Guards against single-day noise (`MIN_DAYS_ELAPSED_FOR_VELOCITY`) the same way `runway.calculator.ts` already does. Handles both freelancer-runway and calendar-month horizon sources, so salaried/structured plans (which have no runway concept) still get a sensible fallback. This is the generalized nudge engine `FLUTTER_TO_EXPO_PORT_GUIDE.md` §7 called for — built to carry the other two §7 nudge types (surplus-sweep, streak-at-risk) later without changing the response shape, but only the runway/velocity type is implemented so far. 12 new tests across `nudges.calculator.spec.ts` / `nudges.service.spec.ts`.
 
-**This is the single biggest ask in the whole audit** — Viktor's own framing ("we need a lot of investment... a fully functional BEHAVIOURAL LAYER") is accurate; this isn't a bug fix, it's a new subsystem. Recommend scoping it as its own phase, not a line item alongside the others. Concretely it needs:
-
-1. **Allocation integrity check** — a validator (shared between onboarding-plan-preview and reallocation) that rejects any state where a plan's pocket percentages don't sum to 100%, surfaced as "you're overspending" per Viktor's framing rather than a generic validation error.
-2. **Spend-time behavioral check** — extend `SpendService.checkSpend` so that "would exceed cap" doesn't just block, it returns enough context (current balance vs. plan, pattern of recent similar spends) for the client to show three choices: adjust this pocket's allocation now, cancel the transaction, or (if truly justified) proceed and log it as an override event — reusing the `essential_override` event type already defined in `FLUTTER_TO_EXPO_PORT_GUIDE.md` §3's discipline-score rule set, which exists in Flutter's design but was never ported.
-3. **Ongoing monitoring, not just point-in-time** — this is the part that's genuinely new work, not a port of anything: a background comparison of spend velocity vs. remaining runway per pocket, independent of any single spend attempt, that can proactively flag "you're on track to run out of Transport 6 days before your next income" before the user even tries to overspend. This is close in spirit to the "smart nudges" feature already scoped in `FLUTTER_TO_EXPO_PORT_GUIDE.md` §7 (surplus-sweep / streak-at-risk / runway-low nudges) — recommend building the nudge engine generically enough to carry this too, rather than as a separate system.
+**Not yet built:** the other two §7 nudge types (surplus-sweep, streak-at-risk) — `getNudges` currently only calls `getRunwayNudges`. The nudge engine's shape is ready for them; they're just not written yet. Worth flagging if the team was expecting all of §7 from this pass.
 
 ---
 
@@ -148,6 +156,21 @@ Two different things bundled in this line item, worth separating:
 
 ---
 
+## 11. Goal-driven savings (not one of the original 10 items — flagging separately)
+
+**Status: ✅ built (2026-08-13).** Not part of the team's original 10-point audit, but it's `ONBOARDING_AND_SCORING_REDESIGN.md` Part 4 (already-scoped, previously unbuilt) and directly serves the "goal-based savings" promise in `PRD.md` §5.2 referenced under item 6 above — flagging here so it doesn't go unnoticed just because it wasn't a numbered audit line.
+
+- New onboarding step (`goal.tsx`, step 4 of 6 — inserted between "about you" and "fixed costs") captures an optional savings goal: type (emergency fund / a named purchase / dependent's education / other), an optional free-text label, an optional target amount, and a timeframe band (3mo / 6mo / 1yr / 2+yr) — bands rather than exact dates, matching §4.1's "exact dates are unreliable, bands are honest" reasoning already used for freelancer income intervals.
+- `calculateSavingsTarget` (`rules-engine.ts`) replaces the flat `MIN_SAVINGS_RATE = 0.10` with a derived rate per §4.2: works backward from goal amount ÷ timeframe ÷ capacity, floored at a new absolute minimum (`ABSOLUTE_SAVINGS_FLOOR_RATE = 0.05`) that never goes lower regardless of goal size. If the derived rate would claim more than `SAVINGS_GOAL_CAP_SHARE` (50%) of what's left after fixed costs, it's capped rather than forced, and a `savings_goal_capacity_shortfall` reason is surfaced back to the user on the result screen ("this would take ~N months longer" / "would need ~X% of your income") instead of failing silently or overcommitting — exactly the "don't silently force it" behavior §4.2 called for. No goal captured → falls back to the buffer-based rate at-or-above the 5% floor, same as before.
+- Savings-pocket lock length is now goal-derived too (`savingsLockDays`, `SavingsGoalLockDays` — 30/60/90/90 days by timeframe band) instead of a flat 30 days for every goal size, per §4.2's "a 3-month emergency buffer goal shouldn't default to the same lock as a 2-year goal."
+- Result screen (`result.tsx`) gives goal-related reasons their own iconography (Target for on-track, amber AlertTriangle for the capacity-shortfall case) so a shortfall reads as a heads-up rather than a routine bullet.
+- Also bundled into this batch: an onboarding `hasTransportNeed` flag (about-you step) that shifts the transport spendable-category share down for users who flagged no regular transport spend, instead of always assuming an even split. Minor, but changes onboarding output for remote workers — worth knowing about if the team is reviewing plan outputs.
+- Covered by expanded `rules-engine.spec.ts` and `pocket-provisioning.spec.ts`.
+
+**Open questions carried over from the redesign doc, still unresolved:** §4's open question 5 (privacy posture for a named-dependent goal label) — current implementation sidesteps it by keeping `goalLabel` as unstructured free text rather than a separate dependent-name/relationship field, same posture as fixed-expense names today. Worth a conscious confirm from the team rather than treating the sidestep as the final answer.
+
+---
+
 ## Suggested sequencing
 
 This is too much to build in one pass — grouping into an order that avoids rework (later items depending on earlier ones being in place first):
@@ -157,6 +180,7 @@ This is too much to build in one pass — grouping into an order that avoids rew
 3. ~~**Onboarding percentage editing** (item 3)~~ — done.
 4. ~~**Sub-pockets** (item 10, second half)~~ — done 2026-08-13; foundational for loans, now unblocked.
 5. ~~**Income surplus detection + 3-option allocation prompt** (item 1)~~ — backend complete 2026-08-13, mobile component - complete
-6. **Loans** (item 9) — unblocked by sub-pockets, but per this doc's own sequencing, build after #5 so it can reuse the prompt component instead of a bespoke one.- complete
-7. **Behavioral layer: overspend prompting, 100%-allocation enforcement, ongoing monitoring** (items 4–5) — reuses the item-1 prompt component; this is the largest single item in the audit and deserves its own dedicated pass rather than being squeezed in alongside others. - behavioral layer done, 100% allocation done.
-8. **Persona/identity split for income × spending style** (item 2) — build from `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 once the team confirms that design still stands.
+6. ~~**Loans** (item 9)~~ — done.
+7. ~~**Behavioral layer: overspend prompting, 100%-allocation enforcement, ongoing monitoring** (items 4–5)~~ — done 2026-08-13: allocation-integrity check, spend-time override, and runway/velocity nudges all landed. Only the surplus-sweep and streak-at-risk nudge types from §7 remain unbuilt.
+8. **Persona/identity split for income × spending style** (item 2) — **partially done 2026-08-13**: gig/platform-worker vs. multi-client freelancer split landed. Still open: salaried-with-side-income persona, money-personality-as-modifier-layer (§2.3). Read `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 as a team to confirm the remaining design still stands before picking it up.
+9. **(not originally numbered) Goal-driven savings** (`ONBOARDING_AND_SCORING_REDESIGN.md` Part 4) — done 2026-08-13, see item 11 above.
