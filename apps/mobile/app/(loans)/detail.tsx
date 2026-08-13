@@ -26,6 +26,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ interface LoanDetail {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmt(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 function fmtDate(iso: string) {

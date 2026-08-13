@@ -6,6 +6,7 @@ import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/th
 import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore, Pocket } from '@/services/home-store';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
+import { formatMoney } from '@/utils/money';
 
 function dotColor(pocket: Pocket, colors: any): string {
   if (pocket.kind === 'savings') return colors.emeraldDeep;
@@ -29,7 +30,7 @@ function subtitle(pocket: Pocket): string {
 }
 
 function formatCurrency(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 export default function ReallocPickScreen() {
@@ -46,7 +47,7 @@ export default function ReallocPickScreen() {
 
   const parsedAmount = Number(amount);
   const hasValidAmount = amount.length > 0 && !Number.isNaN(parsedAmount) && parsedAmount > 0;
-  const withinBalance = fromPocket ? parsedAmount <= fromPocket.monthlyAllocation : false;
+  const withinBalance = fromPocket ? parsedAmount <= fromPocket.availableBalance : false;
   const canContinue = !!fromPocket && !!toId && hasValidAmount && withinBalance;
 
   const handleSelectFrom = (pocket: Pocket) => {
@@ -147,7 +148,7 @@ export default function ReallocPickScreen() {
               keyboardType="numeric"
               value={amount}
               onChangeText={setAmount}
-              helperText={`Available: ${formatCurrency(fromPocket.monthlyAllocation)}`}
+              helperText={`Available: ${formatCurrency(fromPocket.availableBalance)} · Plan: ${formatCurrency(fromPocket.monthlyAllocation)}/mo`}
               error={hasValidAmount && !withinBalance ? 'Amount exceeds available balance' : undefined}
             />
           </View>
@@ -235,7 +236,7 @@ function PocketRow({
         <Text style={styles.pocketSub}>{subtitle(pocket)}</Text>
       </View>
       {disabled && <Lock size={14} color={colors.sage} style={{ marginRight: spacing.xs }} />}
-      <Text style={styles.pocketAmount}>{formatCurrency(pocket.monthlyAllocation)}</Text>
+      <Text style={styles.pocketAmount}>{formatCurrency(pocket.availableBalance)}</Text>
     </TouchableOpacity>
   );
 }

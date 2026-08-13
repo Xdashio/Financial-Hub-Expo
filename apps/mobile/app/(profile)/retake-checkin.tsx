@@ -17,12 +17,13 @@ import {
   AlertCircle, Plus, Trash2, GraduationCap, Bus, CreditCard, X, Check,
 } from 'lucide-react-native';
 import { IncomePattern, IncomeIntervalBand, SpendingHabit, OnboardingInput, LifeStage, EmergencyBuffer, MoneyPersonality } from '@financial-hub/shared';
+import { formatMoney } from '@/utils/money';
 
 type RetakeResult = Awaited<ReturnType<typeof profileApi.retakeBehaviorCheckin>>;
 type Redistribution = RetakeResult['redistribution'];
 
 function fmtKes(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 const REASONS = [

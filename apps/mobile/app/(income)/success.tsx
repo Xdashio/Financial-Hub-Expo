@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { Button, ScreenContainer, SafeScrollView } from '@/components/ui';
+import { formatMoney } from '@/utils/money';
 
 interface ProjectedAllocation {
   pocket_id: string;
@@ -25,7 +26,7 @@ type SuccessParams = {
 };
 
 function formatCurrency(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 export default function IncomeSuccessScreen() {

@@ -9,6 +9,7 @@ import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } fr
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { incomeApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
+import { formatMoney } from '@/utils/money';
 
 function dotColor(pocket: Pocket, colors: any): string {
   if (pocket.kind === 'savings') return colors.emeraldDeep;
@@ -29,7 +30,7 @@ function subtitle(pocket: Pocket): string {
 }
 
 function formatCurrency(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 export default function SurplusPocketPickerScreen() {

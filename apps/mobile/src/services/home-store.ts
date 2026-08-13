@@ -36,6 +36,8 @@ export interface HomeState {
   disciplineScore: number | null;
   scoreDelta: number;
   currentStreak: number;
+  /** Personality-driven insight card order from /insights/discipline-score. */
+  cardOrder: string[];
   runway: RunwaySummary;
   isLoading: boolean;
   error: string | null;
@@ -161,6 +163,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
   disciplineScore: null,
   scoreDelta: 0,
   currentStreak: 0,
+  cardOrder: [],
   runway: { applicable: false },
   isLoading: false,
   error: null,
@@ -204,6 +207,9 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
         totalBalance,
         disciplineScore: insightsRes?.score ?? (hadData ? previous.disciplineScore : null),
         scoreDelta: insightsRes?.delta ?? (hadData ? previous.scoreDelta : 0),
+        cardOrder: Array.isArray(insightsRes?.cardOrder)
+          ? insightsRes.cardOrder
+          : (hadData ? previous.cardOrder : []),
         currentStreak: status?.streak?.currentStreak ?? (hadData ? previous.currentStreak : 0),
         runway: runwayRes || { applicable: false },
         isLoading: false,

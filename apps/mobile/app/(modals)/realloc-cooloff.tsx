@@ -11,6 +11,7 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
 import { showReallocationConfirm } from '@/services/notifications';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 type CooloffParams = {
   reallocationId: string;
@@ -26,7 +27,7 @@ type CooloffParams = {
 };
 
 function formatCurrency(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 function formatRemaining(ms: number): string {

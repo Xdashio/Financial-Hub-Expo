@@ -9,9 +9,10 @@ import { profileApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft, BarChart3, Calendar, Briefcase, PiggyBank, House, ShoppingBasket } from 'lucide-react-native';
+import { formatMoney } from '@/utils/money';
 
 function fmt(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 const KIND_ICON: Record<string, any> = {

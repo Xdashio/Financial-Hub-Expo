@@ -29,6 +29,7 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -107,7 +108,7 @@ interface MerchantScope {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmt(amount: number) {
-  return `KES ${Math.round(amount).toLocaleString()}`;
+  return formatMoney(amount);
 }
 
 function fmtDate(iso: string) {
@@ -772,7 +773,7 @@ export default function PocketDetailScreen() {
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
               <Text style={{ ...typography.caption, color: colors.sage }}>Total Amount</Text>
               <Text style={{ ...typography.body, color: colors.ink, fontWeight: '600' }}>
-                KES {pocket.monthly_allocation.toLocaleString()}
+                {formatMoney(pocket.monthly_allocation)}
               </Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>

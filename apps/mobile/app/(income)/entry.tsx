@@ -13,6 +13,7 @@ import { showAllocationReceived } from '@/services/notifications';
 import { enqueueWrite } from '@/services/offline-queue';
 import { MoneyAllocationPrompt } from '@/components/ui';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 type Source = 'client_payment' | 'cash' | 'other';
 
@@ -192,7 +193,7 @@ export default function IncomeEntryScreen() {
     }
   };
 
-  const formatCurrency = (value: number) => `KES ${Math.round(value).toLocaleString()}`;
+  const formatCurrency = (value: number) => formatMoney(value);
 
   const handleSurplusAllocation = async (optionId: string) => {
     if (!surplusPrompt.incomeEventId) return;

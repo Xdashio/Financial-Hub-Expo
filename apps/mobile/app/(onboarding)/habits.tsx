@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTheme } from '@/theme/ThemeContext';
@@ -7,7 +7,7 @@ import { useOnboardingStore } from '@/services/onboarding-store';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Wallet, AlertCircle, Clock } from 'lucide-react-native';
 import { SpendingHabit } from '@financial-hub/shared';
-
+import { useAlertModal } from '@/hooks/useAlertModal';
 const HABIT_OPTIONS = [
   {
     id: 'tracker',
@@ -33,6 +33,7 @@ export default function HabitsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { setHabitsData, input } = useOnboardingStore();
+  const { alert, modal } = useAlertModal();
   
   const [spendingHabit, setSpendingHabit] = React.useState<SpendingHabit>('tracker');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -47,7 +48,7 @@ export default function HabitsScreen() {
       setHabitsData({ spendingHabit: spendingHabit as any });
       router.push('/(onboarding)/about-you');
     } catch (error) {
-      Alert.alert('Error', 'Could not save your spending habits. Please try again.');
+      await alert('Error', 'Could not save your spending habits. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -56,11 +57,11 @@ export default function HabitsScreen() {
   return (
     <ScreenContainer>
       <SafeScrollView>
-        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/about-you" />
+        <BrandHeader onBack={() => {}} fallbackHref="/(onboarding)/income" />
         <ProgressIndicator currentStep={2} totalSteps={6} />
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
-          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 2 of 5 — Spending habits</Text>
+          <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 2 of 6 — Spending habits</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>When money runs low near month-end, what usually happens?</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>There&apos;s no wrong answer — this helps us understand your rhythm, not judge it.</Text>
         </View>
@@ -111,6 +112,7 @@ export default function HabitsScreen() {
           Continue
         </Button>
       </SafeScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

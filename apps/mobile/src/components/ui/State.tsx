@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ActivityIndicator, Pressable } from 'react-native';
 import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, typography, radius } from '@/theme';
+import { spacing, typography, radius, touchTarget } from '@/theme';
 import { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton } from './Skeleton';
 
 /**
@@ -105,10 +105,13 @@ export function ErrorState({
             marginTop: spacing.xs,
             paddingVertical: spacing.sm,
             paddingHorizontal: spacing.lg,
+            minHeight: touchTarget.minHeight,
             borderRadius: radius.pill,
             backgroundColor: colors.emeraldDeep,
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel="Try again"
+          accessibilityRole="button"
         >
           <RefreshCw size={14} color={colors.surface} strokeWidth={2} />
           <Text style={{ ...typography.heading, color: colors.surface }}>Try again</Text>

@@ -12,6 +12,11 @@ import { notificationsApi, type NotificationPreferences } from '@/services/api';
  * export" warnings + ErrorBoundary errors). Everything here is gated for
  * Expo Go / web and wrapped so a missing native module never takes down
  * the navigator.
+ *
+ * Dev-build push: Android remote push requires an EAS development build
+ * (`eas build --profile development`), not Expo Go. Local notifications
+ * still work in Expo Go; only remote FCM/APNs delivery needs the custom
+ * native binary.
  */
 
 /** True inside the Expo Go client (StoreClient), where remote push is gone. */

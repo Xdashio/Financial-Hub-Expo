@@ -13,6 +13,7 @@ import {
 } from 'lucide-react-native';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { safeGoBack } from '@/utils/navigation';
+import { formatMoney } from '@/utils/money';
 
 export default function BlockedSpendScreen() {
   const { colors } = useTheme();
@@ -29,7 +30,7 @@ export default function BlockedSpendScreen() {
   const canReview = reviewAvailable !== 'false';
 
   const formatCurrency = (amount: string) => {
-    return `KES ${parseFloat(amount).toLocaleString()}`;
+    return formatMoney(parseFloat(amount));
   };
 
   const handleReview = () => {
