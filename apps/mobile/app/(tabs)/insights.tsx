@@ -163,7 +163,11 @@ export default function InsightsScreen() {
         <Text style={{ ...typography.title, color: colors.ink, marginTop: spacing.xl }}>Insights</Text>
 
         <View style={{ marginTop: spacing.xl, borderRadius: radius.lg, paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, backgroundColor: colors.emeraldDeep, alignItems: 'center' }}>
-          {score === null ? (
+          {/* Gate on hasScoreHistory (not score === null) so a backend regression
+              that returns a non-null default score can't resurrect the fake-100 display.
+              hasScoreHistory is an independent signal from the API that the user has
+              at least one real discipline_scores row — score alone is not sufficient. */}
+          {!hasScoreHistory ? (
             <View style={{ alignItems: 'center' }}>
               <Text style={{ ...typography.body, color: colors.surface, textAlign: 'center', marginBottom: spacing.md }}>
                 Start tracking to see your spending discipline

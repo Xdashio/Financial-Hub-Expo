@@ -20,10 +20,6 @@ import { DEFAULT_SCORE } from './discipline-score.constants';
 // this service, whether the change originates from a reallocation
 // cooling-off skip, an early pocket unlock, or a lock extension.
 
-// Re-export so existing `import { DEFAULT_SCORE } from '...service'` call
-// sites keep working; new code should import from the constants module.
-export { DEFAULT_SCORE } from './discipline-score.constants';
-
 export interface DisciplineScoreChange {
   previousScore: number | null;
   newScore: number;
