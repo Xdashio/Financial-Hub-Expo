@@ -51,14 +51,19 @@ async function bootstrap() {
       // Always allow statically configured origins
       if (staticOrigins.includes(origin)) return callback(null, true);
 
-      // In development, also allow any localhost port and ngrok tunnels
+      // In development, also allow any localhost port and ngrok tunnels.
+      // Deliberately NOT matching *.up.railway.app here: railway.app is a
+      // shared hosting domain anyone can get a subdomain on, so a blanket
+      // regex effectively trusted every Railway-hosted origin on earth
+      // (combined with `credentials: true`, that's a wildcard-with-cookies
+      // hole). Specific Railway preview/staging URLs that legitimately need
+      // access should be added explicitly via CORS_ORIGINS instead.
       if (!isProduction) {
         const isLocalhost = /^https?:\/\/localhost(:\d+)?$/.test(origin);
         const isNgrok = /^https:\/\/[a-zA-Z0-9\-]+\.ngrok(-free)?\.app$/.test(origin) ||
                         /^https:\/\/[a-zA-Z0-9\-]+\.ngrok\.io$/.test(origin) ||
                         /^https:\/\/[a-zA-Z0-9\-]+\.ngrok-free\.dev$/.test(origin);
-        const isRailway = /^https:\/\/[a-zA-Z0-9\-]+\.up\.railway\.app$/.test(origin);
-        if (isLocalhost || isNgrok || isRailway) return callback(null, true);
+        if (isLocalhost || isNgrok) return callback(null, true);
       } else {
         // In production, allow the production Railway URL
         const isProductionRailway = /^https:\/\/api-production-8db1\.up\.railway\.app$/.test(origin);

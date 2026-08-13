@@ -217,3 +217,79 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
     expect(repository.getTopLevelPocketsByPlanId).toHaveBeenCalledWith('plan-1');
   });
 });
+
+describe('PocketsService allocation integrity (audit_team.md item 4/5, part 1)', () => {
+  const PLAN_WITH_INCOME = { id: 'plan-1', user_id: 'user-1', expected_income_amount: 1000 };
+  const PLAN_WITHOUT_INCOME = { id: 'plan-1', user_id: 'user-1', expected_income_amount: null };
+  const EXISTING = [
+    { ...POCKET, id: 'p-fixed', monthly_allocation: 600 },
+    { ...POCKET, id: 'p-savings', monthly_allocation: 300 },
+  ];
+
+  let repository: jest.Mocked<
+    Pick<
+      SupabaseRepository,
+      'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createPocket'
+    >
+  >;
+  let disciplineScore: jest.Mocked<DisciplineScoreService>;
+  let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
+  let service: PocketsService;
+
+  beforeEach(() => {
+    repository = {
+      getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN_WITH_INCOME),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(EXISTING),
+      createPocket: jest.fn().mockImplementation((insert) => ({ id: 'new-pocket', ...insert })),
+    } as any;
+    disciplineScore = { getCurrentScore: jest.fn(), applyDelta: jest.fn() } as any;
+    runway = { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
+  });
+
+  it('allows a new pocket that fits within the remaining unallocated income', async () => {
+    // 600 + 300 existing = 900; income is 1000, so 100 is still free.
+    const created = await service.createForUser('user-1', { name: 'Transport', monthlyAllocation: 100 });
+    expect(created.name).toBe('Transport');
+    expect(repository.createPocket).toHaveBeenCalled();
+  });
+
+  it('allows a new pocket that lands exactly on 100% allocation', async () => {
+    await service.createForUser('user-1', { name: 'Transport', monthlyAllocation: 100 });
+    expect(repository.createPocket).toHaveBeenCalled();
+  });
+
+  it('rejects a new pocket that would push total allocation past the plan income', async () => {
+    await expect(
+      service.createForUser('user-1', { name: 'Too much', monthlyAllocation: 150 }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.createPocket).not.toHaveBeenCalled();
+  });
+
+  it('does not block creation when the plan has no known income baseline (older plans)', async () => {
+    repository.getActivePlanByUserId.mockResolvedValue(PLAN_WITHOUT_INCOME as any);
+    await service.createForUser('user-1', { name: 'Anything', monthlyAllocation: 999999 });
+    expect(repository.createPocket).toHaveBeenCalled();
+  });
+
+  it('getAllocationSummaryForUser reports unallocated remainder and flags', async () => {
+    const summary = await service.getAllocationSummaryForUser('user-1');
+    expect(summary).toEqual({
+      plan_income: 1000,
+      total_allocated: 900,
+      unallocated: 100,
+      is_fully_allocated: false,
+      is_over_allocated: false,
+    });
+  });
+
+  it('getAllocationSummaryForUser flags is_fully_allocated once pockets sum to income', async () => {
+    repository.getTopLevelPocketsByPlanId.mockResolvedValue([
+      { ...POCKET, id: 'p-fixed', monthly_allocation: 700 },
+      { ...POCKET, id: 'p-savings', monthly_allocation: 300 },
+    ] as any);
+    const summary = await service.getAllocationSummaryForUser('user-1');
+    expect(summary.is_fully_allocated).toBe(true);
+    expect(summary.is_over_allocated).toBe(false);
+  });
+});

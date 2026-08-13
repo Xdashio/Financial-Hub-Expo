@@ -22,6 +22,14 @@ export class PocketsController {
     return this.pocketsService.getRunwaySummaryForUser(req.user.id);
   }
 
+  @Get('allocation-summary')
+  @ApiOperation({ summary: "Get the active plan's allocation integrity summary (income vs. total pocket allocation)" })
+  @ApiResponse({ status: 200, description: 'Allocation summary: total allocated, unallocated, over/fully-allocated flags' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  getAllocationSummary(@Request() req: any) {
+    return this.pocketsService.getAllocationSummaryForUser(req.user.id);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a single pocket by id' })
   @ApiResponse({ status: 200, description: 'The pocket' })

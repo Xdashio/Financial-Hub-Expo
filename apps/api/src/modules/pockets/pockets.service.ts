@@ -117,7 +117,19 @@ export class PocketsService {
 
     // Default to spendable kind if not specified
     const kind = data.kind || 'spendable';
+    const monthlyAllocation = data.monthlyAllocation || 0;
     const pocketId = uuidv4();
+
+    // Allocation integrity (audit_team.md item 4/5, part 1): nothing
+    // previously checked that a newly created pocket's allocation, added to
+    // every existing top-level pocket's allocation, still fits within the
+    // plan's income. onboarding builds a set of pockets that sums correctly
+    // by construction (see pocket-provisioning.ts), but this endpoint let a
+    // user silently push the plan's total allocation past 100% of income
+    // with no warning anywhere — the "you're overspending" case Viktor's
+    // audit note called out, just at plan-allocation level rather than at
+    // spend time.
+    this.assertAllocationWithinPlan(plan, existingPockets, monthlyAllocation);
 
     const pocketData: PocketInsert = {
       id: pocketId,
@@ -125,7 +137,7 @@ export class PocketsService {
       name: data.name,
       kind,
       category: data.category || null,
-      monthly_allocation: data.monthlyAllocation || 0,
+      monthly_allocation: monthlyAllocation,
       daily_cap: kind === 'spendable' ? (data.dailyCap ?? null) : null,
       is_time_locked: false,
       lock_until: null,
@@ -138,6 +150,70 @@ export class PocketsService {
     }
 
     return created;
+  }
+
+  /**
+   * Rejects a pocket allocation that would push the plan's total top-level
+   * allocation past its known income. `plan.expected_income_amount` is set
+   * from `OnboardingInput.incomeAmount` for every plan (see
+   * onboarding.service.ts), so it's a reliable ceiling — not just a surplus-
+   * detection convenience field (item 1) — even though this is the first
+   * place that reads it for that purpose. No-op if the plan predates that
+   * field (`null`) rather than blocking pocket creation on old data.
+   */
+  private assertAllocationWithinPlan(
+    plan: { expected_income_amount: number | null },
+    existingPockets: Pocket[],
+    proposedAllocation: number,
+  ): void {
+    if (plan.expected_income_amount == null) return;
+
+    const currentTotal = existingPockets.reduce((sum, p) => sum + p.monthly_allocation, 0);
+    const newTotal = currentTotal + proposedAllocation;
+    const EPSILON = 0.01;
+
+    if (newTotal > plan.expected_income_amount + EPSILON) {
+      const over = round2(newTotal - plan.expected_income_amount);
+      throw new BadRequestException(
+        `This pocket would push your plan's total allocation to KSh ${round2(newTotal)}, ` +
+        `KSh ${over} over your income of KSh ${round2(plan.expected_income_amount)}. ` +
+        `Reduce this pocket's amount or lower another pocket's allocation first.`,
+      );
+    }
+  }
+
+  /**
+   * Allocation summary for the active plan (audit_team.md item 4/5, part 1):
+   * how much of the user's income is currently assigned to pockets, and how
+   * much is left over. `isFullyAllocated` is true once every shilling of
+   * income has a pocket — under-allocation is fine (unassigned surplus),
+   * this only exists to let the client show "KSh X still unallocated"
+   * rather than the plan silently drifting away from 100%.
+   */
+  async getAllocationSummaryForUser(userId: string): Promise<{
+    plan_income: number | null;
+    total_allocated: number;
+    unallocated: number;
+    is_fully_allocated: boolean;
+    is_over_allocated: boolean;
+  }> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
+    const totalAllocated = round2(pockets.reduce((sum, p) => sum + p.monthly_allocation, 0));
+    const planIncome = plan.expected_income_amount;
+    const unallocated = planIncome != null ? round2(planIncome - totalAllocated) : 0;
+
+    return {
+      plan_income: planIncome,
+      total_allocated: totalAllocated,
+      unallocated,
+      is_fully_allocated: planIncome != null && Math.abs(unallocated) <= 0.01,
+      is_over_allocated: planIncome != null && unallocated < -0.01,
+    };
   }
 
   /**
