@@ -1,8 +1,8 @@
 import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { CreateIncomeDto, AllocatePreviewDto } from './dto';
+import { CreateIncomeDto, AllocatePreviewDto, AllocateSurplusDto } from './dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { IncomeEventInsert, TransactionInsert, Pocket, Plan } from '../../database/database.types';
+import { IncomeEventInsert, TransactionInsert, Pocket, Plan, PocketInsert } from '../../database/database.types';
 import { RunwaySummary } from '@financial-hub/shared';
 import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
@@ -79,6 +79,11 @@ export class IncomeService {
       total_allocated: number;
       unallocated: number;
     };
+    surplus: {
+      has_surplus: boolean;
+      surplus_amount: number;
+      allocation_status: 'pending' | 'allocated' | 'skipped' | null;
+    };
     // Recomputed against the just-created income event — freelancer +
     // daily plans get their runway (and therefore daily_cap) refreshed on
     // every new income event, not just lazily on the next /pockets read.
@@ -111,7 +116,14 @@ export class IncomeService {
       throw new BadRequestException('No pockets found in your plan.');
     }
 
-    // Create income event
+    // Income surplus detection (audit_team.md item 1)
+    // Compare entered amount against expected_income_amount
+    // If no expectation is set, allocate the full amount normally (no surplus)
+    const hasSurplus = plan.expected_income_amount && dto.amount > plan.expected_income_amount;
+    const normalAllocationAmount = hasSurplus ? plan.expected_income_amount! : dto.amount;
+    const surplusAmount = hasSurplus ? dto.amount - plan.expected_income_amount! : 0;
+
+    // Create income event with surplus tracking
     const incomeEvent: IncomeEventInsert = {
       id: uuidv4(),
       user_id: userId,
@@ -120,6 +132,8 @@ export class IncomeService {
       label: dto.label || null,
       date: dto.date,
       run_allocation: dto.run_allocation,
+      unallocated_surplus: hasSurplus ? surplusAmount : null,
+      surplus_allocation_status: hasSurplus ? 'pending' : null,
     };
 
     const createdIncomeEvent = await this.repository.createIncomeEvent(incomeEvent);
@@ -135,7 +149,8 @@ export class IncomeService {
     };
 
     if (dto.run_allocation) {
-      const allocations = this.calculateAllocationsBasedOnProportions(dto.amount, pockets);
+      // Allocate only the normal amount (expected income), not the surplus
+      const allocations = this.calculateAllocationsBasedOnProportions(normalAllocationAmount, pockets);
 
       // Write allocation transactions to the ledger. Balance everywhere in
       // the app is now ledger-derived (allocation credits - spend debits -
@@ -212,6 +227,11 @@ export class IncomeService {
     const result = {
       income_event: createdIncomeEvent,
       allocation,
+      surplus: {
+        has_surplus: hasSurplus,
+        surplus_amount: surplusAmount,
+        allocation_status: createdIncomeEvent.surplus_allocation_status,
+      },
       runway,
     };
 
@@ -339,5 +359,154 @@ export class IncomeService {
     }
 
     return allocations;
+  }
+
+  async allocateSurplus(
+    incomeEventId: string,
+    dto: AllocateSurplusDto,
+    userId: string
+  ): Promise<{
+    success: boolean;
+    allocation: {
+      pocket_id: string;
+      pocket_name: string;
+      amount: number;
+    } | null;
+  }> {
+    // Verify ownership of the income event
+    const incomeEvent = await this.repository.getIncomeEventById(incomeEventId);
+    if (!incomeEvent) {
+      throw new NotFoundException('Income event not found');
+    }
+    if (incomeEvent.user_id !== userId) {
+      throw new BadRequestException('You do not have permission to allocate this surplus');
+    }
+    if (!incomeEvent.unallocated_surplus || incomeEvent.surplus_allocation_status !== 'pending') {
+      throw new BadRequestException('This income event has no pending surplus to allocate');
+    }
+
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      throw new BadRequestException('No active plan found');
+    }
+
+    switch (dto.target) {
+      case 'main_pocket':
+        // Allocate proportionally to all pockets using the same logic as normal income
+        const pockets = await this.repository.getPocketsByPlanId(plan.id);
+        const allocations = this.calculateAllocationsBasedOnProportions(incomeEvent.unallocated_surplus, pockets);
+        
+        if (allocations.length === 0) {
+          throw new BadRequestException('No pockets available for allocation');
+        }
+
+        // Write allocation transactions
+        const transactions: TransactionInsert[] = allocations.map(alloc => ({
+          pocket_id: alloc.pocket_id,
+          amount: alloc.amount,
+          type: 'allocation' as const,
+          merchant: null,
+          category: null,
+        }));
+
+        await this.repository.createTransactions(transactions);
+
+        // Update income event status
+        await this.repository.updateIncomeEvent(incomeEventId, {
+          surplus_allocation_status: 'allocated',
+          unallocated_surplus: null,
+        });
+
+        return {
+          success: true,
+          allocation: {
+            pocket_id: 'main_pocket',
+            pocket_name: 'Distributed across all pockets',
+            amount: incomeEvent.unallocated_surplus,
+          },
+        };
+
+      case 'pocket':
+        if (!dto.pocket_id) {
+          throw new BadRequestException('pocket_id is required when target is "pocket"');
+        }
+
+        // Verify pocket belongs to user's plan
+        const pocket = await this.repository.getPocketById(dto.pocket_id);
+        if (!pocket || pocket.plan_id !== plan.id) {
+          throw new BadRequestException('Invalid pocket');
+        }
+
+        // Write allocation transaction
+        await this.repository.createTransactions([{
+          pocket_id: dto.pocket_id,
+          amount: incomeEvent.unallocated_surplus,
+          type: 'allocation' as const,
+          merchant: null,
+          category: null,
+        }]);
+
+        // Update income event status
+        await this.repository.updateIncomeEvent(incomeEventId, {
+          surplus_allocation_status: 'allocated',
+          unallocated_surplus: null,
+        });
+
+        return {
+          success: true,
+          allocation: {
+            pocket_id: dto.pocket_id,
+            pocket_name: pocket.name,
+            amount: incomeEvent.unallocated_surplus,
+          },
+        };
+
+      case 'new_pocket':
+        if (!dto.new_pocket_name) {
+          throw new BadRequestException('new_pocket_name is required when target is "new_pocket"');
+        }
+
+        // Create new pocket (default to spendable kind, can be extended later)
+        const newPocket: PocketInsert = {
+          plan_id: plan.id,
+          name: dto.new_pocket_name,
+          kind: 'spendable',
+          category: 'other',
+          is_time_locked: false,
+          monthly_allocation: 0,
+        };
+
+        const createdPocket = await this.repository.createPocket(newPocket);
+        if (!createdPocket) {
+          throw new BadRequestException('Failed to create new pocket');
+        }
+
+        // Write allocation transaction
+        await this.repository.createTransactions([{
+          pocket_id: createdPocket.id,
+          amount: incomeEvent.unallocated_surplus,
+          type: 'allocation' as const,
+          merchant: null,
+          category: null,
+        }]);
+
+        // Update income event status
+        await this.repository.updateIncomeEvent(incomeEventId, {
+          surplus_allocation_status: 'allocated',
+          unallocated_surplus: null,
+        });
+
+        return {
+          success: true,
+          allocation: {
+            pocket_id: createdPocket.id,
+            pocket_name: createdPocket.name,
+            amount: incomeEvent.unallocated_surplus,
+          },
+        };
+
+      default:
+        throw new BadRequestException('Invalid target type');
+    }
   }
 }

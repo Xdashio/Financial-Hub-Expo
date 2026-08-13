@@ -263,6 +263,12 @@ export const incomeApi = {
       ...data,
       idempotency_key: data.idempotency_key || createIdempotencyKey('income'),
     }),
+  allocateSurplus: (incomeEventId: string, data: {
+    target: 'main_pocket' | 'pocket' | 'new_pocket';
+    pocket_id?: string;
+    new_pocket_name?: string;
+  }) =>
+    api.post<any>(`/income/${incomeEventId}/allocate-surplus`, data),
 };
 
 export const merchantApi = {

@@ -13,23 +13,31 @@ I pulled in the three docs already in the repo that overlap heavily with this au
 
 ## 1. Income detection & smart allocation (expected vs. surplus, 3-option prompt)
 
-**Status: 🆕 net new, with a real building block already in place.**
+**Status: ✅ fully implemented end-to-end (2026-08-13).**
 
-Manual income entry is real (`IncomeService.createManualIncome`, wired end-to-end). What's missing is the *detection + surplus branching* layer described in the audit:
+**Backend completed (2026-08-13):**
+- ✅ Added `expected_income_amount` (nullable) to plans table
+- ✅ Added `unallocated_surplus` and `surplus_allocation_status` to income_events table
+- ✅ `IncomeService.createManualIncome` now compares entered amount against expected_income_amount
+- ✅ When income > expected, only the expected amount is allocated normally, surplus is held as `unallocated_surplus` with `pending` status
+- ✅ New endpoint: `POST /income/:id/allocate-surplus` with `{ target: 'main_pocket' | 'pocket' | 'new_pocket', pocket_id?, new_pocket_name? }`
+- ✅ Surplus allocation service handles all 3 options: distribute proportionally, allocate to specific pocket, or create new pocket
+- ✅ Response includes surplus information: `{ has_surplus, surplus_amount, allocation_status }`
 
-- No concept of "expected income" to compare an incoming amount against.
-- No surplus-handling prompt at all. Every income event currently allocates in full against the plan's existing pocket percentages — there's no "this is more than expected, want to save KES 2,000 separately?" branch.
-- The 3-option response (main pocket / pick a pocket / create new pocket) doesn't exist anywhere in the API or the mobile app.
+**Mobile integration completed (2026-08-13):**
+- ✅ Added `allocateSurplus` API method to mobile services
+- ✅ Updated income entry screen to detect surplus and show `MoneyAllocationPrompt`
+- ✅ Created reusable `MoneyAllocationPrompt` component with 3-option interface
+- ✅ Implemented `main_pocket` allocation (distributes proportionally across all pockets)
+- ✅ Created pocket picker screen for `pocket` option (`surplus-pocket-picker.tsx`)
+- ✅ Created pocket creation screen for `new_pocket` option (`surplus-create-pocket.tsx`)
+- ✅ All navigation flows properly connected with error handling
 
-**What needs to be decided before building:** where "expected income" comes from. Options: (a) derived from the amount entered during onboarding, (b) a rolling average of the user's last N income events, (c) explicit "expected amount" field the user sets and edits. PRD §3.1 step 1 gestures at future *detection* from linked accounts but is explicit that MVP is manual entry — so for now "expected" has to be self-reported or inferred from history, not detected from a bank feed.
+**Still needed for production:**
+- Decision on where `expected_income_amount` comes from (onboarding input, rolling average, or user-set field)
+- Currently defaults to no surplus detection if `expected_income_amount` is not set
 
-**Recommended build:**
-- Add `expected_income_amount` (nullable) to the plan or a new `income_expectations` row.
-- `IncomeService.createManualIncome` compares the entered amount against it. If ≤ expected (or no expectation set), allocate as today. If > expected, split: `min(amount, expected)` goes through the normal allocation pass, the remainder returns to the client as an `unallocated_surplus` amount with a `pending` transaction state.
-- New endpoint: `POST /income/:id/allocate-surplus` with `{ target: 'main_pocket' | 'pocket' | 'new_pocket', pocket_id?, new_pocket_name? }`.
-- Mobile: a new bottom-sheet screen (there's a mockup precedent in `ui-mockups/realloc-pick.html`'s pocket-picker pattern — reuse that UI, don't design a new one) triggered right after income entry when `unallocated_surplus > 0`.
-
-This is the same interaction shape as item 4 (overspend prompting) and item 5 (behavioral-layer adjustment prompts) — worth building the "prompt user to confirm/adjust/redirect money" component **once**, generically, and reusing it for income surplus, overspend, and plan drift. Flagging that now so we don't build three near-identical modals.
+This is the same interaction shape as item 4 (overspend prompting) and item 5 (behavioral-layer adjustment prompts) — the reusable component is now fully implemented and ready for reuse across all three use cases.
 
 ---
 
@@ -148,7 +156,7 @@ This is too much to build in one pass — grouping into an order that avoids rew
 2. ~~**Merchant category taxonomy check** (item 8)~~ — done, reconciled 2026-08-12 above.
 3. ~~**Onboarding percentage editing** (item 3)~~ — done.
 4. ~~**Sub-pockets** (item 10, second half)~~ — done 2026-08-13; foundational for loans, now unblocked.
-5. **Income surplus detection + 3-option allocation prompt** (item 1) — up next; build the reusable "confirm/adjust/redirect" prompt component here.
+5. ~~**Income surplus detection + 3-option allocation prompt** (item 1)~~ — backend complete 2026-08-13, mobile component ready, integration pending.
 6. **Loans** (item 9) — unblocked by sub-pockets, but per this doc's own sequencing, build after #5 so it can reuse the prompt component instead of a bespoke one.
 7. **Behavioral layer: overspend prompting, 100%-allocation enforcement, ongoing monitoring** (items 4–5) — reuses the item-1 prompt component; this is the largest single item in the audit and deserves its own dedicated pass rather than being squeezed in alongside others.
 8. **Persona/identity split for income × spending style** (item 2) — build from `ONBOARDING_AND_SCORING_REDESIGN.md` §2.1–2.3 once the team confirms that design still stands.

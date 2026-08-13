@@ -46,6 +46,7 @@ export interface Database {
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
           income_interval_days: number | null
+          expected_income_amount: number | null
           status: 'active' | 'inactive' | 'reassigned'
           created_at: string
           reassigned_at: string | null
@@ -56,6 +57,7 @@ export interface Database {
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
           income_interval_days?: number | null
+          expected_income_amount?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
           created_at?: string
           reassigned_at?: string | null
@@ -66,6 +68,7 @@ export interface Database {
           type?: 'structured' | 'daily'
           income_pattern?: 'salaried' | 'freelancer'
           income_interval_days?: number | null
+          expected_income_amount?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
           created_at?: string
           reassigned_at?: string | null
@@ -166,6 +169,8 @@ export interface Database {
           label: string | null
           date: string
           run_allocation: boolean
+          unallocated_surplus: number | null
+          surplus_allocation_status: 'pending' | 'allocated' | 'skipped' | null
           created_at: string
         }
         Insert: {
@@ -176,6 +181,8 @@ export interface Database {
           label?: string | null
           date: string
           run_allocation?: boolean
+          unallocated_surplus?: number | null
+          surplus_allocation_status?: 'pending' | 'allocated' | 'skipped' | null
           created_at?: string
         }
         Update: {
@@ -186,6 +193,8 @@ export interface Database {
           label?: string | null
           date?: string
           run_allocation?: boolean
+          unallocated_surplus?: number | null
+          surplus_allocation_status?: 'pending' | 'allocated' | 'skipped' | null
           created_at?: string
         }
         Relationships: []

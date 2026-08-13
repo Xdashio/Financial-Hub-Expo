@@ -308,6 +308,27 @@ export class SupabaseRepository {
     return data || [];
   }
 
+  async getIncomeEventById(incomeEventId: string): Promise<IncomeEvent | null> {
+    const { data, error } = await this.supabase
+      .from('income_events')
+      .select('*')
+      .eq('id', incomeEventId)
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateIncomeEvent(incomeEventId: string, updates: Partial<IncomeEventInsert>): Promise<IncomeEvent | null> {
+    const { data, error } = await this.supabase
+      .from('income_events')
+      .update(updates)
+      .eq('id', incomeEventId)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
   // Transactions
   async createTransaction(transaction: TransactionInsert): Promise<Transaction | null> {
     const { data, error } = await this.supabase
