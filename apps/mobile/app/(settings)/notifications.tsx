@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Bell } from 'lucide-react-native';
+import { ArrowLeft, Bell } from 'lucide-react-native';
 import { Card, useMakeStyles, LoadingState, ErrorState, ToggleRow } from '@/components/ui';
 import { notificationsApi } from '@/services/api';
 import {
@@ -44,6 +44,14 @@ export default function NotificationsScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const goBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/profile');
+    }
+  };
 
   // useMakeStyles returns the styles object directly, so we assign it to 'styles'
   const styles = useMakeStyles((theme: Theme) => ({
@@ -124,6 +132,15 @@ export default function NotificationsScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <View style={styles.header}>
+          <Pressable
+            onPress={goBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: spacing.xs, marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>
             Notifications
           </Text>
@@ -137,6 +154,15 @@ export default function NotificationsScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <View style={styles.header}>
+          <Pressable
+            onPress={goBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: spacing.xs, marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>
             Notifications
           </Text>
@@ -162,6 +188,15 @@ export default function NotificationsScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
+          <Pressable
+            onPress={goBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ padding: spacing.xs, marginRight: spacing.sm }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+          </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>
             Notifications
           </Text>
