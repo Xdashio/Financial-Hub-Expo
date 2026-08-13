@@ -1,11 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { RunwayService } from '../runway/runway.service';
-import { Plan } from '../../database/database.types';
+import { RolloverService } from '../rollover/rollover.service';
+import { Plan, Pocket } from '../../database/database.types';
 import {
   computeRunwayNudges,
+  computeSurplusSweepNudges,
+  computeStreakAtRiskNudge,
   RunwayLowNudge,
+  SweepSurplusNudge,
+  StreakAtRiskNudge,
   PocketVelocitySnapshot,
+  PocketAllocationSnapshot,
+  NudgeItem,
 } from './nudge.calculator';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -20,21 +27,29 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * opposite of that — a background comparison that has to run with no spend
  * attempt in flight at all.
  *
- * This batch only implements the runway/velocity nudge type. Surplus-sweep
- * and streak-at-risk (the other two §7 nudge types) are intentionally not
- * built here yet — `getNudges` returns a plain array specifically so a
- * later batch can append more nudge-source methods to it without changing
- * the response shape.
+ * All three §7 MVP nudge types are implemented: runway/velocity (per-pocket,
+ * genuinely new work — see nudge.calculator.ts), surplus-sweep, and
+ * streak-at-risk. `getNudges` returns a plain array of the discriminated
+ * `NudgeItem` union so the client can switch on `.type` per card.
  */
 @Injectable()
 export class NudgesService {
   constructor(
     private readonly repository: SupabaseRepository,
     private readonly runway: RunwayService,
+    private readonly rollover: RolloverService,
   ) {}
 
-  async getNudges(userId: string): Promise<RunwayLowNudge[]> {
-    return this.getRunwayNudges(userId);
+  async getNudges(userId: string): Promise<NudgeItem[]> {
+    const [runwayNudges, surplusNudges, streakNudge] = await Promise.all([
+      this.getRunwayNudges(userId),
+      this.getSurplusSweepNudges(userId),
+      this.getStreakAtRiskNudge(userId),
+    ]);
+
+    const nudges: NudgeItem[] = [...runwayNudges, ...surplusNudges];
+    if (streakNudge) nudges.push(streakNudge);
+    return nudges;
   }
 
   /**
@@ -74,6 +89,73 @@ export class NudgesService {
     }));
 
     return computeRunwayNudges({ horizonDays, horizonSource, pockets: snapshots });
+  }
+
+  /**
+   * Surplus-sweep check (§7 nudge type 1). For every spendable pocket in
+   * the user's active plan, compares the live ledger balance against its
+   * planning ceiling (`monthly_allocation`) and suggests sweeping anything
+   * more than SURPLUS_ALLOCATION_MULTIPLIER over that ceiling into Savings.
+   */
+  async getSurplusSweepNudges(userId: string): Promise<SweepSurplusNudge[]> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) return [];
+
+    const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
+    const spendablePockets = pockets.filter((p) => p.kind === 'spendable');
+    if (spendablePockets.length === 0) return [];
+
+    // Nowhere to suggest sweeping to — Savings should always exist for an
+    // onboarded plan, but a plan mid-migration or with a corrupted pocket
+    // set shouldn't crash the nudge card, just skip this nudge type.
+    const savingsPocket = pockets.find((p) => p.kind === 'savings');
+    if (!savingsPocket) return [];
+    const target = { pocketId: savingsPocket.id, pocketName: savingsPocket.name };
+
+    const balances = await Promise.all(
+      spendablePockets.map((p) => this.repository.getPocketSummary(p.id)),
+    );
+
+    const snapshots: PocketAllocationSnapshot[] = spendablePockets.map((pocket, i) => ({
+      pocketId: pocket.id,
+      pocketName: pocket.name,
+      availableBalance: balances[i].available,
+      monthlyAllocation: pocket.monthly_allocation,
+    }));
+
+    return computeSurplusSweepNudges(snapshots, target);
+  }
+
+  /**
+   * Streak-at-risk check (§7 nudge type 2): an active streak with no spend
+   * logged yet today, past the evening cutoff. See nudge.calculator.ts for
+   * why this is a deliberately different signal from the push-notification
+   * version of streak-at-risk.
+   */
+  async getStreakAtRiskNudge(userId: string, now = new Date()): Promise<StreakAtRiskNudge | null> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) return null;
+
+    const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
+    const spendablePockets = pockets.filter((p) => p.kind === 'spendable');
+    if (spendablePockets.length === 0) return null;
+
+    const [streak, spendTotals] = await Promise.all([
+      this.rollover.getStreak(userId, now),
+      this.repository.getSpendTotalsByPocketBetween(
+        spendablePockets.map((p) => p.id),
+        toUtcDayStart(now.toISOString()),
+        now.toISOString(),
+      ),
+    ]);
+
+    const spentToday = Array.from(spendTotals.values()).some((total) => total > 0);
+
+    return computeStreakAtRiskNudge({
+      currentStreak: streak.currentStreak,
+      spentToday,
+      now,
+    });
   }
 
   /**
