@@ -4,7 +4,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography, radius } from '@/theme';
 import { insightsApi } from '@/services/api';
 import { mapBehaviorEvent } from '@/utils/behaviorEvent';
-import { TrendingUp, Award, Sparkles, Calendar, X } from 'lucide-react-native';
+import { TrendingUp, Award, Sparkles, Calendar } from 'lucide-react-native';
 import { BottomSheetModal } from '@/components/ui';
 
 type Range = 'week' | 'month' | 'year';

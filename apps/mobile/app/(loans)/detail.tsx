@@ -574,43 +574,23 @@ export default function LoanDetailScreen() {
         visible={showRepaymentModal}
         title="Fund Repayment"
         message={`Enter repayment amount (must be exactly ${fmt(repayment_schedule.repaymentAmount)})`}
-        confirmText="Fund"
-        cancelText="Cancel"
+        confirmLabel="Fund"
+        cancelLabel="Cancel"
         onConfirm={handleFundRepayment}
         onCancel={() => {
           setShowRepaymentModal(false);
           setRepaymentAmount('');
         }}
-        isLoading={isFunding}
-      >
-        <TextInput
-          style={{
-            ...typography.body,
-            color: colors.ink,
-            backgroundColor: colors.surface,
-            borderRadius: radius.sm,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            borderWidth: borderWidth,
-            borderColor: colors.lineSoft,
-            marginTop: spacing.md,
-            fontVariant: ['tabular-nums'],
-          }}
-          placeholder={fmt(repayment_schedule.repaymentAmount)}
-          placeholderTextColor={colors.sage}
-          keyboardType="numeric"
-          value={repaymentAmount}
-          onChangeText={setRepaymentAmount}
-        />
-      </ConfirmModal>
+        loading={isFunding}
+      />
 
       {/* Purpose sub-pocket modal */}
       <ConfirmModal
         visible={showPurposeModal}
         title="Create Purpose Sub-pocket"
         message="Create a sub-pocket for a specific loan purpose (e.g., school fees, business stock)"
-        confirmText="Create"
-        cancelText="Cancel"
+        confirmLabel="Create"
+        cancelLabel="Cancel"
         onConfirm={handleCreatePurpose}
         onCancel={() => {
           setShowPurposeModal(false);
@@ -618,62 +598,8 @@ export default function LoanDetailScreen() {
           setPurposeCategory('');
           setPurposeAllocation('');
         }}
-        isLoading={isCreatingPurpose}
-      >
-        <TextInput
-          style={{
-            ...typography.body,
-            color: colors.ink,
-            backgroundColor: colors.surface,
-            borderRadius: radius.sm,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            borderWidth: borderWidth,
-            borderColor: colors.lineSoft,
-            marginTop: spacing.md,
-          }}
-          placeholder="Purpose name"
-          placeholderTextColor={colors.sage}
-          value={purposeName}
-          onChangeText={setPurposeName}
-        />
-        <TextInput
-          style={{
-            ...typography.body,
-            color: colors.ink,
-            backgroundColor: colors.surface,
-            borderRadius: radius.sm,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            borderWidth: borderWidth,
-            borderColor: colors.lineSoft,
-            marginTop: spacing.md,
-          }}
-          placeholder="Category (e.g., education, business)"
-          placeholderTextColor={colors.sage}
-          value={purposeCategory}
-          onChangeText={setPurposeCategory}
-        />
-        <TextInput
-          style={{
-            ...typography.body,
-            color: colors.ink,
-            backgroundColor: colors.surface,
-            borderRadius: radius.sm,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            borderWidth: borderWidth,
-            borderColor: colors.lineSoft,
-            marginTop: spacing.md,
-            fontVariant: ['tabular-nums'],
-          }}
-          placeholder="Allocation amount"
-          placeholderTextColor={colors.sage}
-          keyboardType="numeric"
-          value={purposeAllocation}
-          onChangeText={setPurposeAllocation}
-        />
-      </ConfirmModal>
+        loading={isCreatingPurpose}
+      />
     </ScreenContainer>
   );
 }

@@ -9,7 +9,7 @@ import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 
 import { useEffect, useRef, useState } from 'react';
-import { AppState, View, ActivityIndicator } from 'react-native';
+import { AppState, View, ActivityIndicator, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -77,11 +77,14 @@ function RootLayoutInner() {
 
     if (!handledColdStart.current) {
       handledColdStart.current = true;
-      void Notifications.getLastNotificationResponseAsync().then((response) => {
-        if (response) {
-          routeFromNotificationData(response.notification.request.content.data, router);
-        }
-      });
+      // Only call getLastNotificationResponseAsync on native platforms
+      if (Platform.OS !== 'web') {
+        void Notifications.getLastNotificationResponseAsync().then((response) => {
+          if (response) {
+            routeFromNotificationData(response.notification.request.content.data, router);
+          }
+        });
+      }
     }
 
     return () => sub.remove();

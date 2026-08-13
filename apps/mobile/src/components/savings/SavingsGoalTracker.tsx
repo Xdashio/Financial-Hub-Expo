@@ -48,13 +48,13 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
           Animated.timing(celebrateAnim.current, {
             toValue: 1,
             duration: 800,
-            easing: Easing.out(Easing.back),
+            easing: Easing.back(1.7),
             useNativeDriver: true,
           }),
           Animated.timing(celebrateAnim.current, {
             toValue: 0,
             duration: 400,
-            easing: Easing.in(Easing.back),
+            easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
         ]).start();
