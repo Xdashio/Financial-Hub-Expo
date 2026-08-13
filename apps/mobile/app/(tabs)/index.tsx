@@ -6,13 +6,14 @@ import { useTheme } from '@/theme/ThemeContext';
 import {
   Shield, RefreshCw, PiggyBank, House, ShoppingBasket, User, Car, Lock,
   ArrowLeftRight, Plus, Lightbulb, HeartPulse, GraduationCap, Wifi, Package,
-  Calendar, TrendingUp,
+  Calendar, TrendingUp, Bell,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
-import { useAuthStore } from '@/services/auth';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
+import { NudgesSheet } from '@/components/home/NudgesSheet';
+import { deriveNudges } from '@/services/nudges';
 
 // Pocket icons — using lucide-react-native so pocket icons stay visually
 // consistent (same stroke weight/family) with the rest of the app instead
@@ -88,6 +89,7 @@ export default function HomeScreen() {
     totalBalance,
     disciplineScore,
     scoreDelta,
+    currentStreak,
     runway,
     isLoading,
     error,
@@ -95,15 +97,16 @@ export default function HomeScreen() {
     refreshData,
   } = useHomeStore();
 
-  const user = useAuthStore(s => s.user);
-  const initials = React.useMemo(() => {
-    const name = user?.fullName?.trim();
-    if (!name) return '—';
-    const parts = name.split(/\s+/);
-    const first = parts[0]?.[0] ?? '';
-    const last = parts.length > 1 ? parts[parts.length - 1][0] : '';
-    return (first + last).toUpperCase() || '—';
-  }, [user?.fullName]);
+  const [nudgesVisible, setNudgesVisible] = React.useState(false);
+
+  // Derived client-side from data Home already fetches — see
+  // src/services/nudges.ts for why this doesn't hit a separate endpoint.
+  const nudges = React.useMemo(
+    () => deriveNudges({ pockets, dailyPockets, planType, disciplineScore, scoreDelta, currentStreak, runway, rolloverAmount }),
+    [pockets, dailyPockets, planType, disciplineScore, scoreDelta, currentStreak, runway, rolloverAmount]
+  );
+  const hasUrgentNudge = nudges.some(n => n.severity === 'alert');
+
   React.useEffect(() => {
     fetchHomeData();
   }, []);
@@ -234,14 +237,29 @@ export default function HomeScreen() {
             <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }}>Financial Hub</Text>
           </View>
           <TouchableOpacity
-            onPress={() => router.push('/(tabs)/profile')}
+            onPress={() => setNudgesVisible(true)}
             activeOpacity={0.8}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{ width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}
-            accessibilityLabel="Go to profile"
+            accessibilityLabel={nudges.length > 0 ? `Nudges, ${nudges.length} new` : 'Nudges'}
             accessibilityRole="button"
           >
-            <Text style={{ ...typography.heading, color: colors.gold, fontSize: 14 }}>{initials}</Text>
+            <Bell size={18} color={colors.gold} strokeWidth={2} />
+            {nudges.length > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 6,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: hasUrgentNudge ? colors.clay : colors.emeraldDeep,
+                  borderWidth: 1.5,
+                  borderColor: colors.goldTint,
+                }}
+              />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -473,6 +491,8 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+
+      <NudgesSheet visible={nudgesVisible} onClose={() => setNudgesVisible(false)} nudges={nudges} />
     </ScreenContainer>
   );
 }
