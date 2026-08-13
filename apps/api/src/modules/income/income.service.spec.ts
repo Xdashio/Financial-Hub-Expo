@@ -13,11 +13,11 @@ const POCKETS = [
 ];
 
 function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
-  'getActivePlanByUserId' | 'getPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord'
+  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord'
 >>> = {}) {
   return {
     getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN),
-    getPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS.map(p => ({ ...p }))),
+    getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS.map(p => ({ ...p }))),
     createIncomeEvent: jest.fn().mockImplementation((event) => ({ ...event })),
     createTransactions: jest.fn().mockResolvedValue([]),
     getIdempotencyRecord: jest.fn().mockResolvedValue(null),
@@ -62,7 +62,7 @@ describe('IncomeService.createManualIncome', () => {
   });
 
   it('throws when the plan has no pockets', async () => {
-    const repository = makeRepository({ getPocketsByPlanId: jest.fn().mockResolvedValue([]) });
+    const repository = makeRepository({ getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([]) });
     const service = new IncomeService(repository, makeRunway(), makePush());
 
     await expect(service.createManualIncome(BASE_DTO, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
@@ -115,7 +115,7 @@ describe('IncomeService.createManualIncome', () => {
 
   it('does not call createTransactions when no pocket has a monthly_allocation to split by', async () => {
     const repository = makeRepository({
-      getPocketsByPlanId: jest.fn().mockResolvedValue(
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(
         POCKETS.map(p => ({ ...p, monthly_allocation: 0 }))
       ),
     });
@@ -154,6 +154,21 @@ describe('IncomeService.createManualIncome', () => {
     expect(runway.getRunwayForPlan).not.toHaveBeenCalled();
     expect(repository.updatePocket).not.toHaveBeenCalled();
     expect(result.runway).toEqual({ applicable: false });
+  });
+
+  it('still records income when the idempotency table lookup throws (does not 500)', async () => {
+    const repository = makeRepository({
+      getIdempotencyRecord: jest.fn().mockRejectedValue(new Error('relation "idempotency_records" does not exist')),
+    });
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    const result = await service.createManualIncome(
+      { ...BASE_DTO, idempotency_key: 'income_12345678' },
+      'user-1',
+    );
+
+    expect(result.allocation.triggered).toBe(true);
+    expect(repository.createIncomeEvent).toHaveBeenCalled();
   });
 
   it('recomputes and persists daily_cap on every new income event for freelancer + daily plans', async () => {
@@ -218,7 +233,7 @@ describe('IncomeService.createManualIncome', () => {
       // 200 (5%), under the 400 (10%) floor. Shortfall of 200 should be
       // pulled proportionally from non-savings pockets.
       const repository = makeRepository({
-        getPocketsByPlanId: jest.fn().mockResolvedValue(LOW_SAVINGS_POCKETS.map(p => ({ ...p }))),
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(LOW_SAVINGS_POCKETS.map(p => ({ ...p }))),
       });
       const service = new IncomeService(repository, makeRunway(), makePush());
 
@@ -242,7 +257,7 @@ describe('IncomeService.createManualIncome', () => {
         { id: 'pocket-fun', plan_id: 'plan-1', name: 'Fun', kind: 'spendable', category: 'fun', is_time_locked: false, lock_until: null, monthly_allocation: 200, daily_cap: null, created_at: 'x', updated_at: 'x' },
       ];
       const repository = makeRepository({
-        getPocketsByPlanId: jest.fn().mockResolvedValue(NO_SAVINGS_POCKETS.map(p => ({ ...p }))),
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(NO_SAVINGS_POCKETS.map(p => ({ ...p }))),
       });
       const service = new IncomeService(repository, makeRunway(), makePush());
 
@@ -278,7 +293,7 @@ describe('IncomeService.createManualIncome', () => {
         { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3800, daily_cap: null, created_at: 'x', updated_at: 'x' },
       ];
       const repository = makeRepository({
-        getPocketsByPlanId: jest.fn().mockResolvedValue(MULTI_SAVINGS_POCKETS.map(p => ({ ...p }))),
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(MULTI_SAVINGS_POCKETS.map(p => ({ ...p }))),
       });
       const service = new IncomeService(repository, makeRunway(), makePush());
 

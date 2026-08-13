@@ -22,6 +22,9 @@ describe('ProfileService', () => {
       createFixedExpense: jest.fn(),
       updateFixedExpense: jest.fn(),
       deleteFixedExpense: jest.fn(),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([]),
+      updatePocket: jest.fn(),
+      createPocket: jest.fn(),
     } as any;
 
     onboardingService = {
@@ -143,6 +146,126 @@ describe('ProfileService', () => {
       category: 'utilities',
     });
     expect(result).toEqual({ id: 'fe-1', amount: 16000 });
+  });
+
+  it('updateFixedExpense accepts snake_case due_day from the mobile form', async () => {
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'Rent',
+      amount: 15000,
+      due_day: 1,
+      category: 'housing',
+    } as any);
+    supabaseRepo.updateFixedExpense.mockResolvedValue({ id: 'fe-1', due_day: 5 } as any);
+
+    await service.updateFixedExpense('user-123', 'fe-1', { due_day: 5 });
+
+    expect(supabaseRepo.updateFixedExpense).toHaveBeenCalledWith(
+      'fe-1',
+      expect.objectContaining({ due_day: 5 }),
+    );
+  });
+
+  it('updateFixedExpense renames the matching fixed pocket so the homepage updates', async () => {
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'Rent',
+      amount: 15000,
+      due_day: 1,
+      category: 'housing',
+    } as any);
+    supabaseRepo.updateFixedExpense.mockResolvedValue({ id: 'fe-1', name: 'House rent' } as any);
+    supabaseRepo.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1' } as any);
+    supabaseRepo.getTopLevelPocketsByPlanId.mockResolvedValue([
+      { id: 'pocket-rent', name: 'Rent', kind: 'fixed', category: 'housing', monthly_allocation: 15000 },
+      { id: 'pocket-food', name: 'Food & Groceries', kind: 'spendable', category: 'food' },
+    ] as any);
+    supabaseRepo.updatePocket.mockResolvedValue({ id: 'pocket-rent', name: 'House rent' } as any);
+
+    await service.updateFixedExpense('user-123', 'fe-1', { name: 'House rent' });
+
+    expect(supabaseRepo.updatePocket).toHaveBeenCalledWith(
+      'pocket-rent',
+      expect.objectContaining({ name: 'House rent', category: 'housing', monthly_allocation: 15000 }),
+    );
+    expect(supabaseRepo.createPocket).not.toHaveBeenCalled();
+  });
+
+  it('updateFixedExpense matches UTILITIES expense to Utilities pocket case-insensitively', async () => {
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'UTILITIES',
+      amount: 3000,
+      due_day: 15,
+      category: 'utilities',
+    } as any);
+    supabaseRepo.updateFixedExpense.mockResolvedValue({ id: 'fe-1', name: 'Power & water' } as any);
+    supabaseRepo.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1' } as any);
+    supabaseRepo.getTopLevelPocketsByPlanId.mockResolvedValue([
+      { id: 'pocket-util', name: 'Utilities', kind: 'fixed', category: 'utilities', monthly_allocation: 3000 },
+    ] as any);
+    supabaseRepo.updatePocket.mockResolvedValue({ id: 'pocket-util', name: 'Power & water' } as any);
+
+    await service.updateFixedExpense('user-123', 'fe-1', { name: 'Power & water' });
+
+    expect(supabaseRepo.updatePocket).toHaveBeenCalledWith(
+      'pocket-util',
+      expect.objectContaining({ name: 'Power & water' }),
+    );
+    expect(supabaseRepo.createPocket).not.toHaveBeenCalled();
+  });
+
+  it('updateFixedExpense falls back to the sole fixed pocket in that category', async () => {
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'UTILITIES',
+      amount: 3000,
+      due_day: 15,
+      category: 'utilities',
+    } as any);
+    supabaseRepo.updateFixedExpense.mockResolvedValue({ id: 'fe-1', name: 'Home bills' } as any);
+    supabaseRepo.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1' } as any);
+    supabaseRepo.getTopLevelPocketsByPlanId.mockResolvedValue([
+      { id: 'pocket-net', name: 'Internet', kind: 'fixed', category: 'utilities', monthly_allocation: 3000 },
+      { id: 'pocket-rent', name: 'Rent', kind: 'fixed', category: 'housing', monthly_allocation: 15000 },
+    ] as any);
+    supabaseRepo.updatePocket.mockResolvedValue({ id: 'pocket-net', name: 'Home bills' } as any);
+
+    await service.updateFixedExpense('user-123', 'fe-1', { name: 'Home bills' });
+
+    expect(supabaseRepo.updatePocket).toHaveBeenCalledWith(
+      'pocket-net',
+      expect.objectContaining({ name: 'Home bills', category: 'utilities' }),
+    );
+  });
+
+  it('createFixedExpense provisions a matching fixed pocket on the active plan', async () => {
+    supabaseRepo.createFixedExpense.mockResolvedValue({ id: 'fe-2', user_id: 'user-123', name: 'Wifi' } as any);
+    supabaseRepo.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1' } as any);
+    supabaseRepo.getTopLevelPocketsByPlanId.mockResolvedValue([]);
+    supabaseRepo.createPocket.mockResolvedValue({ id: 'pocket-wifi', name: 'Wifi' } as any);
+
+    await service.createFixedExpense('user-123', {
+      name: 'Wifi',
+      amount: 2500,
+      dueDay: 10,
+      category: 'utilities',
+    });
+
+    expect(supabaseRepo.createPocket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        plan_id: 'plan-1',
+        name: 'Wifi',
+        kind: 'fixed',
+        category: 'utilities',
+        monthly_allocation: 2500,
+        is_time_locked: true,
+      }),
+    );
   });
 
   it('deleteFixedExpense rejects when the expense belongs to another user', async () => {

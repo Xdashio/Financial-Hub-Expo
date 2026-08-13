@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { User, Plan, FixedExpense } from '../../database/database.types';
+import { User, Plan, FixedExpense, Pocket, PocketInsert } from '../../database/database.types';
 import {
   FixedExpenseInputSchema,
   FixedExpenseInput,
@@ -10,9 +10,12 @@ import {
   RetakeEligibility,
 } from '@financial-hub/shared';
 import { OnboardingService } from '../onboarding/onboarding.service';
+import { nextDueDateIso } from '../onboarding/pocket-provisioning';
 
 @Injectable()
 export class ProfileService {
+  private readonly logger = new Logger(ProfileService.name);
+
   constructor(
     private readonly supabaseRepo: SupabaseRepository,
     private readonly onboardingService: OnboardingService,
@@ -42,6 +45,10 @@ export class ProfileService {
     if (!created) {
       throw new BadRequestException('Failed to create fixed expense');
     }
+    // Homepage lists pockets, not fixed_expenses rows. A post-onboarding
+    // add used to save the bill without a matching fixed pocket, so the
+    // new name never appeared under Fixed & Protected.
+    await this.syncFixedPocketFromExpense(userId, null, parsed);
     return created;
   }
 
@@ -57,6 +64,7 @@ export class ProfileService {
     if (!updated) {
       throw new NotFoundException('Fixed expense not found');
     }
+    await this.syncFixedPocketFromExpense(userId, existing, parsed);
     return updated;
   }
 
@@ -94,14 +102,130 @@ export class ProfileService {
   private parseFixedExpenseInput(input: unknown, existing?: FixedExpense): FixedExpenseInput {
     // Updates may be partial — fall back to the existing row's values so a
     // partial PUT doesn't fail validation on fields the caller didn't send.
+    const body = this.normalizeFixedExpenseBody(input);
     const candidate = existing
-      ? { name: existing.name, amount: existing.amount, dueDay: existing.due_day, category: existing.category, ...(input as object) }
-      : input;
+      ? { name: existing.name, amount: existing.amount, dueDay: existing.due_day, category: existing.category, ...(body as object) }
+      : body;
     const result = FixedExpenseInputSchema.safeParse(candidate);
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
     return result.data;
+  }
+
+  /**
+   * The mobile form historically posted snake_case `due_day` (matching the
+   * DB column) while FixedExpenseInputSchema expects `dueDay`. Without this
+   * mapping, creates 400'd and edits silently kept the previous due day.
+   */
+  private normalizeFixedExpenseBody(input: unknown): unknown {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) return input;
+    const raw = input as Record<string, unknown>;
+    if (raw.dueDay === undefined && typeof raw.due_day === 'number') {
+      const { due_day: dueDay, ...rest } = raw;
+      return { ...rest, dueDay };
+    }
+    return input;
+  }
+
+  /**
+   * Keep the itemized fixed pocket (homepage "Fixed & Protected") in
+   * lockstep with the bill the user just saved. Matching prefers the
+   * *previous* expense name (so a rename still finds the onboarding
+   * pocket), then falls back to category / single-fixed-pocket cases —
+   * e.g. expense "UTILITIES" vs pocket "Utilities".
+   */
+  private async syncFixedPocketFromExpense(
+    userId: string,
+    previous: Pick<FixedExpense, 'name' | 'category'> | null,
+    next: FixedExpenseInput,
+  ): Promise<void> {
+    const plan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    if (!plan) return;
+
+    const pockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(plan.id);
+    const matchName = previous?.name ?? next.name;
+    const matchCategory = previous?.category ?? next.category;
+    const existingPocket = this.findMatchingFixedPocket(pockets, matchName, matchCategory);
+
+    const pocketFields = {
+      name: next.name,
+      category: next.category,
+      monthly_allocation: next.amount,
+      lock_until: nextDueDateIso(next.dueDay),
+      is_time_locked: true,
+    };
+
+    try {
+      if (existingPocket) {
+        const updated = await this.supabaseRepo.updatePocket(existingPocket.id, pocketFields);
+        if (!updated) {
+          throw new Error(`updatePocket returned null for ${existingPocket.id}`);
+        }
+        return;
+      }
+
+      // Already have a pocket under the *new* name (e.g. earlier case-only
+      // mismatch left both "UTILITIES" expense and "Utilities" pocket).
+      const byNextName = this.findMatchingFixedPocket(pockets, next.name, next.category);
+      if (byNextName) {
+        const updated = await this.supabaseRepo.updatePocket(byNextName.id, pocketFields);
+        if (!updated) {
+          throw new Error(`updatePocket returned null for ${byNextName.id}`);
+        }
+        return;
+      }
+
+      const insert: PocketInsert = {
+        plan_id: plan.id,
+        name: next.name,
+        kind: 'fixed',
+        category: next.category,
+        is_time_locked: true,
+        lock_until: pocketFields.lock_until,
+        monthly_allocation: next.amount,
+        daily_cap: null,
+        parent_pocket_id: null,
+      };
+      const created = await this.supabaseRepo.createPocket(insert);
+      if (!created) {
+        throw new Error('createPocket returned null');
+      }
+    } catch (err) {
+      this.logger.warn(
+        `fixed-pocket sync failed for "${next.name}": ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  private findMatchingFixedPocket(
+    pockets: Pocket[],
+    name: string,
+    category: string,
+  ): Pocket | undefined {
+    const fixed = pockets.filter((p) => p.kind === 'fixed');
+    if (fixed.length === 0) return undefined;
+
+    const normalized = name.trim().toLowerCase();
+    const sameName = fixed.filter((p) => p.name.trim().toLowerCase() === normalized);
+
+    if (sameName.length === 1) return sameName[0];
+    if (sameName.length > 1) {
+      const sameNameAndCat = sameName.filter((p) => p.category === category);
+      return sameNameAndCat[0] ?? sameName[0];
+    }
+
+    // No name hit — common when the bill was renamed in Fixed Expenses
+    // history, or the pocket was titled differently at onboarding
+    // ("Internet") while the expense row says "UTILITIES". Prefer a unique
+    // pocket in that category over creating a duplicate.
+    const sameCategory = fixed.filter((p) => p.category === category);
+    if (sameCategory.length === 1) return sameCategory[0];
+
+    // Legacy lumped plan: one "Fixed Expenses" pocket for everything.
+    if (fixed.length === 1) return fixed[0];
+
+    return undefined;
   }
 
   async getFixedExpenseSuggestions(userId: string): Promise<{

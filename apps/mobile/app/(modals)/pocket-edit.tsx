@@ -5,6 +5,7 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
+import { useHomeStore } from '@/services/home-store';
 import { ScreenContainer } from '@/components/ui';
 import { ArrowLeft } from 'lucide-react-native';
 
@@ -52,6 +53,10 @@ export default function PocketEditModal() {
         category: category.trim() || undefined,
         dailyCap: pocket?.kind === 'spendable' && dailyCap ? parseFloat(dailyCap) : undefined,
       });
+      const localPatch: { name: string; category?: string; dailyCap?: number } = { name: name.trim() };
+      if (category.trim()) localPatch.category = category.trim();
+      if (pocket?.kind === 'spendable' && dailyCap) localPatch.dailyCap = parseFloat(dailyCap);
+      useHomeStore.getState().updatePocketLocal(id as string, localPatch);
       dataSync.bump();
       router.back();
     } catch (error: any) {

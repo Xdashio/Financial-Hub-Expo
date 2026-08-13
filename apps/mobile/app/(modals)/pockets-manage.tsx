@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
@@ -17,11 +17,7 @@ export default function PocketsManageModal() {
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
 
-  React.useEffect(() => {
-    loadPockets();
-  }, []);
-
-  const loadPockets = async () => {
+  const loadPockets = React.useCallback(async () => {
     try {
       const data = await pocketsApi.getAll();
       setPockets(data);
@@ -30,7 +26,13 @@ export default function PocketsManageModal() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadPockets();
+    }, [loadPockets]),
+  );
 
   const getPocketIcon = (kind: string, category?: string) => {
     if (kind === 'savings') return PiggyBank;
