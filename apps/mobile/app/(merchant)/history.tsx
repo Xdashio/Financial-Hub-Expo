@@ -119,7 +119,7 @@ export default function ReportHistoryScreen() {
       case 'emerald':
         return colors.emeraldDeep;
       case 'error':
-        return colors.errorDeep;
+        return colors.clay;
       case 'gold':
         return colors.gold;
       default:

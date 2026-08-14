@@ -183,9 +183,12 @@ export class ProfileService {
     }
 
     const changes = this.computePocketAllocations(spendablePockets, newPercentages);
-    for (const { pocket, newAllocation } of changes) {
-      await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: newAllocation });
-    }
+    // Batch update all pockets in parallel to avoid N+1 database round-trips
+    await Promise.all(
+      changes.map(({ pocket, newAllocation }) =>
+        this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: newAllocation })
+      )
+    );
 
     return {
       success: true,

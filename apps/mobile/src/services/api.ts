@@ -55,15 +55,15 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
 export const api = {
   get: <T>(endpoint: string) => fetchApi<T>(endpoint, { method: 'GET' }),
-  post: <T>(endpoint: string, body: any) => fetchApi<T>(endpoint, {
+  post: <T>(endpoint: string, body: unknown) => fetchApi<T>(endpoint, {
     method: 'POST',
     body: JSON.stringify(body),
   }),
-  put: <T>(endpoint: string, body: any) => fetchApi<T>(endpoint, {
+  put: <T>(endpoint: string, body: unknown) => fetchApi<T>(endpoint, {
     method: 'PUT',
     body: JSON.stringify(body),
   }),
-  patch: <T>(endpoint: string, body: any) => fetchApi<T>(endpoint, {
+  patch: <T>(endpoint: string, body: unknown) => fetchApi<T>(endpoint, {
     method: 'PATCH',
     body: JSON.stringify(body),
   }),
@@ -91,7 +91,7 @@ export const pocketsApi = {
   // docs/FREELANCER_RUNWAY.md.
   getRunway: () => api.get<RunwaySummary>('/pockets/runway'),
   getById: (id: string) => api.get<any>(`/pockets/${id}`),
-  update: (id: string, data: any) => api.put<any>(`/pockets/${id}`, data),
+  update: (id: string, data: unknown) => api.put<any>(`/pockets/${id}`, data),
   create: (data: { name: string; kind?: string; category?: string; monthlyAllocation?: number; dailyCap?: number }) =>
     api.post<any>('/pockets', data),
   delete: (id: string) => api.delete<any>(`/pockets/${id}`),

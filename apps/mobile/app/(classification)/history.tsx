@@ -40,7 +40,7 @@ interface Pagination {
 export default function ClassificationHistoryScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { alert, modal } = useAlertModal();
+  const { alert, confirm, modal } = useAlertModal();
 
   const [classifications, setClassifications] = useState<Classification[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -76,9 +76,9 @@ export default function ClassificationHistoryScreen() {
   };
 
   const handleDelete = async (classification: Classification) => {
-    const confirmed = await alert(
+    const confirmed = await confirm(
       'Delete Classification',
-      `Are you sure you want to delete the classification for "${classification.recipient_key}"? Future payments from this merchant will not be auto-sorted.`,
+      `Are you sure you want to delete the classification for "${classification.recipient_key}"? Future payments from this merchant will not be auto-sorted.`
     );
 
     if (confirmed) {
@@ -92,7 +92,7 @@ export default function ClassificationHistoryScreen() {
         await alert('Success', 'Classification deleted successfully');
       } catch (error) {
         console.error('Error deleting classification:', error);
-        alert('Error', 'Failed to delete classification');
+        await alert('Error', 'Failed to delete classification');
       } finally {
         setDeletingId(null);
       }
@@ -285,16 +285,16 @@ export default function ClassificationHistoryScreen() {
                       disabled={deletingId === classification.id}
                     >
                       {deletingId === classification.id ? (
-                        <Text style={{ ...typography.caption, color: colors.errorDeep }}>
+                        <Text style={{ ...typography.caption, color: colors.clay }}>
                           Deleting...
                         </Text>
                       ) : (
                         <>
-                          <Trash2 size={16} color={colors.errorDeep} strokeWidth={2} />
+                          <Trash2 size={16} color={colors.clay} strokeWidth={2} />
                           <Text
                             style={{
                               ...typography.caption,
-                              color: colors.errorDeep,
+                              color: colors.clay,
                               marginLeft: spacing.xs,
                             }}
                           >

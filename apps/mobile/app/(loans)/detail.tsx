@@ -11,7 +11,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState, Button, ConfirmModal } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
@@ -132,7 +132,7 @@ function SubPocketCard({ subPocket, colors, onPress }: { subPocket: any; colors:
 export default function LoanDetailScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { alert, modal } = useAlertModal();
+  const { alert, confirm, modal } = useAlertModal();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [loan, setLoan] = useState<LoanDetail | null>(null);
@@ -141,12 +141,10 @@ export default function LoanDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   
   // Repayment funding
-  const [showRepaymentModal, setShowRepaymentModal] = useState(false);
   const [repaymentAmount, setRepaymentAmount] = useState('');
   const [isFunding, setIsFunding] = useState(false);
 
   // Purpose sub-pocket creation
-  const [showPurposeModal, setShowPurposeModal] = useState(false);
   const [purposeName, setPurposeName] = useState('');
   const [purposeCategory, setPurposeCategory] = useState('');
   const [purposeAllocation, setPurposeAllocation] = useState('');
@@ -189,6 +187,24 @@ export default function LoanDetailScreen() {
     safeGoBack(router, '/(loans)');
   };
 
+  const handleRepaymentConfirm = async () => {
+    const confirmed = await confirm(
+      'Fund Repayment',
+      `Enter repayment amount (must be exactly ${fmt(loan?.repayment_schedule?.repaymentAmount || 0)})`
+    );
+    if (!confirmed) return;
+    handleFundRepayment();
+  };
+
+  const handlePurposeConfirm = async () => {
+    const confirmed = await confirm(
+      'Create Purpose Sub-pocket',
+      'Create a sub-pocket for a specific loan purpose (e.g., school fees, business stock)'
+    );
+    if (!confirmed) return;
+    handleCreatePurpose();
+  };
+
   const handleFundRepayment = async () => {
     if (!repaymentAmount || parseFloat(repaymentAmount) <= 0) {
       await alert('Invalid Amount', 'Please enter a valid repayment amount');
@@ -206,16 +222,11 @@ export default function LoanDetailScreen() {
     setIsFunding(true);
     try {
       await loansApi.fundRepayment(id, parseFloat(repaymentAmount));
-      setShowRepaymentModal(false);
       setRepaymentAmount('');
       await loadLoan();
       await alert('Success', 'Repayment recorded successfully');
     } catch (e) {
       console.error('Fund repayment error:', e);
-      // Close the Fund Repayment confirm modal before showing the error, so
-      // the two ConfirmModal instances never render stacked on top of
-      // each other.
-      setShowRepaymentModal(false);
       await alert('Error', e instanceof Error ? e.message : 'Failed to fund repayment');
     } finally {
       setIsFunding(false);
@@ -243,7 +254,6 @@ export default function LoanDetailScreen() {
         category: purposeCategory,
         monthlyAllocation: parseFloat(purposeAllocation),
       });
-      setShowPurposeModal(false);
       setPurposeName('');
       setPurposeCategory('');
       setPurposeAllocation('');
@@ -251,10 +261,6 @@ export default function LoanDetailScreen() {
       await alert('Success', 'Purpose sub-pocket created successfully');
     } catch (e) {
       console.error('Create purpose error:', e);
-      // Close the Create Purpose confirm modal before showing the error, so
-      // the two ConfirmModal instances never render stacked on top of
-      // each other.
-      setShowPurposeModal(false);
       await alert('Error', e instanceof Error ? e.message : 'Failed to create purpose sub-pocket');
     } finally {
       setIsCreatingPurpose(false);
@@ -529,7 +535,7 @@ export default function LoanDetailScreen() {
               Sub-pockets
             </Text>
             <Pressable
-              onPress={() => setShowPurposeModal(true)}
+              onPress={handlePurposeConfirm}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
             >
               <Plus size={16} color={colors.emeraldDeep} strokeWidth={2} />
@@ -560,44 +566,12 @@ export default function LoanDetailScreen() {
           <Button
             fullWidth
             leftIcon={<DollarSign size={16} color={colors.surface} strokeWidth={2} />}
-            onPress={() => setShowRepaymentModal(true)}
+            onPress={handleRepaymentConfirm}
           >
             Fund Repayment
           </Button>
         </View>
       </ScrollView>
-
-      {/* Repayment modal */}
-      <ConfirmModal
-        visible={showRepaymentModal}
-        title="Fund Repayment"
-        message={`Enter repayment amount (must be exactly ${fmt(repayment_schedule.repaymentAmount)})`}
-        confirmLabel="Fund"
-        cancelLabel="Cancel"
-        onConfirm={handleFundRepayment}
-        onCancel={() => {
-          setShowRepaymentModal(false);
-          setRepaymentAmount('');
-        }}
-        loading={isFunding}
-      />
-
-      {/* Purpose sub-pocket modal */}
-      <ConfirmModal
-        visible={showPurposeModal}
-        title="Create Purpose Sub-pocket"
-        message="Create a sub-pocket for a specific loan purpose (e.g., school fees, business stock)"
-        confirmLabel="Create"
-        cancelLabel="Cancel"
-        onConfirm={handleCreatePurpose}
-        onCancel={() => {
-          setShowPurposeModal(false);
-          setPurposeName('');
-          setPurposeCategory('');
-          setPurposeAllocation('');
-        }}
-        loading={isCreatingPurpose}
-      />
       {modal}
     </ScreenContainer>
   );
