@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
@@ -34,10 +34,40 @@ const CATEGORY_LABELS: Record<string, string> = {
   personal_care: 'Personal Care',
 };
 
-const PCT_STEP = 5;
+const PCT_STEP = 1;
 
 function round2(n: number): number {
   return Math.round(n * 10) / 10;
+}
+
+// Ensure percentages always add up to exactly 100%
+function normalizePercentages(percentages: Record<string, number>): Record<string, number> {
+  const categories = Object.keys(percentages);
+  const total = Object.values(percentages).reduce((s, v) => s + (v ?? 0), 0);
+  const roundedTotal = round2(total);
+  
+  if (Math.abs(roundedTotal - 100) < 0.1) {
+    // Already close to 100%, return as-is
+    return percentages;
+  }
+  
+  // Normalize to exactly 100%
+  const normalized: Record<string, number> = {};
+  const diff = 100 - roundedTotal;
+  
+  // Distribute the difference across categories
+  categories.forEach((cat, index) => {
+    normalized[cat] = round2(percentages[cat] + (diff / categories.length));
+  });
+  
+  // Final adjustment to ensure exactly 100%
+  const finalTotal = Object.values(normalized).reduce((s, v) => s + (v ?? 0), 0);
+  const finalDiff = 100 - round2(finalTotal);
+  if (categories.length > 0 && Math.abs(finalDiff) > 0) {
+    normalized[categories[0]] = round2(normalized[categories[0]] + finalDiff);
+  }
+  
+  return normalized;
 }
 
 export default function EditPlanPercentagesScreen() {
@@ -110,7 +140,8 @@ export default function EditPlanPercentagesScreen() {
       if (!prev) return prev;
       const current = prev[category] ?? 0;
       const next = Math.min(100, Math.max(0, current + delta));
-      return { ...prev, [category]: round2(next) };
+      const updated = { ...prev, [category]: round2(next) };
+      return normalizePercentages(updated);
     });
   };
 
@@ -125,10 +156,11 @@ export default function EditPlanPercentagesScreen() {
     if (!localPercentages) return;
     
     const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
-    const isBalanced = Math.abs(total - 100) < 0.5;
+    const roundedTotal = round2(total);
+    const isBalanced = Math.abs(roundedTotal - 100) < 0.1;
     
     if (!isBalanced) {
-      setSaveError('Percentages must add up to 100%');
+      setSaveError('Percentages must add up to exactly 100%');
       return;
     }
 
@@ -143,8 +175,28 @@ export default function EditPlanPercentagesScreen() {
       dataSync.bump();
       await alert('Success', 'Your plan percentages have been updated successfully.');
       safeGoBack(router, '/(profile)/current-plan');
-    } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Could not save changes');
+    } catch (error: any) {
+      console.error('Failed to save percentages:', error);
+      
+      // User-friendly error messages
+      let errorMessage = 'Could not save your changes. Please try again.';
+      
+      if (error?.message) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('404') || msg.includes('not found')) {
+          errorMessage = 'Your plan could not be found. Please refresh and try again.';
+        } else if (msg.includes('400') || msg.includes('invalid')) {
+          errorMessage = 'The percentage values are not valid. Please check your inputs.';
+        } else if (msg.includes('401') || msg.includes('unauthorized')) {
+          errorMessage = 'Please log in again to save your changes.';
+        } else if (msg.includes('network') || msg.includes('fetch')) {
+          errorMessage = 'Connection issue. Please check your internet and try again.';
+        } else if (msg.includes('cannot post')) {
+          errorMessage = 'Unable to save changes. Please try again later.';
+        }
+      }
+      
+      setSaveError(errorMessage);
     } finally {
       setIsSaving(false);
     }
@@ -177,7 +229,7 @@ export default function EditPlanPercentagesScreen() {
   const categories = Object.keys(localPercentages);
   const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
   const roundedTotal = round2(total);
-  const isBalanced = Math.abs(total - 100) < 0.5;
+  const isBalanced = Math.abs(roundedTotal - 100) < 0.1;
   const isDirty = categories.some(
     (c) => (localPercentages[c] ?? 0) !== (originalPercentages[c] ?? 0),
   );
@@ -186,7 +238,7 @@ export default function EditPlanPercentagesScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.lg }}>
           <Pressable 
             onPress={() => safeGoBack(router, '/(profile)/current-plan')} 
             hitSlop={8} 
@@ -201,28 +253,30 @@ export default function EditPlanPercentagesScreen() {
         </View>
 
         {/* Description */}
-        <View style={{ marginBottom: spacing.lg }}>
-          <Text style={{ ...typography.body, color: colors.sage, lineHeight: 20 }}>
+        <View style={{ marginBottom: spacing.xl }}>
+          <Text style={{ ...typography.body, color: colors.sage, lineHeight: 22 }}>
             Adjust how your income is split across different categories. Changes will affect future allocations.
           </Text>
         </View>
 
-        {/* Current total */}
+        {/* Total indicator */}
         <View 
           style={{
-            backgroundColor: colors.surface,
-            borderRadius: radius.md,
+            backgroundColor: isBalanced ? colors.emeraldTint : colors.clayTint,
+            borderRadius: radius.lg,
             padding: spacing.lg,
-            marginBottom: spacing.lg,
-            borderWidth: 1,
+            marginBottom: spacing.xl,
+            borderWidth: 1.5,
             borderColor: isBalanced ? colors.emeraldDeep : colors.clay,
           }}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ ...typography.caption, color: colors.sage }}>Total split</Text>
+            <Text style={{ ...typography.heading, color: isBalanced ? colors.emeraldDeep : colors.clay }}>
+              Total split
+            </Text>
             <Text 
               style={{ 
-                ...typography.heading, 
+                ...typography.title, 
                 color: isBalanced ? colors.emeraldDeep : colors.clay,
                 fontVariant: ['tabular-nums'] 
               }}
@@ -231,14 +285,14 @@ export default function EditPlanPercentagesScreen() {
             </Text>
           </View>
           {!isBalanced && (
-            <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>
-              Must add up to 100%
+            <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.sm }}>
+              Must add up to exactly 100%
             </Text>
           )}
         </View>
 
-        {/* Category rows */}
-        <View style={{ gap: spacing.md, marginBottom: spacing.lg }}>
+        {/* Category cards */}
+        <View style={{ gap: spacing.lg, marginBottom: spacing.xl }}>
           {categories.map((category) => {
             const pct = localPercentages[category] ?? 0;
             const originalPct = originalPercentages[category] ?? 0;
@@ -250,50 +304,50 @@ export default function EditPlanPercentagesScreen() {
                 key={category}
                 style={{
                   backgroundColor: colors.surface,
-                  borderRadius: radius.md,
+                  borderRadius: radius.lg,
                   padding: spacing.lg,
-                  borderWidth: 1,
+                  borderWidth: 1.5,
                   borderColor: changed ? colors.emeraldDeep : colors.line,
                 }}
               >
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <Text style={{ ...typography.heading, color: colors.ink }}>
                     {CATEGORY_LABELS[category] || category}
                   </Text>
                   {changed && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <RotateCcw size={12} color={colors.sage} />
-                      <Text style={{ ...typography.caption, color: colors.sage }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.emeraldTint, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
+                      <RotateCcw size={12} color={colors.emeraldDeep} />
+                      <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
                         {round2(originalPct)}%
                       </Text>
                     </View>
                   )}
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.lg }}>
                   <Pressable
                     onPress={() => adjust(category, -PCT_STEP)}
                     disabled={pct <= 0 || isSaving}
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: radius.xs,
+                      width: 48,
+                      height: 48,
+                      borderRadius: radius.md,
                       backgroundColor: colors.lineSoft,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      opacity: pct <= 0 || isSaving ? 0.5 : 1,
+                      opacity: pct <= 0 || isSaving ? 0.4 : 1,
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={`Decrease ${CATEGORY_LABELS[category]}`}
                   >
-                    <Minus size={16} color={colors.ink} strokeWidth={2} />
+                    <Minus size={20} color={colors.ink} strokeWidth={2} />
                   </Pressable>
 
                   <View style={{ flex: 1, alignItems: 'center' }}>
-                    <Text style={{ ...typography.title, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                    <Text style={{ ...typography.display, color: colors.ink, fontVariant: ['tabular-nums'] }}>
                       {round2(pct)}%
                     </Text>
-                    <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                    <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs }}>
                       {formatMoney(amount)} / month
                     </Text>
                   </View>
@@ -302,18 +356,18 @@ export default function EditPlanPercentagesScreen() {
                     onPress={() => adjust(category, PCT_STEP)}
                     disabled={pct >= 100 || isSaving}
                     style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: radius.xs,
+                      width: 48,
+                      height: 48,
+                      borderRadius: radius.md,
                       backgroundColor: colors.lineSoft,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      opacity: pct >= 100 || isSaving ? 0.5 : 1,
+                      opacity: pct >= 100 || isSaving ? 0.4 : 1,
                     }}
                     accessibilityRole="button"
                     accessibilityLabel={`Increase ${CATEGORY_LABELS[category]}`}
                   >
-                    <Plus size={16} color={colors.ink} strokeWidth={2} />
+                    <Plus size={20} color={colors.ink} strokeWidth={2} />
                   </Pressable>
                 </View>
               </View>
@@ -325,13 +379,13 @@ export default function EditPlanPercentagesScreen() {
         {saveError && (
           <View style={{
             backgroundColor: colors.clayTint,
-            borderRadius: radius.md,
-            padding: spacing.md,
-            marginBottom: spacing.lg,
-            borderWidth: 1,
+            borderRadius: radius.lg,
+            padding: spacing.lg,
+            marginBottom: spacing.xl,
+            borderWidth: 1.5,
             borderColor: colors.clay,
           }}>
-            <Text style={{ ...typography.caption, color: colors.clay }}>{saveError}</Text>
+            <Text style={{ ...typography.body, color: colors.clay }}>{saveError}</Text>
           </View>
         )}
 

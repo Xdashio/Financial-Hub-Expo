@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Animated } from 'react-native';
+import { View, Text, ScrollView, Pressable, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/services/auth';
-import { Button, Card } from '@/components/ui';
+import { Button, Card, PocketLoader } from '@/components/ui';
 import { Fingerprint, ScanFace, Shield, ArrowLeft } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 
@@ -189,7 +189,7 @@ export default function BiometricEnableScreen() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.emeraldDeep} />
+          <PocketLoader size={40} color={colors.emeraldDeep} />
         </View>
       </SafeAreaView>
     );
@@ -263,7 +263,7 @@ export default function BiometricEnableScreen() {
           </Text>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md }}>
-          <ActivityIndicator color={colors.emeraldDeep} />
+          <PocketLoader size={40} color={colors.emeraldDeep} />
           <Text style={{ ...typography.caption, color: colors.sage }}>
             Confirm {biometricLabel} to continue
           </Text>

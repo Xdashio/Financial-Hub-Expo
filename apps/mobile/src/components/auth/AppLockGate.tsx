@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, AppState, AppStateStatus } from 'react-native';
+import { View, Text, Pressable, AppState, AppStateStatus } from 'react-native';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/services/auth';
 import { Fingerprint, ScanFace } from 'lucide-react-native';
+import { PocketLoader } from '@/components/ui';
 
 // App-lock / biometric gate (audit_team.md item 7 —
 // FLUTTER_TO_EXPO_PORT_GUIDE.md §10). Mirrors Flutter's `AppLockGate`:
@@ -221,7 +222,7 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
             accessibilityLabel={`Unlock with ${label}`}
           >
             {isAuthenticating ? (
-              <ActivityIndicator color={colors.surface} />
+              <PocketLoader size={20} color={colors.surface} />
             ) : (
               <BiometricIcon size={18} color={colors.surface} strokeWidth={2} />
             )}

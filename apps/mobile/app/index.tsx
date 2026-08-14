@@ -1,9 +1,10 @@
 import { Redirect } from 'expo-router';
-import { View, ActivityIndicator } from 'react-native';
+import { View } from 'react-native';
 import React from 'react';
 import { useAuthStore } from '@/services/auth';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { useTheme } from '@/theme/ThemeContext';
+import { PocketLoader } from '@/components/ui';
 import LandingScreen from './landing';
 
 export default function Index() {
@@ -26,7 +27,7 @@ export default function Index() {
   if (isCheckingPlan) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paper }}>
-        <ActivityIndicator color={colors.emerald} />
+        <PocketLoader size={40} color={colors.emerald} />
       </View>
     );
   }

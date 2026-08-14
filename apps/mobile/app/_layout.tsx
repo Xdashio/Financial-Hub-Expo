@@ -9,7 +9,8 @@ import 'react-native-get-random-values';
 import 'react-native-url-polyfill/auto';
 
 import { useEffect, useState } from 'react';
-import { AppState, View, ActivityIndicator } from 'react-native';
+import { AppState, View } from 'react-native';
+import { PocketLoader } from '@/components/ui';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -112,7 +113,7 @@ function RootLayoutInner() {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: themeColors.paper }}>
         <ThemedStatusBar />
-        <ActivityIndicator color={themeColors.emerald} />
+        <PocketLoader size={40} color={themeColors.emerald} />
       </View>
     );
   }

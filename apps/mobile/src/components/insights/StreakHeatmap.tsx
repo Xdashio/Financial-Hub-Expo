@@ -1,11 +1,11 @@
 import React from 'react';
-import { View, Text, Pressable, ActivityIndicator, ScrollView, Animated, Easing, Dimensions } from 'react-native';
+import { View, Text, Pressable, ScrollView, Animated, Easing, Dimensions } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography, radius } from '@/theme';
 import { insightsApi } from '@/services/api';
 import { mapBehaviorEvent, DisplayEvent } from '@/utils/behaviorEvent';
 import { TrendingUp, Award, Sparkles, Calendar } from 'lucide-react-native';
-import { BottomSheetModal } from '@/components/ui';
+import { BottomSheetModal, PocketLoader } from '@/components/ui';
 
 type Range = 'week' | 'month' | 'year';
 
@@ -319,7 +319,7 @@ export function StreakHeatmap() {
 
       {isLoading ? (
         <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
-          <ActivityIndicator size="small" color={colors.emeraldDeep} />
+          <PocketLoader size={20} color={colors.emeraldDeep} />
         </View>
       ) : (
         <>
@@ -382,7 +382,7 @@ export function StreakHeatmap() {
                 {selected.count > 0 && (
                   loadingSelected ? (
                     <View style={{ paddingVertical: spacing.sm }}>
-                      <ActivityIndicator size="small" color={colors.emeraldDeep} />
+                      <PocketLoader size={20} color={colors.emeraldDeep} />
                     </View>
                   ) : (
                     <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>

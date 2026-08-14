@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { ScreenContainer, Button } from '@/components/ui';
+import { ScreenContainer, Button, PocketLoader } from '@/components/ui';
 import { safeGoBack } from '@/utils/navigation';;
 import { ArrowLeft, Check, AlertTriangle } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
@@ -197,7 +197,7 @@ export default function PocketCreateModal() {
             {/* Allocation feedback — shows once we have plan context */}
             {loadingAlloc ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs }}>
-                <ActivityIndicator size="small" color={colors.sage} />
+                <PocketLoader size={20} color={colors.sage} />
                 <Text style={{ ...typography.caption, color: colors.sage }}>Loading plan…</Text>
               </View>
             ) : income != null ? (

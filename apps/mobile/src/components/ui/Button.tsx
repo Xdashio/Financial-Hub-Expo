@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, touchTarget, borderWidthThick } from '@/theme';
+import { PocketLoader } from './PocketLoader';
 
 export interface ButtonProps extends Omit<React.ComponentPropsWithoutRef<typeof TouchableOpacity>, 'children' | 'style'> {
   children: React.ReactNode;
@@ -91,7 +92,7 @@ export function Button({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={variant === 'primary' || variant === 'ghost' ? colors.surface : colors.emeraldDeep} />
+        <PocketLoader size={20} color={variant === 'primary' || variant === 'ghost' ? colors.surface : colors.emeraldDeep} />
       ) : (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm }}>
           {leftIcon && <View style={{ flexShrink: 0 }}>{leftIcon}</View>}
