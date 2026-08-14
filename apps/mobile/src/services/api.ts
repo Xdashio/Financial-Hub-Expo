@@ -63,6 +63,10 @@ export const api = {
     method: 'PUT',
     body: JSON.stringify(body),
   }),
+  patch: <T>(endpoint: string, body: any) => fetchApi<T>(endpoint, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  }),
   delete: <T>(endpoint: string) => fetchApi<T>(endpoint, { method: 'DELETE' }),
 };
 
@@ -104,9 +108,25 @@ export const pocketsApi = {
   // pocket, e.g. splitting a Loans pocket into "Repayment" + purpose
   // sub-pockets.
   getSubPockets: (parentId: string) => api.get<any[]>(`/pockets/${parentId}/sub-pockets`),
-  createSubPocket: (parentId: string, data: { name: string; monthlyAllocation: number; category?: string }) =>
+  // splitPercentage is the share of the parent's monthly_allocation this
+  // sub-pocket earmarks (0–100). The API derives the cached KSh amount
+  // (monthly_allocation = parent.monthly_allocation * splitPercentage / 100).
+  createSubPocket: (parentId: string, data: { name: string; splitPercentage: number; category?: string }) =>
     api.post<any>(`/pockets/${parentId}/sub-pockets`, data),
   deleteSubPocket: (id: string) => api.delete<any>(`/pockets/${id}/sub-pocket`),
+  // PATCH /pockets/:id/rebalance — bulk-adjusts the full sibling set's
+  // splitPercentage in one call (the rebalance bottom-sheet). :id is any
+  // pocket in the family (parent or sibling); the service resolves the
+  // shared parent. confirmPartial opts into the partial-now-catch-up-later
+  // path when the move needs more money than is currently available.
+  rebalanceSubPockets: (
+    anchorId: string,
+    splits: Array<{ pocketId: string; splitPercentage: number }>,
+    confirmPartial = false,
+  ) => api.patch<any>(`/pockets/${anchorId}/rebalance`, { splits, confirmPartial }),
+  // Returns { total_allocated, plan_income, unallocated, over_allocated }
+  // so pocket-create can show % of income feedback without a second fetch.
+  getAllocationSummary: () => api.get<any>('/pockets/allocation-summary'),
 };
 
 export const loansApi = {
