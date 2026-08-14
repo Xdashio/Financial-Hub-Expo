@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer, Button, ConfirmModal, LoadingState, PocketGlyph } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketGlyphKind } from '@/utils/pocketGlyph';
 import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft, Plus, Trash2, Edit3 } from 'lucide-react-native';
@@ -14,6 +15,7 @@ export default function PocketsManageModal() {
   const router = useRouter();
   const { colors } = useTheme();
   const dataSync = useDataSync();
+  const { alert, modal } = useAlertModal();
   const [pockets, setPockets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
@@ -46,7 +48,11 @@ export default function PocketsManageModal() {
       await loadPockets();
       dataSync.bump();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not delete pocket');
+      // Close the delete-confirm modal before showing the error, so the
+      // two ConfirmModal instances (this screen's delete confirm, and the
+      // shared alert modal) never render stacked on top of each other.
+      setDeleteTarget(null);
+      await alert('Error', error.message || 'Could not delete pocket');
     } finally {
       setDeleting(false);
     }
@@ -168,6 +174,7 @@ export default function PocketsManageModal() {
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+      {modal}
     </ScreenContainer>
   );
 }

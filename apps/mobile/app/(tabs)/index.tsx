@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, RefreshControl, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Image, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -14,6 +14,7 @@ import { loansApi, emergencyUnlockApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, PocketGlyph } from '@/components/ui';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { deriveNudges } from '@/services/nudges';
 import { formatMoney } from '@/utils/money';
 import { pocketGlyphKind } from '@/utils/pocketGlyph';
@@ -21,6 +22,7 @@ import { pocketGlyphKind } from '@/utils/pocketGlyph';
 export default function HomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { alert, modal } = useAlertModal();
   const {
     pockets,
     dailyPockets,
@@ -58,16 +60,16 @@ export default function HomeScreen() {
       if (response.applied && response.unlock) {
         setEmergencyUnlockVisible(false);
         await refreshData();
-        Alert.alert(
+        await alert(
           'Emergency unlock complete',
           `${formatMoney(response.unlock.amount)} was moved from savings and split across your pockets. That'll cover roughly ${response.unlock.days_lasting} day${response.unlock.days_lasting !== 1 ? 's' : ''}. ${formatMoney(response.unlock.reserve_kept)} stays in savings as reserve.`
         );
       } else {
-        Alert.alert('Emergency unlock failed', response.message ?? "Couldn't complete the unlock. Please try again.");
+        await alert('Emergency unlock failed', response.message ?? "Couldn't complete the unlock. Please try again.");
       }
     } catch (error: any) {
       console.error('Emergency unlock failed:', error);
-      Alert.alert('Emergency unlock failed', error?.message ?? "Couldn't complete the unlock. Please try again.");
+      await alert('Emergency unlock failed', error?.message ?? "Couldn't complete the unlock. Please try again.");
     } finally {
       setIsUnlocking(false);
     }
@@ -534,6 +536,7 @@ export default function HomeScreen() {
         isLoading={isUnlocking}
         pockets={pockets.filter((p) => p.kind !== 'savings')}
       />
+      {modal}
     </ScreenContainer>
   );
 }

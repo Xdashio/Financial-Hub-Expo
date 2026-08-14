@@ -6,13 +6,13 @@ import {
   Pressable,
   RefreshControl,
   TextInput,
-  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, Button, ConfirmModal } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
   TrendingUp,
@@ -132,6 +132,7 @@ function SubPocketCard({ subPocket, colors, onPress }: { subPocket: any; colors:
 export default function LoanDetailScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { alert, modal } = useAlertModal();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [loan, setLoan] = useState<LoanDetail | null>(null);
@@ -190,7 +191,7 @@ export default function LoanDetailScreen() {
 
   const handleFundRepayment = async () => {
     if (!repaymentAmount || parseFloat(repaymentAmount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid repayment amount');
+      await alert('Invalid Amount', 'Please enter a valid repayment amount');
       return;
     }
 
@@ -198,10 +199,7 @@ export default function LoanDetailScreen() {
 
     const expectedAmount = loan.repayment_schedule.repaymentAmount;
     if (parseFloat(repaymentAmount) !== expectedAmount) {
-      Alert.alert(
-        'Amount Mismatch',
-        `Repayment amount must be exactly ${fmt(expectedAmount)}`
-      );
+      await alert('Amount Mismatch', `Repayment amount must be exactly ${fmt(expectedAmount)}`);
       return;
     }
 
@@ -211,13 +209,14 @@ export default function LoanDetailScreen() {
       setShowRepaymentModal(false);
       setRepaymentAmount('');
       await loadLoan();
-      Alert.alert('Success', 'Repayment recorded successfully');
+      await alert('Success', 'Repayment recorded successfully');
     } catch (e) {
       console.error('Fund repayment error:', e);
-      Alert.alert(
-        'Error',
-        e instanceof Error ? e.message : 'Failed to fund repayment'
-      );
+      // Close the Fund Repayment confirm modal before showing the error, so
+      // the two ConfirmModal instances never render stacked on top of
+      // each other.
+      setShowRepaymentModal(false);
+      await alert('Error', e instanceof Error ? e.message : 'Failed to fund repayment');
     } finally {
       setIsFunding(false);
     }
@@ -225,15 +224,15 @@ export default function LoanDetailScreen() {
 
   const handleCreatePurpose = async () => {
     if (!purposeName.trim()) {
-      Alert.alert('Missing Name', 'Please enter a name for the purpose sub-pocket');
+      await alert('Missing Name', 'Please enter a name for the purpose sub-pocket');
       return;
     }
     if (!purposeCategory) {
-      Alert.alert('Missing Category', 'Please select a category');
+      await alert('Missing Category', 'Please select a category');
       return;
     }
     if (!purposeAllocation || parseFloat(purposeAllocation) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid allocation amount');
+      await alert('Invalid Amount', 'Please enter a valid allocation amount');
       return;
     }
 
@@ -249,13 +248,14 @@ export default function LoanDetailScreen() {
       setPurposeCategory('');
       setPurposeAllocation('');
       await loadLoan();
-      Alert.alert('Success', 'Purpose sub-pocket created successfully');
+      await alert('Success', 'Purpose sub-pocket created successfully');
     } catch (e) {
       console.error('Create purpose error:', e);
-      Alert.alert(
-        'Error',
-        e instanceof Error ? e.message : 'Failed to create purpose sub-pocket'
-      );
+      // Close the Create Purpose confirm modal before showing the error, so
+      // the two ConfirmModal instances never render stacked on top of
+      // each other.
+      setShowPurposeModal(false);
+      await alert('Error', e instanceof Error ? e.message : 'Failed to create purpose sub-pocket');
     } finally {
       setIsCreatingPurpose(false);
     }
@@ -598,6 +598,7 @@ export default function LoanDetailScreen() {
         }}
         loading={isCreatingPurpose}
       />
+      {modal}
     </ScreenContainer>
   );
 }

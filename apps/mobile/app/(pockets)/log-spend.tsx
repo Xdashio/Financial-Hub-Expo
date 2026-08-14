@@ -31,7 +31,7 @@ const CATEGORIES: { id: string; name: string }[] = [
 export default function LogSpendScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { alert, modal } = useAlertModal();
+  const { alert, confirm, modal } = useAlertModal();
   const params = useLocalSearchParams<{ pocketId: string; pocketName: string }>();
   const pockets = useHomeStore((s) => s.pockets);
 
@@ -106,13 +106,10 @@ export default function LogSpendScreen() {
       // Handle insufficient_funds with borrow_from_parent option
       if (checkResult.block_reason === 'insufficient_funds' && checkResult.borrow_from_parent_available) {
         // Show borrow confirmation dialog
-        const confirmed = await modal(
+        const confirmed = await confirm(
           'Borrow from parent?',
           `${checkResult.message || `This pocket is short ${formatMoney(checkResult.shortfall || 0)}`}`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Borrow', style: 'default' },
-          ]
+          { confirmLabel: 'Borrow', cancelLabel: 'Cancel' }
         );
         
         if (confirmed) {
