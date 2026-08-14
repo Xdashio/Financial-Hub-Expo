@@ -8,6 +8,7 @@ import { LoadingState, ErrorState, Button } from '@/components/ui';
 import { profileApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { useAlertModal } from '@/hooks/useAlertModal';
+import { SPENDABLE_CATEGORY_LABELS } from '@financial-hub/shared';
 import { ArrowLeft, Plus, Minus, RotateCcw } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
@@ -20,19 +21,6 @@ interface Pocket {
   monthly_allocation: number;
   available_balance: number;
 }
-
-const CATEGORY_LABELS: Record<string, string> = {
-  food: 'Food & Groceries',
-  transport: 'Transport',
-  leisure: 'Personal & Leisure',
-  family: 'Family & dependents',
-  other: 'Other',
-  grocery: 'Food & Groceries',
-  healthcare: 'Healthcare',
-  education: 'Education',
-  entertainment: 'Personal & Leisure',
-  personal_care: 'Personal Care',
-};
 
 const PCT_STEP = 1;
 
@@ -82,6 +70,8 @@ export default function EditPlanPercentagesScreen() {
   const [totalSpendable, setTotalSpendable] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
+  const [previewData, setPreviewData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -141,8 +131,37 @@ export default function EditPlanPercentagesScreen() {
       const current = prev[category] ?? 0;
       const next = Math.min(100, Math.max(0, current + delta));
       const updated = { ...prev, [category]: round2(next) };
-      return normalizePercentages(updated);
+      const normalized = normalizePercentages(updated);
+      
+      // Trigger preview when percentages change
+      loadPreview(normalized);
+      
+      return normalized;
     });
+  };
+
+  const loadPreview = async (percentages: Record<string, number>) => {
+    const total = Object.values(percentages).reduce((s, v) => s + (v ?? 0), 0);
+    const roundedTotal = round2(total);
+    const isBalanced = Math.abs(roundedTotal - 100) < 0.1;
+    
+    if (!isBalanced) {
+      setPreviewData(null);
+      return;
+    }
+
+    try {
+      setIsPreviewing(true);
+      const preview = await profileApi.editPlanPercentages({
+        categoryPercentages: percentages,
+      });
+      setPreviewData(preview);
+    } catch (error) {
+      console.error('Preview error:', error);
+      setPreviewData(null);
+    } finally {
+      setIsPreviewing(false);
+    }
   };
 
   const handleReset = () => {
@@ -291,6 +310,62 @@ export default function EditPlanPercentagesScreen() {
           )}
         </View>
 
+        {/* Preview section */}
+        {isBalanced && previewData && (
+          <View style={{
+            backgroundColor: colors.emeraldTint,
+            borderRadius: radius.lg,
+            padding: spacing.lg,
+            marginBottom: spacing.xl,
+            borderWidth: 1.5,
+            borderColor: colors.emeraldDeep,
+          }}>
+            <Text style={{ ...typography.heading, color: colors.emeraldDeep, marginBottom: spacing.md }}>
+              Preview of changes
+            </Text>
+            {previewData.pockets.map((pocket: any) => (
+              <View key={pocket.id} style={{ 
+                flexDirection: 'row', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                paddingVertical: spacing.sm,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.emeraldDeep + '30',
+              }}>
+                <Text style={{ ...typography.body, color: colors.ink }}>
+                  {pocket.name}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                  <Text style={{ ...typography.caption, color: colors.sage }}>
+                    {formatMoney(pocket.currentAllocation)}
+                  </Text>
+                  <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                    →
+                  </Text>
+                  <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
+                    {formatMoney(pocket.projectedAllocation)}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {isBalanced && isPreviewing && (
+          <View style={{
+            backgroundColor: colors.surface,
+            borderRadius: radius.lg,
+            padding: spacing.lg,
+            marginBottom: spacing.xl,
+            borderWidth: 1,
+            borderColor: colors.line,
+          }}>
+            <Text style={{ ...typography.caption, color: colors.sage }}>
+              Loading preview...
+            </Text>
+          </View>
+        )}
+
         {/* Category cards */}
         <View style={{ gap: spacing.lg, marginBottom: spacing.xl }}>
           {categories.map((category) => {
@@ -312,7 +387,7 @@ export default function EditPlanPercentagesScreen() {
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md }}>
                   <Text style={{ ...typography.heading, color: colors.ink }}>
-                    {CATEGORY_LABELS[category] || category}
+                    {SPENDABLE_CATEGORY_LABELS[category as keyof typeof SPENDABLE_CATEGORY_LABELS] || category}
                   </Text>
                   {changed && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.emeraldTint, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
@@ -338,7 +413,7 @@ export default function EditPlanPercentagesScreen() {
                       opacity: pct <= 0 || isSaving ? 0.4 : 1,
                     }}
                     accessibilityRole="button"
-                    accessibilityLabel={`Decrease ${CATEGORY_LABELS[category]}`}
+                    accessibilityLabel={`Decrease ${SPENDABLE_CATEGORY_LABELS[category as keyof typeof SPENDABLE_CATEGORY_LABELS] || category}`}
                   >
                     <Minus size={20} color={colors.ink} strokeWidth={2} />
                   </Pressable>
@@ -365,7 +440,7 @@ export default function EditPlanPercentagesScreen() {
                       opacity: pct >= 100 || isSaving ? 0.4 : 1,
                     }}
                     accessibilityRole="button"
-                    accessibilityLabel={`Increase ${CATEGORY_LABELS[category]}`}
+                    accessibilityLabel={`Increase ${SPENDABLE_CATEGORY_LABELS[category as keyof typeof SPENDABLE_CATEGORY_LABELS] || category}`}
                   >
                     <Plus size={20} color={colors.ink} strokeWidth={2} />
                   </Pressable>

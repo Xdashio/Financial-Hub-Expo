@@ -153,6 +153,19 @@ export type NeedsBand = z.infer<typeof NeedsBandSchema>;
 export const SpendableCategorySchema = z.enum(['food', 'transport', 'leisure', 'family']);
 export type SpendableCategory = z.infer<typeof SpendableCategorySchema>;
 
+/**
+ * User-friendly labels for spendable categories.
+ * These are the only categories that can appear for spendable pockets
+ * (see pocket-provisioning.ts). Other categories like 'grocery', 'healthcare',
+ * etc. are merchant classification categories, not spendable pocket categories.
+ */
+export const SPENDABLE_CATEGORY_LABELS = {
+  food: 'Food & Groceries',
+  transport: 'Transport',
+  leisure: 'Personal & Leisure',
+  family: 'Family & Dependents',
+} as const satisfies Record<SpendableCategory, string>;
+
 // Partial map of category -> percentage (0-100) of the spendable amount.
 // Partial because which categories exist depends on persona (student gets
 // only 'leisure'; dependents add 'family') — the server resolves which keys
@@ -751,6 +764,7 @@ export const schemas = {
   MerchantCategory: MerchantCategorySchema,
   PlanStatus: PlanStatusSchema,
   SpendableCategory: SpendableCategorySchema,
+  SPENDABLE_CATEGORY_LABELS,
   CategoryPercentages: CategoryPercentagesSchema,
   IncomeConcentration: IncomeConcentrationSchema,
   OnboardingInput: OnboardingInputSchema,

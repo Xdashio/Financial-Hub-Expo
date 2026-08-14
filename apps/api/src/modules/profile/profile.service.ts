@@ -93,21 +93,58 @@ export class ProfileService {
     return this.onboardingService.getRetakeEligibility(userId);
   }
 
-  async editPlanPercentages(userId: string, input: unknown): Promise<any> {
-    const result = OnboardingInputSchema.safeParse(input);
+  /**
+   * Dry-run preview for the post-onboarding "edit plan percentages" screen.
+   * Shares its allocation math with commitPlanPercentages (via
+   * computePocketAllocations) so the preview the user sees before saving
+   * can never drift from what actually gets persisted on commit. Read-only
+   * — no pocket is updated here.
+   *
+   * This replaces the old editPlanPercentages, which validated against the
+   * full OnboardingInputSchema and called the onboarding rules engine's
+   * previewPlan — a preview designed for the onboarding result screen,
+   * which has the person's full onboarding answers (income, spending
+   * habit, etc.) sitting in memory. This screen only ever has the
+   * person's current pockets, so that preview could never actually be
+   * called from here; it just sat unused. This one only needs
+   * `categoryPercentages`, same as commit.
+   */
+  async previewPlanPercentages(userId: string, input: unknown): Promise<any> {
+    const body = input as { categoryPercentages?: unknown } | null | undefined;
+    const result = CategoryPercentagesSchema.safeParse(body?.categoryPercentages);
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
-    
-    // Get current plan to validate it exists
+
     const currentPlan = await this.supabaseRepo.getActivePlanByUserId(userId);
     if (!currentPlan) {
       throw new NotFoundException('No active plan found');
     }
 
-    // Use the onboarding service's previewPlan to recalculate percentages
-    // This reuses the same logic as onboarding CategorySplitEditor
-    return this.onboardingService.previewPlan(result.data as OnboardingInput);
+    const newPercentages = result.data;
+    const total = Object.values(newPercentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
+    if (Math.abs(total - 100) > 0.5) {
+      throw new BadRequestException('Percentages must sum to 100%');
+    }
+
+    const allPockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(currentPlan.id);
+    const spendablePockets = allPockets.filter((p: Pocket) => p.kind === 'spendable');
+    if (spendablePockets.length === 0) {
+      throw new BadRequestException('No spendable pockets found to update');
+    }
+
+    const changes = this.computePocketAllocations(spendablePockets, newPercentages);
+
+    return {
+      categoryPercentages: newPercentages,
+      pockets: changes.map((c) => ({
+        id: c.pocket.id,
+        name: c.pocket.name,
+        category: c.pocket.category,
+        currentAllocation: c.pocket.monthly_allocation || 0,
+        projectedAllocation: c.newAllocation,
+      })),
+    };
   }
 
   async commitPlanPercentages(userId: string, input: unknown): Promise<any> {
@@ -140,16 +177,38 @@ export class ProfileService {
     // Get current spendable pockets using the plan
     const allPockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(currentPlan.id);
     const spendablePockets = allPockets.filter((p: Pocket) => p.kind === 'spendable');
-    
+
     if (spendablePockets.length === 0) {
       throw new BadRequestException('No spendable pockets found to update');
     }
 
-    // Calculate total current spendable allocation
+    const changes = this.computePocketAllocations(spendablePockets, newPercentages);
+    for (const { pocket, newAllocation } of changes) {
+      await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: newAllocation });
+    }
+
+    return {
+      success: true,
+      message: 'Plan percentages updated successfully',
+      categoryPercentages: newPercentages,
+      updatedPockets: spendablePockets.length,
+    };
+  }
+
+  /**
+   * Pure allocation math shared by commitPlanPercentages (which persists
+   * the result) and previewPlanPercentages (which doesn't). Splits each
+   * category's target amount across that category's pockets in
+   * proportion to their current allocation, so a category with several
+   * pockets keeps their existing relative split rather than collapsing to
+   * one pocket.
+   */
+  private computePocketAllocations(
+    spendablePockets: Pocket[],
+    newPercentages: Record<string, number>,
+  ): Array<{ pocket: Pocket; newAllocation: number }> {
     const totalSpendable = spendablePockets.reduce((sum: number, p: Pocket) => sum + (p.monthly_allocation || 0), 0);
 
-    // Update each pocket's monthly_allocation based on new percentages
-    // Group pockets by category first
     const pocketsByCategory: Record<string, Pocket[]> = {};
     spendablePockets.forEach((pocket: Pocket) => {
       const category = pocket.category || 'other';
@@ -159,37 +218,32 @@ export class ProfileService {
       pocketsByCategory[category].push(pocket);
     });
 
-    // Update allocations for each category
+    const changes: Array<{ pocket: Pocket; newAllocation: number }> = [];
+
     for (const [category, pockets] of Object.entries(pocketsByCategory)) {
-      const categoryPercentage = (newPercentages as Record<string, number>)[category] || 0;
+      const categoryPercentage = newPercentages[category] || 0;
       const categoryTotal = this.round2((categoryPercentage / 100) * totalSpendable);
-      
-      // Distribute the category total among pockets in that category
-      // If multiple pockets in same category, split proportionally
+
+      // Distribute the category total among pockets in that category.
+      // If multiple pockets share a category, split proportionally to
+      // their current allocation so relative sizing within the category
+      // is preserved.
       const currentCategoryTotal = pockets.reduce((sum: number, p: Pocket) => sum + (p.monthly_allocation || 0), 0);
-      
+
       for (const pocket of pockets) {
         if (currentCategoryTotal > 0) {
           const pocketRatio = (pocket.monthly_allocation || 0) / currentCategoryTotal;
-          const newAllocation = this.round2(pocketRatio * categoryTotal);
-          await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: newAllocation });
+          changes.push({ pocket, newAllocation: this.round2(pocketRatio * categoryTotal) });
+        } else if (pocket === pockets[0]) {
+          // Category had no allocation — give the first pocket the full amount.
+          changes.push({ pocket, newAllocation: categoryTotal });
         } else {
-          // If category had no allocation, give first pocket the full amount
-          if (pocket === pockets[0]) {
-            await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: categoryTotal });
-          } else {
-            await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: 0 });
-          }
+          changes.push({ pocket, newAllocation: 0 });
         }
       }
     }
 
-    return {
-      success: true,
-      message: 'Plan percentages updated successfully',
-      categoryPercentages: newPercentages,
-      updatedPockets: spendablePockets.length,
-    };
+    return changes;
   }
 
   private round2(n: number): number {
