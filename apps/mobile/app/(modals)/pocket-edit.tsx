@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -7,6 +7,7 @@ import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { useHomeStore } from '@/services/home-store';
 import { ScreenContainer } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft } from 'lucide-react-native';
 
@@ -14,6 +15,7 @@ export default function PocketEditModal() {
   const router = useRouter();
   const { colors } = useTheme();
   const dataSync = useDataSync();
+  const { alert, modal } = useAlertModal();
   const { id } = useLocalSearchParams();
   const [pocket, setPocket] = useState<any>(null);
   const [name, setName] = useState('');
@@ -35,7 +37,7 @@ export default function PocketEditModal() {
       setDailyCap(data.daily_cap?.toString() || '');
     } catch (error) {
       console.error('Failed to load pocket:', error);
-      Alert.alert('Error', 'Could not load pocket');
+      await alert('Error', 'Could not load pocket');
       safeGoBack(router, '/(modals)/pockets-manage');
     } finally {
       setLoading(false);
@@ -61,7 +63,7 @@ export default function PocketEditModal() {
       dataSync.bump();
       safeGoBack(router, '/(modals)/pockets-manage');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not update pocket');
+      await alert('Error', error.message || 'Could not update pocket');
     } finally {
       setSaving(false);
     }
@@ -73,6 +75,7 @@ export default function PocketEditModal() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <Text style={{ ...typography.body, color: colors.sage }}>Loading...</Text>
         </View>
+        {modal}
       </ScreenContainer>
     );
   }
@@ -158,6 +161,7 @@ export default function PocketEditModal() {
           </View>
         </ScrollView>
       </View>
+      {modal}
     </ScreenContainer>
   );
 }

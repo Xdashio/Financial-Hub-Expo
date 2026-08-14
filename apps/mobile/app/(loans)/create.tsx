@@ -5,13 +5,13 @@ import {
   ScrollView,
   TextInput,
   Pressable,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, Button } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
   Calculator,
@@ -33,6 +33,7 @@ function fmt(amount: number) {
 export default function CreateLoanScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { alert, modal } = useAlertModal();
 
   const [name, setName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
@@ -49,40 +50,40 @@ export default function CreateLoanScreen() {
     safeGoBack(router, '/(loans)');
   };
 
-  const validateForm = () => {
+  const validateForm = async () => {
     if (!name.trim()) {
-      Alert.alert('Missing Information', 'Please enter a loan name');
+      await alert('Missing Information', 'Please enter a loan name');
       return false;
     }
     if (!totalAmount || parseFloat(totalAmount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid total loan amount');
+      await alert('Invalid Amount', 'Please enter a valid total loan amount');
       return false;
     }
     if (!repaymentAmount || parseFloat(repaymentAmount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid repayment amount');
+      await alert('Invalid Amount', 'Please enter a valid repayment amount');
       return false;
     }
     if (parseFloat(repaymentAmount) > parseFloat(totalAmount)) {
-      Alert.alert('Invalid Amount', 'Repayment amount cannot exceed total loan amount');
+      await alert('Invalid Amount', 'Repayment amount cannot exceed total loan amount');
       return false;
     }
     if (!startDate) {
-      Alert.alert('Missing Date', 'Please enter the start date');
+      await alert('Missing Date', 'Please enter the start date');
       return false;
     }
     if (!endDate) {
-      Alert.alert('Missing Date', 'Please enter the end date');
+      await alert('Missing Date', 'Please enter the end date');
       return false;
     }
     if (!dueDay || parseInt(dueDay) < 1 || parseInt(dueDay) > 31) {
-      Alert.alert('Invalid Day', 'Please enter a valid due day (1-31)');
+      await alert('Invalid Day', 'Please enter a valid due day (1-31)');
       return false;
     }
     return true;
   };
 
   const handleSubmit = async () => {
-    if (!validateForm()) return;
+    if (!(await validateForm())) return;
 
     setIsSubmitting(true);
     try {
@@ -97,20 +98,12 @@ export default function CreateLoanScreen() {
         loanProvider: loanProvider.trim() || undefined,
         loanPurpose: loanPurpose.trim() || undefined,
       });
-      
-      Alert.alert(
-        'Loan Created',
-        'Your loan has been created successfully',
-        [
-          { text: 'OK', onPress: () => router.replace('/(loans)') }
-        ]
-      );
+
+      await alert('Loan Created', 'Your loan has been created successfully');
+      router.replace('/(loans)');
     } catch (e) {
       console.error('Create loan error:', e);
-      Alert.alert(
-        'Error',
-        e instanceof Error ? e.message : 'Failed to create loan'
-      );
+      await alert('Error', e instanceof Error ? e.message : 'Failed to create loan');
     } finally {
       setIsSubmitting(false);
     }
@@ -428,6 +421,7 @@ export default function CreateLoanScreen() {
           </View>
         </View>
       </ScrollView>
+      {modal}
     </ScreenContainer>
   );
 }

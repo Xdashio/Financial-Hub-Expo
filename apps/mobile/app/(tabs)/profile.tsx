@@ -24,7 +24,7 @@ import {
 import { useAuthStore } from '@/services/auth';
 import { profileApi, notificationsApi, pocketsApi, type NotificationPreferences } from '@/services/api';
 import { ConfirmModal } from '@/components/ui';
-import { showAlert } from '@/utils/alert';
+import { useAlertModal } from '@/hooks/useAlertModal';
 
 interface SettingsItem {
   icon: LucideIcon;
@@ -41,6 +41,7 @@ interface SettingsGroup {
 
 export default function ProfileScreen() {
   const { colors, mode, setMode } = useTheme();
+  const { alert, modal } = useAlertModal();
   const router = useRouter();
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
@@ -154,7 +155,7 @@ export default function ProfileScreen() {
       const next = retakeEligibility.nextRetakeAvailableOn
         ? ` Next available on ${retakeEligibility.nextRetakeAvailableOn}.`
         : '';
-      showAlert(
+      alert(
         'Retake unavailable',
         (retakeEligibility.message ?? 'You can only retake the behavior check-in once per month.') + next,
       );
@@ -263,9 +264,15 @@ export default function ProfileScreen() {
       // remote Supabase call fails (see auth.ts), so the user is signed out
       // locally either way — just let them know the device may still show
       // as an active session in Supabase until it syncs.
+      //
+      // Unlike the old showAlert() (window.alert/native Alert, both
+      // OS-level and independent of the React tree), this alert's dialog
+      // lives inside ProfileScreen's own component tree. Navigating away
+      // first would unmount the screen before the dialog ever renders, so
+      // it must be awaited before router.replace runs.
       setShowSignOutConfirm(false);
+      await alert('Signed out', 'You were signed out on this device. Some cleanup may finish once you\u2019re back online.');
       router.replace('/(auth)/signin');
-      showAlert('Signed out', 'You were signed out on this device. Some cleanup may finish once you\u2019re back online.');
     } finally {
       setIsSigningOut(false);
     }
@@ -411,6 +418,7 @@ export default function ProfileScreen() {
         onConfirm={handleConfirmSignOut}
         onCancel={() => setShowSignOutConfirm(false)}
       />
+      {modal}
     </SafeAreaView>
   );
 }
