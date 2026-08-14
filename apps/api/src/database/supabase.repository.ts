@@ -16,6 +16,7 @@ import {
   PushToken, PushTokenInsert,
   NotificationDeliveryInsert,
   IdempotencyRecord, IdempotencyRecordInsert, IdempotencyScope,
+  EmergencyUnlockRow, EmergencyUnlockRowInsert,
 } from '../database/database.types';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -388,6 +389,79 @@ export class SupabaseRepository {
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data || [];
+  }
+
+  async getTransactionsByDateRange(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<Transaction[]> {
+    // First get the user's active plan to filter by plan
+    const plan = await this.getActivePlanByUserId(userId);
+    if (!plan) return [];
+
+    // Get all pockets in the plan
+    const pockets = await this.getTopLevelPocketsByPlanId(plan.id);
+    const pocketIds = pockets.map((p) => p.id);
+
+    // Get transactions in date range for plan's pockets
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .select('*')
+      .in('pocket_id', pocketIds)
+      .gte('created_at', startDate)
+      .lte('created_at', endDate)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createEmergencyUnlock(unlock: {
+    user_id: string;
+    plan_id: string;
+    amount: number;
+    days_calculated: number;
+    least_daily_spend: number;
+    average_daily_spend: number;
+    reserve_kept: number;
+  }): Promise<EmergencyUnlockRow> {
+    const { data, error } = await this.supabase
+      .from('emergency_unlocks')
+      .insert(unlock)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getEmergencyUnlockByUserId(userId: string): Promise<EmergencyUnlockRow[]> {
+    const { data, error } = await this.supabase
+      .from('emergency_unlocks')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getEmergencyUnlockThisMonth(userId: string): Promise<EmergencyUnlockRow | null> {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const { data, error } = await this.supabase
+      .from('emergency_unlocks')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('created_at', startOfMonth.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows returned
+      throw error;
+    }
+    return data;
   }
 
   async getTransactionsByPocketIdPaginated(

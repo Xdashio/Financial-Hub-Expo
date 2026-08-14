@@ -515,6 +515,75 @@ export const SubPocketRebalanceInputSchema = z.object({
 export type SubPocketRebalanceInput = z.infer<typeof SubPocketRebalanceInputSchema>;
 
 // ============================================================================
+// Emergency Unlock Schemas - once-per-month savings emergency withdrawals
+// ============================================================================
+
+export const EmergencyUnlockEligibilityReasonSchema = z.enum([
+  'insufficient_history',
+  'monthly_limit_reached',
+  'savings_depleted',
+  'no_depleted_pockets',
+]);
+export type EmergencyUnlockEligibilityReason = z.infer<typeof EmergencyUnlockEligibilityReasonSchema>;
+
+export const SpendingAnalysisSchema = z.object({
+  least_daily_spend: z.number().nonnegative(),
+  most_daily_spend: z.number().nonnegative(),
+  average_daily_spend: z.number().nonnegative(),
+  days_of_history: z.number().int().nonnegative(),
+});
+export type SpendingAnalysis = z.infer<typeof SpendingAnalysisSchema>;
+
+export const SavingsReserveSchema = z.object({
+  total_savings: z.number().nonnegative(),
+  minimum_reserve: z.number().nonnegative(),
+  available_to_unlock: z.number().nonnegative(),
+});
+export type SavingsReserve = z.infer<typeof SavingsReserveSchema>;
+
+export const EmergencyUnlockEligibilityResponseSchema = z.object({
+  eligible: z.boolean(),
+  reason: EmergencyUnlockEligibilityReasonSchema.optional(),
+  message: z.string().optional(),
+  analysis: SpendingAnalysisSchema.optional(),
+  savings_reserve: SavingsReserveSchema.optional(),
+  days_of_history: z.number().int().nonnegative().optional(),
+  minimum_required_days: z.number().int().positive().optional(),
+  last_used: z.string().datetime().optional(),
+  next_available: z.string().datetime().optional(),
+});
+export type EmergencyUnlockEligibilityResponse = z.infer<typeof EmergencyUnlockEligibilityResponseSchema>;
+
+export const EmergencyUnlockRequestSchema = z.object({
+  amount: z.number().positive(),
+  confirm_reserve: z.boolean(),
+});
+export type EmergencyUnlockRequest = z.infer<typeof EmergencyUnlockRequestSchema>;
+
+export const EmergencyUnlockAllocationSchema = z.object({
+  pocket_id: z.string().uuid(),
+  pocket_name: z.string(),
+  amount: z.number().positive(),
+  percentage: z.number().nonnegative(),
+});
+export type EmergencyUnlockAllocation = z.infer<typeof EmergencyUnlockAllocationSchema>;
+
+export const EmergencyUnlockResponseSchema = z.object({
+  applied: z.boolean(),
+  unlock: z.object({
+    id: z.string().uuid(),
+    amount: z.number().positive(),
+    days_lasting: z.number().positive(),
+    reserve_kept: z.number().nonnegative(),
+    allocations: z.array(EmergencyUnlockAllocationSchema),
+  }).optional(),
+  error: z.string().optional(),
+  message: z.string().optional(),
+  next_available: z.string().datetime().optional(),
+});
+export type EmergencyUnlockResponse = z.infer<typeof EmergencyUnlockResponseSchema>;
+
+// ============================================================================
 // Loan Schemas - audit_team.md item 9
 // ============================================================================
 
@@ -698,6 +767,9 @@ export const schemas = {
   PocketUpdateInput: PocketUpdateInputSchema,
   SubPocketCreateInput: SubPocketCreateInputSchema,
   SubPocketRebalanceInput: SubPocketRebalanceInputSchema,
+  EmergencyUnlockEligibilityResponse: EmergencyUnlockEligibilityResponseSchema,
+  EmergencyUnlockRequest: EmergencyUnlockRequestSchema,
+  EmergencyUnlockResponse: EmergencyUnlockResponseSchema,
   RepaymentCadence: RepaymentCadenceSchema,
   RepaymentSchedule: RepaymentScheduleSchema,
   LoanCreateInput: LoanCreateInputSchema,

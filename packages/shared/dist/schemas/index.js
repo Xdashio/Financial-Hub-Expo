@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = void 0;
+exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.SavingsReserveSchema = exports.SpendingAnalysisSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -426,6 +426,60 @@ exports.SubPocketRebalanceInputSchema = zod_1.z.object({
     confirmPartial: zod_1.z.boolean().optional().default(false),
 });
 // ============================================================================
+// Emergency Unlock Schemas - once-per-month savings emergency withdrawals
+// ============================================================================
+exports.EmergencyUnlockEligibilityReasonSchema = zod_1.z.enum([
+    'insufficient_history',
+    'monthly_limit_reached',
+    'savings_depleted',
+    'no_depleted_pockets',
+]);
+exports.SpendingAnalysisSchema = zod_1.z.object({
+    least_daily_spend: zod_1.z.number().nonnegative(),
+    most_daily_spend: zod_1.z.number().nonnegative(),
+    average_daily_spend: zod_1.z.number().nonnegative(),
+    days_of_history: zod_1.z.number().int().nonnegative(),
+});
+exports.SavingsReserveSchema = zod_1.z.object({
+    total_savings: zod_1.z.number().nonnegative(),
+    minimum_reserve: zod_1.z.number().nonnegative(),
+    available_to_unlock: zod_1.z.number().nonnegative(),
+});
+exports.EmergencyUnlockEligibilityResponseSchema = zod_1.z.object({
+    eligible: zod_1.z.boolean(),
+    reason: exports.EmergencyUnlockEligibilityReasonSchema.optional(),
+    message: zod_1.z.string().optional(),
+    analysis: exports.SpendingAnalysisSchema.optional(),
+    savings_reserve: exports.SavingsReserveSchema.optional(),
+    days_of_history: zod_1.z.number().int().nonnegative().optional(),
+    minimum_required_days: zod_1.z.number().int().positive().optional(),
+    last_used: zod_1.z.string().datetime().optional(),
+    next_available: zod_1.z.string().datetime().optional(),
+});
+exports.EmergencyUnlockRequestSchema = zod_1.z.object({
+    amount: zod_1.z.number().positive(),
+    confirm_reserve: zod_1.z.boolean(),
+});
+exports.EmergencyUnlockAllocationSchema = zod_1.z.object({
+    pocket_id: zod_1.z.string().uuid(),
+    pocket_name: zod_1.z.string(),
+    amount: zod_1.z.number().positive(),
+    percentage: zod_1.z.number().nonnegative(),
+});
+exports.EmergencyUnlockResponseSchema = zod_1.z.object({
+    applied: zod_1.z.boolean(),
+    unlock: zod_1.z.object({
+        id: zod_1.z.string().uuid(),
+        amount: zod_1.z.number().positive(),
+        days_lasting: zod_1.z.number().positive(),
+        reserve_kept: zod_1.z.number().nonnegative(),
+        allocations: zod_1.z.array(exports.EmergencyUnlockAllocationSchema),
+    }).optional(),
+    error: zod_1.z.string().optional(),
+    message: zod_1.z.string().optional(),
+    next_available: zod_1.z.string().datetime().optional(),
+});
+// ============================================================================
 // Loan Schemas - audit_team.md item 9
 // ============================================================================
 exports.RepaymentCadenceSchema = zod_1.z.enum(['weekly', 'biweekly', 'monthly']);
@@ -577,6 +631,9 @@ exports.schemas = {
     PocketUpdateInput: exports.PocketUpdateInputSchema,
     SubPocketCreateInput: exports.SubPocketCreateInputSchema,
     SubPocketRebalanceInput: exports.SubPocketRebalanceInputSchema,
+    EmergencyUnlockEligibilityResponse: exports.EmergencyUnlockEligibilityResponseSchema,
+    EmergencyUnlockRequest: exports.EmergencyUnlockRequestSchema,
+    EmergencyUnlockResponse: exports.EmergencyUnlockResponseSchema,
     RepaymentCadence: exports.RepaymentCadenceSchema,
     RepaymentSchedule: exports.RepaymentScheduleSchema,
     LoanCreateInput: exports.LoanCreateInputSchema,

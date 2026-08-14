@@ -287,6 +287,49 @@ export const merchantReportApi = {
     ),
 };
 
+export const emergencyUnlockApi = {
+  checkEligibility: () =>
+    api.get<{
+      eligible: boolean;
+      reason?: string;
+      message?: string;
+      analysis?: {
+        least_daily_spend: number;
+        most_daily_spend: number;
+        average_daily_spend: number;
+        days_of_history: number;
+      };
+      savings_reserve?: {
+        total_savings: number;
+        minimum_reserve: number;
+        available_to_unlock: number;
+      };
+      days_of_history?: number;
+      minimum_required_days?: number;
+      last_used?: string;
+      next_available?: string;
+    }>('/pockets/emergency-unlock/eligibility'),
+  executeUnlock: (data: { amount: number; confirm_reserve: boolean }) =>
+    api.post<{
+      applied: boolean;
+      unlock?: {
+        id: string;
+        amount: number;
+        days_lasting: number;
+        reserve_kept: number;
+        allocations: Array<{
+          pocket_id: string;
+          pocket_name: string;
+          amount: number;
+          percentage: number;
+        }>;
+      };
+      error?: string;
+      message?: string;
+      next_available?: string;
+    }>('/pockets/emergency-unlock', data),
+};
+
 export const incomeApi = {
   allocatePreview: (data: { amount: number; source: 'client_payment' | 'cash' | 'other' }) =>
     api.post<any>('/income/manual/allocate-preview', data),

@@ -841,6 +841,229 @@ export declare const SubPocketRebalanceInputSchema: z.ZodObject<{
     confirmPartial?: boolean | undefined;
 }>;
 export type SubPocketRebalanceInput = z.infer<typeof SubPocketRebalanceInputSchema>;
+export declare const EmergencyUnlockEligibilityReasonSchema: z.ZodEnum<["insufficient_history", "monthly_limit_reached", "savings_depleted", "no_depleted_pockets"]>;
+export type EmergencyUnlockEligibilityReason = z.infer<typeof EmergencyUnlockEligibilityReasonSchema>;
+export declare const SpendingAnalysisSchema: z.ZodObject<{
+    least_daily_spend: z.ZodNumber;
+    most_daily_spend: z.ZodNumber;
+    average_daily_spend: z.ZodNumber;
+    days_of_history: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    least_daily_spend: number;
+    most_daily_spend: number;
+    average_daily_spend: number;
+    days_of_history: number;
+}, {
+    least_daily_spend: number;
+    most_daily_spend: number;
+    average_daily_spend: number;
+    days_of_history: number;
+}>;
+export type SpendingAnalysis = z.infer<typeof SpendingAnalysisSchema>;
+export declare const SavingsReserveSchema: z.ZodObject<{
+    total_savings: z.ZodNumber;
+    minimum_reserve: z.ZodNumber;
+    available_to_unlock: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    total_savings: number;
+    minimum_reserve: number;
+    available_to_unlock: number;
+}, {
+    total_savings: number;
+    minimum_reserve: number;
+    available_to_unlock: number;
+}>;
+export type SavingsReserve = z.infer<typeof SavingsReserveSchema>;
+export declare const EmergencyUnlockEligibilityResponseSchema: z.ZodObject<{
+    eligible: z.ZodBoolean;
+    reason: z.ZodOptional<z.ZodEnum<["insufficient_history", "monthly_limit_reached", "savings_depleted", "no_depleted_pockets"]>>;
+    message: z.ZodOptional<z.ZodString>;
+    analysis: z.ZodOptional<z.ZodObject<{
+        least_daily_spend: z.ZodNumber;
+        most_daily_spend: z.ZodNumber;
+        average_daily_spend: z.ZodNumber;
+        days_of_history: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        least_daily_spend: number;
+        most_daily_spend: number;
+        average_daily_spend: number;
+        days_of_history: number;
+    }, {
+        least_daily_spend: number;
+        most_daily_spend: number;
+        average_daily_spend: number;
+        days_of_history: number;
+    }>>;
+    savings_reserve: z.ZodOptional<z.ZodObject<{
+        total_savings: z.ZodNumber;
+        minimum_reserve: z.ZodNumber;
+        available_to_unlock: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        total_savings: number;
+        minimum_reserve: number;
+        available_to_unlock: number;
+    }, {
+        total_savings: number;
+        minimum_reserve: number;
+        available_to_unlock: number;
+    }>>;
+    days_of_history: z.ZodOptional<z.ZodNumber>;
+    minimum_required_days: z.ZodOptional<z.ZodNumber>;
+    last_used: z.ZodOptional<z.ZodString>;
+    next_available: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    eligible: boolean;
+    message?: string | undefined;
+    reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
+    days_of_history?: number | undefined;
+    analysis?: {
+        least_daily_spend: number;
+        most_daily_spend: number;
+        average_daily_spend: number;
+        days_of_history: number;
+    } | undefined;
+    savings_reserve?: {
+        total_savings: number;
+        minimum_reserve: number;
+        available_to_unlock: number;
+    } | undefined;
+    minimum_required_days?: number | undefined;
+    last_used?: string | undefined;
+    next_available?: string | undefined;
+}, {
+    eligible: boolean;
+    message?: string | undefined;
+    reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
+    days_of_history?: number | undefined;
+    analysis?: {
+        least_daily_spend: number;
+        most_daily_spend: number;
+        average_daily_spend: number;
+        days_of_history: number;
+    } | undefined;
+    savings_reserve?: {
+        total_savings: number;
+        minimum_reserve: number;
+        available_to_unlock: number;
+    } | undefined;
+    minimum_required_days?: number | undefined;
+    last_used?: string | undefined;
+    next_available?: string | undefined;
+}>;
+export type EmergencyUnlockEligibilityResponse = z.infer<typeof EmergencyUnlockEligibilityResponseSchema>;
+export declare const EmergencyUnlockRequestSchema: z.ZodObject<{
+    amount: z.ZodNumber;
+    confirm_reserve: z.ZodBoolean;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    confirm_reserve: boolean;
+}, {
+    amount: number;
+    confirm_reserve: boolean;
+}>;
+export type EmergencyUnlockRequest = z.infer<typeof EmergencyUnlockRequestSchema>;
+export declare const EmergencyUnlockAllocationSchema: z.ZodObject<{
+    pocket_id: z.ZodString;
+    pocket_name: z.ZodString;
+    amount: z.ZodNumber;
+    percentage: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    percentage: number;
+    pocket_id: string;
+    pocket_name: string;
+}, {
+    amount: number;
+    percentage: number;
+    pocket_id: string;
+    pocket_name: string;
+}>;
+export type EmergencyUnlockAllocation = z.infer<typeof EmergencyUnlockAllocationSchema>;
+export declare const EmergencyUnlockResponseSchema: z.ZodObject<{
+    applied: z.ZodBoolean;
+    unlock: z.ZodOptional<z.ZodObject<{
+        id: z.ZodString;
+        amount: z.ZodNumber;
+        days_lasting: z.ZodNumber;
+        reserve_kept: z.ZodNumber;
+        allocations: z.ZodArray<z.ZodObject<{
+            pocket_id: z.ZodString;
+            pocket_name: z.ZodString;
+            amount: z.ZodNumber;
+            percentage: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            amount: number;
+            percentage: number;
+            pocket_id: string;
+            pocket_name: string;
+        }, {
+            amount: number;
+            percentage: number;
+            pocket_id: string;
+            pocket_name: string;
+        }>, "many">;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        id: string;
+        days_lasting: number;
+        reserve_kept: number;
+        allocations: {
+            amount: number;
+            percentage: number;
+            pocket_id: string;
+            pocket_name: string;
+        }[];
+    }, {
+        amount: number;
+        id: string;
+        days_lasting: number;
+        reserve_kept: number;
+        allocations: {
+            amount: number;
+            percentage: number;
+            pocket_id: string;
+            pocket_name: string;
+        }[];
+    }>>;
+    error: z.ZodOptional<z.ZodString>;
+    message: z.ZodOptional<z.ZodString>;
+    next_available: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    applied: boolean;
+    message?: string | undefined;
+    next_available?: string | undefined;
+    unlock?: {
+        amount: number;
+        id: string;
+        days_lasting: number;
+        reserve_kept: number;
+        allocations: {
+            amount: number;
+            percentage: number;
+            pocket_id: string;
+            pocket_name: string;
+        }[];
+    } | undefined;
+    error?: string | undefined;
+}, {
+    applied: boolean;
+    message?: string | undefined;
+    next_available?: string | undefined;
+    unlock?: {
+        amount: number;
+        id: string;
+        days_lasting: number;
+        reserve_kept: number;
+        allocations: {
+            amount: number;
+            percentage: number;
+            pocket_id: string;
+            pocket_name: string;
+        }[];
+    } | undefined;
+    error?: string | undefined;
+}>;
+export type EmergencyUnlockResponse = z.infer<typeof EmergencyUnlockResponseSchema>;
 export declare const RepaymentCadenceSchema: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
 export type RepaymentCadence = z.infer<typeof RepaymentCadenceSchema>;
 export declare const RepaymentScheduleSchema: z.ZodObject<{
@@ -2023,6 +2246,176 @@ export declare const schemas: {
             pocketId: string;
         }[];
         confirmPartial?: boolean | undefined;
+    }>;
+    EmergencyUnlockEligibilityResponse: z.ZodObject<{
+        eligible: z.ZodBoolean;
+        reason: z.ZodOptional<z.ZodEnum<["insufficient_history", "monthly_limit_reached", "savings_depleted", "no_depleted_pockets"]>>;
+        message: z.ZodOptional<z.ZodString>;
+        analysis: z.ZodOptional<z.ZodObject<{
+            least_daily_spend: z.ZodNumber;
+            most_daily_spend: z.ZodNumber;
+            average_daily_spend: z.ZodNumber;
+            days_of_history: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            least_daily_spend: number;
+            most_daily_spend: number;
+            average_daily_spend: number;
+            days_of_history: number;
+        }, {
+            least_daily_spend: number;
+            most_daily_spend: number;
+            average_daily_spend: number;
+            days_of_history: number;
+        }>>;
+        savings_reserve: z.ZodOptional<z.ZodObject<{
+            total_savings: z.ZodNumber;
+            minimum_reserve: z.ZodNumber;
+            available_to_unlock: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            total_savings: number;
+            minimum_reserve: number;
+            available_to_unlock: number;
+        }, {
+            total_savings: number;
+            minimum_reserve: number;
+            available_to_unlock: number;
+        }>>;
+        days_of_history: z.ZodOptional<z.ZodNumber>;
+        minimum_required_days: z.ZodOptional<z.ZodNumber>;
+        last_used: z.ZodOptional<z.ZodString>;
+        next_available: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        eligible: boolean;
+        message?: string | undefined;
+        reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
+        days_of_history?: number | undefined;
+        analysis?: {
+            least_daily_spend: number;
+            most_daily_spend: number;
+            average_daily_spend: number;
+            days_of_history: number;
+        } | undefined;
+        savings_reserve?: {
+            total_savings: number;
+            minimum_reserve: number;
+            available_to_unlock: number;
+        } | undefined;
+        minimum_required_days?: number | undefined;
+        last_used?: string | undefined;
+        next_available?: string | undefined;
+    }, {
+        eligible: boolean;
+        message?: string | undefined;
+        reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
+        days_of_history?: number | undefined;
+        analysis?: {
+            least_daily_spend: number;
+            most_daily_spend: number;
+            average_daily_spend: number;
+            days_of_history: number;
+        } | undefined;
+        savings_reserve?: {
+            total_savings: number;
+            minimum_reserve: number;
+            available_to_unlock: number;
+        } | undefined;
+        minimum_required_days?: number | undefined;
+        last_used?: string | undefined;
+        next_available?: string | undefined;
+    }>;
+    EmergencyUnlockRequest: z.ZodObject<{
+        amount: z.ZodNumber;
+        confirm_reserve: z.ZodBoolean;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        confirm_reserve: boolean;
+    }, {
+        amount: number;
+        confirm_reserve: boolean;
+    }>;
+    EmergencyUnlockResponse: z.ZodObject<{
+        applied: z.ZodBoolean;
+        unlock: z.ZodOptional<z.ZodObject<{
+            id: z.ZodString;
+            amount: z.ZodNumber;
+            days_lasting: z.ZodNumber;
+            reserve_kept: z.ZodNumber;
+            allocations: z.ZodArray<z.ZodObject<{
+                pocket_id: z.ZodString;
+                pocket_name: z.ZodString;
+                amount: z.ZodNumber;
+                percentage: z.ZodNumber;
+            }, "strip", z.ZodTypeAny, {
+                amount: number;
+                percentage: number;
+                pocket_id: string;
+                pocket_name: string;
+            }, {
+                amount: number;
+                percentage: number;
+                pocket_id: string;
+                pocket_name: string;
+            }>, "many">;
+        }, "strip", z.ZodTypeAny, {
+            amount: number;
+            id: string;
+            days_lasting: number;
+            reserve_kept: number;
+            allocations: {
+                amount: number;
+                percentage: number;
+                pocket_id: string;
+                pocket_name: string;
+            }[];
+        }, {
+            amount: number;
+            id: string;
+            days_lasting: number;
+            reserve_kept: number;
+            allocations: {
+                amount: number;
+                percentage: number;
+                pocket_id: string;
+                pocket_name: string;
+            }[];
+        }>>;
+        error: z.ZodOptional<z.ZodString>;
+        message: z.ZodOptional<z.ZodString>;
+        next_available: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        applied: boolean;
+        message?: string | undefined;
+        next_available?: string | undefined;
+        unlock?: {
+            amount: number;
+            id: string;
+            days_lasting: number;
+            reserve_kept: number;
+            allocations: {
+                amount: number;
+                percentage: number;
+                pocket_id: string;
+                pocket_name: string;
+            }[];
+        } | undefined;
+        error?: string | undefined;
+    }, {
+        applied: boolean;
+        message?: string | undefined;
+        next_available?: string | undefined;
+        unlock?: {
+            amount: number;
+            id: string;
+            days_lasting: number;
+            reserve_kept: number;
+            allocations: {
+                amount: number;
+                percentage: number;
+                pocket_id: string;
+                pocket_name: string;
+            }[];
+        } | undefined;
+        error?: string | undefined;
     }>;
     RepaymentCadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
     RepaymentSchedule: z.ZodObject<{
