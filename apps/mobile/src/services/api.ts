@@ -155,7 +155,14 @@ export const transactionsApi = {
 };
 
 export const spendApi = {
-  check: (data: { pocket_id: string; amount: number; recipient_key?: string; category?: string }) =>
+  check: (data: { 
+    pocket_id: string; 
+    amount: number; 
+    recipient_key?: string; 
+    category?: string;
+    override?: boolean;
+    borrow_from_parent?: boolean;
+  }) =>
     api.post<any>('/spend/check', data),
   commit: (data: {
     pocket_id: string;
@@ -163,6 +170,8 @@ export const spendApi = {
     recipient_key?: string;
     category?: string;
     idempotency_key?: string;
+    override?: boolean;
+    borrow_from_parent?: boolean;
   }) =>
     api.post<any>('/spend/commit', {
       ...data,
@@ -261,6 +270,8 @@ export const profileApi = {
         nextRetakeAvailableOn: string;
       };
     }>('/profile/plan/retake', data),
+  editPlanPercentages: (data: any) => api.patch<any>('/profile/plan/percentages', data),
+  commitPlanPercentages: (data: any) => api.post<any>('/profile/plan/percentages/commit', data),
 };
 
 export interface NotificationPreferences {

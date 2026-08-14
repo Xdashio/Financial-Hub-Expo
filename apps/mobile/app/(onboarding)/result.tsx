@@ -9,8 +9,8 @@ import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader, PocketGlyph, PocketLoader } from '@/components/ui';
-import { ChevronLeft, Check, Lock, ChevronRight, Minus, Plus, RotateCcw, Target, AlertTriangle, TrendingUp } from 'lucide-react-native';
-import type { CategoryPercentages, SpendableCategory } from '@financial-hub/shared';
+import { ChevronLeft, Check, Lock, ChevronRight, ChevronDown, Minus, Plus, RotateCcw, Target, AlertTriangle, TrendingUp } from 'lucide-react-native';
+import type { CategoryPercentages, SpendableCategory, PlanAssignReason } from '@financial-hub/shared';
 import { safeGoBack } from '@/utils/navigation';
 
 const PERCENT_STEP = 5;
@@ -182,6 +182,96 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/**
+ * Collapsible "Why this plan" card on the result screen's first slide.
+ *
+ * Reasons are hidden behind a tappable header by default so the overview
+ * stays scannable (previously every reason rendered at full height, which
+ * cluttered the layout and could push content past the fold). The amber
+ * `savings_goal_capacity_shortfall` warning is still surfaced as a compact
+ * summary while collapsed — a heads-up is never silently hidden — and
+ * expands inline with the rest on tap.
+ */
+function WhyPlanCard({ reasons, colors }: {
+  reasons: PlanAssignReason[];
+  colors: ReturnType<typeof useTheme>['colors'];
+}) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  if (!reasons?.length) return null;
+
+  const shortfall = reasons.find((r) => r.rule === 'savings_goal_capacity_shortfall');
+  const hasShortfall = !!shortfall;
+
+  const renderReason = (reason: PlanAssignReason, index: number) => {
+    // Savings-goal reasons (Part 4) get their own icon regardless of
+    // position — Target for on-track, AlertTriangle (amber, matching the
+    // app's warning tint) for the capacity shortfall, so it reads as a
+    // heads-up rather than an ordinary "why this plan" bullet.
+    const isShortfall = reason.rule === 'savings_goal_capacity_shortfall';
+    const isGoalOnTrack = reason.rule === 'savings_goal_on_track';
+    const iconBg = isShortfall ? colors.goldTint : colors.emeraldTint;
+
+    return (
+      <View key={index} style={{ flexDirection: 'row', gap: spacing.md, marginBottom: index === reasons.length - 1 ? 0 : spacing.md }}>
+        <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {isShortfall && <AlertTriangle size={15} color={colors.gold} strokeWidth={2} />}
+          {isGoalOnTrack && <Target size={15} color={colors.ink} strokeWidth={2} />}
+          {!isShortfall && !isGoalOnTrack && index === 0 && <PocketGlyph kind="fixed" size={15} color={colors.ink} />}
+          {!isShortfall && !isGoalOnTrack && index === 1 && <TrendingUp size={15} color={colors.ink} strokeWidth={2} />}
+          {!isShortfall && !isGoalOnTrack && index === 2 && <Check size={15} color={colors.ink} strokeWidth={2} />}
+        </View>
+        <Text style={{ ...typography.body, color: colors.ink, flex: 1, lineHeight: 21 }}>{reason.reason}</Text>
+      </View>
+    );
+  };
+
+  return (
+    <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, ...shadow.default, width: '100%' }}>
+      <Pressable
+        onPress={() => setExpanded((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={`${expanded ? 'Hide' : 'Show'} the ${reasons.length} reasons for this plan`}
+        accessibilityState={{ expanded }}
+        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+          <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: hasShortfall ? colors.goldTint : colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
+            {hasShortfall
+              ? <AlertTriangle size={15} color={colors.gold} strokeWidth={2} />
+              : <PocketGlyph kind="fixed" size={15} color={colors.ink} />}
+          </View>
+          <Text style={{ ...typography.heading, fontSize: 13, color: colors.ink }}>Why this plan</Text>
+          <View style={{ backgroundColor: colors.lineSoft, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
+            <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>{reasons.length}</Text>
+          </View>
+        </View>
+        <View style={{ transform: [{ rotate: expanded ? '180deg' : '0deg' }] }}>
+          <ChevronDown size={18} color={colors.sage} strokeWidth={2} />
+        </View>
+      </Pressable>
+
+      {!expanded && hasShortfall && shortfall && (
+        <Pressable
+          onPress={() => setExpanded(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Show the savings goal warning"
+          style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.lineSoft }}
+        >
+          <AlertTriangle size={14} color={colors.gold} strokeWidth={2} style={{ marginTop: 2 }} />
+          <Text style={{ ...typography.caption, fontSize: 12, color: colors.inkSoft, flex: 1, lineHeight: 18 }}>{shortfall.reason}</Text>
+        </Pressable>
+      )}
+
+      {expanded && (
+        <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.lineSoft }}>
+          {reasons.map((r, i) => renderReason(r, i))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function ResultScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -191,6 +281,11 @@ export default function ResultScreen() {
   const [isCommitting, setIsCommitting] = React.useState(false);
   const [activeSlide, setActiveSlide] = React.useState(0);
   const scrollViewRef = React.useRef<ScrollView>(null);
+  // Each slide has its own vertical ScrollView (see JSX) so tall content
+  // scrolls instead of overflowing; these refs let us reset to the top on
+  // slide change so a user never lands mid-way down the previous scroll.
+  const slideOneScrollRef = React.useRef<ScrollView>(null);
+  const slideTwoScrollRef = React.useRef<ScrollView>(null);
   const { width } = Dimensions.get('window');
 
   if (!assignResult) {
@@ -217,6 +312,9 @@ export default function ResultScreen() {
   const goToSlide = (index: number) => {
     setActiveSlide(index);
     scrollViewRef.current?.scrollTo({ x: index * width, animated: true });
+    // Reset the slide's vertical scroll so a user never lands mid-scroll.
+    slideOneScrollRef.current?.scrollTo({ y: 0, animated: false });
+    slideTwoScrollRef.current?.scrollTo({ y: 0, animated: false });
   };
 
   const handleEnterPlan = async () => {
@@ -351,52 +449,40 @@ export default function ResultScreen() {
           scrollEventThrottle={16}
           style={{ flex: 1 }}
         >
-          {/* Slide 1: Plan Overview */}
-          <View style={{ width, paddingHorizontal: spacing.xl, paddingTop: spacing.lg, flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
-              <View style={{ width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
-                <Check size={26} color={colors.surface} strokeWidth={1.7} />
+          {/* Slide 1: Plan Overview — its own vertical scroll so the header +
+             the collapsible "why" card never overflow the viewport */}
+          <View style={{ width, flex: 1 }}>
+            <ScrollView
+              ref={slideOneScrollRef}
+              contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.lg, paddingBottom: spacing.xxl, alignItems: 'center' }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
+                <View style={{ width: 56, height: 56, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md }}>
+                  <Check size={26} color={colors.surface} strokeWidth={1.7} />
+                </View>
+                <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money plan is ready</Text>
+                <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>{plan}</Text>
+                <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs, textAlign: 'center' }}>{getPlanTag()}</Text>
+                <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm, textAlign: 'center' }}>
+                  Fixed costs ≈ {displayNeedsPercent}% of income
+                  {needsBand ? ` · ${needsBand} needs band` : ''}
+                </Text>
               </View>
-              <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money plan is ready</Text>
-              <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>{plan}</Text>
-              <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs, textAlign: 'center' }}>{getPlanTag()}</Text>
-              <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm, textAlign: 'center' }}>
-                Fixed costs ≈ {displayNeedsPercent}% of income
-                {needsBand ? ` · ${needsBand} needs band` : ''}
-              </Text>
-            </View>
 
-            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.xl, ...shadow.default, width: '100%' }}>
-              <Text style={{ ...typography.heading, fontSize: 13, color: colors.ink, marginBottom: spacing.sm }}>Why this plan</Text>
-              {reasons.map((reason, index) => {
-                // Savings-goal reasons (Part 4) get their own icon regardless
-                // of position — Target for on-track, AlertTriangle (amber,
-                // matching the app's warning tint) for the capacity
-                // shortfall, so it reads as a heads-up rather than an
-                // ordinary "why this plan" bullet.
-                const isShortfall = reason.rule === 'savings_goal_capacity_shortfall';
-                const isGoalOnTrack = reason.rule === 'savings_goal_on_track';
-                const iconBg = isShortfall ? colors.goldTint : colors.emeraldTint;
-
-                return (
-                  <View key={index} style={{ flexDirection: 'row', gap: spacing.md, marginBottom: index === reasons.length - 1 ? 0 : spacing.md }}>
-                    <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {isShortfall && <AlertTriangle size={15} color={colors.gold} strokeWidth={2} />}
-                      {isGoalOnTrack && <Target size={15} color={colors.ink} strokeWidth={2} />}
-                      {!isShortfall && !isGoalOnTrack && index === 0 && <PocketGlyph kind="fixed" size={15} color={colors.ink} />}
-                      {!isShortfall && !isGoalOnTrack && index === 1 && <TrendingUp size={15} color={colors.ink} strokeWidth={2} />}
-                      {!isShortfall && !isGoalOnTrack && index === 2 && <Check size={15} color={colors.ink} strokeWidth={2} />}
-                    </View>
-                    <Text style={{ ...typography.body, color: colors.ink, flex: 1, lineHeight: 21 }}>{reason.reason}</Text>
-                  </View>
-                );
-              })}
-            </View>
+              <WhyPlanCard reasons={reasons} colors={colors} />
+            </ScrollView>
           </View>
 
-          {/* Slide 2: Pocket Details */}
-          <View style={{ width, paddingHorizontal: spacing.lg, flex: 1, alignItems: 'center' }}>
-            <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl, width: '100%' }}>
+          {/* Slide 2: Pocket Details — own vertical scroll so the split
+               editor and buttons never get clipped on short screens */}
+          <View style={{ width, flex: 1 }}>
+            <ScrollView
+              ref={slideTwoScrollRef}
+              contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.xl, paddingBottom: spacing.xxl, alignItems: 'center' }}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={{ marginBottom: spacing.xl, width: '100%' }}>
               <Text style={{ ...typography.heading, fontSize: 16, color: colors.ink, textAlign: 'center', marginBottom: spacing.xl }}>Your monthly split</Text>
 
               {/* Income strip */}
@@ -497,7 +583,8 @@ export default function ResultScreen() {
                   </Button>
                 </View>
               </View>
-            </View>
+              </View>
+            </ScrollView>
           </View>
         </ScrollView>
 

@@ -94,7 +94,6 @@ export default function SignUpScreen() {
         },
       });
     } catch (error: any) {
-      console.log('sendSignupOtp error:', JSON.stringify(error, null, 2));
       // If user already exists, redirect to signin
       if (error?.message?.includes('already registered') || error?.message?.includes('already exists')) {
         await alert('Account exists', 'An account with this number already exists. Redirecting to sign in...');

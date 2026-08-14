@@ -37,4 +37,11 @@ export class SpendCheckDto {
   @IsString()
   @MaxLength(280)
   override_reason?: string;
+
+  /**
+   * Set to true when the user confirms the overflow/borrow flow (subpocket-feature-spec.md §5).
+   * This triggers an immediate parent-to-child reallocation before the spend proceeds.
+   */
+  @IsOptional()
+  borrow_from_parent?: boolean;
 }

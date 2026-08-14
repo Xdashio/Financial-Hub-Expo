@@ -51,6 +51,24 @@ export class ProfileController {
     return this.profileService.retakePlan(req.user.id, input);
   }
 
+  @Patch('plan/percentages')
+  @ApiOperation({ summary: 'Edit plan pocket percentages (same as onboarding CategorySplitEditor)' })
+  @ApiBody({ description: 'Onboarding answers with updated categoryPercentages' })
+  @ApiResponse({ status: 200, description: 'Plan preview with updated pocket amounts' })
+  @ApiResponse({ status: 400, description: 'Invalid percentages or plan not found' })
+  async editPlanPercentages(@Body() input: unknown, @Request() req: any) {
+    return this.profileService.editPlanPercentages(req.user.id, input);
+  }
+
+  @Post('plan/percentages/commit')
+  @ApiOperation({ summary: 'Commit percentage changes to update pocket allocations' })
+  @ApiBody({ description: 'Onboarding answers with updated categoryPercentages' })
+  @ApiResponse({ status: 200, description: 'Pocket allocations updated' })
+  @ApiResponse({ status: 400, description: 'Invalid percentages or plan not found' })
+  async commitPlanPercentages(@Body() input: unknown, @Request() req: any) {
+    return this.profileService.commitPlanPercentages(req.user.id, input);
+  }
+
   @Get('fixed-expenses')
   @ApiOperation({ summary: "Get the current user's fixed expenses" })
   @ApiResponse({ status: 200, description: 'List of fixed expenses' })

@@ -16,7 +16,7 @@ export class PocketsService {
     private readonly runway: RunwayService,
   ) {}
 
-  async getAllForUser(userId: string): Promise<(Pocket & { available_balance: number })[]> {
+  async getAllForUser(userId: string): Promise<(Pocket & { available_balance: number; has_sub_pockets: boolean })[]> {
     const plan = await this.repository.getActivePlanByUserId(userId);
     if (!plan) {
       return [];
@@ -34,7 +34,12 @@ export class PocketsService {
     const enriched = await Promise.all(
       pockets.map(async (pocket) => {
         const summary = await this.repository.getPocketSummary(pocket.id);
-        return { ...pocket, available_balance: summary.available };
+        const subPockets = await this.repository.getSubPocketsByParentId(pocket.id);
+        return { 
+          ...pocket, 
+          available_balance: summary.available,
+          has_sub_pockets: subPockets.length > 0
+        };
       })
     );
 

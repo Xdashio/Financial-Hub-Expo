@@ -52,6 +52,13 @@ export class SpendService {
       pocket_name: string;
       available_balance: number;
     }>;
+    // Overflow/borrow flow context (subpocket-feature-spec.md §5)
+    borrow_from_parent_available?: boolean;
+    parent_pocket?: {
+      id: string;
+      name: string;
+      available_balance: number;
+    };
     pocket: {
       id: string;
       name: string;
@@ -86,11 +93,53 @@ export class SpendService {
     // minus spend debits and reallocation outflows. monthly_allocation is the
     // planning ceiling only and is never used for balance checks.
     const summary = await this.repository.getPocketSummary(dto.pocket_id);
-    const availableBalance = summary.available;
+    let availableBalance = summary.available;
+
+    // Fence off parent's reserved balance from direct spending (subpocket-feature-spec.md §2)
+    // If this pocket has sub-pockets, only the distributable portion is spendable
+    const subPockets = await this.repository.getSubPocketsByParentId(dto.pocket_id);
+    if (subPockets.length > 0) {
+      const reservedBalance = await this.repository.getParentReservedBalance(dto.pocket_id);
+      // Distributable = total available - reserved
+      availableBalance = Math.max(0, availableBalance - reservedBalance);
+    }
 
     // Check if spend exceeds available balance
     if (dto.amount > availableBalance) {
       const shortfall = round2(dto.amount - availableBalance);
+      
+      // Overflow/borrow flow for sub-pockets (subpocket-feature-spec.md §5):
+      // If this is a sub-pocket, check if parent has enough reserved balance to cover
+      if (pocket.parent_pocket_id) {
+        const parentReservedBalance = await this.repository.getParentReservedBalance(pocket.parent_pocket_id);
+        
+        if (parentReservedBalance >= shortfall) {
+          // Parent has enough reserved balance - offer borrow option
+          const parentPocket = await this.repository.getPocketById(pocket.parent_pocket_id);
+          return {
+            allowed: false,
+            block_reason: 'insufficient_funds',
+            message: `${pocket.name} is short ${shortfall} — pull from ${parentPocket?.name || 'parent pocket'}?`,
+            shortfall,
+            overridable: true,
+            // Special flag to indicate this is an overflow/borrow situation
+            borrow_from_parent_available: true,
+            parent_pocket: parentPocket ? {
+              id: parentPocket.id,
+              name: parentPocket.name,
+              available_balance: parentReservedBalance, // Only reserved portion is borrowable
+            } : undefined,
+            reallocation_sources: await this.getReallocationSources(pocket),
+            pocket: {
+              id: pocket.id,
+              name: pocket.name,
+              available_balance: availableBalance,
+            },
+          };
+        }
+        // Parent doesn't have enough reserved balance - fall through to standard insufficient funds
+      }
+      
       const reallocationSources = await this.getReallocationSources(pocket);
       return {
         allowed: false,
@@ -216,6 +265,7 @@ export class SpendService {
       transaction_id?: string;
       idempotent_replay?: boolean;
       overridden?: boolean;
+      borrowed_from_parent?: boolean;
     }
   > {
     if (dto.idempotency_key) {
@@ -242,8 +292,24 @@ export class SpendService {
     // blocks no matter what the client sends.
     const isOverride = !result.allowed && result.block_reason === 'insufficient_funds' && dto.override === true;
 
-    if (!result.allowed && !isOverride) {
+    // Overflow/borrow flow (subpocket-feature-spec.md §5): handle parent borrow confirmation
+    const isBorrowFromParent = !result.allowed && result.borrow_from_parent_available === true && dto.borrow_from_parent === true;
+
+    if (!result.allowed && !isOverride && !isBorrowFromParent) {
       return result;
+    }
+
+    // If borrowing from parent, execute the immediate parent-to-child reallocation first
+    if (isBorrowFromParent && result.parent_pocket && result.shortfall) {
+      const pocket = await this.repository.getPocketById(dto.pocket_id);
+      if (pocket?.parent_pocket_id) {
+        await this.repository.createImmediateParentToChildReallocation(
+          pocket.parent_pocket_id,
+          pocket.id,
+          result.shortfall,
+          'other' // Use 'other' as the reason type for overflow/borrow
+        );
+      }
     }
 
     const transaction = await this.repository.createTransaction({
@@ -282,6 +348,7 @@ export class SpendService {
       allowed: true,
       block_reason: null,
       ...(isOverride ? { overridden: true } : {}),
+      ...(isBorrowFromParent ? { borrowed_from_parent: true } : {}),
       pocket: {
         ...result.pocket,
         available_balance: postSpendSummary.available,

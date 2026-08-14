@@ -615,8 +615,8 @@ export default function PocketDetailScreen() {
           </Button>
         </View>
 
-        {/* Log spend button — spendable pockets only */}
-        {pocket?.kind === 'spendable' && (
+        {/* Log spend button — spendable pockets only, but not if pocket has sub-pockets */}
+        {pocket?.kind === 'spendable' && subPockets.length === 0 && (
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
             <Button
               fullWidth
@@ -824,8 +824,8 @@ export default function PocketDetailScreen() {
                     accessibilityRole="button"
                     accessibilityLabel="Rebalance sub-pocket splits"
                   >
-                    <Sliders size={13} color={colors.sage} strokeWidth={2} />
-                    <Text style={{ ...typography.caption, color: colors.sage }}>
+                    <Sliders size={13} color={colors.emeraldDeep} strokeWidth={2} />
+                    <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
                       Rebalance
                     </Text>
                   </Pressable>
@@ -851,11 +851,28 @@ export default function PocketDetailScreen() {
                 </Pressable>
               </View>
 
+              {/* Always show this section for top-level pockets, even with no sub-pockets yet */}
               {subPockets.length === 0 ? (
-                <Text style={{ ...typography.caption, color: colors.sage }}>
-                  Split this pocket into sub-pockets to earmark parts of it for something specific — a
-                  repayment plan, a purpose, a goal.
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md }}>
+                  <View style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: radius.xs,
+                    backgroundColor: colors.emeraldTint,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Layers size={18} color={colors.emeraldDeep} strokeWidth={2} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ ...typography.heading, color: colors.ink }}>
+                      Create sub-pockets
+                    </Text>
+                    <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                      Split this pocket into smaller portions for specific goals or purposes
+                    </Text>
+                  </View>
+                </View>
               ) : (
                 <>
                   {/* Split usage bar across all siblings */}
