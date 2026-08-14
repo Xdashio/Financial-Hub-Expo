@@ -8,7 +8,14 @@ import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
 
 async function fetchWithAuth<T>(endpoint: string, body: unknown, method: 'POST' | 'PATCH' = 'POST'): Promise<T> {
-  const { data: { session } } = await supabase.auth.getSession();
+  // Try to get session, but don't fail if it's not available during onboarding
+  let session = null;
+  try {
+    const result = await supabase.auth.getSession();
+    session = result.data.session;
+  } catch (error) {
+    console.log('No session available, proceeding without auth');
+  }
 
   const res = await fetch(`${API_BASE_URL}${endpoint}`, {
     method,

@@ -193,7 +193,7 @@ export default function FixedScreen() {
         </View>
 
         {fixedExpenses.length > 0 && (
-          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.lg }}>
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.xl }}>
             {fixedExpenses.map((expense, index) => {
               const IconComponent = getIconComponent(expense.name, expense.category);
               return (
@@ -229,7 +229,7 @@ export default function FixedScreen() {
         )}
 
         <SectionTitle>Quick add</SectionTitle>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
           {SUGGESTIONS.map((suggestion) => (
             <TouchableOpacity
               key={suggestion.name}
@@ -242,6 +242,15 @@ export default function FixedScreen() {
               <Text style={{ ...typography.caption, color: colors.ink }}>{suggestion.name}</Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }}
+            onPress={handleAddCustom}
+            accessibilityLabel="Add custom expense"
+            accessibilityRole="button"
+          >
+            <Plus size={12} color={colors.ink} strokeWidth={2.2} />
+            <Text style={{ ...typography.caption, color: colors.ink }}>Custom</Text>
+          </TouchableOpacity>
         </View>
         <Text style={{ ...typography.caption, fontSize: 11.5, color: colors.sage, lineHeight: 18, marginBottom: spacing.xl }}>
           Tap a suggestion to add it — these are suggestions, not auto-detection (manual entry only in this build).
@@ -252,15 +261,17 @@ export default function FixedScreen() {
           <Text style={{ ...typography.title, color: colors.emeraldDeep }}>KSh {totalFixed.toLocaleString()}</Text>
         </View>
 
-        <Button
-          fullWidth
-          size="lg"
-          loading={isLoading}
-          onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
-        >
-          Continue
-        </Button>
+        <View style={{ marginTop: spacing.xl }}>
+          <Button
+            fullWidth
+            size="lg"
+            loading={isLoading}
+            onPress={handleContinue}
+            rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
+          >
+            Continue
+          </Button>
+        </View>
 
         {/* Add/Edit Modal */}
         <Modal

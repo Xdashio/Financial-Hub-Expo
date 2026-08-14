@@ -149,7 +149,7 @@ export default function AboutYouScreen() {
         </View>
 
         <SectionTitle>When you get unexpected money</SectionTitle>
-        <View style={{ marginTop: spacing.md, marginBottom: spacing.xxl, gap: spacing.md }}>
+        <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.md }}>
           {PERSONALITY_OPTIONS.map((option) => (
             <ChoiceRow
               key={option.id}
@@ -162,15 +162,17 @@ export default function AboutYouScreen() {
           ))}
         </View>
 
-        <Button
-          fullWidth
-          size="lg"
-          loading={isLoading}
-          onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
-        >
-          Continue
-        </Button>
+        <View style={{ marginTop: spacing.xl }}>
+          <Button
+            fullWidth
+            size="lg"
+            loading={isLoading}
+            onPress={handleContinue}
+            rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
+          >
+            Continue
+          </Button>
+        </View>
       </SafeScrollView>
     </ScreenContainer>
   );
