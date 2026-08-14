@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import type { SupabaseRepository } from '../../database/supabase.repository';
+import { SupabaseRepository } from '../../database/supabase.repository';
 import type { Transaction, Pocket } from '../../database/database.types';
 
 const MINIMUM_HISTORY_DAYS = 7;
