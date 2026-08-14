@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseClient } from '../config/supabase.config';
 import {
   User, UserInsert, UserUpdate,
@@ -572,6 +573,35 @@ export class SupabaseRepository {
     };
   }
 
+  /**
+   * Calculate a parent pocket's reserved balance (subpocket-feature-spec.md §2).
+   * Reserved = parent.available - sum(sub_pockets.available).
+   * This is the portion of the parent's balance that is not distributed to
+   * sub-pockets and should only be accessible via the overflow/borrow flow.
+   */
+  async getParentReservedBalance(parentPocketId: string): Promise<number> {
+    const parentSummary = await this.getPocketSummary(parentPocketId);
+    const subPockets = await this.getSubPocketsByParentId(parentPocketId);
+    
+    if (subPockets.length === 0) {
+      // No sub-pockets: entire balance is available (not reserved)
+      return 0;
+    }
+
+    // Sum all sub-pocket available balances (distributable portion)
+    const subPocketSummaries = await Promise.all(
+      subPockets.map(sp => this.getPocketSummary(sp.id))
+    );
+    const distributable = subPocketSummaries.reduce(
+      (sum, summary) => sum + summary.available,
+      0
+    );
+
+    // Reserved = parent total - distributable to children
+    const reserved = Math.max(0, parentSummary.available - distributable);
+    return reserved;
+  }
+
   // Reallocations
   async createReallocation(reallocation: ReallocationInsert): Promise<Reallocation | null> {
     const { data, error } = await this.supabase
@@ -581,6 +611,38 @@ export class SupabaseRepository {
       .single();
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * Create an immediate parent-to-child reallocation for the overflow/borrow flow.
+   * This skips the cooling-off period since it's money moving within the same
+   * parent-child family (subpocket-feature-spec.md §5).
+   */
+  async createImmediateParentToChildReallocation(
+    fromPocketId: string,
+    toPocketId: string,
+    amount: number,
+    reason: 'other' | 'emergency' | 'unexpected_expense' | 'income_change' | 'priority_shift'
+  ): Promise<Reallocation | null> {
+    const reallocation = await this.createReallocation({
+      id: uuidv4(),
+      from_pocket_id: fromPocketId,
+      to_pocket_id: toPocketId,
+      amount,
+      reason,
+      status: 'completed', // Skip cooling-off, complete immediately
+      cooling_off_ends_at: null,
+      discipline_cost: 0,
+      completed_at: new Date().toISOString(),
+    });
+
+    // Write ledger entries immediately
+    await this.createTransactions([
+      { pocket_id: fromPocketId, amount: -amount, type: 'reallocation_out' },
+      { pocket_id: toPocketId, amount, type: 'reallocation_in' },
+    ]);
+
+    return reallocation;
   }
 
   async getReallocationById(id: string): Promise<Reallocation | null> {

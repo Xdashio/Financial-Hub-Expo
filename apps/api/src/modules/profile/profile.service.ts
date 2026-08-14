@@ -92,6 +92,105 @@ export class ProfileService {
     return this.onboardingService.getRetakeEligibility(userId);
   }
 
+  async editPlanPercentages(userId: string, input: unknown): Promise<any> {
+    const result = OnboardingInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
+    }
+    
+    // Get current plan to validate it exists
+    const currentPlan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    if (!currentPlan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    // Use the onboarding service's previewPlan to recalculate percentages
+    // This reuses the same logic as onboarding CategorySplitEditor
+    return this.onboardingService.previewPlan(result.data as OnboardingInput);
+  }
+
+  async commitPlanPercentages(userId: string, input: unknown): Promise<any> {
+    const result = OnboardingInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
+    }
+    
+    // Get current plan to validate it exists
+    const currentPlan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    if (!currentPlan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    const newPercentages = result.data.categoryPercentages;
+    if (!newPercentages) {
+      throw new BadRequestException('categoryPercentages are required');
+    }
+
+    // Validate percentages sum to 100
+    const total = Object.values(newPercentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
+    if (Math.abs(total - 100) > 0.5) {
+      throw new BadRequestException('Percentages must sum to 100%');
+    }
+
+    // Get current spendable pockets using the plan
+    const allPockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(currentPlan.id);
+    const spendablePockets = allPockets.filter((p: Pocket) => p.kind === 'spendable');
+    
+    if (spendablePockets.length === 0) {
+      throw new BadRequestException('No spendable pockets found to update');
+    }
+
+    // Calculate total current spendable allocation
+    const totalSpendable = spendablePockets.reduce((sum: number, p: Pocket) => sum + (p.monthly_allocation || 0), 0);
+
+    // Update each pocket's monthly_allocation based on new percentages
+    // Group pockets by category first
+    const pocketsByCategory: Record<string, Pocket[]> = {};
+    spendablePockets.forEach((pocket: Pocket) => {
+      const category = pocket.category || 'other';
+      if (!pocketsByCategory[category]) {
+        pocketsByCategory[category] = [];
+      }
+      pocketsByCategory[category].push(pocket);
+    });
+
+    // Update allocations for each category
+    for (const [category, pockets] of Object.entries(pocketsByCategory)) {
+      const categoryPercentage = (newPercentages as Record<string, number>)[category] || 0;
+      const categoryTotal = this.round2((categoryPercentage / 100) * totalSpendable);
+      
+      // Distribute the category total among pockets in that category
+      // If multiple pockets in same category, split proportionally
+      const currentCategoryTotal = pockets.reduce((sum: number, p: Pocket) => sum + (p.monthly_allocation || 0), 0);
+      
+      for (const pocket of pockets) {
+        if (currentCategoryTotal > 0) {
+          const pocketRatio = (pocket.monthly_allocation || 0) / currentCategoryTotal;
+          const newAllocation = this.round2(pocketRatio * categoryTotal);
+          await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: newAllocation });
+        } else {
+          // If category had no allocation, give first pocket the full amount
+          if (pocket === pockets[0]) {
+            await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: categoryTotal });
+          } else {
+            await this.supabaseRepo.updatePocket(pocket.id, { monthly_allocation: 0 });
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Plan percentages updated successfully',
+      categoryPercentages: newPercentages,
+      updatedPockets: spendablePockets.length,
+    };
+  }
+
+  private round2(n: number): number {
+    return Math.round(n * 100) / 100;
+  }
+
   private async getOwnedFixedExpense(id: string, userId: string): Promise<FixedExpense> {
     const expense = await this.supabaseRepo.getFixedExpenseById(id);
     if (!expense) {

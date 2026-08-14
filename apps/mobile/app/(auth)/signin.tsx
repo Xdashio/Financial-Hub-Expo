@@ -79,7 +79,6 @@ export default function SignInScreen() {
         params: { phone: fullPhone, mode: 'signin' },
       });
     } catch (error: any) {
-      console.log('sendOtp error:', JSON.stringify(error, null, 2));
       // If user doesn't exist, redirect to signup
       if (error?.message?.includes('No account found') || error?.message?.includes('signups not allowed')) {
         await alert('Account not found', 'No account found for this number. Redirecting to sign up...');

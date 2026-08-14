@@ -36,7 +36,10 @@ export default function LogSpendScreen() {
   const pockets = useHomeStore((s) => s.pockets);
 
   const spendablePockets = useMemo(
-    () => pockets.filter((p) => p.kind === 'spendable' || p.kind === 'fixed' || p.kind === 'savings'),
+    () => pockets.filter((p) => 
+      (p.kind === 'spendable' || p.kind === 'fixed' || p.kind === 'savings') && 
+      !p.hasSubPockets // Filter out parent pockets with sub-pockets
+    ),
     [pockets],
   );
 
@@ -72,23 +75,71 @@ export default function LogSpendScreen() {
     const idempotencyKey = createIdempotencyKey('spend');
     try {
       setIsSubmitting(true);
-      const payload = {
+      
+      // First check if the spend is allowed
+      const checkResult = await spendApi.check({
         pocket_id: pocketId,
         amount: numericAmount,
         recipient_key: merchant || undefined,
         category: category || undefined,
-        idempotency_key: idempotencyKey,
-      };
-      const result = await spendApi.commit(payload);
+      });
 
-      if (result.allowed) {
-        useDataSync.getState().bump();
-        await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
-        safeGoBack(router, '/(tabs)');
-        return;
+      if (checkResult.allowed) {
+        // Spend is allowed, proceed to commit
+        const payload = {
+          pocket_id: pocketId,
+          amount: numericAmount,
+          recipient_key: merchant || undefined,
+          category: category || undefined,
+          idempotency_key: idempotencyKey,
+        };
+        const result = await spendApi.commit(payload);
+
+        if (result.allowed) {
+          useDataSync.getState().bump();
+          await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
+          safeGoBack(router, '/(tabs)');
+          return;
+        }
       }
 
-      if (result.block_reason === 'unclassified_merchant') {
+      // Handle insufficient_funds with borrow_from_parent option
+      if (checkResult.block_reason === 'insufficient_funds' && checkResult.borrow_from_parent_available) {
+        // Show borrow confirmation dialog
+        const confirmed = await modal(
+          'Borrow from parent?',
+          `${checkResult.message || `This pocket is short ${formatMoney(checkResult.shortfall || 0)}`}`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Borrow', style: 'default' },
+          ]
+        );
+        
+        if (confirmed) {
+          // User confirmed borrow, commit with borrow_from_parent: true
+          const payload = {
+            pocket_id: pocketId,
+            amount: numericAmount,
+            recipient_key: merchant || undefined,
+            category: category || undefined,
+            idempotency_key: idempotencyKey,
+            borrow_from_parent: true,
+          };
+          const result = await spendApi.commit(payload);
+
+          if (result.allowed) {
+            useDataSync.getState().bump();
+            await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
+            safeGoBack(router, '/(tabs)');
+            return;
+          }
+        } else {
+          // User cancelled borrow
+          return;
+        }
+      }
+
+      if (checkResult.block_reason === 'unclassified_merchant') {
         router.push({
           pathname: '/(classification)/classify',
           params: {
@@ -100,15 +151,15 @@ export default function LogSpendScreen() {
         return;
       }
 
-      if (result.block_reason === 'blocked_category') {
+      if (checkResult.block_reason === 'blocked_category') {
         router.push({
           pathname: '/(blocked)/blocked-spend',
           params: {
             pocketId,
-            blockedCategory: result.blocked_category,
+            blockedCategory: checkResult.blocked_category,
             amount: String(numericAmount),
             merchant: merchant || 'Unknown payee',
-            reviewAvailable: String(result.review_available ?? true),
+            reviewAvailable: String(checkResult.review_available ?? true),
           },
         });
         return;
@@ -116,7 +167,7 @@ export default function LogSpendScreen() {
 
       // insufficient_funds or any other reason — no natural screen to route
       // to, so surface it inline instead of dead-ending the flow.
-      alert("Can't log this spend", result.message || 'This payment was not allowed.');
+      alert("Can't log this spend", checkResult.message || 'This payment was not allowed.');
     } catch (error: any) {
       const message = error?.message || 'Please try again.';
       const looksNetwork =

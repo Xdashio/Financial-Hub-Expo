@@ -116,10 +116,13 @@ export default function FixedExpenseFormScreen() {
       setAmountError(null);
     }
     
-    if (!formData.dueDay || parseInt(formData.dueDay) < 1 || parseInt(formData.dueDay) > 31) {
+    const dueDay = parseInt(formData.dueDay);
+    if (!formData.dueDay || dueDay < 1 || dueDay > 31) {
       setDueDayError('Due day must be between 1 and 31');
       isValid = false;
     } else {
+      // For recurring monthly expenses, all days 1-31 are valid
+      // Days 29-31 will fall on the last day in months with fewer days
       setDueDayError(null);
     }
     
@@ -319,6 +322,9 @@ export default function FixedExpenseFormScreen() {
               maxLength={2}
             />
             {dueDayError && <Text style={{ ...typography.caption, color: colors.clay, marginTop: spacing.xs }}>{dueDayError}</Text>}
+            <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
+              Days 29-31 fall on last day in shorter months
+            </Text>
           </View>
 
           <View style={{ marginBottom: spacing.lg }}>

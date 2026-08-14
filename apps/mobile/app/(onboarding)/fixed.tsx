@@ -320,7 +320,25 @@ export default function FixedScreen() {
                 <Input
                   label="Due day"
                   value={formData.dueDay}
-                  onChangeText={(text) => setFormData(prev => ({ ...prev, dueDay: text }))}
+                  onChangeText={(text) => {
+                    // Keep only digits
+                    const digits = text.replace(/\D/g, '');
+
+                    // Allow empty while typing
+                    if (digits === '') {
+                      setFormData(prev => ({ ...prev, dueDay: '' }));
+                      return;
+                    }
+
+                    // Limit to 2 digits
+                    const limited = digits.slice(0, 2);
+
+                    // Prevent values greater than 31
+                    const num = Number(limited);
+                    if (num > 31) return;
+
+                    setFormData(prev => ({ ...prev, dueDay: limited }));
+                  }}
                   placeholder="1"
                   keyboardType="numeric"
                   accessible={true}

@@ -14,6 +14,8 @@ export interface Pocket {
   dailyCap?: number;
   isTimeLocked?: boolean;
   lockUntil?: string;
+  parentPocketId?: string | null;
+  hasSubPockets?: boolean;
 }
 
 export interface DailyPocket {
@@ -103,6 +105,8 @@ function mapPocket(raw: any): Pocket {
     dailyCap: raw.daily_cap ?? undefined,
     isTimeLocked: raw.is_time_locked,
     lockUntil: raw.lock_until ?? undefined,
+    parentPocketId: raw.parent_pocket_id ?? null,
+    hasSubPockets: raw.has_sub_pockets ?? false,
   };
 }
 
