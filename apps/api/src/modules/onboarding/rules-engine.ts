@@ -286,20 +286,19 @@ function buildPlanName(
   return `${patternLabel} — ${styleLabel}` as PlanName;
 }
 
-/** Savings rate of remaining-after-fixed, personalized by emergency buffer (§2.2 / §4.2). */
-export function savingsRateForBuffer(buffer?: EmergencyBuffer): number {
-  switch (buffer) {
-    case 'none':
-      return 0.12;
-    case 'under_month':
-      return 0.1;
-    case '1_to_3_months':
-      return 0.08;
-    case '3_plus_months':
-      return 0.05;
-    default:
-      return MIN_SAVINGS_RATE;
-  }
+/**
+ * Savings rate — previously personalized by the emergency-buffer answer
+ * (0.05 / 0.08 / 0.10 / 0.12 depending on how much of a cushion the user
+ * already had), which meant the UI's "Savings (10% min)" label was often
+ * wrong: someone who answered "no buffer" actually got 12%, not 10%. Product
+ * decision: enforce a flat 10% floor for everyone rather than a 5–12% range
+ * that silently didn't match the label. Kept as a function (not an inlined
+ * constant) so call sites and tests don't need to change, and so a future
+ * product decision to reintroduce personalization only touches this one
+ * place.
+ */
+export function savingsRateForBuffer(_buffer?: EmergencyBuffer): number {
+  return MIN_SAVINGS_RATE;
 }
 
 function calculateSavingsTarget(
@@ -314,17 +313,22 @@ function calculateSavingsTarget(
 } {
   const remainingAfterFixed = incomeAmount - fixedTotal;
   const bufferRate = savingsRateForBuffer(buffer);
+  // The 10% minimum is measured against gross income (not remainingAfterFixed)
+  // — e.g. 10% of a KSh 65,000 income is a flat KSh 6,500 floor regardless of
+  // fixed expenses. Kept as an absolute amount (not a rate) specifically so
+  // it can be applied as a floor via Math.max() below without mixing rate
+  // bases with the goal-derived path, which legitimately operates as a share
+  // of remainingAfterFixed.
+  const minSavingsAmount = incomeAmount * bufferRate;
 
   // No goal, or a goal without a stated amount (user skipped "roughly how
-  // much") — fall back to the buffer-based rate (§4.2 point 3: "fall back
-  // to the 5% floor plus whatever the existing needs-ratio-based
-  // calculation already produces"), still never below the absolute floor.
-  // A goal timeframe with no amount still personalizes the lock length,
-  // since that part of the question was answered.
+  // much") — fall back to the flat minimum (§4.2 point 3, updated: no more
+  // buffer-based range, just the 10% floor of gross income). A goal
+  // timeframe with no amount still personalizes the lock length, since that
+  // part of the question was answered.
   if (!goal || !goal.goalAmount) {
-    const rate = Math.max(bufferRate, ABSOLUTE_SAVINGS_FLOOR_RATE);
     return {
-      savingsTarget: Math.max(remainingAfterFixed * rate, 0),
+      savingsTarget: Math.max(minSavingsAmount, 0),
       savingsLockDays: goal ? SavingsGoalLockDays[goal.goalTimeframe] : DEFAULT_SAVINGS_LOCK_DAYS,
     };
   }
@@ -335,12 +339,20 @@ function calculateSavingsTarget(
   // runs, so this division is always against a positive number here.
   const monthsToTarget = SavingsGoalTimeframeMonths[goal.goalTimeframe];
   const monthlyRequired = goal.goalAmount / monthsToTarget;
-  const derivedRate = monthlyRequired / remainingAfterFixed;
-  const flooredRate = Math.max(derivedRate, bufferRate, ABSOLUTE_SAVINGS_FLOOR_RATE);
+  // Goal-derived amount, floored (in absolute terms, not as a rate) at the
+  // flat 10%-of-gross minimum and at the absolute floor rate applied to
+  // remainingAfterFixed — a stated goal should never pull savings below what
+  // the plan would enforce anyway.
+  const flooredAmount = Math.max(
+    monthlyRequired,
+    minSavingsAmount,
+    remainingAfterFixed * ABSOLUTE_SAVINGS_FLOOR_RATE,
+  );
+  const derivedRate = flooredAmount / remainingAfterFixed;
 
-  if (flooredRate <= SAVINGS_GOAL_CAP_SHARE) {
+  if (derivedRate <= SAVINGS_GOAL_CAP_SHARE) {
     return {
-      savingsTarget: Math.max(remainingAfterFixed * flooredRate, 0),
+      savingsTarget: Math.max(flooredAmount, 0),
       savingsLockDays,
     };
   }

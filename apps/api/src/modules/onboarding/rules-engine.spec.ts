@@ -459,21 +459,21 @@ describe('Rules Engine — Plan Assignment', () => {
       expect(result.remainingAfterFixed).toBe(70000);
     });
 
-    it('calculates savings target as 10% of remaining', () => {
+    it('calculates savings target as 10% of gross income', () => {
       const result = assignPlan(createInput({ incomeAmount: 100000, fixedTotal: 30000 }));
-      expect(result.savingsTarget).toBe(7000);
+      expect(result.savingsTarget).toBe(10000); // 10% of the 100,000 gross income, not remainingAfterFixed
     });
 
-    it('raises savings rate when emergency buffer is none', () => {
+    it('emergency buffer answer no longer affects the savings rate (flat 10% for everyone)', () => {
       const result = assignPlan(
         createInput({ incomeAmount: 100000, fixedTotal: 30000, emergencyBuffer: 'none' }),
       );
-      expect(result.savingsTarget).toBe(8400);
+      expect(result.savingsTarget).toBe(10000);
     });
 
     it('calculates spendable as remaining minus savings', () => {
       const result = assignPlan(createInput({ incomeAmount: 100000, fixedTotal: 30000 }));
-      expect(result.spendableAmount).toBe(63000);
+      expect(result.spendableAmount).toBe(60000);
     });
 
     it('handles zero fixed expenses', () => {
@@ -485,9 +485,9 @@ describe('Rules Engine — Plan Assignment', () => {
   });
 
   describe('goal-driven savings (Part 4)', () => {
-    it('uses the buffer-based rate (unchanged) when no goal is captured', () => {
+    it('uses the flat 10%-of-gross-income floor when no goal is captured', () => {
       const result = assignPlan(createInput({ incomeAmount: 100000, fixedTotal: 30000 }));
-      expect(result.savingsTarget).toBe(7000);
+      expect(result.savingsTarget).toBe(10000);
       expect(result.savingsLockDays).toBe(30);
       expect(result.reasons.some((r) => r.rule.startsWith('savings_goal'))).toBe(false);
     });
@@ -529,7 +529,7 @@ describe('Rules Engine — Plan Assignment', () => {
       expect(result.reasons.some((r) => r.rule === 'savings_goal_on_track')).toBe(false);
     });
 
-    it('falls back to the buffer-based rate but still applies the goal-derived lock length when goalAmount is omitted', () => {
+    it('falls back to the 10%-of-gross floor but still applies the goal-derived lock length when goalAmount is omitted', () => {
       const result = assignPlan(
         createInput({
           incomeAmount: 100000,
@@ -537,23 +537,27 @@ describe('Rules Engine — Plan Assignment', () => {
           savingsGoal: { goalType: 'other', goalTimeframe: '3_months' },
         }),
       );
-      expect(result.savingsTarget).toBe(7000); // unchanged buffer-based rate
+      expect(result.savingsTarget).toBe(10000); // flat 10% of gross, buffer/goal-amount not a factor here
       expect(result.savingsLockDays).toBe(30);
       expect(result.reasons.some((r) => r.rule.startsWith('savings_goal'))).toBe(false);
     });
 
-    it('never drops the rate below the absolute 5% floor, even for a tiny, distant goal', () => {
-      // 7,000 target over 24 months = ~291.67/mo ÷ 70,000 remaining ≈
-      // 0.42% — far below both the buffer rate and the absolute floor.
+    it('never drops the target below the 10%-of-gross-income floor, even for a tiny, distant goal', () => {
+      // 7,000 target over 24 months = ~291.67/mo — far below what the goal
+      // alone would require, so the flat 10%-of-gross floor (10,000) binds
+      // instead. Note: since remainingAfterFixed <= incomeAmount, the 10%-
+      // of-gross floor now always dominates the 5%-of-remaining absolute
+      // floor (ABSOLUTE_SAVINGS_FLOOR_RATE), which is kept only as a
+      // defensive backstop.
       const result = assignPlan(
         createInput({
           incomeAmount: 100000,
           fixedTotal: 30000,
-          emergencyBuffer: '3_plus_months', // bufferRate 0.05, same as the floor
+          emergencyBuffer: '3_plus_months',
           savingsGoal: { goalType: 'other', goalAmount: 7000, goalTimeframe: '2_plus_years' },
         }),
       );
-      expect(result.savingsTarget).toBe(3500); // 70,000 * 0.05 floor
+      expect(result.savingsTarget).toBe(10000);
       expect(result.savingsLockDays).toBe(90);
     });
 
