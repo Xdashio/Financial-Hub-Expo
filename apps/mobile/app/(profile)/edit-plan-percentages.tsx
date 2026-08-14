@@ -71,7 +71,7 @@ export default function EditPlanPercentagesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
+  const [previewData, setPreviewData] = useState<{ categoryPercentages: Record<string, number>; pockets: Array<{ id: string; name: string; category: string | null; currentAllocation: number; projectedAllocation: number }> } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -323,7 +323,7 @@ export default function EditPlanPercentagesScreen() {
             <Text style={{ ...typography.heading, color: colors.emeraldDeep, marginBottom: spacing.md }}>
               Preview of changes
             </Text>
-            {previewData.pockets.map((pocket: any) => (
+            {previewData.pockets.map((pocket) => (
               <View key={pocket.id} style={{ 
                 flexDirection: 'row', 
                 justifyContent: 'space-between', 

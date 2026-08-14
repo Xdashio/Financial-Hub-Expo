@@ -23,7 +23,6 @@ import {
 } from 'lucide-react-native';
 import { useAuthStore } from '@/services/auth';
 import { profileApi, notificationsApi, pocketsApi, type NotificationPreferences } from '@/services/api';
-import { ConfirmModal } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 
 interface SettingsItem {
@@ -41,12 +40,11 @@ interface SettingsGroup {
 
 export default function ProfileScreen() {
   const { colors, mode, setMode } = useTheme();
-  const { alert, modal } = useAlertModal();
+  const { alert, confirm, modal } = useAlertModal();
   const router = useRouter();
   const user = useAuthStore(s => s.user);
   const signOut = useAuthStore(s => s.signOut);
   const [showThemePicker, setShowThemePicker] = React.useState(false);
-  const [showSignOutConfirm, setShowSignOutConfirm] = React.useState(false);
   const [isSigningOut, setIsSigningOut] = React.useState(false);
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -242,39 +240,22 @@ export default function ProfileScreen() {
   // no-op on react-native-web — tapping "Sign out" in a browser showed no
   // dialog at all and, since the actual signOut() call only ever ran from
   // inside the (never-fired) button callback, silently did nothing. Now
-  // handled by a real Modal-based ConfirmModal below, which works on every
-  // platform.
-  const handleSignOutPress = () => {
-    setShowSignOutConfirm(true);
-  };
+  // handled by useAlertModal which works on every platform.
+  const handleSignOutPress = async () => {
+    const confirmed = await confirm(
+      'Sign out?',
+      'You\'ll need to sign in again to access your money plan.',
+      { destructive: true }
+    );
+    if (!confirmed) return;
 
-  const handleConfirmSignOut = async () => {
     setIsSigningOut(true);
     try {
-      // signOut() now awaits Supabase's own sign-out before resolving (see
-      // auth.ts) so we know the persisted session is actually gone before
-      // navigating away — previously this was fire-and-forget, so a slow or
-      // failed network call could leave a valid session token in storage
-      // and silently sign the user back in on next app launch.
       await signOut();
-      setShowSignOutConfirm(false);
       router.replace('/(auth)/signin');
     } catch {
-      // signOut() is designed to always clear local state even if the
-      // remote Supabase call fails (see auth.ts), so the user is signed out
-      // locally either way — just let them know the device may still show
-      // as an active session in Supabase until it syncs.
-      //
-      // Unlike the old showAlert() (window.alert/native Alert, both
-      // OS-level and independent of the React tree), this alert's dialog
-      // lives inside ProfileScreen's own component tree. Navigating away
-      // first would unmount the screen before the dialog ever renders, so
-      // it must be awaited before router.replace runs.
-      setShowSignOutConfirm(false);
-      await alert('Signed out', 'You were signed out on this device. Some cleanup may finish once you\u2019re back online.');
-      router.replace('/(auth)/signin');
-    } finally {
       setIsSigningOut(false);
+      await alert('Signed out', 'You were signed out on this device. Some cleanup may finish once you\u2019re back online.');
     }
   };
 
@@ -407,17 +388,6 @@ export default function ProfileScreen() {
         </SafeAreaView>
       </Modal>
 
-      <ConfirmModal
-        visible={showSignOutConfirm}
-        title="Sign out?"
-        message="You’ll need to sign in again to access your money plan."
-        confirmLabel="Sign out"
-        cancelLabel="Cancel"
-        destructive
-        loading={isSigningOut}
-        onConfirm={handleConfirmSignOut}
-        onCancel={() => setShowSignOutConfirm(false)}
-      />
       {modal}
     </SafeAreaView>
   );

@@ -11,7 +11,8 @@ import { radius, spacing, typography, shadow, borderWidth } from '../../src/them
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button, ConfirmModal } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { SubPocketRebalanceSheet } from '@/components/pockets/SubPocketRebalanceSheet';
 import {
@@ -234,6 +235,7 @@ export default function PocketDetailScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { alert, confirm, modal } = useAlertModal();
 
   const [summary, setSummary] = useState<PocketSummary | null>(null);
   const [scope, setScope] = useState<MerchantScope | null>(null);
@@ -247,7 +249,6 @@ export default function PocketDetailScreen() {
   const [loadMoreError, setLoadMoreError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [scopeFailed, setScopeFailed] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<SubPocket | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [rebalanceSheetVisible, setRebalanceSheetVisible] = useState(false);
@@ -346,16 +347,22 @@ export default function PocketDetailScreen() {
     safeGoBack(router, '/(tabs)');
   };
 
-  const confirmDeleteSubPocket = async () => {
-    if (!deleteTarget) return;
+  const confirmDeleteSubPocket = async (subPocket: SubPocket) => {
+    const confirmed = await confirm(
+      `Delete "${subPocket.name}"?`,
+      'This removes the sub-pocket. Its balance must be zero first — if it still holds money, move it out via reallocation before deleting.',
+      { destructive: true }
+    );
+    if (!confirmed) return;
+
     setDeleting(true);
     setDeleteError(null);
     try {
-      await pocketsApi.deleteSubPocket(deleteTarget.id);
-      setDeleteTarget(null);
+      await pocketsApi.deleteSubPocket(subPocket.id);
       await loadAll();
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : 'Could not delete this sub-pocket.');
+      await alert('Error', deleteError || 'Could not delete this sub-pocket.');
     } finally {
       setDeleting(false);
     }
@@ -955,7 +962,7 @@ export default function PocketDetailScreen() {
                           <Pressable
                             onPress={() => {
                               setDeleteError(null);
-                              setDeleteTarget(sp);
+                              confirmDeleteSubPocket(sp);
                             }}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             style={{ padding: spacing.xs }}
@@ -1068,25 +1075,6 @@ export default function PocketDetailScreen() {
         </View>
       </ScrollView>
 
-      <ConfirmModal
-        visible={!!deleteTarget}
-        title={`Delete "${deleteTarget?.name ?? ''}"?`}
-        message={
-          deleteError ??
-          'This removes the sub-pocket. Its balance must be zero first — if it still holds money, move it out via reallocation before deleting.'
-        }
-        confirmLabel="Delete"
-        destructive
-        loading={deleting}
-        onConfirm={confirmDeleteSubPocket}
-        onCancel={() => {
-          if (!deleting) {
-            setDeleteTarget(null);
-            setDeleteError(null);
-          }
-        }}
-      />
-
       {/* Rebalance bottom sheet — shown when user taps "Rebalance" in the
           sub-pockets section. Uses the first sibling as the anchor pocket id
           (the API resolves the shared parent from any family member). */}
@@ -1100,6 +1088,7 @@ export default function PocketDetailScreen() {
           onSuccess={loadAll}
         />
       )}
+      {modal}
     </ScreenContainer>
   );
 }

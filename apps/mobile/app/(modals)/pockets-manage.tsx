@@ -5,20 +5,27 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { ScreenContainer, Button, ConfirmModal, LoadingState, PocketGlyph } from '@/components/ui';
+import { ScreenContainer, Button, LoadingState, PocketGlyph } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketGlyphKind } from '@/utils/pocketGlyph';
 import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft, Plus, Trash2, Edit3 } from 'lucide-react-native';
 
+interface Pocket {
+  id: string;
+  name: string;
+  kind: string;
+  category: string | null;
+}
+
 export default function PocketsManageModal() {
   const router = useRouter();
   const { colors } = useTheme();
   const dataSync = useDataSync();
-  const { alert, modal } = useAlertModal();
-  const [pockets, setPockets] = useState<any[]>([]);
+  const { alert, confirm, modal } = useAlertModal();
+  const [pockets, setPockets] = useState<Pocket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Pocket | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const loadPockets = React.useCallback(async () => {
@@ -41,6 +48,15 @@ export default function PocketsManageModal() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    
+    const confirmed = await confirm(
+      `Delete "${deleteTarget.name}"?`,
+      'This action cannot be undone. The pocket and any money in it will be permanently removed.',
+      { destructive: true }
+    );
+    
+    if (!confirmed) return;
+    
     setDeleting(true);
     try {
       await pocketsApi.delete(deleteTarget.id);
@@ -48,14 +64,14 @@ export default function PocketsManageModal() {
       await loadPockets();
       dataSync.bump();
     } catch (error: any) {
-      // Close the delete-confirm modal before showing the error, so the
-      // two ConfirmModal instances (this screen's delete confirm, and the
-      // shared alert modal) never render stacked on top of each other.
-      setDeleteTarget(null);
       await alert('Error', error.message || 'Could not delete pocket');
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleDeleteConfirm = (pocket: any) => {
+    setDeleteTarget(pocket);
   };
 
   const handleCreate = () => {
@@ -136,7 +152,7 @@ export default function PocketsManageModal() {
                   </Pressable>
                   {pocket.kind !== 'savings' && (
                     <Pressable
-                      onPress={() => setDeleteTarget(pocket)}
+                      onPress={() => handleDeleteConfirm(pocket)}
                       hitSlop={8}
                       style={{ padding: spacing.sm }}
                       accessibilityLabel={`Delete ${pocket.name}`}
@@ -163,17 +179,6 @@ export default function PocketsManageModal() {
           )}
         </ScrollView>
       </View>
-
-      <ConfirmModal
-        visible={!!deleteTarget}
-        title={`Delete "${deleteTarget?.name ?? ''}"?`}
-        message="This pocket will be deleted. Any remaining balance must be reallocated before deletion."
-        confirmLabel="Delete"
-        destructive
-        loading={deleting}
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
       {modal}
     </ScreenContainer>
   );

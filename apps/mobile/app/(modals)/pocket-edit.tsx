@@ -11,13 +11,21 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft } from 'lucide-react-native';
 
+interface Pocket {
+  id: string;
+  name: string;
+  kind: string;
+  category: string | null;
+  daily_cap: number | null;
+}
+
 export default function PocketEditModal() {
   const router = useRouter();
   const { colors } = useTheme();
   const dataSync = useDataSync();
   const { alert, modal } = useAlertModal();
   const { id } = useLocalSearchParams();
-  const [pocket, setPocket] = useState<any>(null);
+  const [pocket, setPocket] = useState<Pocket | null>(null);
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [dailyCap, setDailyCap] = useState('');

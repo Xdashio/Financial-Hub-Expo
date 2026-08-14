@@ -208,7 +208,7 @@ export default function BlockedSpendScreen() {
                   borderColor: colors.error,
                   marginBottom: spacing.md 
                 }}>
-                  <Text style={{ ...typography.caption, color: colors.errorDeep, marginBottom: spacing.sm }}>
+                  <Text style={{ ...typography.caption, color: colors.clay, marginBottom: spacing.sm }}>
                     Blocked Categories ({blockedReasons.blocked_categories.length}):
                   </Text>
                   {blockedReasons.blocked_categories.map((blocked: any) => (
@@ -222,7 +222,7 @@ export default function BlockedSpendScreen() {
                       }}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-                        <Lock size={14} color={blocked.can_override ? colors.gold : colors.errorDeep} strokeWidth={2} />
+                        <Lock size={14} color={blocked.can_override ? colors.gold : colors.clay} strokeWidth={2} />
                         <Text style={{ ...typography.body, color: colors.ink, marginLeft: spacing.xs }}>
                           {getMerchantCategoryLabel(blocked.category)}
                         </Text>
