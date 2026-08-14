@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView, Dimensions, Pressable } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Pressable, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
@@ -12,7 +12,7 @@ import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader, Poc
 import { ChevronLeft, Check, Lock, ChevronRight, ChevronDown, Minus, Plus, RotateCcw, Target, AlertTriangle, TrendingUp } from 'lucide-react-native';
 import type { CategoryPercentages, SpendableCategory, PlanAssignReason } from '@financial-hub/shared';
 
-const PERCENT_STEP = 5;
+const PERCENT_STEP = 1;
 
 /**
  * Editable percentage split across spendable category pockets (food /
@@ -24,18 +24,39 @@ const PERCENT_STEP = 5;
  * that gets committed.
  */
 function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['colors'] }) {
-  const { planPreview, isPreviewLoading, loadPlanPreview, input } = useOnboardingStore();
+  const { planPreview, isPreviewLoading, loadPlanPreview, input, assignResult } = useOnboardingStore();
   const [localPercentages, setLocalPercentages] = useState<CategoryPercentages | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const hasLoadedRef = React.useRef(false);
 
+  // Calculate categories based on onboarding input (works even without API)
+  const calculateCategories = (): SpendableCategory[] => {
+    if (!input) return [];
+    const lifeStage = input.lifeStage ?? 'working_adult';
+    
+    if (lifeStage === 'student') {
+      return ['leisure'];
+    }
+    
+    const categories: SpendableCategory[] = ['food', 'transport', 'leisure'];
+    if (input.hasDependents === true || (input.fixedExpenses ?? []).some(
+      (e) => e.category === 'family' || e.category === 'education'
+    )) {
+      categories.push('family');
+    }
+    return categories;
+  };
+
+  const fallbackCategories = calculateCategories();
+
   React.useEffect(() => {
     if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
+    
+    // Try to load plan preview, but don't block if it fails
     loadPlanPreview(input?.categoryPercentages).catch(() => {
-      // Surfaced via store.error / falls back to the default split silently —
-      // this is a nice-to-have editor, not a blocker for entering the plan.
+      // Fallback to using local calculation
     });
   }, []);
 
@@ -43,21 +64,46 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
     if (planPreview && !localPercentages) {
       setLocalPercentages(planPreview.categoryPercentages);
     }
-  }, [planPreview]);
+  }, [planPreview, localPercentages]);
 
-  if (isPreviewLoading && !planPreview) {
+  // Use fallback categories if plan preview is not available
+  const categories = planPreview?.categoryBreakdown?.map((c) => c.category) || fallbackCategories;
+
+  // Fallback: if we have categories but no percentages, calculate default
+  React.useEffect(() => {
+    if (!localPercentages && categories.length > 0) {
+      const defaultPercentages: CategoryPercentages = {};
+      const CATEGORY_WEIGHTS: Record<SpendableCategory, number> = {
+        food: 3,
+        transport: 2,
+        leisure: 2,
+        family: 2,
+      };
+      
+      // Adjust weights based on input
+      const weights = { ...CATEGORY_WEIGHTS };
+      if (input?.hasTransportNeed === false) {
+        weights.transport = 1;
+      }
+      if (input?.hasDependents === true) {
+        weights.family = 3;
+      }
+      
+      const weightSum = categories.reduce((sum, cat) => sum + (weights[cat] || 1), 0);
+      categories.forEach((category) => {
+        defaultPercentages[category] = Math.round(((weights[category] || 1) / weightSum) * 100);
+      });
+      setLocalPercentages(defaultPercentages);
+    }
+  }, [categories, localPercentages, input]);
+
+  if (isPreviewLoading && !planPreview && !localPercentages) {
     return (
       <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
         <PocketLoader size={28} color={colors.emeraldDeep} />
       </View>
     );
   }
-
-  if (!planPreview || !localPercentages) {
-    return null;
-  }
-
-  const categories = planPreview.categoryBreakdown.map((c) => c.category);
   
   // Always show the percentage editor when there are multiple categories
   // For single category plans (students), show a helpful message
@@ -68,7 +114,7 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
           Your plan allocation
         </Text>
         <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}80`, marginTop: spacing.xs }}>
-          No spendable categories in this plan
+          Loading plan details...
         </Text>
       </View>
     );
@@ -90,12 +136,17 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
       </View>
     );
   }
+  
+  // Return null if we still don't have localPercentages after trying to set them
+  if (!localPercentages) {
+    return null;
+  }
 
   const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
   const roundedTotal = Math.round(total * 10) / 10;
   const isBalanced = Math.abs(total - 100) < 0.5;
   const isDirty = categories.some(
-    (c) => (localPercentages[c] ?? 0) !== (planPreview.categoryPercentages[c] ?? 0),
+    (c) => (localPercentages[c] ?? 0) !== (planPreview?.categoryPercentages?.[c] ?? 0),
   );
 
   const adjust = (category: SpendableCategory, delta: number) => {
@@ -110,7 +161,9 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
 
   const handleReset = () => {
     setSaveError(null);
-    setLocalPercentages(planPreview.categoryPercentages);
+    if (planPreview?.categoryPercentages) {
+      setLocalPercentages(planPreview.categoryPercentages);
+    }
   };
 
   const handleSave = async () => {
@@ -139,17 +192,27 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
       </View>
 
       {categories.map((category) => {
-        const entry = planPreview.categoryBreakdown.find((c) => c.category === category)!;
+        const CATEGORY_NAMES: Record<SpendableCategory, string> = {
+          food: 'Food & Groceries',
+          transport: 'Transport',
+          leisure: 'Personal & Leisure',
+          family: 'Family & obligations',
+        };
+        
+        const entry = planPreview?.categoryBreakdown?.find((c) => c.category === category);
         const pct = localPercentages[category] ?? 0;
-        const previewAmount = round2((pct / 100) * planPreview.spendableAmount);
+        const spendableAmount = planPreview?.spendableAmount || assignResult?.spendableAmount || 0;
+        const previewAmount = round2((pct / 100) * spendableAmount);
+        const categoryName = entry?.name || CATEGORY_NAMES[category] || category;
+        
         return (
           <View key={category} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-            <Text style={{ ...typography.body, fontSize: 13, color: colors.surface, flex: 1 }}>{entry.name}</Text>
+            <Text style={{ ...typography.body, fontSize: 13, color: colors.surface, flex: 1 }}>{categoryName}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Pressable
                 onPress={() => adjust(category, -PERCENT_STEP)}
                 style={{ width: touchTarget.minWidth, height: touchTarget.minHeight, alignItems: 'center', justifyContent: 'center' }}
-                accessibilityLabel={`Decrease ${entry.name} percentage`}
+                accessibilityLabel={`Decrease ${categoryName} percentage`}
                 accessibilityRole="button"
               >
                 <Minus size={14} color={colors.surface} />
@@ -160,7 +223,7 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
               <Pressable
                 onPress={() => adjust(category, PERCENT_STEP)}
                 style={{ width: touchTarget.minWidth, height: touchTarget.minHeight, alignItems: 'center', justifyContent: 'center' }}
-                accessibilityLabel={`Increase ${entry.name} percentage`}
+                accessibilityLabel={`Increase ${categoryName} percentage`}
                 accessibilityRole="button"
               >
                 <Plus size={14} color={colors.surface} />
@@ -582,7 +645,11 @@ export default function ResultScreen() {
                 <CategorySplitEditor colors={colors} />
               </View>
 
-              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, textAlign: 'center', marginTop: spacing.md, marginBottom: spacing.xl }}>Portions shown to scale · savings minimum is enforced at allocation, not just displayed</Text>
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, textAlign: 'center', marginTop: spacing.md, marginBottom: spacing.md }}>Portions shown to scale · savings minimum is enforced at allocation, not just displayed</Text>
+
+              <Text style={{ ...typography.caption, fontSize: 10, color: `${colors.sage}CC`, textAlign: 'center', marginTop: spacing.md, marginBottom: spacing.xl }}>
+                You can add more pockets after onboarding in Settings
+              </Text>
 
               <View style={{ gap: spacing.md, width: '100%' }}>
                 <Button

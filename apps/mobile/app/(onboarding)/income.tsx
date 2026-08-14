@@ -112,14 +112,14 @@ export default function IncomeScreen() {
         <BrandHeader />
         <ProgressIndicator currentStep={1} totalSteps={6} />
 
-        <View style={{ marginTop: spacing.lg, marginBottom: spacing.xl }}>
+        <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.sage }}>Step 1 of 6 — Income</Text>
           <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm }}>How does your income usually arrive?</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, lineHeight: 22 }}>This shapes how your money gets split. There&apos;s no wrong answer — it just tunes the plan.</Text>
         </View>
 
         <SectionTitle>Income pattern</SectionTitle>
-        <View style={{ marginTop: spacing.md, gap: spacing.md }}>
+        <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.md }}>
           {INCOME_PATTERNS.map((option) => (
             <TouchableOption
               key={option.id}
@@ -184,20 +184,22 @@ export default function IncomeScreen() {
           </View>
         )}
 
-        <Input
-          label="Average monthly income (after tax)"
-          value={incomeAmount}
-          onChangeText={handleAmountChange}
-          placeholder="50,000"
-          keyboardType="numeric"
-          textContentType="none"
-          leftElement={<Text style={{ ...typography.body, fontSize: 15, color: colors.sage }}>KSh</Text>}
-          accessible={true}
-          accessibilityLabel="Average monthly income in Kenyan shillings"
-        />
+        <View style={{ marginTop: spacing.xl }}>
+          <Input
+            label="Average monthly income (after tax)"
+            value={incomeAmount}
+            onChangeText={handleAmountChange}
+            placeholder="50,000"
+            keyboardType="numeric"
+            textContentType="none"
+            leftElement={<Text style={{ ...typography.body, fontSize: 15, color: colors.sage }}>KSh</Text>}
+            accessible={true}
+            accessibilityLabel="Average monthly income in Kenyan shillings"
+          />
+        </View>
 
         <SectionTitle>Income sources</SectionTitle>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xxl }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xl }}>
           {SOURCE_COUNTS.map((option) => (
             <TouchableOpacity
               key={option.id}
@@ -219,15 +221,17 @@ export default function IncomeScreen() {
           ))}
         </View>
 
-        <Button
-          fullWidth
-          size="lg"
-          loading={isLoading}
-          onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
-        >
-          Continue
-        </Button>
+        <View style={{ marginTop: spacing.xl }}>
+          <Button
+            fullWidth
+            size="lg"
+            loading={isLoading}
+            onPress={handleContinue}
+            rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
+          >
+            Continue
+          </Button>
+        </View>
       </SafeScrollView>
       {modal}
     </ScreenContainer>

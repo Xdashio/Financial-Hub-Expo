@@ -116,17 +116,19 @@ export default function GoalScreen() {
               ))}
             </View>
 
-            <Input
-              label="Give it a name (optional)"
-              value={goalLabel}
-              onChangeText={setGoalLabel}
-              placeholder="e.g. Amara's school fees"
-              maxLength={60}
-              accessible={true}
-              accessibilityLabel="Optional name for your savings goal"
-            />
+            <View style={{ marginTop: spacing.xl }}>
+              <Input
+                label="Give it a name (optional)"
+                value={goalLabel}
+                onChangeText={setGoalLabel}
+                placeholder="e.g. Amara's school fees"
+                maxLength={60}
+                accessible={true}
+                accessibilityLabel="Optional name for your savings goal"
+              />
+            </View>
 
-            <View style={{ marginTop: spacing.lg }}>
+            <View style={{ marginTop: spacing.xl }}>
               <Input
                 label="Roughly how much? (optional)"
                 value={goalAmount}
@@ -144,7 +146,7 @@ export default function GoalScreen() {
             </View>
 
             <SectionTitle>Roughly by when</SectionTitle>
-            <View style={{ marginTop: spacing.md, marginBottom: spacing.xxl, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+            <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {TIMEFRAMES.map((option) => (
                 <TouchableOpacity
                   key={option.id}
@@ -182,15 +184,17 @@ export default function GoalScreen() {
           </>
         )}
 
-        <Button
-          fullWidth
-          size="lg"
-          loading={isLoading}
-          onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
-        >
-          Continue
-        </Button>
+        <View style={{ marginTop: spacing.xl }}>
+          <Button
+            fullWidth
+            size="lg"
+            loading={isLoading}
+            onPress={handleContinue}
+            rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
+          >
+            Continue
+          </Button>
+        </View>
       </SafeScrollView>
     </ScreenContainer>
   );

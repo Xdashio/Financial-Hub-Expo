@@ -67,7 +67,7 @@ export default function HabitsScreen() {
         </View>
 
         <SectionTitle>Your pattern</SectionTitle>
-        <View style={{ marginTop: spacing.md, marginBottom: spacing.xxl, gap: spacing.md }}>
+        <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.md }}>
           {HABIT_OPTIONS.map((option) => (
             <TouchableOption
               key={option.id}
@@ -102,15 +102,17 @@ export default function HabitsScreen() {
           ))}
         </View>
 
-        <Button
-          fullWidth
-          size="lg"
-          loading={isLoading}
-          onPress={handleContinue}
-          rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
-        >
-          Continue
-        </Button>
+        <View style={{ marginTop: spacing.xl }}>
+          <Button
+            fullWidth
+            size="lg"
+            loading={isLoading}
+            onPress={handleContinue}
+            rightIcon={<ChevronLeft size={18} color={colors.surface} style={{ transform: [{ rotate: '180deg' }] }} />}
+          >
+            Continue
+          </Button>
+        </View>
       </SafeScrollView>
       {modal}
     </ScreenContainer>
