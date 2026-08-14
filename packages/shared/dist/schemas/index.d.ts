@@ -730,6 +730,7 @@ export declare const PocketSchema: z.ZodObject<{
     monthlyAllocation: z.ZodNumber;
     dailyCap: z.ZodOptional<z.ZodNumber>;
     parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
@@ -745,6 +746,7 @@ export declare const PocketSchema: z.ZodObject<{
     dailyCap?: number | undefined;
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
+    splitPercentage?: number | null | undefined;
 }, {
     name: string;
     planId: string;
@@ -758,6 +760,7 @@ export declare const PocketSchema: z.ZodObject<{
     isTimeLocked?: boolean | undefined;
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
+    splitPercentage?: number | null | undefined;
 }>;
 export type Pocket = z.infer<typeof PocketSchema>;
 export declare const PocketUpdateInputSchema: z.ZodObject<{
@@ -780,21 +783,64 @@ export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
  *  pockets.service.ts createSubPocket) so merchant-scope rules
  *  (pocket-rules.ts) and spend checks behave the same as any other pocket
  *  of that kind, with `category` free to differ from the parent so e.g. a
- *  Loan pocket's purpose sub-pockets can each have their own category. */
+ *  Loan pocket's purpose sub-pockets can each have their own category.
+ *
+ *  `splitPercentage` (not a flat KSh amount) is the share of the parent's
+ *  allocation this sub-pocket claims going forward — see
+ *  010_sub_pocket_split_percentage.sql. Combined with existing siblings it
+ *  must not exceed 100; enforced in pockets.service.ts, which needs
+ *  sibling context a schema alone can't see. */
 export declare const SubPocketCreateInputSchema: z.ZodObject<{
     name: z.ZodString;
     category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
-    monthlyAllocation: z.ZodNumber;
+    splitPercentage: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
     name: string;
-    monthlyAllocation: number;
+    splitPercentage: number;
     category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
 }, {
     name: string;
-    monthlyAllocation: number;
+    splitPercentage: number;
     category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
 }>;
 export type SubPocketCreateInput = z.infer<typeof SubPocketCreateInputSchema>;
+/** PATCH /pockets/:id/rebalance — bulk-updates a full sibling set's
+ *  splitPercentage in one call (the rebalance bottom-sheet's sliders edit
+ *  several siblings at once). `:id` is any sibling in the group; the
+ *  service resolves the shared parent from it. Percentages must sum to
+ *  <= 100 across the provided set plus any siblings NOT included in this
+ *  call (their existing percentage still counts against the ceiling) —
+ *  validated in pockets.service.ts. `confirmPartial` opts into the
+ *  partial-rebalance-now-plus-catch-up-next-income-event path when the
+ *  edit needs more money than currently exists to move immediately;
+ *  without it, an underfunded rebalance is rejected with the shortfall
+ *  amount so the client can show the confirm prompt first. */
+export declare const SubPocketRebalanceInputSchema: z.ZodObject<{
+    splits: z.ZodArray<z.ZodObject<{
+        pocketId: z.ZodString;
+        splitPercentage: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        splitPercentage: number;
+        pocketId: string;
+    }, {
+        splitPercentage: number;
+        pocketId: string;
+    }>, "many">;
+    confirmPartial: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+}, "strip", z.ZodTypeAny, {
+    splits: {
+        splitPercentage: number;
+        pocketId: string;
+    }[];
+    confirmPartial: boolean;
+}, {
+    splits: {
+        splitPercentage: number;
+        pocketId: string;
+    }[];
+    confirmPartial?: boolean | undefined;
+}>;
+export type SubPocketRebalanceInput = z.infer<typeof SubPocketRebalanceInputSchema>;
 export declare const RepaymentCadenceSchema: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
 export type RepaymentCadence = z.infer<typeof RepaymentCadenceSchema>;
 export declare const RepaymentScheduleSchema: z.ZodObject<{
@@ -941,6 +987,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
     monthlyAllocation: z.ZodNumber;
     dailyCap: z.ZodOptional<z.ZodNumber>;
     parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 } & {
@@ -987,6 +1034,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
         monthlyAllocation: z.ZodNumber;
         dailyCap: z.ZodOptional<z.ZodNumber>;
         parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
@@ -1002,6 +1050,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
         dailyCap?: number | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
     }, {
         name: string;
         planId: string;
@@ -1015,6 +1064,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
     }>, "many">>;
 }, "strip", z.ZodTypeAny, {
     name: string;
@@ -1042,6 +1092,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
     dailyCap?: number | undefined;
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
+    splitPercentage?: number | null | undefined;
     subPockets?: {
         name: string;
         planId: string;
@@ -1055,6 +1106,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
         dailyCap?: number | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
     }[] | undefined;
 }, {
     name: string;
@@ -1082,6 +1134,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
     isTimeLocked?: boolean | undefined;
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
+    splitPercentage?: number | null | undefined;
     subPockets?: {
         name: string;
         planId: string;
@@ -1095,6 +1148,7 @@ export declare const LoanDetailSchema: z.ZodObject<{
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
     }[] | undefined;
 }>;
 export type LoanDetail = z.infer<typeof LoanDetailSchema>;
@@ -1887,6 +1941,7 @@ export declare const schemas: {
         monthlyAllocation: z.ZodNumber;
         dailyCap: z.ZodOptional<z.ZodNumber>;
         parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
@@ -1902,6 +1957,7 @@ export declare const schemas: {
         dailyCap?: number | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
     }, {
         name: string;
         planId: string;
@@ -1915,6 +1971,7 @@ export declare const schemas: {
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
     }>;
     PocketUpdateInput: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
@@ -1932,15 +1989,40 @@ export declare const schemas: {
     SubPocketCreateInput: z.ZodObject<{
         name: z.ZodString;
         category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>>;
-        monthlyAllocation: z.ZodNumber;
+        splitPercentage: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        monthlyAllocation: number;
+        splitPercentage: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     }, {
         name: string;
-        monthlyAllocation: number;
+        splitPercentage: number;
         category?: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
+    }>;
+    SubPocketRebalanceInput: z.ZodObject<{
+        splits: z.ZodArray<z.ZodObject<{
+            pocketId: z.ZodString;
+            splitPercentage: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            splitPercentage: number;
+            pocketId: string;
+        }, {
+            splitPercentage: number;
+            pocketId: string;
+        }>, "many">;
+        confirmPartial: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+    }, "strip", z.ZodTypeAny, {
+        splits: {
+            splitPercentage: number;
+            pocketId: string;
+        }[];
+        confirmPartial: boolean;
+    }, {
+        splits: {
+            splitPercentage: number;
+            pocketId: string;
+        }[];
+        confirmPartial?: boolean | undefined;
     }>;
     RepaymentCadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
     RepaymentSchedule: z.ZodObject<{
@@ -2083,6 +2165,7 @@ export declare const schemas: {
         monthlyAllocation: z.ZodNumber;
         dailyCap: z.ZodOptional<z.ZodNumber>;
         parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     } & {
@@ -2129,6 +2212,7 @@ export declare const schemas: {
             monthlyAllocation: z.ZodNumber;
             dailyCap: z.ZodOptional<z.ZodNumber>;
             parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+            splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
             createdAt: z.ZodString;
             updatedAt: z.ZodString;
         }, "strip", z.ZodTypeAny, {
@@ -2144,6 +2228,7 @@ export declare const schemas: {
             dailyCap?: number | undefined;
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
+            splitPercentage?: number | null | undefined;
         }, {
             name: string;
             planId: string;
@@ -2157,6 +2242,7 @@ export declare const schemas: {
             isTimeLocked?: boolean | undefined;
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
+            splitPercentage?: number | null | undefined;
         }>, "many">>;
     }, "strip", z.ZodTypeAny, {
         name: string;
@@ -2184,6 +2270,7 @@ export declare const schemas: {
         dailyCap?: number | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
         subPockets?: {
             name: string;
             planId: string;
@@ -2197,6 +2284,7 @@ export declare const schemas: {
             dailyCap?: number | undefined;
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
+            splitPercentage?: number | null | undefined;
         }[] | undefined;
     }, {
         name: string;
@@ -2224,6 +2312,7 @@ export declare const schemas: {
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
+        splitPercentage?: number | null | undefined;
         subPockets?: {
             name: string;
             planId: string;
@@ -2237,6 +2326,7 @@ export declare const schemas: {
             isTimeLocked?: boolean | undefined;
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
+            splitPercentage?: number | null | undefined;
         }[] | undefined;
     }>;
     FixedExpense: z.ZodObject<{

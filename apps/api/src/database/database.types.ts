@@ -94,6 +94,11 @@ export interface Database {
           // 007_sub_pockets.sql — depth is capped at one level, enforced in
           // pockets.service.ts, not here.
           parent_pocket_id: string | null
+          // Source of truth for a sub-pocket's share of its parent
+          // (010_sub_pocket_split_percentage.sql). Null for top-level
+          // pockets. `monthly_allocation` above is kept in sync as a
+          // derived cache — see pockets.service.ts.
+          split_percentage: number | null
           // Loan-specific fields (audit_team.md item 9)
           repayment_schedule: Json | null
           loan_provider: string | null
@@ -113,6 +118,7 @@ export interface Database {
           monthly_allocation: number
           daily_cap?: number | null
           parent_pocket_id?: string | null
+          split_percentage?: number | null
           repayment_schedule?: Json | null
           loan_provider?: string | null
           loan_purpose?: string | null
@@ -131,6 +137,7 @@ export interface Database {
           monthly_allocation?: number
           daily_cap?: number | null
           parent_pocket_id?: string | null
+          split_percentage?: number | null
           repayment_schedule?: Json | null
           loan_provider?: string | null
           loan_purpose?: string | null

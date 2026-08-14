@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { PocketUpdateInputSchema, SubPocketCreateInputSchema, RunwaySummary } from '@financial-hub/shared';
+import { PocketUpdateInputSchema, SubPocketCreateInputSchema, SubPocketRebalanceInputSchema, RunwaySummary } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { RunwayService } from '../runway/runway.service';
@@ -290,9 +290,17 @@ export class PocketsService {
    * - The sub-pocket inherits the parent's `kind` — a sub-pocket of a
    *   Savings pocket is itself `savings`, etc. — so pocket-rules.ts and
    *   spend checks treat it exactly like any other pocket of that kind.
-   * - The new sub-pocket's monthlyAllocation, combined with existing
-   *   siblings, cannot exceed the parent's own monthlyAllocation: siblings
-   *   are meant to divide the parent's planning ceiling, not multiply it.
+   * - `splitPercentage` (010_sub_pocket_split_percentage.sql), combined
+   *   with existing siblings, cannot exceed 100 — siblings divide the
+   *   parent's allocation, not multiply it. `monthly_allocation` is a
+   *   derived cache (parent's * splitPercentage / 100), recomputed here
+   *   and again whenever a rebalance changes the percentage.
+   *
+   * A freshly created sub-pocket starts at a zero ledger balance — money
+   * only flows in via the next income event's auto-split (income.service.ts
+   * calculateAllocationsBasedOnProportions) or an explicit rebalance
+   * (rebalanceSubPockets below). Creation itself doesn't move money, so it
+   * never needs the shortfall/partial-fill confirmation a rebalance can.
    */
   async createSubPocket(parentId: string, userId: string, input: unknown): Promise<Pocket> {
     const result = SubPocketCreateInputSchema.safeParse(input);
@@ -312,10 +320,10 @@ export class PocketsService {
     }
 
     const siblings = await this.repository.getSubPocketsByParentId(parentId);
-    const siblingTotal = siblings.reduce((sum, p) => sum + p.monthly_allocation, 0);
-    if (siblingTotal + parsed.monthlyAllocation > parent.monthly_allocation + 0.01) {
+    const siblingPercentTotal = siblings.reduce((sum, p) => sum + (p.split_percentage || 0), 0);
+    if (siblingPercentTotal + parsed.splitPercentage > 100 + 0.01) {
       throw new BadRequestException(
-        `Sub-pockets would total KSh ${round2(siblingTotal + parsed.monthlyAllocation)}, which exceeds the parent pocket's KSh ${parent.monthly_allocation} allocation`,
+        `Sub-pockets would total ${round2(siblingPercentTotal + parsed.splitPercentage)}% of the parent pocket, which exceeds 100%`,
       );
     }
 
@@ -326,7 +334,8 @@ export class PocketsService {
       category: parsed.category ?? null,
       is_time_locked: false,
       lock_until: null,
-      monthly_allocation: parsed.monthlyAllocation,
+      split_percentage: parsed.splitPercentage,
+      monthly_allocation: round2((parent.monthly_allocation * parsed.splitPercentage) / 100),
       daily_cap: null,
       parent_pocket_id: parent.id,
     };
@@ -336,6 +345,165 @@ export class PocketsService {
       throw new Error('Failed to create sub-pocket');
     }
     return created;
+  }
+
+  /**
+   * Bulk-adjusts a sibling set's `splitPercentage` in one call — backs the
+   * mobile rebalance bottom sheet's multi-slider UI. `anchorPocketId` is any
+   * pocket in the family (the parent itself, or one of its sub-pockets);
+   * the shared parent is resolved from it.
+   *
+   * Unlike creation, a rebalance moves real ledger money immediately (per
+   * product decision — editing a split reshuffles current balances, not
+   * just future income events):
+   * - Siblings whose percentage is *decreasing* are processed first: the
+   *   difference between their current balance and their new target
+   *   (parent's monthly_allocation * newPct / 100) flows back to the
+   *   parent's reserved balance.
+   * - Siblings whose percentage is *increasing* are funded from whatever
+   *   the parent now has available (its own reserved balance, topped up by
+   *   any money just freed by the decreases above in this same call).
+   * - If that's not enough to fully fund every increase, the shortfall is
+   *   returned (`applied: false`) so the client can show "needs KSh X more
+   *   than available — apply what we can now and catch up next income
+   *   event?" without the caller needing a second round-trip to compute the
+   *   number itself. Passing `confirmPartial: true` accepts that: increases
+   *   are funded proportionally up to what's available, the *requested*
+   *   percentages are still saved as the new target either way, and the
+   *   remaining gap closes naturally over subsequent income events (each
+   *   one auto-splits toward the stored percentage, same as any other
+   *   sub-pocket funding).
+   */
+  async rebalanceSubPockets(
+    anchorPocketId: string,
+    userId: string,
+    input: unknown,
+  ): Promise<
+    | { applied: true; partial: boolean; fundedAmount: number; shortfall: number; pockets: (Pocket & { available_balance: number })[] }
+    | { applied: false; shortfall: number; requiresConfirmation: true }
+  > {
+    const result = SubPocketRebalanceInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
+    }
+    const parsed = result.data;
+
+    const anchor = await this.repository.getPocketById(anchorPocketId);
+    if (!anchor) {
+      throw new NotFoundException('Pocket not found');
+    }
+    await this.assertOwnership(anchor, userId);
+
+    const parent = anchor.parent_pocket_id ? await this.repository.getPocketById(anchor.parent_pocket_id) : anchor;
+    if (!parent) {
+      throw new NotFoundException('Parent pocket not found');
+    }
+
+    const siblings = await this.repository.getSubPocketsByParentId(parent.id);
+    const siblingIds = new Set(siblings.map((s) => s.id));
+    for (const split of parsed.splits) {
+      if (!siblingIds.has(split.pocketId)) {
+        throw new BadRequestException(`${split.pocketId} is not a sub-pocket of this parent`);
+      }
+    }
+
+    const requestedByPocketId = new Map(parsed.splits.map((s) => [s.pocketId, s.splitPercentage]));
+    const newPercentages = siblings.map((s) => ({
+      pocket: s,
+      oldPercentage: s.split_percentage || 0,
+      newPercentage: requestedByPocketId.get(s.id) ?? (s.split_percentage || 0),
+    }));
+
+    const totalPercentage = newPercentages.reduce((sum, p) => sum + p.newPercentage, 0);
+    if (totalPercentage > 100 + 0.01) {
+      throw new BadRequestException(
+        `Sub-pockets would total ${round2(totalPercentage)}% of the parent pocket, which exceeds 100%`,
+      );
+    }
+
+    // Current ledger balances, fetched once up front.
+    const [parentSummary, siblingSummaries] = await Promise.all([
+      this.repository.getPocketSummary(parent.id),
+      Promise.all(newPercentages.map((p) => this.repository.getPocketSummary(p.pocket.id))),
+    ]);
+    const balanceByPocketId = new Map(newPercentages.map((p, i) => [p.pocket.id, siblingSummaries[i].available]));
+
+    const decreasing = newPercentages.filter((p) => p.newPercentage < p.oldPercentage - 0.001);
+    const increasing = newPercentages.filter((p) => p.newPercentage > p.oldPercentage + 0.001);
+
+    // Free up money from shrinking siblings first.
+    let parentAvailable = parentSummary.available;
+    const transactions: { pocket_id: string; amount: number; type: 'reallocation_in' | 'reallocation_out' }[] = [];
+    for (const p of decreasing) {
+      const target = round2((parent.monthly_allocation * p.newPercentage) / 100);
+      const currentBalance = balanceByPocketId.get(p.pocket.id) || 0;
+      const freed = Math.max(0, round2(currentBalance - target));
+      if (freed > 0) {
+        transactions.push({ pocket_id: p.pocket.id, amount: -freed, type: 'reallocation_out' });
+        transactions.push({ pocket_id: parent.id, amount: freed, type: 'reallocation_in' });
+        parentAvailable = round2(parentAvailable + freed);
+      }
+    }
+
+    // Fund growing siblings from what the parent now has available.
+    const growthNeeds = increasing.map((p) => {
+      const target = round2((parent.monthly_allocation * p.newPercentage) / 100);
+      const currentBalance = balanceByPocketId.get(p.pocket.id) || 0;
+      return { pocket: p.pocket, needed: Math.max(0, round2(target - currentBalance)) };
+    });
+    const totalNeeded = round2(growthNeeds.reduce((sum, g) => sum + g.needed, 0));
+
+    if (totalNeeded > parentAvailable + 0.01 && !parsed.confirmPartial) {
+      // Nothing committed yet — this is a dry-run check, so it's safe to
+      // return without writing any of the `decreasing` transfers computed
+      // above either. The client re-sends the same request with
+      // confirmPartial: true once the user accepts the partial-fill offer.
+      return { applied: false, shortfall: round2(totalNeeded - parentAvailable), requiresConfirmation: true };
+    }
+
+    const fundingScale = totalNeeded > 0 ? Math.min(1, parentAvailable / totalNeeded) : 1;
+    for (const g of growthNeeds) {
+      const funded = round2(g.needed * fundingScale);
+      if (funded > 0) {
+        transactions.push({ pocket_id: parent.id, amount: -funded, type: 'reallocation_out' });
+        transactions.push({ pocket_id: g.pocket.id, amount: funded, type: 'reallocation_in' });
+      }
+    }
+
+    if (transactions.length > 0) {
+      await this.repository.createTransactions(transactions);
+    }
+
+    // Persist the requested percentages (and refreshed cache) regardless of
+    // whether funding was full or partial — a partial fill's remaining gap
+    // closes over subsequent income events, which always split toward the
+    // stored percentage (see income.service.ts).
+    await Promise.all(
+      newPercentages
+        .filter((p) => Math.abs(p.newPercentage - p.oldPercentage) > 0.001)
+        .map((p) =>
+          this.repository.updatePocket(p.pocket.id, {
+            split_percentage: p.newPercentage,
+            monthly_allocation: round2((parent.monthly_allocation * p.newPercentage) / 100),
+          }),
+        ),
+    );
+
+    const updatedSiblings = await this.repository.getSubPocketsByParentId(parent.id);
+    const enriched = await Promise.all(
+      updatedSiblings.map(async (pocket) => {
+        const summary = await this.repository.getPocketSummary(pocket.id);
+        return { ...pocket, available_balance: summary.available };
+      }),
+    );
+
+    return {
+      applied: true,
+      partial: totalNeeded > parentAvailable + 0.01,
+      fundedAmount: round2(Math.min(totalNeeded, parentAvailable)),
+      shortfall: Math.max(0, round2(totalNeeded - parentAvailable)),
+      pockets: enriched,
+    };
   }
 
   async getSubPocketsForUser(parentId: string, userId: string): Promise<(Pocket & { available_balance: number })[]> {
