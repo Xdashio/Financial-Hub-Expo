@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { Minus, Plus, Layers, AlertTriangle, Check } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography, borderWidth, touchTarget } from '@/theme';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { Button } from '@/components/ui/Button';
+import { PocketLoader } from '@/components/ui';
 import { formatMoney } from '@/utils/money';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
@@ -411,7 +412,7 @@ export function SubPocketRebalanceSheet({
           disabled={!canSave}
           loading={saving}
           onPress={handleSave}
-          leftIcon={saving ? <ActivityIndicator size="small" color={colors.surface} /> : undefined}
+          leftIcon={saving ? <PocketLoader size={20} color={colors.surface} /> : undefined}
         >
           Save splits
         </Button>

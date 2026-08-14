@@ -85,8 +85,8 @@ export default function PocketsManageModal() {
               {pockets.length}/6 pockets used
             </Text>
             {pockets.length >= 6 && (
-              <Text style={{ ...typography.caption, color: colors.clay }}>
-                Maximum of 6 pockets reached. Delete or merge existing pockets first.
+              <Text style={{ ...typography.caption, color: colors.sage }}>
+                You're using all 6 pockets. You can edit or delete existing pockets anytime.
               </Text>
             )}
           </View>

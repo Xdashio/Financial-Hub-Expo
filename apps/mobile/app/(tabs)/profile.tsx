@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, ScrollView, ActivityIndicator, Pressable, Modal, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, Pressable, Modal, RefreshControl } from 'react-native';
+import { PocketLoader } from '@/components/ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
@@ -292,7 +293,7 @@ export default function ProfileScreen() {
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs }}>{user?.phone || user?.email || '—'}</Text>
           <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md }}>
             {isLoadingPlan ? (
-              <ActivityIndicator size="small" color={colors.emeraldDeep} />
+              <PocketLoader size={20} color={colors.emeraldDeep} />
             ) : (
               <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.emeraldTint }}>
                 <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldDeep }}>{planLabel}</Text>
