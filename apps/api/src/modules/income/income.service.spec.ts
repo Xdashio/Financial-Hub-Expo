@@ -13,7 +13,7 @@ const POCKETS = [
 ];
 
 function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
-  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord'
+  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord' | 'getSubPocketsByParentId'
 >>> = {}) {
   return {
     getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN),
@@ -23,6 +23,7 @@ function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
     getIdempotencyRecord: jest.fn().mockResolvedValue(null),
     saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
     updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
+    getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
     ...overrides,
   } as unknown as jest.Mocked<SupabaseRepository>;
 }
@@ -309,6 +310,173 @@ describe('IncomeService.createManualIncome', () => {
       );
       const total = result.allocation.allocations.reduce((sum: number, a: any) => sum + a.amount, 0);
       expect(total).toBeCloseTo(4000);
+    });
+  });
+
+  describe('sub-pocket percentage allocation (Phase 1)', () => {
+    // Use just the food pocket to test sub-pocket allocation in isolation
+    const PARENT_WITH_SUBS = [
+      { 
+        ...POCKETS[1], // Food pocket
+        id: 'pocket-food', 
+        monthly_allocation: 4000, 
+        split_percentage: null,
+        parent_pocket_id: null,
+        name: 'Food & Groceries'
+      },
+    ];
+    const SUB_POCKETS = [
+      { 
+        ...POCKETS[1], 
+        id: 'sub-snacks', 
+        parent_pocket_id: 'pocket-food', 
+        monthly_allocation: 600, 
+        split_percentage: 20,
+        plan_id: 'plan-1',
+        name: 'Snacks',
+        kind: 'spendable',
+        category: 'food',
+        is_time_locked: false,
+        lock_until: null,
+        daily_cap: null,
+        created_at: 'x',
+        updated_at: 'x'
+      },
+      { 
+        ...POCKETS[1], 
+        id: 'sub-dining', 
+        parent_pocket_id: 'pocket-food', 
+        monthly_allocation: 1200, 
+        split_percentage: 40,
+        plan_id: 'plan-1',
+        name: 'Dining Out',
+        kind: 'spendable',
+        category: 'food',
+        is_time_locked: false,
+        lock_until: null,
+        daily_cap: null,
+        created_at: 'x',
+        updated_at: 'x'
+      },
+    ];
+
+    it('splits parent share among sub-pockets by their percentages', async () => {
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(SUB_POCKETS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      // Food parent gets 100% of 4000 = 4000
+      // Sub-snacks gets 20% of 4000 = 800
+      // Sub-dining gets 40% of 4000 = 1600
+      // Food keeps remaining 40% = 1600 as reserved
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'sub-snacks', amount: 800 }),
+          expect.objectContaining({ pocket_id: 'sub-dining', amount: 1600 }),
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 1600 }), // reserved remainder
+        ])
+      );
+    });
+
+    it('leaves unallocated percentage with parent as reserved', async () => {
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(SUB_POCKETS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      // 20% + 40% = 60% allocated to subs, 40% stays with parent as reserved
+      const parentAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-food');
+      expect(parentAllocation?.amount).toBe(1600); // reserved portion only
+      // Total distributed to subs is 800 + 1600 = 2400
+      const subTotal = result.allocation.allocations
+        .filter(a => a.pocket_id === 'sub-snacks' || a.pocket_id === 'sub-dining')
+        .reduce((sum, a) => sum + a.amount, 0);
+      expect(subTotal).toBe(2400);
+    });
+
+    it('applies per-event sub_split_overrides when provided', async () => {
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(SUB_POCKETS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      const result = await service.createManualIncome(
+        { 
+          ...BASE_DTO, 
+          sub_split_overrides: {
+            'pocket-food': [{ pocketId: 'sub-snacks', amount: 800 }]
+          }
+        }, 
+        'user-1'
+      );
+
+      // Override should give sub-snacks 800, remainder stays with parent
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'sub-snacks', amount: 800 }),
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 3200 }), // 4000 - 800
+        ])
+      );
+    });
+
+    it('filters out override targets that do not belong to the specified parent', async () => {
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(SUB_POCKETS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      // Try to override a pocket that doesn't belong to the parent
+      const result = await service.createManualIncome(
+        { 
+          ...BASE_DTO, 
+          sub_split_overrides: {
+            'pocket-food': [{ pocketId: 'pocket-savings', amount: 500 }]
+          }
+        }, 
+        'user-1'
+      );
+
+      // Invalid override is filtered out, food gets full share
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 4000 }),
+        ])
+      );
+      // pocket-savings should not appear as a sub-pocket of food
+      const foodSubAllocations = result.allocation.allocations.filter(a => a.pocket_id === 'sub-snacks' || a.pocket_id === 'sub-dining');
+      expect(foodSubAllocations.length).toBe(0);
+    });
+
+    it('scales sub-pocket allocation with the actual income event amount', async () => {
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(SUB_POCKETS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      // Smaller income event should proportionally scale sub allocations
+      const result = await service.createManualIncome({ ...BASE_DTO, amount: 2000 }, 'user-1');
+
+      // Food parent gets 100% of 2000 = 2000
+      // Sub-snacks gets 20% of 2000 = 400
+      // Sub-dining gets 40% of 2000 = 800
+      // Food keeps remaining 40% = 800 as reserved
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'sub-snacks', amount: 400 }),
+          expect.objectContaining({ pocket_id: 'sub-dining', amount: 800 }),
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 800 }), // reserved
+        ])
+      );
     });
   });
 });

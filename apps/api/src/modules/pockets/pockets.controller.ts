@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Post, Delete, Param, Body, Request, Query } from '@nestjs/common';
+import { Controller, Get, Put, Patch, Post, Delete, Param, Body, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PocketsService } from './pockets.service';
 
@@ -153,5 +153,18 @@ export class PocketsController {
   async deleteSubPocket(@Param('id') id: string, @Request() req: any) {
     await this.pocketsService.deleteSubPocket(id, req.user.id);
     return { deleted: true, id };
+  }
+
+  @Patch(':id/rebalance')
+  @ApiOperation({
+    summary:
+      'Bulk-adjust a sub-pocket sibling set\'s split percentages, moving ledger balances immediately. ' +
+      ':id is any pocket in the family (the parent or one of its sub-pockets).',
+  })
+  @ApiResponse({ status: 200, description: 'Either the applied result, or { applied: false, shortfall, requiresConfirmation: true } if funding the requested increases needs more than the parent currently has available and confirmPartial was not set' })
+  @ApiResponse({ status: 400, description: 'Invalid input, unknown pocket in the split set, or total exceeds 100%' })
+  @ApiResponse({ status: 404, description: 'Pocket not found' })
+  rebalanceSubPockets(@Param('id') id: string, @Body() body: unknown, @Request() req: any) {
+    return this.pocketsService.rebalanceSubPockets(id, req.user.id, body);
   }
 }

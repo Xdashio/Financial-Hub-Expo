@@ -126,8 +126,8 @@ describe('PocketsService discipline-score unification', () => {
 });
 
 describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
-  const PARENT = { ...POCKET, id: 'parent-1', monthly_allocation: 1000, parent_pocket_id: null };
-  const SUB_POCKET_OF_SUB_POCKET_PARENT = { ...POCKET, id: 'sub-1', parent_pocket_id: 'parent-1' };
+  const PARENT = { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440000', monthly_allocation: 1000, parent_pocket_id: null, split_percentage: null };
+  const SUB_POCKET_OF_SUB_POCKET_PARENT = { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440001', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 20 };
 
   let repository: jest.Mocked<
     Pick<
@@ -140,6 +140,9 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       | 'getPocketSummary'
       | 'getTopLevelPocketsByPlanId'
       | 'getActivePlanByUserId'
+      | 'createTransaction'
+      | 'createTransactions'
+      | 'updatePocket'
     >
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
@@ -156,19 +159,27 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       getPocketSummary: jest.fn().mockResolvedValue({ available: 0 }),
       getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([PARENT]),
       getActivePlanByUserId: jest.fn().mockResolvedValue({ id: 'plan-1', user_id: 'user-1' }),
+      createTransaction: jest.fn().mockResolvedValue({ id: 'txn-1' }),
+      createTransactions: jest.fn().mockResolvedValue([]),
+      updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
     } as any;
     disciplineScore = { getCurrentScore: jest.fn(), applyDelta: jest.fn() } as any;
     runway = { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any;
     service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
   });
 
-  it('creates a sub-pocket that inherits the parent kind and links parent_pocket_id', async () => {
-    const created = await service.createSubPocket('parent-1', 'user-1', {
+  it('creates a sub-pocket with split_percentage and derives monthly_allocation', async () => {
+    const created = await service.createSubPocket('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
       name: 'School fees',
-      monthlyAllocation: 400,
+      splitPercentage: 40,
     });
     expect(repository.createPocket).toHaveBeenCalledWith(
-      expect.objectContaining({ parent_pocket_id: 'parent-1', kind: PARENT.kind, monthly_allocation: 400 }),
+      expect.objectContaining({ 
+        parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', 
+        kind: PARENT.kind, 
+        split_percentage: 40,
+        monthly_allocation: 400 // 1000 * 40 / 100
+      }),
     );
     expect(created.id).toBe('new-sub');
   });
@@ -176,17 +187,24 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
   it('rejects creating a sub-pocket under a pocket that is itself a sub-pocket (depth cap)', async () => {
     repository.getPocketById.mockResolvedValue(SUB_POCKET_OF_SUB_POCKET_PARENT as any);
     await expect(
-      service.createSubPocket('sub-1', 'user-1', { name: 'Nested', monthlyAllocation: 100 }),
+      service.createSubPocket('sub-1', 'user-1', { name: 'Nested', splitPercentage: 10 }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(repository.createPocket).not.toHaveBeenCalled();
   });
 
-  it('rejects a sub-pocket split that would exceed the parent allocation', async () => {
-    repository.getSubPocketsByParentId.mockResolvedValue([{ ...POCKET, monthly_allocation: 700 } as any]);
+  it('rejects a sub-pocket split that would exceed 100% total with siblings', async () => {
+    repository.getSubPocketsByParentId.mockResolvedValue([{ ...POCKET, split_percentage: 70 } as any]);
     await expect(
-      service.createSubPocket('parent-1', 'user-1', { name: 'Too much', monthlyAllocation: 400 }),
+      service.createSubPocket('parent-1', 'user-1', { name: 'Too much', splitPercentage: 40 }),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(repository.createPocket).not.toHaveBeenCalled();
+  });
+
+  it('allows a sub-pocket split that keeps total at exactly 100%', async () => {
+    repository.getSubPocketsByParentId.mockResolvedValue([{ ...POCKET, split_percentage: 60 } as any]);
+    const created = await service.createSubPocket('parent-1', 'user-1', { name: 'Remaining', splitPercentage: 40 });
+    expect(repository.createPocket).toHaveBeenCalled();
+    expect(created.id).toBe('new-sub');
   });
 
   it('refuses to delete a sub-pocket that still holds a balance', async () => {
@@ -215,6 +233,86 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
     // this assertion (and not just a manual QA pass) will catch it.
     await service.getAllForUser('user-1');
     expect(repository.getTopLevelPocketsByPlanId).toHaveBeenCalledWith('plan-1');
+  });
+
+  describe('rebalanceSubPockets - immediate percentage adjustment', () => {
+    it('rebalances siblings when increasing one sub-pocket percentage', async () => {
+      const siblings = [
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440002', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 30, monthly_allocation: 300 },
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440003', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 20, monthly_allocation: 200 },
+      ];
+      repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
+      repository.getPocketSummary.mockResolvedValue({ available: 500 } as any); // Parent has 500 available
+
+      const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
+        splits: [
+          { pocketId: '550e8400-e29b-41d4-a716-446655440002', splitPercentage: 50 },
+          { pocketId: '550e8400-e29b-41d4-a716-446655440003', splitPercentage: 20 },
+        ],
+      });
+
+      expect(result.applied).toBe(true);
+      expect(repository.updatePocket).toHaveBeenCalled();
+    });
+
+    it('returns shortfall when rebalance requires more than available parent balance', async () => {
+      const siblings = [
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440002', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 30, monthly_allocation: 300 },
+      ];
+      repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
+      repository.getPocketSummary.mockResolvedValue({ available: 100 } as any); // Only 100 available
+
+      const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
+        splits: [
+          { pocketId: '550e8400-e29b-41d4-a716-446655440002', splitPercentage: 80 }, // Needs 500 more (80% of 1000 = 800 vs current 300)
+        ],
+      });
+
+      expect(result.applied).toBe(false);
+      expect(result.shortfall).toBeGreaterThan(0);
+    });
+
+    it('applies partial rebalance when confirmPartial is true despite shortfall', async () => {
+      const siblings = [
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440002', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 30, monthly_allocation: 300 },
+      ];
+      repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
+      repository.getPocketSummary.mockResolvedValue({ available: 100 } as any);
+
+      const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
+        splits: [
+          { pocketId: '550e8400-e29b-41d4-a716-446655440002', splitPercentage: 80 },
+        ],
+        confirmPartial: true,
+      });
+
+      expect(result.applied).toBe(true);
+      if (result.applied) {
+        expect(result.partial).toBe(true);
+      }
+    });
+
+    it('shrinks siblings proportionally when one grows', async () => {
+      const siblings = [
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440002', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 30, monthly_allocation: 300 },
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440003', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 30, monthly_allocation: 300 },
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440004', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 20, monthly_allocation: 200 },
+      ];
+      repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
+      repository.getPocketSummary.mockResolvedValue({ available: 500 } as any);
+
+      const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
+        splits: [
+          { pocketId: '550e8400-e29b-41d4-a716-446655440002', splitPercentage: 50 }, // Growing by 20%
+          { pocketId: '550e8400-e29b-41d4-a716-446655440003', splitPercentage: 30 },
+          { pocketId: '550e8400-e29b-41d4-a716-446655440004', splitPercentage: 20 },
+        ],
+      });
+
+      expect(result.applied).toBe(true);
+      // sub-2 and sub-3 should be proportionally scaled down to make room
+      expect(repository.updatePocket).toHaveBeenCalled();
+    });
   });
 });
 

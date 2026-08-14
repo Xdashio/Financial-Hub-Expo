@@ -446,6 +446,12 @@ export const PocketSchema = z.object({
   // See docs on POST /pockets/:id/sub-pockets — depth is capped at one
   // level (a sub-pocket can't itself have children).
   parentPocketId: z.string().uuid().nullable().optional(),
+  // Source of truth for a sub-pocket's share of its parent
+  // (010_sub_pocket_split_percentage.sql / SUB_POCKET_SPLITS.md).
+  // Undefined/null for top-level pockets. `monthlyAllocation` above is
+  // kept in sync as a derived cache whenever the parent's allocation
+  // changes — see pockets.service.ts recomputeSubPocketAllocations.
+  splitPercentage: z.number().positive().max(100).nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -470,13 +476,43 @@ export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
  *  pockets.service.ts createSubPocket) so merchant-scope rules
  *  (pocket-rules.ts) and spend checks behave the same as any other pocket
  *  of that kind, with `category` free to differ from the parent so e.g. a
- *  Loan pocket's purpose sub-pockets can each have their own category. */
+ *  Loan pocket's purpose sub-pockets can each have their own category.
+ *
+ *  `splitPercentage` (not a flat KSh amount) is the share of the parent's
+ *  allocation this sub-pocket claims going forward — see
+ *  010_sub_pocket_split_percentage.sql. Combined with existing siblings it
+ *  must not exceed 100; enforced in pockets.service.ts, which needs
+ *  sibling context a schema alone can't see. */
 export const SubPocketCreateInputSchema = z.object({
   name: z.string().min(1).max(100),
   category: PocketCategorySchema.optional(),
-  monthlyAllocation: z.number().nonnegative(),
+  splitPercentage: z.number().positive().max(100),
 });
 export type SubPocketCreateInput = z.infer<typeof SubPocketCreateInputSchema>;
+
+/** PATCH /pockets/:id/rebalance — bulk-updates a full sibling set's
+ *  splitPercentage in one call (the rebalance bottom-sheet's sliders edit
+ *  several siblings at once). `:id` is any sibling in the group; the
+ *  service resolves the shared parent from it. Percentages must sum to
+ *  <= 100 across the provided set plus any siblings NOT included in this
+ *  call (their existing percentage still counts against the ceiling) —
+ *  validated in pockets.service.ts. `confirmPartial` opts into the
+ *  partial-rebalance-now-plus-catch-up-next-income-event path when the
+ *  edit needs more money than currently exists to move immediately;
+ *  without it, an underfunded rebalance is rejected with the shortfall
+ *  amount so the client can show the confirm prompt first. */
+export const SubPocketRebalanceInputSchema = z.object({
+  splits: z
+    .array(
+      z.object({
+        pocketId: z.string().uuid(),
+        splitPercentage: z.number().positive().max(100),
+      }),
+    )
+    .min(1),
+  confirmPartial: z.boolean().optional().default(false),
+});
+export type SubPocketRebalanceInput = z.infer<typeof SubPocketRebalanceInputSchema>;
 
 // ============================================================================
 // Loan Schemas - audit_team.md item 9
@@ -661,6 +697,7 @@ export const schemas = {
   Pocket: PocketSchema,
   PocketUpdateInput: PocketUpdateInputSchema,
   SubPocketCreateInput: SubPocketCreateInputSchema,
+  SubPocketRebalanceInput: SubPocketRebalanceInputSchema,
   RepaymentCadence: RepaymentCadenceSchema,
   RepaymentSchedule: RepaymentScheduleSchema,
   LoanCreateInput: LoanCreateInputSchema,

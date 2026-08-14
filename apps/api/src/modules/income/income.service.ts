@@ -48,7 +48,7 @@ export class IncomeService {
       throw new BadRequestException('No pockets found in your plan.');
     }
 
-    const allocations = this.calculateAllocationsBasedOnProportions(dto.amount, pockets);
+    const allocations = await this.applySubPocketSplits(this.calculateAllocationsBasedOnProportions(dto.amount, pockets));
 
     return {
       preview: {
@@ -190,7 +190,8 @@ export class IncomeService {
 
     if (dto.run_allocation) {
       // Allocate only the normal amount (expected income), not the surplus
-      const allocations = this.calculateAllocationsBasedOnProportions(normalAllocationAmount, pockets);
+      const baseAllocations = this.calculateAllocationsBasedOnProportions(normalAllocationAmount, pockets);
+      const allocations = await this.applySubPocketSplits(baseAllocations, dto.sub_split_overrides);
 
       // Write allocation transactions to the ledger. Balance everywhere in
       // the app is now ledger-derived (allocation credits - spend debits -
@@ -316,6 +317,100 @@ export class IncomeService {
         this.logger.warn(
           `idempotency save failed: ${err instanceof Error ? err.message : String(err)}`,
         );
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Extends `calculateAllocationsBasedOnProportions`'s output: for any
+   * top-level pocket that has sub-pockets, redirect the distributable
+   * portion of its share (Σ sub-pockets' splitPercentage, capped at 100)
+   * to those sub-pockets, each getting `parentShare * splitPercentage /
+   * 100` of THIS event's actual amount (not the static plan ceiling — a
+   * bigger/smaller-than-planned income event scales sub-pockets
+   * proportionally too, same as top-level pockets already do). The
+   * remainder — `parentShare * (1 - ΣsplitPercentage/100)` — stays as the
+   * parent's own allocation row, becoming its reserved balance (see
+   * pockets.service.ts rebalanceSubPockets and SUB_POCKET_SPLITS spec §2:
+   * a parent with sub-pockets doesn't spend this directly — it's a
+   * backstop the overflow-borrow flow draws from).
+   *
+   * Per-event overrides (Add Income preview's expandable sub-split editor)
+   * are handled by the caller passing pre-computed `subSplitOverrides`
+   * instead of falling through to each sub-pocket's stored percentage —
+   * see allocateIncome below.
+   */
+  private async applySubPocketSplits(
+    allocations: Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean }>,
+    subSplitOverrides?: Record<string, Array<{ pocketId: string; amount: number }>>,
+  ): Promise<Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean }>> {
+    const result: typeof allocations = [];
+
+    for (const allocation of allocations) {
+      const override = subSplitOverrides?.[allocation.pocket_id];
+      const subPockets = override ? null : await this.repository.getSubPocketsByParentId(allocation.pocket_id);
+
+      if (override) {
+        // Validate every override target is actually a sub-pocket of this
+        // parent before trusting client-supplied amounts — otherwise a
+        // malformed or malicious payload could redirect allocation money to
+        // an arbitrary pocket_id, including one belonging to someone else.
+        const actualSubPockets = await this.repository.getSubPocketsByParentId(allocation.pocket_id);
+        const validSubPocketIds = new Set(actualSubPockets.map((s) => s.id));
+        const validOverride = override.filter((o) => validSubPocketIds.has(o.pocketId));
+
+        const overrideTotal = round2(validOverride.reduce((sum, o) => sum + o.amount, 0));
+        const cappedOverrideTotal = Math.min(overrideTotal, allocation.amount);
+        const scale = overrideTotal > 0 ? cappedOverrideTotal / overrideTotal : 1;
+        const remainder = Math.max(0, round2(allocation.amount - cappedOverrideTotal));
+        if (remainder > 0) {
+          result.push({ ...allocation, amount: remainder });
+        }
+        for (const sub of validOverride) {
+          const amount = round2(sub.amount * scale);
+          if (amount > 0) {
+            const subPocket = actualSubPockets.find((s) => s.id === sub.pocketId);
+            result.push({
+              pocket_id: sub.pocketId,
+              pocket_name: subPocket?.name ?? sub.pocketId,
+              amount,
+              percentage: allocation.percentage,
+              is_minimum: false,
+            });
+          }
+        }
+        continue;
+      }
+
+      if (!subPockets || subPockets.length === 0) {
+        result.push(allocation);
+        continue;
+      }
+
+      const totalSplitPercent = subPockets.reduce((sum, s) => sum + (s.split_percentage || 0), 0);
+      let distributed = 0;
+      for (const sub of subPockets) {
+        const subAmount = round2((allocation.amount * (sub.split_percentage || 0)) / 100);
+        distributed = round2(distributed + subAmount);
+        if (subAmount > 0) {
+          result.push({
+            pocket_id: sub.id,
+            pocket_name: sub.name,
+            amount: subAmount,
+            percentage: allocation.percentage,
+            is_minimum: false,
+          });
+        }
+      }
+      // Reserved remainder stays with the parent — real money credited to
+      // its own ledger, just not sent down to a sub-pocket. Only omitted
+      // (like any other zero-amount row) when the splits happen to add up
+      // to exactly 100%.
+      const reserved = Math.max(0, round2(allocation.amount - distributed));
+      if (reserved > 0) {
+        result.push({ ...allocation, amount: reserved });
       }
     }
 
@@ -457,7 +552,9 @@ export class IncomeService {
       case 'main_pocket':
         // Allocate proportionally to all pockets using the same logic as normal income
         const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
-        const allocations = this.calculateAllocationsBasedOnProportions(incomeEvent.unallocated_surplus, pockets);
+        const allocations = await this.applySubPocketSplits(
+          this.calculateAllocationsBasedOnProportions(incomeEvent.unallocated_surplus, pockets),
+        );
         
         if (allocations.length === 0) {
           throw new BadRequestException('No pockets available for allocation');
@@ -572,4 +669,8 @@ export class IncomeService {
         throw new BadRequestException('Invalid target type');
     }
   }
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
