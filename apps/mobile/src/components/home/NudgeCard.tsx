@@ -52,7 +52,7 @@ export function NudgeCard({ nudge, onNavigate }: NudgeCardProps) {
         <Text style={{ ...typography.caption, color: colors.sage, marginTop: 4, lineHeight: 17 }}>{nudge.message}</Text>
         {nudge.actionLabel && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: spacing.sm }}>
-            <Text style={{ ...typography.caption, color: fg, fontWeight: '600' }}>{nudge.actionLabel}</Text>
+            <Text style={{ ...typography.caption, color: fg }}>{nudge.actionLabel}</Text>
             <ChevronRight size={14} color={fg} strokeWidth={2.5} />
           </View>
         )}

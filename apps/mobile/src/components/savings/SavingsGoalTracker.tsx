@@ -154,7 +154,7 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
             marginBottom: spacing.md,
           }}>
             <Sparkles size={18} color={colors.gold} strokeWidth={2} style={{ marginRight: spacing.xs }} />
-            <Text style={{ ...typography.caption, color: colors.gold, fontWeight: '600' }}>
+            <Text style={{ ...typography.caption, color: colors.gold }}>
               {showMilestone.percentage}% milestone reached
             </Text>
           </View>
@@ -210,7 +210,7 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
                   borderRadius: radius.pill,
                 }}>
                   <Award size={14} color={colors.gold} strokeWidth={2} />
-                  <Text style={{ ...typography.caption, color: colors.gold, fontWeight: '600', fontSize: 11 }}>
+                  <Text style={{ ...typography.caption, color: colors.gold, fontSize: 11 }}>
                     Achieved
                   </Text>
                 </View>

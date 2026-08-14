@@ -169,7 +169,7 @@ export default function CurrentPlanScreen() {
                           <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, textTransform: 'capitalize' }}>{pocket.category}</Text>
                         )}
                       </View>
-                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'], fontWeight: '700' }}>
+                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>
                         {fmt(pocket.monthly_allocation ?? 0)}
                       </Text>
                     </Pressable>

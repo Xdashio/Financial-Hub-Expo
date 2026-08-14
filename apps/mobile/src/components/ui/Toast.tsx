@@ -119,7 +119,7 @@ export function Toast({ visible, message, type = 'info', duration = 3000, onDism
             accessibilityLabel={actionLabel}
             accessibilityRole="button"
           >
-            <Text style={{ ...typography.caption, color: colors.surface, fontWeight: '600', textDecorationLine: 'underline' }}>
+            <Text style={{ ...typography.caption, color: colors.surface, textDecorationLine: 'underline' }}>
               {actionLabel}
             </Text>
           </Pressable>

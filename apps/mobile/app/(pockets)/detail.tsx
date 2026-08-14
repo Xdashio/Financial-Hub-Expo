@@ -776,13 +776,13 @@ export default function PocketDetailScreen() {
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
               <Text style={{ ...typography.caption, color: colors.sage }}>Total Amount</Text>
-              <Text style={{ ...typography.body, color: colors.ink, fontWeight: '600' }}>
+              <Text style={{ ...typography.body, color: colors.ink }}>
                 {formatMoney(pocket.monthly_allocation)}
               </Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
               <Text style={{ ...typography.caption, color: colors.sage }}>Status</Text>
-              <Text style={{ ...typography.caption, color: colors.plum, fontWeight: '600' }}>Active</Text>
+              <Text style={{ ...typography.caption, color: colors.plum }}>Active</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ ...typography.caption, color: colors.sage }}>Purpose</Text>
@@ -845,7 +845,7 @@ export default function PocketDetailScreen() {
                   accessibilityLabel="Add sub-pocket"
                 >
                   <Plus size={14} color={colors.emeraldDeep} strokeWidth={2.5} />
-                  <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontWeight: '600' as const }}>
+                  <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
                     Add
                   </Text>
                 </Pressable>

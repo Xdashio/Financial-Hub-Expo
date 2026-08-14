@@ -17,6 +17,7 @@ import {
   Sun,
   Monitor,
   X,
+  Check,
   LucideIcon,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/services/auth';
@@ -387,7 +388,7 @@ export default function ProfileScreen() {
                     </View>
                     {mode === option.id && (
                       <View style={{ width: 20, height: 20, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ color: colors.surface, fontSize: 12, fontWeight: 'bold' }}>✓</Text>
+                        <Check size={12} color={colors.surface} strokeWidth={3} />
                       </View>
                     )}
                   </Pressable>

@@ -393,7 +393,7 @@ export function StreakHeatmap() {
                           <View key={i} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
                             <View style={{ width: 6, height: 6, borderRadius: 3, marginTop: 5, backgroundColor: display.color }} />
                             <View style={{ flex: 1 }}>
-                              <Text style={{ ...typography.caption, color: colors.ink, fontWeight: '600' }}>{display.title}</Text>
+                              <Text style={{ ...typography.caption, color: colors.ink }}>{display.title}</Text>
                               {display.desc ? (
                                 <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 1 }}>{display.desc}</Text>
                               ) : null}

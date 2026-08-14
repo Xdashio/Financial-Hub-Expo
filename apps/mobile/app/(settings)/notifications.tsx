@@ -216,7 +216,7 @@ export default function NotificationsScreen() {
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md }}>
                     <Text style={{ ...typography.caption, color: colors.clay, flex: 1 }}>{updateError}</Text>
                     <Pressable onPress={() => setUpdateError(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Text style={{ ...typography.caption, color: colors.clay, fontWeight: '700' }}>Dismiss</Text>
+                      <Text style={{ ...typography.caption, color: colors.clay }}>Dismiss</Text>
                     </Pressable>
                   </View>
                 </Card>

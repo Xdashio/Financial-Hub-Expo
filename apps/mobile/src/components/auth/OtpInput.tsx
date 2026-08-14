@@ -118,7 +118,6 @@ export function OtpInput({
                     ...typography.display,
                     fontSize: 24,
                     color: isFilled ? colors.ink : colors.sage,
-                    fontWeight: '700',
                     lineHeight: 32,
                     fontVariant: ['tabular-nums'],
                   }}
