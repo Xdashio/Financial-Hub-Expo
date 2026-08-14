@@ -6,6 +6,7 @@ import {
   FixedExpenseInput,
   OnboardingInputSchema,
   OnboardingInput,
+  CategoryPercentagesSchema,
   PlanRetakeResult,
   RetakeEligibility,
 } from '@financial-hub/shared';
@@ -110,21 +111,25 @@ export class ProfileService {
   }
 
   async commitPlanPercentages(userId: string, input: unknown): Promise<any> {
-    const result = OnboardingInputSchema.safeParse(input);
+    // This endpoint only ever reads `categoryPercentages` — it must not
+    // require the rest of OnboardingInput (incomePattern, spendingHabit,
+    // incomeAmount, fixedTotal, sourceCount), since the mobile "edit
+    // percentages" screen only ever sends this one field. Validating
+    // against the full onboarding schema rejected every real request with
+    // "Required" errors on fields the caller never had.
+    const body = input as { categoryPercentages?: unknown } | null | undefined;
+    const result = CategoryPercentagesSchema.safeParse(body?.categoryPercentages);
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
-    
+
     // Get current plan to validate it exists
     const currentPlan = await this.supabaseRepo.getActivePlanByUserId(userId);
     if (!currentPlan) {
       throw new NotFoundException('No active plan found');
     }
 
-    const newPercentages = result.data.categoryPercentages;
-    if (!newPercentages) {
-      throw new BadRequestException('categoryPercentages are required');
-    }
+    const newPercentages = result.data;
 
     // Validate percentages sum to 100
     const total = Object.values(newPercentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
