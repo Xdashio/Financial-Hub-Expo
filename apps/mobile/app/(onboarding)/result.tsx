@@ -165,7 +165,7 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
             accessibilityLabel="Save category split"
             accessibilityRole="button"
           >
-            <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldTint, fontWeight: '600' }}>
+            <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldTint }}>
               {isSaving ? 'Saving…' : 'Save split'}
             </Text>
           </Pressable>

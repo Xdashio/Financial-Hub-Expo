@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Pressable, Text } from 'react-native';
 import { ToggleRight, LucideIcon } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, radius } from '@/theme';
+import { spacing, radius, typography } from '@/theme';
 
 interface ToggleProps {
   value: boolean;
@@ -99,10 +99,10 @@ export function ToggleRow({ icon: Icon, title, description, value, onToggle, dis
         <Icon size={18} color={colors.ink} strokeWidth={2} />
       </View>
       <View style={{ marginLeft: spacing.md, flex: 1 }}>
-        <Text style={{ fontFamily: 'System', fontWeight: '600', fontSize: 15, color: colors.ink }}>
+        <Text style={{ ...typography.heading, color: colors.ink }}>
           {title}
         </Text>
-        <Text style={{ fontFamily: 'System', fontSize: 12, color: colors.sage, marginTop: 2 }}>
+        <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
           {description}
         </Text>
       </View>
