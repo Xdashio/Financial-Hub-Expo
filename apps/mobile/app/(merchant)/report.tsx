@@ -11,6 +11,7 @@ import {
   Flag,
   Check,
   LucideIcon,
+  History,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 
@@ -58,6 +59,10 @@ export default function ReportMerchantScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleViewHistory = () => {
+    router.push('/(merchant)/history');
   };
 
   return (
@@ -227,6 +232,7 @@ export default function ReportMerchantScreen() {
               padding: spacing.md,
               borderRadius: radius.md,
               backgroundColor: colors.emeraldDeep,
+              marginBottom: spacing.md,
             }}
             onPress={handleSubmit}
             disabled={isLoading}
@@ -243,6 +249,25 @@ export default function ReportMerchantScreen() {
                 </Text>
               </>
             )}
+          </Pressable>
+
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: spacing.md,
+              borderRadius: radius.md,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.line,
+            }}
+            onPress={handleViewHistory}
+          >
+            <History size={20} color={colors.sage} strokeWidth={2} />
+            <Text style={{ ...typography.heading, color: colors.sage, marginLeft: spacing.sm }}>
+              View Report History
+            </Text>
           </Pressable>
         </View>
       </ScrollView>

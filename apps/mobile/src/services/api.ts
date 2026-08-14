@@ -150,10 +150,6 @@ export const loansApi = {
     api.post<any>(`/loans/${id}/fund-repayment`, { amount }),
 };
 
-export const transactionsApi = {
-  getByPocketId: (pocketId: string) => api.get<any[]>(`/pockets/${pocketId}/transactions`),
-};
-
 export const spendApi = {
   check: (data: { 
     pocket_id: string; 
@@ -242,9 +238,6 @@ export const rolloverApi = {
 
 export const profileApi = {
   getFixedExpenses: () => api.get<any[]>('/profile/fixed-expenses'),
-  createFixedExpense: (data: any) => api.post<any>('/profile/fixed-expenses', data),
-  updateFixedExpense: (id: string, data: any) => api.put<any>(`/profile/fixed-expenses/${id}`, data),
-  deleteFixedExpense: (id: string) => api.delete<void>(`/profile/fixed-expenses/${id}`),
   getPlan: () => api.get<any>('/profile/plan'),
   getRetakeEligibility: () =>
     api.get<{

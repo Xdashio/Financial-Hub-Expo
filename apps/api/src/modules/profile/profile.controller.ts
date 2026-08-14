@@ -53,17 +53,17 @@ export class ProfileController {
   }
 
   @Patch('plan/percentages')
-  @ApiOperation({ summary: 'Edit plan pocket percentages (same as onboarding CategorySplitEditor)' })
-  @ApiBody({ description: 'Onboarding answers with updated categoryPercentages' })
-  @ApiResponse({ status: 200, description: 'Plan preview with updated pocket amounts' })
+  @ApiOperation({ summary: 'Preview pocket allocations for candidate category percentages, without saving' })
+  @ApiBody({ description: '{ categoryPercentages: Record<SpendableCategory, number> } summing to 100' })
+  @ApiResponse({ status: 200, description: 'Per-pocket projected allocations, read-only' })
   @ApiResponse({ status: 400, description: 'Invalid percentages or plan not found' })
   async editPlanPercentages(@Body() input: unknown, @Request() req: any) {
-    return this.profileService.editPlanPercentages(req.user.id, input);
+    return this.profileService.previewPlanPercentages(req.user.id, input);
   }
 
   @Post('plan/percentages/commit')
   @ApiOperation({ summary: 'Commit percentage changes to update pocket allocations' })
-  @ApiBody({ description: 'Onboarding answers with updated categoryPercentages' })
+  @ApiBody({ description: '{ categoryPercentages: Record<SpendableCategory, number> } summing to 100' })
   @ApiResponse({ status: 200, description: 'Pocket allocations updated' })
   @ApiResponse({ status: 400, description: 'Invalid percentages or plan not found' })
   async commitPlanPercentages(@Body() input: unknown, @Request() req: any) {

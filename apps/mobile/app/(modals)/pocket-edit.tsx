@@ -6,7 +6,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { useHomeStore } from '@/services/home-store';
-import { ScreenContainer } from '@/components/ui';
+import { ScreenContainer, LoadingState } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { safeGoBack } from '@/utils/navigation';
 import { ArrowLeft } from 'lucide-react-native';
@@ -21,7 +21,7 @@ export default function PocketEditModal() {
   const [name, setName] = useState('');
   const [category, setCategory] = useState('');
   const [dailyCap, setDailyCap] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -72,9 +72,7 @@ export default function PocketEditModal() {
   if (loading) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ ...typography.body, color: colors.sage }}>Loading...</Text>
-        </View>
+        <LoadingState label="Loading pocket..." />
         {modal}
       </ScreenContainer>
     );

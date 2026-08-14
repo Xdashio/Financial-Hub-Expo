@@ -13,6 +13,7 @@ import {
   Tag,
   AlertTriangle,
   Check,
+  History,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
@@ -163,6 +164,10 @@ export default function ClassificationScreen() {
       pathname: '/(merchant)/report',
       params: { recipientKey, transactionId },
     });
+  };
+
+  const handleViewHistory = () => {
+    router.push('/(classification)/history');
   };
 
   const formatCurrency = (value: string) => {
@@ -447,12 +452,32 @@ export default function ClassificationScreen() {
               backgroundColor: colors.surface,
               borderWidth: 1,
               borderColor: colors.line,
+              marginBottom: spacing.md,
             }}
             onPress={handleReport}
           >
             <AlertTriangle size={20} color={colors.sage} strokeWidth={2} />
             <Text style={{ ...typography.heading, color: colors.sage, marginLeft: spacing.sm }}>
               Report Wrong Classification
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: spacing.md,
+              borderRadius: radius.md,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.line,
+            }}
+            onPress={handleViewHistory}
+          >
+            <History size={20} color={colors.sage} strokeWidth={2} />
+            <Text style={{ ...typography.heading, color: colors.sage, marginLeft: spacing.sm }}>
+              View Classification History
             </Text>
           </Pressable>
         </View>

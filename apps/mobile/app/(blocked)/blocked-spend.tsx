@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
+import { useAlertModal } from '@/hooks/useAlertModal';
+import { spendApi } from '@/services/api';
 import {
   ArrowLeft,
   AlertTriangle,
   X,
   RefreshCw,
   LucideIcon,
+  Info,
+  Shield,
+  Lock,
 } from 'lucide-react-native';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { safeGoBack } from '@/utils/navigation';
@@ -18,6 +23,7 @@ import { formatMoney } from '@/utils/money';
 export default function BlockedSpendScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const { alert, modal } = useAlertModal();
   const { pocketId, blockedCategory, amount, merchant, reviewAvailable } = useLocalSearchParams<{
     pocketId: string;
     blockedCategory: string;
@@ -25,9 +31,33 @@ export default function BlockedSpendScreen() {
     merchant: string;
     reviewAvailable?: string;
   }>();
+  
+  const [blockedReasons, setBlockedReasons] = useState<any>(null);
+  const [isLoadingReasons, setIsLoadingReasons] = useState(false);
+  const [showDetailedInfo, setShowDetailedInfo] = useState(false);
+  
   // Absent for links generated before this param existed — default to
   // showing the option rather than hiding it on a false negative.
   const canReview = reviewAvailable !== 'false';
+
+  useEffect(() => {
+    if (pocketId) {
+      loadBlockedReasons();
+    }
+  }, [pocketId]);
+
+  const loadBlockedReasons = async () => {
+    try {
+      setIsLoadingReasons(true);
+      const reasons = await spendApi.getBlockedReasons(pocketId);
+      setBlockedReasons(reasons);
+    } catch (error) {
+      console.error('Error loading blocked reasons:', error);
+      // Don't show error - this is supplementary info
+    } finally {
+      setIsLoadingReasons(false);
+    }
+  };
 
   const formatCurrency = (amount: string) => {
     return formatMoney(parseFloat(amount));
@@ -120,6 +150,135 @@ export default function BlockedSpendScreen() {
           </View>
         </View>
 
+        {/* Detailed Blocked Reasons */}
+        {blockedReasons && (
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
+            <Pressable
+              onPress={() => setShowDetailedInfo(!showDetailedInfo)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                padding: spacing.md,
+                borderRadius: radius.md,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.line,
+              }}
+            >
+              <Info size={20} color={colors.sage} strokeWidth={2} />
+              <Text style={{ ...typography.heading, color: colors.ink, marginLeft: spacing.md, flex: 1 }}>
+                Why is this blocked?
+              </Text>
+              <Text style={{ ...typography.caption, color: colors.sage }}>
+                {showDetailedInfo ? 'Hide' : 'Show details'}
+              </Text>
+            </Pressable>
+
+            {showDetailedInfo && (
+              <View style={{ marginTop: spacing.md }}>
+                {/* Pocket Info */}
+                <View style={{ 
+                  padding: spacing.md, 
+                  borderRadius: radius.md, 
+                  backgroundColor: colors.surface, 
+                  borderWidth: 1, 
+                  borderColor: colors.line,
+                  marginBottom: spacing.md 
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.sm }}>
+                    <Shield size={16} color={colors.emeraldDeep} strokeWidth={2} />
+                    <Text style={{ ...typography.caption, color: colors.sage, marginLeft: spacing.sm }}>
+                      Pocket: {blockedReasons.pocket_name}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Lock size={16} color={colors.gold} strokeWidth={2} />
+                    <Text style={{ ...typography.caption, color: colors.sage, marginLeft: spacing.sm }}>
+                      Type: {blockedReasons.pocket_kind}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Blocked Categories */}
+                <View style={{ 
+                  padding: spacing.md, 
+                  borderRadius: radius.md, 
+                  backgroundColor: colors.errorTint, 
+                  borderWidth: 1, 
+                  borderColor: colors.error,
+                  marginBottom: spacing.md 
+                }}>
+                  <Text style={{ ...typography.caption, color: colors.errorDeep, marginBottom: spacing.sm }}>
+                    Blocked Categories ({blockedReasons.blocked_categories.length}):
+                  </Text>
+                  {blockedReasons.blocked_categories.map((blocked: any) => (
+                    <View 
+                      key={blocked.category} 
+                      style={{ 
+                        padding: spacing.sm, 
+                        borderRadius: radius.xs, 
+                        backgroundColor: colors.surface, 
+                        marginBottom: spacing.xs 
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+                        <Lock size={14} color={blocked.can_override ? colors.gold : colors.errorDeep} strokeWidth={2} />
+                        <Text style={{ ...typography.body, color: colors.ink, marginLeft: spacing.xs }}>
+                          {getMerchantCategoryLabel(blocked.category)}
+                        </Text>
+                      </View>
+                      <Text style={{ ...typography.caption, color: colors.sage, marginLeft: spacing.md }}>
+                        {blocked.reason}
+                        {blocked.can_override && (
+                          <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                            {' • Can be overridden'}
+                          </Text>
+                        )}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Allowed Categories */}
+                <View style={{ 
+                  padding: spacing.md, 
+                  borderRadius: radius.md, 
+                  backgroundColor: colors.emeraldTint, 
+                  borderWidth: 1, 
+                  borderColor: colors.emeraldDeep 
+                }}>
+                  <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginBottom: spacing.sm }}>
+                    Allowed Categories ({blockedReasons.allowed_categories.length}):
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
+                    {blockedReasons.allowed_categories.slice(0, 10).map((category: string) => (
+                      <View
+                        key={category}
+                        style={{
+                          padding: spacing.xs,
+                          borderRadius: radius.xs,
+                          backgroundColor: colors.surface,
+                          borderWidth: 1,
+                          borderColor: colors.emeraldDeep,
+                        }}
+                      >
+                        <Text style={{ ...typography.caption, color: colors.ink }}>
+                          {getMerchantCategoryLabel(category)}
+                        </Text>
+                      </View>
+                    ))}
+                    {blockedReasons.allowed_categories.length > 10 && (
+                      <Text style={{ ...typography.caption, color: colors.sage }}>
+                        +{blockedReasons.allowed_categories.length - 10} more
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Options */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
@@ -206,6 +365,7 @@ export default function BlockedSpendScreen() {
           </View>
         </View>
       </ScrollView>
+      {modal}
     </SafeAreaView>
   );
 }
