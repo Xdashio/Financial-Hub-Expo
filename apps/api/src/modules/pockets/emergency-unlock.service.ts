@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
-import type { SupabaseRepository } from '../../database/supabase.repository';
+import { SupabaseRepository } from '../../database/supabase.repository';
 import type { Pocket } from '../../database/database.types';
 import {
   EmergencyUnlockEligibilityResponse,
