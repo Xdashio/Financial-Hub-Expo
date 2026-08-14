@@ -17,6 +17,12 @@ export { SearchBar } from './SearchBar';
 export { OfflineIndicator } from './OfflineIndicator';
 export { Toast } from './Toast';
 export { SavingsGoalTracker } from '../savings/SavingsGoalTracker';
+export { PocketGlyph } from './PocketGlyph';
+export type { PocketGlyphKind } from './PocketGlyph';
+export { ProgressRing } from './ProgressRing';
+export { PocketLoader } from './PocketLoader';
+export { EmptyIllustration } from './EmptyIllustration';
+export type { EmptyIllustrationVariant } from './EmptyIllustration';
 export {
   useMakeStyles,
   useCreateThemedStyle,
