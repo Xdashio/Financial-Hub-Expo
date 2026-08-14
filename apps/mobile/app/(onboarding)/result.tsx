@@ -11,7 +11,6 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader, PocketGlyph, PocketLoader } from '@/components/ui';
 import { ChevronLeft, Check, Lock, ChevronRight, ChevronDown, Minus, Plus, RotateCcw, Target, AlertTriangle, TrendingUp } from 'lucide-react-native';
 import type { CategoryPercentages, SpendableCategory, PlanAssignReason } from '@financial-hub/shared';
-import { safeGoBack } from '@/utils/navigation';
 
 const PERCENT_STEP = 5;
 
@@ -60,15 +59,33 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
 
   const categories = planPreview.categoryBreakdown.map((c) => c.category);
   
-  // If no categories or single category, show a message about managing pockets
-  if (categories.length <= 1) {
+  // Always show the percentage editor when there are multiple categories
+  // For single category plans (students), show a helpful message
+  if (categories.length === 0) {
     return (
       <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: `${colors.surface}26` }}>
         <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>
-          Adjust your split
+          Your plan allocation
         </Text>
         <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}80`, marginTop: spacing.xs }}>
-          Add more pockets after onboarding to customize your allocation
+          No spendable categories in this plan
+        </Text>
+      </View>
+    );
+  }
+  
+  if (categories.length === 1) {
+    const isStudentPlan = categories[0] === 'leisure';
+    return (
+      <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: `${colors.surface}26` }}>
+        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>
+          {isStudentPlan ? 'Daily budget style' : 'Your plan allocation'}
+        </Text>
+        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}80`, marginTop: spacing.xs }}>
+          {isStudentPlan 
+            ? 'This plan uses a single daily budget. Add more pockets after onboarding to create category splits.'
+            : 'Add more pockets after onboarding to customize your allocation'
+          }
         </Text>
       </View>
     );
@@ -387,11 +404,6 @@ export default function ResultScreen() {
 
 
 
-  const handleAdjust = () => {
-    // Navigate back to previous step for adjustments
-    safeGoBack(router, '/(onboarding)/fixed');
-  };
-
   const getPlanTag = () => {
     // rules-engine.ts's determineIncomePattern resolves both pure 'salaried'
     // and 'mix' (stable base + side income) down to the stored 'salaried'
@@ -464,10 +476,12 @@ export default function ResultScreen() {
                 <Text style={{ ...typography.eyebrow, color: colors.sage }}>Your money plan is ready</Text>
                 <Text style={{ ...typography.display, color: colors.ink, marginTop: spacing.sm, textAlign: 'center' }}>{plan}</Text>
                 <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs, textAlign: 'center' }}>{getPlanTag()}</Text>
-                <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm, textAlign: 'center' }}>
-                  Fixed costs ≈ {displayNeedsPercent}% of income
-                  {needsBand ? ` · ${needsBand} needs band` : ''}
-                </Text>
+                {displayNeedsPercent > 0 && (
+                  <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm, textAlign: 'center' }}>
+                    Fixed costs ≈ {displayNeedsPercent}% of income
+                    {needsBand ? ` · ${needsBand} needs band` : ''}
+                  </Text>
+                )}
               </View>
 
               <WhyPlanCard reasons={reasons} colors={colors} />
@@ -494,7 +508,11 @@ export default function ResultScreen() {
                 <TrendingUp size={22} color={colors.emeraldDeep} strokeWidth={2} />
               </View>
 
-              {/* Fixed costs pocket card - exact home page structure */}
+              {/* Fixed costs pocket card - exact home page structure.
+                  Hidden entirely when the user has no fixed expenses —
+                  with no items, fixedAmount is 0, so showing a KSh 0
+                  pocket would be misleading and illogical. */}
+              {fixedAmount > 0 && (
               <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
                 <View style={{ borderTopWidth: 1.5, borderTopColor: getPocketColor('fixed'), borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: getPocketColor('fixed') }} />
@@ -515,6 +533,7 @@ export default function ResultScreen() {
                   <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>Available</Text>
                 </View>
               </View>
+              )}
 
               {/* Savings pocket card - exact home page structure */}
               <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
@@ -577,11 +596,6 @@ export default function ResultScreen() {
                 >
                   Enter my plan
                 </Button>
-                <View style={{ alignItems: 'center' }}>
-                  <Button variant="ghost" onPress={handleAdjust} accessibilityLabel="Go back to previous step" accessibilityRole="button">
-                    Adjust before I start
-                  </Button>
-                </View>
               </View>
               </View>
             </ScrollView>

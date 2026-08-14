@@ -46,7 +46,6 @@ export default function FixedScreen() {
     removeFixedExpense, 
     setFixedExpenses,
     previewPlan, 
-    input,
   } = useOnboardingStore();
   
   const [isLoading, setIsLoading] = React.useState(false);
@@ -403,6 +402,7 @@ export default function FixedScreen() {
             </View>
           </View>
         </Modal>
+
       </SafeScrollView>
       {modal}
     </ScreenContainer>
