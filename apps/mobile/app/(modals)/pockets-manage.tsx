@@ -5,9 +5,10 @@ import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { ScreenContainer, Button, ConfirmModal } from '@/components/ui';
+import { ScreenContainer, Button, ConfirmModal, LoadingState, PocketGlyph } from '@/components/ui';
+import { pocketGlyphKind } from '@/utils/pocketGlyph';
 import { safeGoBack } from '@/utils/navigation';
-import { ArrowLeft, Plus, Trash2, Edit3, Shield, PiggyBank, ShoppingBasket, User, Car, House } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Edit3 } from 'lucide-react-native';
 
 export default function PocketsManageModal() {
   const router = useRouter();
@@ -35,13 +36,6 @@ export default function PocketsManageModal() {
     }, [loadPockets]),
   );
 
-  const getPocketIcon = (kind: string, category?: string) => {
-    if (kind === 'savings') return PiggyBank;
-    if (kind === 'fixed') return House;
-    if (category === 'food') return ShoppingBasket;
-    if (category === 'transport') return Car;
-    return User;
-  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -69,9 +63,7 @@ export default function PocketsManageModal() {
   if (loading) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text style={{ ...typography.body, color: colors.sage }}>Loading pockets...</Text>
-        </View>
+        <LoadingState label="Loading pockets…" />
       </ScreenContainer>
     );
   }
@@ -100,7 +92,6 @@ export default function PocketsManageModal() {
           </View>
 
           {pockets.map((pocket) => {
-            const Icon = getPocketIcon(pocket.kind, pocket.category);
             return (
               <View
                 key={pocket.id}
@@ -118,7 +109,7 @@ export default function PocketsManageModal() {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
                   <View style={{ width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
-                    <Icon size={20} color={colors.emeraldDeep} strokeWidth={2} />
+                    <PocketGlyph kind={pocketGlyphKind(pocket.kind)} size={20} color={colors.emeraldDeep} />
                   </View>
                   <View>
                     <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>

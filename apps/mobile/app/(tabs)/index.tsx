@@ -12,21 +12,11 @@ import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { loansApi, emergencyUnlockApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, PocketGlyph } from '@/components/ui';
-import type { PocketGlyphKind } from '@/components/ui';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
 import { deriveNudges } from '@/services/nudges';
 import { formatMoney } from '@/utils/money';
-// Every pocket, regardless of category, is drawn with PocketGlyph keyed by
-// `kind` — one consistent brand glyph (see PocketGlyph.tsx) instead of the
-// old category-literal icon map (a House for rent, a ShoppingBasket for
-// groceries, etc). The pocket's name label already carries the category
-// distinction in text; the icon's job is to say "this is a pocket," not to
-// re-illustrate the category.
-const pocketGlyphKind = (kind: string): PocketGlyphKind => {
-  if (kind === 'savings' || kind === 'fixed' || kind === 'loan') return kind;
-  return 'spendable';
-};
+import { pocketGlyphKind } from '@/utils/pocketGlyph';
 
 export default function HomeScreen() {
   const { colors } = useTheme();

@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, Pressable, TextInput } from 'react-native';
-import {
-  AlertTriangle,
-  TrendingUp,
-  PiggyBank,
-  Info,
-  Clock,
-  BarChart3,
-} from 'lucide-react-native';
+import { AlertTriangle } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography, touchTarget } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { Button } from '@/components/ui/Button';
+import { PocketGlyph } from '@/components/ui/PocketGlyph';
+import { PocketLoader } from '@/components/ui/PocketLoader';
 import { emergencyUnlockApi } from '@/services/api';
 
 interface EmergencyUnlockSheetProps {
@@ -173,8 +168,9 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
   // --- Loading ---
   if (state.status === 'loading') {
     return (
-      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerIcon={AlertTriangle}>
-        <View style={{ paddingVertical: spacing.xxl, alignItems: 'center' }}>
+      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
+        <View style={{ paddingVertical: spacing.xxl, alignItems: 'center', gap: spacing.md }}>
+          <PocketLoader size={36} color={colors.emeraldDeep} />
           <Text style={{ ...typography.body, color: colors.sage }}>Checking eligibility…</Text>
         </View>
       </BottomSheetModal>
@@ -184,7 +180,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
   // --- Network/unexpected error ---
   if (state.status === 'error') {
     return (
-      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerIcon={AlertTriangle}>
+      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
           <Text style={{ ...typography.body, color: colors.ink, textAlign: 'center', marginBottom: spacing.lg }}>
             Couldn't check emergency unlock eligibility. Check your connection and try again.
@@ -201,13 +197,17 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
   if (state.status === 'ineligible') {
     const isWaitingOnHistory = state.reason === 'insufficient_history';
     const isMonthlyLimit = state.reason === 'monthly_limit_reached';
-    const Icon = isWaitingOnHistory ? BarChart3 : isMonthlyLimit ? Clock : Info;
+    // Same pocket-glyph family as everywhere else: "still building up" for
+    // insufficient history, "sewn shut till next month" for the monthly
+    // limit, and a plain savings pocket for depleted/unavailable reserves —
+    // instead of a literal BarChart3 / Clock / Info picked per-case.
+    const glyphKind = isWaitingOnHistory ? 'spendable' : isMonthlyLimit ? 'locked' : 'savings';
 
     return (
-      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerIcon={AlertTriangle}>
+      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
           <View style={{ width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
-            <Icon size={26} color={colors.gold} strokeWidth={2} />
+            <PocketGlyph kind={glyphKind} size={28} color={colors.gold} />
           </View>
           <Text style={{ ...typography.body, color: colors.ink, textAlign: 'center', marginBottom: spacing.sm }}>
             {state.message ?? 'Emergency unlock is not available right now.'}
@@ -232,12 +232,12 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
 
   // --- Eligible: full flow ---
   return (
-    <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerIcon={AlertTriangle}>
+    <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
       <View>
         {/* Analysis Summary */}
         <View style={{ backgroundColor: colors.goldTint, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-            <TrendingUp size={16} color={colors.gold} strokeWidth={2} />
+            <PocketGlyph kind="spendable" size={16} color={colors.gold} />
             <Text style={{ ...typography.heading, color: colors.gold }}>Based on your last 30 days of spending</Text>
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
@@ -346,7 +346,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
         {/* Days Lasting Display */}
         <View style={{ backgroundColor: colors.emeraldTint, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.lg, alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <PiggyBank size={20} color={colors.emeraldDeep} strokeWidth={2} />
+            <PocketGlyph kind="savings" size={20} color={colors.emeraldDeep} />
             <Text style={{ ...typography.body, color: colors.emeraldDeep }}>
               {formatCurrency(selectedAmount)} will last you{' '}
               <Text style={{ ...typography.heading, color: colors.emeraldDeep }}>
@@ -359,7 +359,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
         {/* Reserve Info */}
         <View style={{ marginBottom: spacing.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
-            <Info size={16} color={colors.sage} strokeWidth={2} />
+            <PocketGlyph kind="locked" size={16} color={colors.sage} />
             <Text style={{ ...typography.caption, color: colors.sage, flex: 1 }}>
               You'll keep {formatCurrency(savingsReserve!.minimum_reserve)} in savings reserve
             </Text>

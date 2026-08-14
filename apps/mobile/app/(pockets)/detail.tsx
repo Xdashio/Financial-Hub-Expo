@@ -13,6 +13,7 @@ import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button, ConfirmModal } from '@/components/ui';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
+import { SubPocketRebalanceSheet } from '@/components/pockets/SubPocketRebalanceSheet';
 import {
   ArrowLeft,
   ArrowLeftRight,
@@ -26,6 +27,7 @@ import {
   CircleDollarSign,
   Layers,
   Plus,
+  Sliders,
   Trash2,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
@@ -85,6 +87,7 @@ interface SubPocket {
   category: string | null;
   monthly_allocation: number;
   available_balance: number;
+  split_percentage: number | null;
 }
 
 interface MerchantScope {
@@ -247,6 +250,7 @@ export default function PocketDetailScreen() {
   const [deleteTarget, setDeleteTarget] = useState<SubPocket | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [rebalanceSheetVisible, setRebalanceSheetVisible] = useState(false);
 
   const isFirstFocus = useRef(true);
 
@@ -801,9 +805,32 @@ export default function PocketDetailScreen() {
                 padding: spacing.lg,
               }}
             >
+              {/* Header row: title + Rebalance (when siblings exist) + Add */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
                 <Layers size={15} color={colors.ink} strokeWidth={2} />
                 <Text style={{ ...typography.eyebrow, color: colors.ink, flex: 1 }}>Sub-pockets</Text>
+
+                {subPockets.length >= 1 && (
+                  <Pressable
+                    onPress={() => setRebalanceSheetVisible(true)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      paddingHorizontal: spacing.sm,
+                      paddingVertical: 4,
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Rebalance sub-pocket splits"
+                  >
+                    <Sliders size={13} color={colors.sage} strokeWidth={2} />
+                    <Text style={{ ...typography.caption, color: colors.sage }}>
+                      Rebalance
+                    </Text>
+                  </Pressable>
+                )}
+
                 <Pressable
                   onPress={() => router.push({ pathname: '/(modals)/subpocket-create', params: { parentId: id } })}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -830,42 +857,101 @@ export default function PocketDetailScreen() {
                   repayment plan, a purpose, a goal.
                 </Text>
               ) : (
-                <View style={{ gap: spacing.sm }}>
-                  {subPockets.map((sp) => (
-                    <View
-                      key={sp.id}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: spacing.sm,
-                        paddingVertical: spacing.sm,
-                        borderTopWidth: borderWidth,
-                        borderTopColor: colors.line,
-                      }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>
-                          {sp.name}
-                        </Text>
-                        <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
-                          {fmt(sp.available_balance)} available · {fmt(sp.monthly_allocation)} allocated
+                <>
+                  {/* Split usage bar across all siblings */}
+                  {(() => {
+                    const totalPct = subPockets.reduce((s, sp) => s + (sp.split_percentage ?? 0), 0);
+                    const reserved = Math.max(0, 100 - totalPct);
+                    return (
+                      <View style={{ marginBottom: spacing.md }}>
+                        <View
+                          style={{
+                            height: 6,
+                            backgroundColor: colors.lineSoft,
+                            borderRadius: radius.pill,
+                            overflow: 'hidden',
+                            flexDirection: 'row',
+                          }}
+                        >
+                          {subPockets.map((sp, i) => (
+                            <View
+                              key={sp.id}
+                              style={{
+                                height: '100%',
+                                width: `${Math.max(0, sp.split_percentage ?? 0)}%`,
+                                backgroundColor: i % 2 === 0 ? colors.emeraldDeep : colors.emerald,
+                              }}
+                            />
+                          ))}
+                        </View>
+                        <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
+                          {Math.round(totalPct)}% split across sub-pockets
+                          {reserved > 0.5 ? ` · ${Math.round(reserved)}% reserved in parent` : ''}
                         </Text>
                       </View>
-                      <Pressable
-                        onPress={() => {
-                          setDeleteError(null);
-                          setDeleteTarget(sp);
-                        }}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={{ padding: spacing.xs }}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Delete ${sp.name}`}
-                      >
-                        <Trash2 size={16} color={colors.clay} strokeWidth={2} />
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
+                    );
+                  })()}
+
+                  {/* Sibling rows */}
+                  <View style={{ gap: 0 }}>
+                    {subPockets.map((sp) => {
+                      const pct = sp.split_percentage ?? 0;
+                      return (
+                        <View
+                          key={sp.id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: spacing.sm,
+                            paddingVertical: spacing.md,
+                            borderTopWidth: borderWidth,
+                            borderTopColor: colors.lineSoft,
+                          }}
+                        >
+                          {/* Percentage pill */}
+                          <View
+                            style={{
+                              backgroundColor: colors.emeraldTint,
+                              borderRadius: radius.pill,
+                              paddingHorizontal: spacing.sm,
+                              paddingVertical: 2,
+                              minWidth: 44,
+                              alignItems: 'center',
+                            }}
+                          >
+                            <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
+                              {Math.round(pct)}%
+                            </Text>
+                          </View>
+
+                          {/* Name + balance */}
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>
+                              {sp.name}
+                            </Text>
+                            <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                              {fmt(sp.available_balance)} available · {fmt(sp.monthly_allocation)} / mo
+                            </Text>
+                          </View>
+
+                          {/* Delete */}
+                          <Pressable
+                            onPress={() => {
+                              setDeleteError(null);
+                              setDeleteTarget(sp);
+                            }}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                            style={{ padding: spacing.xs }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Delete ${sp.name}`}
+                          >
+                            <Trash2 size={16} color={colors.clay} strokeWidth={2} />
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </>
               )}
             </View>
           </View>
@@ -983,6 +1069,20 @@ export default function PocketDetailScreen() {
           }
         }}
       />
+
+      {/* Rebalance bottom sheet — shown when user taps "Rebalance" in the
+          sub-pockets section. Uses the first sibling as the anchor pocket id
+          (the API resolves the shared parent from any family member). */}
+      {pocket && subPockets.length >= 1 && (
+        <SubPocketRebalanceSheet
+          visible={rebalanceSheetVisible}
+          onClose={() => setRebalanceSheetVisible(false)}
+          anchorPocketId={subPockets[0].id}
+          subPockets={subPockets}
+          parentMonthlyAllocation={pocket.monthly_allocation}
+          onSuccess={loadAll}
+        />
+      )}
     </ScreenContainer>
   );
 }

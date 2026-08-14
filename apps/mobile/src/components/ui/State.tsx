@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { AlertCircle, RefreshCw } from 'lucide-react-native';
+import { RefreshCw } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, typography, radius, touchTarget } from '@/theme';
+import { radius, spacing, typography, touchTarget } from '@/theme';
 import { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton } from './Skeleton';
 import { PocketLoader } from './PocketLoader';
+import { EmptyIllustration } from './EmptyIllustration';
 
 /**
  * Full-bleed loading state, used in place of the many one-off
@@ -83,18 +84,10 @@ export function ErrorState({
   const { colors } = useTheme();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md }}>
-      <View
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: radius.md,
-          backgroundColor: colors.clayTint,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <AlertCircle size={22} color={colors.clay} strokeWidth={2} />
-      </View>
+      {/* Dropped-stitch pocket scene — same family as EmptyState, so a
+          failure reads as "this app's stitch came loose" rather than a
+          generic AlertCircle-in-a-tinted-square. */}
+      <EmptyIllustration variant="error" size={64} color={colors.sage} accentColor={colors.clay} />
       <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center' }}>{message}</Text>
       {!!onRetry && (
         <Pressable

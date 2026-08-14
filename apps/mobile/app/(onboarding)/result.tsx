@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView, Dimensions, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Dimensions, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
@@ -8,8 +8,8 @@ import { useAuthStore } from '@/services/auth';
 import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader } from '@/components/ui';
-import { ChevronLeft, Check, Shield, TrendingUp, Home, DollarSign, Lock, ChevronRight, Minus, Plus, RotateCcw, Target, AlertTriangle } from 'lucide-react-native';
+import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader, PocketGlyph, PocketLoader } from '@/components/ui';
+import { ChevronLeft, Check, Lock, ChevronRight, Minus, Plus, RotateCcw, Target, AlertTriangle, TrendingUp } from 'lucide-react-native';
 import type { CategoryPercentages, SpendableCategory } from '@financial-hub/shared';
 import { safeGoBack } from '@/utils/navigation';
 
@@ -49,7 +49,7 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
   if (isPreviewLoading && !planPreview) {
     return (
       <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
-        <ActivityIndicator color={colors.emeraldDeep} />
+        <PocketLoader size={28} color={colors.emeraldDeep} />
       </View>
     );
   }
@@ -383,7 +383,7 @@ export default function ResultScreen() {
                     <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {isShortfall && <AlertTriangle size={15} color={colors.gold} strokeWidth={2} />}
                       {isGoalOnTrack && <Target size={15} color={colors.ink} strokeWidth={2} />}
-                      {!isShortfall && !isGoalOnTrack && index === 0 && <Home size={15} color={colors.ink} strokeWidth={2} />}
+                      {!isShortfall && !isGoalOnTrack && index === 0 && <PocketGlyph kind="fixed" size={15} color={colors.ink} />}
                       {!isShortfall && !isGoalOnTrack && index === 1 && <TrendingUp size={15} color={colors.ink} strokeWidth={2} />}
                       {!isShortfall && !isGoalOnTrack && index === 2 && <Check size={15} color={colors.ink} strokeWidth={2} />}
                     </View>
@@ -414,7 +414,7 @@ export default function ResultScreen() {
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: getPocketColor('fixed') }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Home color={getPocketColor('fixed')} size={14} />
+                    <PocketGlyph kind="fixed" color={getPocketColor('fixed')} size={14} />
                     <Text style={{ ...typography.heading, color: colors.ink }}>{getPocketName('fixed')}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -436,7 +436,7 @@ export default function ResultScreen() {
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: getPocketColor('savings') }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <Shield color={getPocketColor('savings')} size={14} />
+                    <PocketGlyph kind="savings" color={getPocketColor('savings')} size={14} />
                     <Text style={{ ...typography.heading, color: colors.ink }}>{getPocketName('savings')}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -459,7 +459,7 @@ export default function ResultScreen() {
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: colors.emeraldDeep }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <DollarSign color={colors.emeraldDeep} size={14} />
+                    <PocketGlyph kind="spendable" color={colors.emeraldDeep} size={14} />
                     <Text style={{ ...typography.heading, color: colors.surface }}>Safe to spend</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
