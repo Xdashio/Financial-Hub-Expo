@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import { Bell, Sparkles } from 'lucide-react-native';
 import { spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { BottomSheetModal } from '@/components/ui';
+import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { NudgeCard } from './NudgeCard';
 import type { Nudge } from '@/services/nudges';
 

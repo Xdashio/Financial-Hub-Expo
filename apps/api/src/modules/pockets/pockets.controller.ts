@@ -1,12 +1,18 @@
 import { Controller, Get, Put, Patch, Post, Delete, Param, Body, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PocketsService } from './pockets.service';
+import { EmergencyUnlockService } from './emergency-unlock.service';
+import { SupabaseRepository } from '../../database/supabase.repository';
 
 @ApiTags('Pockets')
 @Controller('pockets')
 @ApiBearerAuth()
 export class PocketsController {
-  constructor(private readonly pocketsService: PocketsService) {}
+  constructor(
+    private readonly pocketsService: PocketsService,
+    private readonly emergencyUnlockService: EmergencyUnlockService,
+    private readonly repository: SupabaseRepository,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: "List the current user's pockets for their active plan" })
@@ -166,5 +172,30 @@ export class PocketsController {
   @ApiResponse({ status: 404, description: 'Pocket not found' })
   rebalanceSubPockets(@Param('id') id: string, @Body() body: unknown, @Request() req: any) {
     return this.pocketsService.rebalanceSubPockets(id, req.user.id, body);
+  }
+
+  @Get('emergency-unlock/eligibility')
+  @ApiOperation({ summary: 'Check eligibility for emergency unlock from savings' })
+  @ApiResponse({ status: 200, description: 'Eligibility status with spending analysis and reserve info' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  async checkEmergencyUnlockEligibility(@Request() req: any) {
+    const plan = await this.repository.getActivePlanByUserId(req.user.id);
+    if (!plan) {
+      throw new Error('No active plan found');
+    }
+    return this.emergencyUnlockService.checkEligibility(req.user.id, plan.id);
+  }
+
+  @Post('emergency-unlock')
+  @ApiOperation({ summary: 'Execute emergency unlock from savings' })
+  @ApiResponse({ status: 200, description: 'Unlock executed with allocation breakdown' })
+  @ApiResponse({ status: 400, description: 'Invalid amount, not eligible, or reserve not confirmed' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  async executeEmergencyUnlock(@Body() body: { amount: number; confirm_reserve: boolean }, @Request() req: any) {
+    const plan = await this.repository.getActivePlanByUserId(req.user.id);
+    if (!plan) {
+      throw new Error('No active plan found');
+    }
+    return this.emergencyUnlockService.executeUnlock(req.user.id, plan.id, body);
   }
 }

@@ -230,6 +230,7 @@ export interface Database {
           type: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
           merchant: string | null
           category: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
+          emergency_unlock_id: string | null
           created_at: string
         }
         Insert: {
@@ -239,6 +240,7 @@ export interface Database {
           type: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
           merchant?: string | null
           category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
+          emergency_unlock_id?: string | null
           created_at?: string
         }
         Update: {
@@ -248,6 +250,7 @@ export interface Database {
           type?: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
           merchant?: string | null
           category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
+          emergency_unlock_id?: string | null
           created_at?: string
         }
         Relationships: []
@@ -341,6 +344,42 @@ export interface Database {
           user_id?: string
           type?: string
           payload?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      emergency_unlocks: {
+        Row: {
+          id: string
+          user_id: string
+          plan_id: string
+          amount: number
+          days_calculated: number
+          least_daily_spend: number
+          average_daily_spend: number
+          reserve_kept: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan_id: string
+          amount: number
+          days_calculated: number
+          least_daily_spend: number
+          average_daily_spend: number
+          reserve_kept: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan_id?: string
+          amount?: number
+          days_calculated?: number
+          least_daily_spend?: number
+          average_daily_spend?: number
+          reserve_kept?: number
           created_at?: string
         }
         Relationships: []
@@ -551,3 +590,31 @@ export interface IdempotencyRecordInsert {
   response?: Record<string, unknown>;
   created_at?: string;
 }
+
+// Emergency unlocks (savings emergency withdrawals with once-per-month limit)
+export interface EmergencyUnlock {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  amount: number;
+  days_calculated: number;
+  least_daily_spend: number;
+  average_daily_spend: number;
+  reserve_kept: number;
+  created_at: string;
+}
+
+export interface EmergencyUnlockInsert {
+  id?: string;
+  user_id: string;
+  plan_id: string;
+  amount: number;
+  days_calculated: number;
+  least_daily_spend: number;
+  average_daily_spend: number;
+  reserve_kept: number;
+  created_at?: string;
+}
+
+export type EmergencyUnlockRow = Database['public']['Tables']['emergency_unlocks']['Row'];
+export type EmergencyUnlockRowInsert = Database['public']['Tables']['emergency_unlocks']['Insert'];

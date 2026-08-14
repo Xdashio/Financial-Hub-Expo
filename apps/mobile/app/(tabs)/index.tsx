@@ -13,6 +13,7 @@ import { useDataSync } from '@/services/data-sync';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
+import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
 import { deriveNudges } from '@/services/nudges';
 import { formatMoney } from '@/utils/money';
 // Pocket icons — using lucide-react-native so pocket icons stay visually
@@ -99,6 +100,29 @@ export default function HomeScreen() {
   } = useHomeStore();
 
   const [nudgesVisible, setNudgesVisible] = React.useState(false);
+  const [emergencyUnlockVisible, setEmergencyUnlockVisible] = React.useState(false);
+  const [isUnlocking, setIsUnlocking] = React.useState(false);
+
+  // Check if all non-savings pockets are depleted for emergency unlock
+  const showEmergencyUnlock = React.useMemo(() => {
+    const nonSavingsPockets = pockets.filter(p => p.kind !== 'savings');
+    const allDepleted = nonSavingsPockets.length > 0 && nonSavingsPockets.every(p => p.availableBalance <= 0);
+    const hasSavings = pockets.some(p => p.kind === 'savings' && p.availableBalance > 0);
+    return allDepleted && hasSavings;
+  }, [pockets]);
+
+  const handleEmergencyUnlock = async (amount: number) => {
+    setIsUnlocking(true);
+    try {
+      // TODO: Call the emergency unlock API
+      console.log('Emergency unlock amount:', amount);
+      await refreshData();
+    } catch (error) {
+      console.error('Emergency unlock failed:', error);
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
 
   // Derived client-side from data Home already fetches — see
   // src/services/nudges.ts for why this doesn't hit a separate endpoint.
@@ -522,9 +546,46 @@ export default function HomeScreen() {
             {fixedPockets.map(renderPocketCard)}
           </>
         )}
+
+        {/* Emergency Unlock Banner */}
+        {showEmergencyUnlock && (
+          <TouchableOpacity
+            style={{
+              marginTop: spacing.lg,
+              backgroundColor: colors.clayTint,
+              borderRadius: radius.md,
+              padding: spacing.lg,
+              borderWidth: 1,
+              borderColor: colors.clay,
+            }}
+            activeOpacity={0.8}
+            onPress={() => setEmergencyUnlockVisible(true)}
+            accessibilityLabel="Emergency unlock from savings"
+            accessibilityRole="button"
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.clay, alignItems: 'center', justifyContent: 'center' }}>
+                <AlertTriangle size={20} color={colors.surface} strokeWidth={2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...typography.heading, color: colors.ink }}>Your pockets are empty</Text>
+                <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                  Unlock emergency funds from savings to cover daily expenses
+                </Text>
+              </View>
+              <Text style={{ ...typography.caption, color: colors.clay }}>Tap to unlock →</Text>
+            </View>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <NudgesSheet visible={nudgesVisible} onClose={() => setNudgesVisible(false)} nudges={nudges} />
+      <EmergencyUnlockSheet
+        visible={emergencyUnlockVisible}
+        onClose={() => setEmergencyUnlockVisible(false)}
+        onUnlock={handleEmergencyUnlock}
+        isLoading={isUnlocking}
+      />
     </ScreenContainer>
   );
 }

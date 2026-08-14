@@ -21,6 +21,7 @@ function pocket(partial: Partial<Pocket> & Pick<Pocket, 'kind'>): Pocket {
     loan_provider: null,
     loan_purpose: null,
     due_day: null,
+    split_percentage: null,
     created_at: 'x',
     updated_at: 'x',
     ...partial,

@@ -177,6 +177,7 @@ describe('MerchantService.classify', () => {
     repository.getTransactionById.mockResolvedValue({
       ...SPEND_TX,
       pocket_id: FOOD_POCKET.id,
+      emergency_unlock_id: null,
     });
 
     await service.classify(
@@ -198,6 +199,7 @@ describe('MerchantService.classify', () => {
     repository.getTransactionById.mockResolvedValue({
       ...SPEND_TX,
       type: 'allocation',
+      emergency_unlock_id: null,
     });
 
     await expect(
