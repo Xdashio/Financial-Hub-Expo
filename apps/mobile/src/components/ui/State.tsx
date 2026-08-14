@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, Pressable } from 'react-native';
-import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react-native';
+import { View, Text, Pressable } from 'react-native';
+import { AlertCircle, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, typography, radius, touchTarget } from '@/theme';
 import { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton } from './Skeleton';
+import { PocketLoader } from './PocketLoader';
 
 /**
  * Full-bleed loading state, used in place of the many one-off
@@ -17,7 +18,7 @@ export function LoadingState({ label, variant = 'spinner' }: { label?: string; v
   if (variant === 'spinner') {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md }}>
-        <ActivityIndicator size="large" color={colors.emeraldDeep} />
+        <PocketLoader size={40} color={colors.emeraldDeep} />
         {!!label && (
           <Text style={{ ...typography.caption, color: colors.sage }}>{label}</Text>
         )}
@@ -58,7 +59,7 @@ export function LoadingState({ label, variant = 'spinner' }: { label?: string; v
 
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md }}>
-      <ActivityIndicator size="large" color={colors.emeraldDeep} />
+      <PocketLoader size={40} color={colors.emeraldDeep} />
       {!!label && (
         <Text style={{ ...typography.caption, color: colors.sage }}>{label}</Text>
       )}
@@ -126,7 +127,7 @@ export function InlineLoading() {
   const { colors } = useTheme();
   return (
     <View style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
-      <ActivityIndicator size="small" color={colors.emeraldDeep} />
+      <PocketLoader size={22} color={colors.emeraldDeep} />
     </View>
   );
 }

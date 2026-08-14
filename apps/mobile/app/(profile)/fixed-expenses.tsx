@@ -257,7 +257,7 @@ export default function FixedExpensesScreen() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
           {filteredExpenses.length === 0 ? (
             <EmptyState
-              icon={Package}
+              variant={searchQuery ? 'no-results' : 'empty'}
               title={searchQuery ? 'No expenses found' : 'No fixed expenses yet'}
               description={searchQuery 
                 ? 'Try a different search term' 

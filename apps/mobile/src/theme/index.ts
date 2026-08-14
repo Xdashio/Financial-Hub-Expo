@@ -29,6 +29,33 @@ export const radius = {
   // every Button instance (regardless of variant/size) stays visually
   // consistent app-wide.
   button: 10,
+  // Signature shape — every "pocket" surface (pocket cards, the emergency
+  // unlock sheet, empty-state panels) is drawn as an actual fabric pocket:
+  // three soft corners and one sharp top-right corner, like a pocket flap
+  // tucked in at the seam. Symmetric radii (above) stay the default for
+  // ordinary chrome — this one is spent deliberately, only on surfaces that
+  // represent money *held* somewhere, so it reads as intentional rather
+  // than applied everywhere.
+  pocket: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 20,
+  },
+  // The little fabric tab sewn into a pocket card's top edge (see
+  // PocketGlyph / renderPocketCard). One token so every tab across the app
+  // is the same shape.
+  tab: 4,
+};
+
+// Shared rhythm for the dashed "stitch" line that runs through every pocket
+// surface — icons, the progress ring, the loader, empty-state illustrations.
+// One constant so the stitch reads as the same thread everywhere instead of
+// each component inventing its own dash spacing.
+export const stitch = {
+  dash: 4,
+  gap: 3,
+  width: 1.5,
 };
 
 export const spacing = {
@@ -117,6 +144,7 @@ export const touchTarget = {
 const theme = {
   colors,
   radius,
+  stitch,
   spacing,
   typography,
   shadow,

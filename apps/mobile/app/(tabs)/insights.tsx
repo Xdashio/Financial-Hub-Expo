@@ -7,7 +7,7 @@ import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { LoadingState, ErrorState, InlineLoading, SearchBar, EmptyState } from '@/components/ui';
+import { LoadingState, ErrorState, InlineLoading, SearchBar, EmptyState, ProgressRing } from '@/components/ui';
 import { StreakHeatmap } from '@/components/insights/StreakHeatmap';
 import { mapBehaviorEvent } from '@/utils/behaviorEvent';
 
@@ -202,8 +202,16 @@ export default function InsightsScreen() {
             </View>
           ) : (
             <>
-              <View style={{ width: 120, height: 120, borderRadius: 60, borderWidth: 8, borderColor: `${colors.surface}33`, alignItems: 'center', justifyContent: 'center', marginTop: spacing.md }}>
-                <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score}%</Text>
+              <View style={{ marginTop: spacing.md }}>
+                <ProgressRing
+                  progress={(score ?? 0) / 100}
+                  size={120}
+                  strokeWidth={8}
+                  color={colors.surface}
+                  trackColor={`${colors.surface}55`}
+                >
+                  <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score}%</Text>
+                </ProgressRing>
               </View>
               <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Spending discipline</Text>
               {scorePeriod && (
@@ -273,7 +281,7 @@ export default function InsightsScreen() {
 
         {filteredEvents.length === 0 && displayEvents.length > 0 ? (
           <EmptyState
-            icon={CalendarCheck}
+            variant="no-results"
             title="No activity matches your search"
             description="Try adjusting your search terms or filters"
             actionLabel="Clear search"
@@ -281,7 +289,7 @@ export default function InsightsScreen() {
           />
         ) : displayEvents.length === 0 ? (
           <EmptyState
-            icon={CalendarCheck}
+            variant="empty"
             title="No spending activity yet"
             description="Start tracking your spending to see insights and patterns"
           />

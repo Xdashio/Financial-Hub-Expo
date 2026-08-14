@@ -4,78 +4,28 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import {
-  Shield, RefreshCw, PiggyBank, House, ShoppingBasket, User, Car, Lock,
-  ArrowLeftRight, Plus, Lightbulb, HeartPulse, GraduationCap, Wifi, Package,
-  Calendar, TrendingUp, Bell, ShoppingCart, AlertTriangle,
+  Shield, RefreshCw, Lock,
+  ArrowLeftRight, Plus,
+  Calendar, TrendingUp, Bell, ShoppingCart, AlertTriangle, PiggyBank,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { loansApi, emergencyUnlockApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, PocketGlyph } from '@/components/ui';
+import type { PocketGlyphKind } from '@/components/ui';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
 import { deriveNudges } from '@/services/nudges';
 import { formatMoney } from '@/utils/money';
-// Pocket icons — using lucide-react-native so pocket icons stay visually
-// consistent (same stroke weight/family) with the rest of the app instead
-// of one-off hand-drawn SVG paths.
-const PocketIconSavings = PiggyBank;
-const PocketIconRent = House;
-const PocketIconGroceries = ShoppingBasket;
-const PocketIconPersonal = User;
-const PocketIconTransport = Car;
-const PocketIconLock = Lock;
-const PocketIconUtilities = Lightbulb;
-const PocketIconHealthcare = HeartPulse;
-const PocketIconEducation = GraduationCap;
-const PocketIconInternet = Wifi;
-const PocketIconOther = Package;
-
-const getPocketIcon = (category?: string, kind?: string) => {
-  switch (kind) {
-    case 'savings':
-      return PocketIconSavings;
-    case 'loan':
-      return TrendingUp;
-    case 'fixed':
-      // For fixed pockets, use category to determine icon — previously every
-      // category fell through to the same House icon, making the "Fixed &
-      // Protected" list look like a row of identical pockets.
-      switch (category) {
-        case 'housing':
-        case 'rent':
-          return PocketIconRent;
-        case 'utilities':
-        case 'bills':
-          return PocketIconUtilities;
-        case 'internet':
-        case 'mobile_data':
-          return PocketIconInternet;
-        case 'transport':
-          return PocketIconTransport;
-        case 'healthcare':
-          return PocketIconHealthcare;
-        case 'education':
-          return PocketIconEducation;
-        default:
-          return PocketIconOther;
-      }
-    case 'spendable':
-      switch (category) {
-        case 'food':
-        case 'groceries':
-          return PocketIconGroceries;
-        case 'transport':
-          return PocketIconTransport;
-        case 'leisure':
-        case 'personal':
-          return PocketIconPersonal;
-        default:
-          return PocketIconGroceries;
-      }
-    default:
-      return PocketIconGroceries;
-  }
+// Every pocket, regardless of category, is drawn with PocketGlyph keyed by
+// `kind` — one consistent brand glyph (see PocketGlyph.tsx) instead of the
+// old category-literal icon map (a House for rent, a ShoppingBasket for
+// groceries, etc). The pocket's name label already carries the category
+// distinction in text; the icon's job is to say "this is a pocket," not to
+// re-illustrate the category.
+const pocketGlyphKind = (kind: string): PocketGlyphKind => {
+  if (kind === 'savings' || kind === 'fixed' || kind === 'loan') return kind;
+  return 'spendable';
 };
 
 export default function HomeScreen() {
@@ -269,7 +219,6 @@ export default function HomeScreen() {
     const pocketColor = getPocketColor(pocket.kind, pocket.category);
     const purpose = getPocketPurpose(pocket);
     const status = getPocketStatus(pocket);
-    const PocketIcon = getPocketIcon(pocket.category, pocket.kind);
     const pocketProgress = pocket.monthlyAllocation > 0
       ? Math.max(0, Math.min(1, pocket.availableBalance / pocket.monthlyAllocation))
       : 0;
@@ -286,7 +235,7 @@ export default function HomeScreen() {
         <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1, paddingRight: spacing.sm }}>
-            <PocketIcon color={pocketColor} size={14} />
+            <PocketGlyph kind={pocketGlyphKind(pocket.kind)} color={pocketColor} size={16} muted />
             <View style={{ flex: 1 }}>
               <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
               <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>{purpose}</Text>
@@ -295,7 +244,7 @@ export default function HomeScreen() {
           <View style={{ alignItems: 'flex-end' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {pocket.isTimeLocked && (
-                <PocketIconLock color={colors.sage} size={13} />
+                <Lock color={colors.sage} size={13} strokeWidth={2} />
               )}
               <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatCurrency(pocket.availableBalance)}</Text>
             </View>
@@ -477,7 +426,6 @@ export default function HomeScreen() {
             <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
 
             {dailyPockets.map((pocket) => {
-              const PocketIcon = getPocketIcon(pocket.category, 'spendable');
               return (
                 <TouchableOpacity
                   key={pocket.id}
@@ -491,7 +439,7 @@ export default function HomeScreen() {
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocket.color }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                      <PocketIcon color={pocket.color} size={14} />
+                      <PocketGlyph kind="spendable" color={pocket.color} size={16} muted />
                       <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
