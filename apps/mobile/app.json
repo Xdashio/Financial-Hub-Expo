@@ -29,7 +29,16 @@
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "config": "./web.config.js",
+      "meta": {
+        "viewport": {
+          "width": "device-width",
+          "initial-scale": 1,
+          "maximum-scale": 1,
+          "user-scalable": "no"
+        }
+      }
     },
     "plugins": [
       [

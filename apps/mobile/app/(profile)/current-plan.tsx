@@ -175,6 +175,28 @@ export default function CurrentPlanScreen() {
                     </Pressable>
                   );
                 })}
+
+                {/* Edit percentages button for spendable category */}
+                {kind === 'spendable' && (
+                  <Pressable
+                    onPress={() => router.push('/(profile)/edit-plan-percentages')}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: spacing.sm,
+                      marginTop: spacing.md,
+                      padding: spacing.md,
+                      borderRadius: radius.md,
+                      backgroundColor: colors.emeraldDeep,
+                    }}
+                  >
+                    <ShoppingBasket size={16} color={colors.surface} strokeWidth={2} />
+                    <Text style={{ ...typography.heading, color: colors.surface }}>
+                      Edit spendable percentages
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             ) : null
           )}
@@ -205,25 +227,6 @@ export default function CurrentPlanScreen() {
                 : retakeNextOn
                   ? `Retake available ${retakeNextOn}`
                   : 'Retake locked this month'}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/(profile)/edit-plan-percentages')}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: spacing.sm,
-              marginTop: spacing.md,
-              padding: spacing.md,
-              borderRadius: radius.md,
-              backgroundColor: colors.emeraldDeep,
-            }}
-          >
-            <ShoppingBasket size={16} color={colors.surface} strokeWidth={2} />
-            <Text style={{ ...typography.heading, color: colors.surface }}>
-              Edit plan percentages
             </Text>
           </Pressable>
         </ScrollView>

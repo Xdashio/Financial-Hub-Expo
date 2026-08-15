@@ -50,13 +50,11 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
             toValue: 1,
             duration: 800,
             easing: Easing.back(1.7),
-            useNativeDriver: true,
           }),
           Animated.timing(celebrateAnim.current, {
             toValue: 0,
             duration: 400,
             easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
           }),
         ]).start();
 
@@ -80,7 +78,6 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
         toValue: percentage,
         duration: 500,
         easing: Easing.out(Easing.ease),
-        useNativeDriver: true,
       }).start();
     });
   }, [goals]);
