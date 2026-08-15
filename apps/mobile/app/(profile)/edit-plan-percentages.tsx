@@ -63,7 +63,7 @@ function normalizePercentages(percentages: Record<string, number>): Record<strin
 export default function EditPlanPercentagesScreen() {
   const { colors } = useTheme();
   const router = useRouter();
-  const { alert } = useAlertModal();
+  const { alert, modal } = useAlertModal();
   const dataSync = useDataSync();
   
   const [pockets, setPockets] = useState<Pocket[]>([]);
@@ -203,6 +203,7 @@ export default function EditPlanPercentagesScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+        {modal}
         <LoadingState label="Loading plan..." />
       </SafeAreaView>
     );
@@ -211,6 +212,7 @@ export default function EditPlanPercentagesScreen() {
   if (error) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+        {modal}
         <ErrorState message={error} onRetry={loadCurrentPockets} />
       </SafeAreaView>
     );
@@ -219,6 +221,7 @@ export default function EditPlanPercentagesScreen() {
   if (!localPercentages || !originalPercentages) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+        {modal}
         <ErrorState message="Unable to load plan data" onRetry={loadCurrentPockets} />
       </SafeAreaView>
     );
@@ -234,6 +237,7 @@ export default function EditPlanPercentagesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      {modal}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.lg }}>

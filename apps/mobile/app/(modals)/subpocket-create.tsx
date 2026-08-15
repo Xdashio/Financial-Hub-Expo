@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ArrowRight, Layers, Minus, Plus } from 'lucide-react-native';
+import { ArrowRight, Minus, Plus } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth, touchTarget } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader } from '@/components/ui';
+import { SubPocketIcon } from '@/components/icons';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
 
@@ -124,7 +125,7 @@ export default function SubPocketCreateScreen() {
               justifyContent: 'center',
             }}
           >
-            <Layers size={18} color={colors.emeraldDeep} strokeWidth={2} />
+            <SubPocketIcon size={18} color={colors.emeraldDeep} strokeWidth={2} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={{ ...typography.title, color: colors.ink }}>New sub-pocket</Text>

@@ -69,11 +69,12 @@ export class DisciplineScoreService {
    * Applies a signed delta (positive = bonus, negative = cost) to the
    * user's current-period discipline score and persists the result.
    * If no score exists (null), starts from 0 and applies the delta.
+   * Allows negative scores to show below-baseline discipline performance.
    */
   async applyDelta(userId: string, delta: number): Promise<DisciplineScoreChange> {
     const previousScore = await this.getCurrentScore(userId);
     const startingScore = previousScore ?? 0;
-    const newScore = Math.max(0, Math.min(100, startingScore + delta));
+    const newScore = Math.min(100, startingScore + delta); // Allow negative scores, only cap max at 100
 
     await this.repo.upsertDisciplineScore({
       user_id: userId,

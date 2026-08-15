@@ -9,6 +9,7 @@ import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader, PocketGlyph, PocketLoader } from '@/components/ui';
+import { CategoryIcon } from '@/components/icons';
 import { ChevronLeft, Check, Lock, ChevronRight, ChevronDown, Minus, Plus, RotateCcw, Target, AlertTriangle, TrendingUp } from 'lucide-react-native';
 import type { CategoryPercentages, SpendableCategory, PlanAssignReason } from '@financial-hub/shared';
 
@@ -207,7 +208,10 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
         
         return (
           <View key={category} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-            <Text style={{ ...typography.body, fontSize: 13, color: colors.surface, flex: 1 }}>{categoryName}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+              <CategoryIcon category={category} size={14} />
+              <Text style={{ ...typography.body, fontSize: 13, color: colors.surface }}>{categoryName}</Text>
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
               <Pressable
                 onPress={() => adjust(category, -PERCENT_STEP)}
@@ -297,7 +301,7 @@ function WhyPlanCard({ reasons, colors }: {
         <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           {isShortfall && <AlertTriangle size={15} color={colors.gold} strokeWidth={2} />}
           {isGoalOnTrack && <Target size={15} color={colors.ink} strokeWidth={2} />}
-          {!isShortfall && !isGoalOnTrack && index === 0 && <PocketGlyph kind="fixed" size={15} color={colors.ink} />}
+          {!isShortfall && !isGoalOnTrack && index === 0 && <CategoryIcon category="housing" size={15} color={colors.ink} />}
           {!isShortfall && !isGoalOnTrack && index === 1 && <TrendingUp size={15} color={colors.ink} strokeWidth={2} />}
           {!isShortfall && !isGoalOnTrack && index === 2 && <Check size={15} color={colors.ink} strokeWidth={2} />}
         </View>
@@ -319,7 +323,7 @@ function WhyPlanCard({ reasons, colors }: {
           <View style={{ width: 28, height: 28, borderRadius: radius.md, backgroundColor: hasShortfall ? colors.goldTint : colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
             {hasShortfall
               ? <AlertTriangle size={15} color={colors.gold} strokeWidth={2} />
-              : <PocketGlyph kind="fixed" size={15} color={colors.ink} />}
+              : <CategoryIcon category="housing" size={15} color={colors.ink} />}
           </View>
           <Text style={{ ...typography.heading, fontSize: 13, color: colors.ink }}>Why this plan</Text>
           <View style={{ backgroundColor: colors.lineSoft, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2 }}>
@@ -581,7 +585,7 @@ export default function ResultScreen() {
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: getPocketColor('fixed') }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <PocketGlyph kind="fixed" color={getPocketColor('fixed')} size={14} />
+                    <CategoryIcon category="housing" size={14} />
                     <Text style={{ ...typography.heading, color: colors.ink }}>{getPocketName('fixed')}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -604,7 +608,7 @@ export default function ResultScreen() {
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: getPocketColor('savings') }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <PocketGlyph kind="savings" color={getPocketColor('savings')} size={14} />
+                    <CategoryIcon category="emergency" size={14} />
                     <Text style={{ ...typography.heading, color: colors.ink }}>{getPocketName('savings')}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -627,7 +631,7 @@ export default function ResultScreen() {
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: colors.emeraldDeep }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                    <PocketGlyph kind="spendable" color={colors.emeraldDeep} size={14} />
+                    <CategoryIcon category="food" size={14} />
                     <Text style={{ ...typography.heading, color: colors.surface }}>Safe to spend</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

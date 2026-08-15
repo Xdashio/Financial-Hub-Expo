@@ -17,6 +17,7 @@ import {
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
+import { CategoryIcon } from '@/components/icons';
 
 type PocketOption = { id: string; name: string; kind: string; category: string | null };
 
@@ -273,7 +274,11 @@ export default function ClassificationScreen() {
                   }
                 }}
               >
-                <Text style={{ fontSize: 20, marginRight: spacing.sm }}>{category.icon}</Text>
+                <CategoryIcon 
+                  category={category.icon} 
+                  size={20}
+                  color={selectedCategory === category.id ? colors.surface : undefined}
+                />
                 <Text
                   style={{
                     ...typography.caption,

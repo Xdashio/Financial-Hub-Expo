@@ -460,7 +460,7 @@ export class RolloverService {
     if (points > 0) {
       apply = Math.min(points, Math.max(0, monthlyCap - earned));
     } else if (points < 0) {
-      apply = Math.max(points, Math.min(0, monthlyCap - earned));
+      apply = Math.max(points, monthlyCap - earned); // Allow negative values
     }
 
     if (apply !== 0) {

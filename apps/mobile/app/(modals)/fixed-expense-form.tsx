@@ -9,19 +9,10 @@ import { useFixedExpensesStore } from '@/services/fixed-expenses-store';
 import { useDataSync } from '@/services/data-sync';
 import { LoadingState } from '@/components/ui';
 import { getExpenseIcon } from '@/utils/expenseIcon';
+import { CategoryIcon } from '@/components/icons';
 import {
   ArrowLeft,
   Check,
-  ShoppingCart,
-  Car,
-  Film,
-  Scissors,
-  Lightbulb,
-  HeartPulse,
-  GraduationCap,
-  MoreHorizontal,
-  Home,
-  Users,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
@@ -62,16 +53,16 @@ export default function FixedExpenseFormScreen() {
   const [categoryError, setCategoryError] = useState<string | null>(null);
   
   const categories = [
-    { id: 'food', name: 'Food & Groceries', icon: ShoppingCart },
-    { id: 'transport', name: 'Transport', icon: Car },
-    { id: 'leisure', name: 'Personal & Leisure', icon: Film },
-    { id: 'personal', name: 'Personal Care', icon: Scissors },
-    { id: 'utilities', name: 'Utilities', icon: Lightbulb },
-    { id: 'housing', name: 'Housing', icon: Home },
-    { id: 'family', name: 'Family & dependents', icon: Users },
-    { id: 'healthcare', name: 'Healthcare', icon: HeartPulse },
-    { id: 'education', name: 'Education', icon: GraduationCap },
-    { id: 'other', name: 'Other', icon: MoreHorizontal },
+    { id: 'food', name: 'Food & Groceries', icon: 'food' },
+    { id: 'transport', name: 'Transport', icon: 'transport' },
+    { id: 'leisure', name: 'Personal & Leisure', icon: 'leisure' },
+    { id: 'personal', name: 'Personal Care', icon: 'personal' },
+    { id: 'utilities', name: 'Utilities', icon: 'utilities' },
+    { id: 'housing', name: 'Housing', icon: 'housing' },
+    { id: 'family', name: 'Family & dependents', icon: 'family' },
+    { id: 'healthcare', name: 'Healthcare', icon: 'healthcare' },
+    { id: 'education', name: 'Education', icon: 'education' },
+    { id: 'other', name: 'Other', icon: 'other' },
   ];
 
   const suggestions = [
@@ -217,7 +208,7 @@ export default function FixedExpenseFormScreen() {
             <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick Add</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {suggestions.map((suggestion) => {
-                const CategoryIcon = getIconFor(suggestion.name, suggestion.category);
+                const IconComponent = getIconFor(suggestion.name, suggestion.category);
                 return (
                   <Pressable
                     key={suggestion.name}
@@ -235,7 +226,7 @@ export default function FixedExpenseFormScreen() {
                     accessibilityRole="button"
                   >
                     <View style={{ alignItems: 'center' }}>
-                      <CategoryIcon size={18} color={colors.sage} strokeWidth={2} />
+                      <IconComponent size={18} color={colors.sage} strokeWidth={2} />
                       <Text style={{ ...typography.heading, color: colors.ink, marginTop: spacing.xs }}>
                         {suggestion.name}
                       </Text>
@@ -331,7 +322,6 @@ export default function FixedExpenseFormScreen() {
             <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Category</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {categories.map((cat) => {
-                const CategoryIcon = cat.icon;
                 return (
                   <Pressable
                     key={cat.id}
@@ -348,7 +338,11 @@ export default function FixedExpenseFormScreen() {
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                      <CategoryIcon size={14} color={formData.category === cat.id ? colors.surface : colors.ink} strokeWidth={2} />
+                      <CategoryIcon 
+                        category={cat.icon} 
+                        size={14} 
+                        color={formData.category === cat.id ? colors.surface : undefined}
+                      />
                       <Text style={{ 
                         ...typography.caption, 
                         color: formData.category === cat.id ? colors.surface : colors.ink 

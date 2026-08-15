@@ -638,7 +638,7 @@ export type LoanUpdateInput = z.infer<typeof LoanUpdateInputSchema>;
 export const LoanPurposePocketInputSchema = z.object({
   name: z.string().min(1).max(100),
   category: PocketCategorySchema,
-  monthlyAllocation: z.number().nonnegative(),
+  splitPercentage: z.number().min(0).max(100),
 });
 export type LoanPurposePocketInput = z.infer<typeof LoanPurposePocketInputSchema>;
 

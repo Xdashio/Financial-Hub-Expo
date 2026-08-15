@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { Minus, Plus, Layers, AlertTriangle, Check } from 'lucide-react-native';
+import { Minus, Plus, AlertTriangle, Check } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography, borderWidth, touchTarget } from '@/theme';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { Button } from '@/components/ui/Button';
 import { PocketLoader } from '@/components/ui';
+import { SubPocketIcon } from '@/components/icons';
 import { formatMoney } from '@/utils/money';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
@@ -163,7 +164,7 @@ export function SubPocketRebalanceSheet({
       visible={visible}
       onClose={handleClose}
       title="Rebalance sub-pockets"
-      headerIcon={Layers}
+      headerGlyph={<SubPocketIcon size={16} color={colors.emeraldDeep} strokeWidth={2} />}
     >
       {/* ── Intro ── */}
       <Text style={{ ...typography.body, color: colors.sage, marginBottom: spacing.lg, lineHeight: 20 }}>
