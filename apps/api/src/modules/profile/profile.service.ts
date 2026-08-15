@@ -7,6 +7,7 @@ import {
   OnboardingInputSchema,
   OnboardingInput,
   CategoryPercentagesSchema,
+  SpendableCategorySchema,
   PlanRetakeResult,
   RetakeEligibility,
 } from '@financial-hub/shared';
@@ -122,6 +123,16 @@ export class ProfileService {
     }
 
     const newPercentages = result.data;
+    
+    // Validate that category keys are valid spendable categories
+    const validCategories = ['food', 'transport', 'leisure', 'family']; // Matches SpendableCategorySchema options
+    const invalidCategories = Object.keys(newPercentages).filter(
+      (cat) => !validCategories.includes(cat)
+    );
+    if (invalidCategories.length > 0) {
+      throw new BadRequestException(`Invalid categories: ${invalidCategories.join(', ')}`);
+    }
+    
     const total = Object.values(newPercentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
     if (Math.abs(total - 100) > 0.5) {
       throw new BadRequestException('Percentages must sum to 100%');
@@ -167,6 +178,15 @@ export class ProfileService {
     }
 
     const newPercentages = result.data;
+    
+    // Validate that category keys are valid spendable categories
+    const validCategories = ['food', 'transport', 'leisure', 'family']; // Matches SpendableCategorySchema options
+    const invalidCategories = Object.keys(newPercentages).filter(
+      (cat) => !validCategories.includes(cat)
+    );
+    if (invalidCategories.length > 0) {
+      throw new BadRequestException(`Invalid categories: ${invalidCategories.join(', ')}`);
+    }
 
     // Validate percentages sum to 100
     const total = Object.values(newPercentages).reduce((sum: number, val: number) => sum + (val || 0), 0);

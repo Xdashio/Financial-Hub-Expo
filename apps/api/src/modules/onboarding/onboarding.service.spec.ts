@@ -70,8 +70,8 @@ describe('OnboardingService.assign', () => {
     expect(result.planType).toBe('structured');
     expect(result.incomePattern).toBe('salaried');
     expect(result.remainingAfterFixed).toBe(35000);
-    expect(result.savingsTarget).toBeCloseTo(3500); // 10% of remaining
-    expect(result.spendableAmount).toBeCloseTo(31500);
+    expect(result.savingsTarget).toBeCloseTo(5000); // 10% of gross income (50000 * 0.10)
+    expect(result.spendableAmount).toBeCloseTo(30000);
     expect(result.reasons.length).toBeGreaterThan(0);
   });
 
@@ -113,7 +113,7 @@ describe('OnboardingService.previewPlan', () => {
     const result = service.previewPlan(SALARIED_TRACKER_INPUT);
 
     expect(result.planType).toBe('structured');
-    expect(result.spendableAmount).toBeCloseTo(31500);
+    expect(result.spendableAmount).toBeCloseTo(30000);
     const total = result.categoryBreakdown.reduce((sum, c) => sum + c.amount, 0);
     expect(total).toBeCloseTo(result.spendableAmount);
   });

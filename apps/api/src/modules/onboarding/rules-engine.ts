@@ -327,8 +327,9 @@ function calculateSavingsTarget(
   // timeframe with no amount still personalizes the lock length, since that
   // part of the question was answered.
   if (!goal || !goal.goalAmount) {
+    // Cap savings at remainingAfterFixed to prevent negative spendable amounts
     return {
-      savingsTarget: Math.max(minSavingsAmount, 0),
+      savingsTarget: Math.min(Math.max(minSavingsAmount, 0), remainingAfterFixed),
       savingsLockDays: goal ? SavingsGoalLockDays[goal.goalTimeframe] : DEFAULT_SAVINGS_LOCK_DAYS,
     };
   }
@@ -351,8 +352,9 @@ function calculateSavingsTarget(
   const derivedRate = flooredAmount / remainingAfterFixed;
 
   if (derivedRate <= SAVINGS_GOAL_CAP_SHARE) {
+    // Cap savings at remainingAfterFixed to prevent negative spendable amounts
     return {
-      savingsTarget: Math.max(flooredAmount, 0),
+      savingsTarget: Math.min(Math.max(flooredAmount, 0), remainingAfterFixed),
       savingsLockDays,
     };
   }
@@ -363,7 +365,7 @@ function calculateSavingsTarget(
   // spendable income" instead of failing silently or overcommitting.
   const cappedMonthlyAmount = remainingAfterFixed * SAVINGS_GOAL_CAP_SHARE;
   return {
-    savingsTarget: Math.max(cappedMonthlyAmount, 0),
+    savingsTarget: Math.min(Math.max(cappedMonthlyAmount, 0), remainingAfterFixed),
     savingsLockDays,
     goalShortfall: {
       goalMonthsNeeded: goal.goalAmount / cappedMonthlyAmount,

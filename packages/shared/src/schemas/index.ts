@@ -171,7 +171,7 @@ export const SPENDABLE_CATEGORY_LABELS = {
 // only 'leisure'; dependents add 'family') — the server resolves which keys
 // are expected and rejects a mismatched set rather than the schema trying to
 // enforce that here.
-export const CategoryPercentagesSchema = z.record(SpendableCategorySchema, z.number().min(0).max(100));
+export const CategoryPercentagesSchema = z.record(z.string(), z.number().min(0).max(100));
 export type CategoryPercentages = z.infer<typeof CategoryPercentagesSchema>;
 
 // ----------------------------------------------------------------------------
@@ -282,7 +282,7 @@ export const OnboardingInputSchema = z.object({
   // cover exactly the categories the persona resolves to and sum to 100
   // (server-validated in validateCategoryPercentages, not here, since the
   // expected key set depends on lifeStage/hasDependents).
-  categoryPercentages: CategoryPercentagesSchema.optional(),
+  categoryPercentages: z.record(z.string(), z.number().min(0).max(100)).optional(),
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 
@@ -340,7 +340,7 @@ export const PlanPreviewResultSchema = OnboardingAssignResultSchema.extend({
   // caller's categoryPercentages echoed back, or the rules engine's default
   // weighting when none was supplied. Lets the client seed sliders/inputs
   // with sane defaults on first render.
-  categoryPercentages: CategoryPercentagesSchema,
+  categoryPercentages: z.record(z.string(), z.number().min(0).max(100)),
 });
 export type PlanPreviewResult = z.infer<typeof PlanPreviewResultSchema>;
 

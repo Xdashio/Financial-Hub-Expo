@@ -34,8 +34,9 @@ function normalizePercentages(percentages: Record<string, number>): Record<strin
   const total = Object.values(percentages).reduce((s, v) => s + (v ?? 0), 0);
   const roundedTotal = round2(total);
   
-  if (Math.abs(roundedTotal - 100) < 0.1) {
-    // Already close to 100%, return as-is
+  // Always normalize if not exactly 100% - remove tolerance to prevent 100.1% issues
+  if (Math.abs(roundedTotal - 100) < 0.01) {
+    // Already exactly 100%, return as-is
     return percentages;
   }
   
@@ -43,9 +44,10 @@ function normalizePercentages(percentages: Record<string, number>): Record<strin
   const normalized: Record<string, number> = {};
   const diff = 100 - roundedTotal;
   
-  // Distribute the difference across categories
+  // Distribute the difference across categories proportionally
   categories.forEach((cat, index) => {
-    normalized[cat] = round2(percentages[cat] + (diff / categories.length));
+    const weight = percentages[cat] / total; // Weight by current share
+    normalized[cat] = round2(percentages[cat] + (diff * weight));
   });
   
   // Final adjustment to ensure exactly 100%
@@ -143,7 +145,7 @@ export default function EditPlanPercentagesScreen() {
   const loadPreview = async (percentages: Record<string, number>) => {
     const total = Object.values(percentages).reduce((s, v) => s + (v ?? 0), 0);
     const roundedTotal = round2(total);
-    const isBalanced = Math.abs(roundedTotal - 100) < 0.1;
+    const isBalanced = Math.abs(roundedTotal - 100) < 0.01;
     
     if (!isBalanced) {
       setPreviewData(null);
@@ -176,7 +178,7 @@ export default function EditPlanPercentagesScreen() {
     
     const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
     const roundedTotal = round2(total);
-    const isBalanced = Math.abs(roundedTotal - 100) < 0.1;
+    const isBalanced = Math.abs(roundedTotal - 100) < 0.01;
     
     if (!isBalanced) {
       setSaveError('Percentages must add up to exactly 100%');
@@ -248,7 +250,7 @@ export default function EditPlanPercentagesScreen() {
   const categories = Object.keys(localPercentages);
   const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
   const roundedTotal = round2(total);
-  const isBalanced = Math.abs(roundedTotal - 100) < 0.1;
+  const isBalanced = Math.abs(roundedTotal - 100) < 0.01;
   const isDirty = categories.some(
     (c) => (localPercentages[c] ?? 0) !== (originalPercentages[c] ?? 0),
   );
