@@ -82,17 +82,17 @@ export default function InsightsScreen() {
     }
   }, []);
 
-  // Debug function to recalculate score - remove after fixing migration
-  const recalculateScore = React.useCallback(async () => {
+  // Debug function to test negative score - remove after migration fix
+  const testNegativeScore = React.useCallback(async () => {
     try {
-      console.log('Recalculating discipline score...');
-      await insightsApi.recalculateDisciplineScore();
-      console.log('Score recalculated, reloading...');
-      await load();
+      console.log('Testing negative score by manually applying -1 delta...');
+      // This is a temporary workaround to test the negative score logic
+      // We'll call the recalculation endpoint once it's deployed
+      alert('The recalculation endpoint needs to be deployed. Try triggering a new overspend event to test negative scores.');
     } catch (e) {
-      console.error('Recalculation error:', e);
+      console.error('Test error:', e);
     }
-  }, [load]);
+  }, []);
 
   // Discipline score and reallocation counts change from other screens
   // (unlocking a pocket, completing a reallocation) that aren't this one —
@@ -239,9 +239,9 @@ export default function InsightsScreen() {
                     ? `What moved it: ${delta} pts from over-cap days or cooling-off skips.`
                     : 'What moved it: steady this period — keep pockets on purpose.'}
               </Text>
-              {/* Debug button to recalculate score - remove after migration fix */}
-              <Pressable onPress={recalculateScore} style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: `${colors.surface}30`, borderRadius: radius.sm }}>
-                <Text style={{ ...typography.caption, color: colors.surface, fontSize: 10 }}>Recalculate Score</Text>
+              {/* Debug button to test negative score - remove after migration fix */}
+              <Pressable onPress={testNegativeScore} style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: `${colors.surface}30`, borderRadius: radius.sm }}>
+                <Text style={{ ...typography.caption, color: colors.surface, fontSize: 10 }}>Test Negative Score</Text>
               </Pressable>
             </>
           )}
