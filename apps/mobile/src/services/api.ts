@@ -186,6 +186,7 @@ export const reallocationsApi = {
 
 export const insightsApi = {
   getDisciplineScore: () => api.get<any>('/insights/discipline-score'),
+  recalculateDisciplineScore: () => api.post<any>('/insights/discipline-score/recalculate'),
   getStreak: () =>
     api.get<{
       currentStreak: number;
