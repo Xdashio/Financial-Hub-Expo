@@ -72,8 +72,6 @@ export default function EditPlanPercentagesScreen() {
   const [totalSpendable, setTotalSpendable] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isPreviewing, setIsPreviewing] = useState(false);
-  const [previewData, setPreviewData] = useState<{ categoryPercentages: Record<string, number>; pockets: Array<{ id: string; name: string; category: string | null; currentAllocation: number; projectedAllocation: number }> } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -134,36 +132,8 @@ export default function EditPlanPercentagesScreen() {
       const next = Math.min(100, Math.max(0, current + delta));
       const updated = { ...prev, [category]: round2(next) };
       const normalized = normalizePercentages(updated);
-      
-      // Trigger preview when percentages change
-      loadPreview(normalized);
-      
       return normalized;
     });
-  };
-
-  const loadPreview = async (percentages: Record<string, number>) => {
-    const total = Object.values(percentages).reduce((s, v) => s + (v ?? 0), 0);
-    const roundedTotal = round2(total);
-    const isBalanced = Math.abs(roundedTotal - 100) < 0.01;
-    
-    if (!isBalanced) {
-      setPreviewData(null);
-      return;
-    }
-
-    try {
-      setIsPreviewing(true);
-      const preview = await profileApi.editPlanPercentages({
-        categoryPercentages: percentages,
-      });
-      setPreviewData(preview);
-    } catch (error) {
-      console.error('Preview error:', error);
-      setPreviewData(null);
-    } finally {
-      setIsPreviewing(false);
-    }
   };
 
   const handleReset = () => {
@@ -175,11 +145,11 @@ export default function EditPlanPercentagesScreen() {
 
   const handleSave = async () => {
     if (!localPercentages) return;
-    
+
     const total = Object.values(localPercentages).reduce((s, v) => s + (v ?? 0), 0);
     const roundedTotal = round2(total);
     const isBalanced = Math.abs(roundedTotal - 100) < 0.01;
-    
+
     if (!isBalanced) {
       setSaveError('Percentages must add up to exactly 100%');
       return;
@@ -188,20 +158,22 @@ export default function EditPlanPercentagesScreen() {
     setIsSaving(true);
     setSaveError(null);
     try {
-      // Call the real API to commit percentage changes
-      await profileApi.commitPlanPercentages({
+      // Call the API to commit percentage changes directly
+      const result = await profileApi.commitPlanPercentages({
         categoryPercentages: localPercentages,
       });
-      
+
+      console.log('Save result:', result);
+
       dataSync.bump();
       await alert('Success', 'Your plan percentages have been updated successfully.');
       safeGoBack(router, '/(profile)/current-plan');
     } catch (error: any) {
       console.error('Failed to save percentages:', error);
-      
+
       // User-friendly error messages
       let errorMessage = 'Could not save your changes. Please try again.';
-      
+
       if (error?.message) {
         const msg = error.message.toLowerCase();
         if (msg.includes('404') || msg.includes('not found')) {
@@ -210,13 +182,18 @@ export default function EditPlanPercentagesScreen() {
           errorMessage = 'The percentage values are not valid. Please check your inputs.';
         } else if (msg.includes('401') || msg.includes('unauthorized')) {
           errorMessage = 'Please log in again to save your changes.';
-        } else if (msg.includes('network') || msg.includes('fetch')) {
+        } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('cors')) {
           errorMessage = 'Connection issue. Please check your internet and try again.';
         } else if (msg.includes('cannot post')) {
           errorMessage = 'Unable to save changes. Please try again later.';
+        } else {
+          // Include the actual error message for debugging
+          errorMessage = `Error: ${error.message}`;
         }
+      } else if (typeof error === 'string') {
+        errorMessage = error;
       }
-      
+
       setSaveError(errorMessage);
     } finally {
       setIsSaving(false);
@@ -311,62 +288,6 @@ export default function EditPlanPercentagesScreen() {
             </Text>
           )}
         </View>
-
-        {/* Preview section */}
-        {isBalanced && previewData && (
-          <View style={{
-            backgroundColor: colors.emeraldTint,
-            borderRadius: radius.lg,
-            padding: spacing.lg,
-            marginBottom: spacing.xl,
-            borderWidth: 1.5,
-            borderColor: colors.emeraldDeep,
-          }}>
-            <Text style={{ ...typography.heading, color: colors.emeraldDeep, marginBottom: spacing.md }}>
-              Preview of changes
-            </Text>
-            {previewData.pockets.map((pocket) => (
-              <View key={pocket.id} style={{ 
-                flexDirection: 'row', 
-                justifyContent: 'space-between', 
-                alignItems: 'center',
-                paddingVertical: spacing.sm,
-                borderBottomWidth: 1,
-                borderBottomColor: colors.emeraldDeep + '30',
-              }}>
-                <Text style={{ ...typography.body, color: colors.ink }}>
-                  {pocket.name}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                  <Text style={{ ...typography.caption, color: colors.sage }}>
-                    {formatMoney(pocket.currentAllocation)}
-                  </Text>
-                  <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-                    →
-                  </Text>
-                  <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
-                    {formatMoney(pocket.projectedAllocation)}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {isBalanced && isPreviewing && (
-          <View style={{
-            backgroundColor: colors.surface,
-            borderRadius: radius.lg,
-            padding: spacing.lg,
-            marginBottom: spacing.xl,
-            borderWidth: 1,
-            borderColor: colors.line,
-          }}>
-            <Text style={{ ...typography.caption, color: colors.sage }}>
-              Loading preview...
-            </Text>
-          </View>
-        )}
 
         {/* Category cards */}
         <View style={{ gap: spacing.lg, marginBottom: spacing.xl }}>
