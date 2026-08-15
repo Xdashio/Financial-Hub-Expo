@@ -414,7 +414,7 @@ export class SpendService {
       const deducted = (event.payload as any)?.points_deducted;
       if (typeof deducted === 'number') earned -= deducted;
     }
-    const apply = Math.max(POINTS_DAILY_OVERSPEND, Math.min(0, CAP_DAILY_OVERSPEND - earned));
+    const apply = Math.min(POINTS_DAILY_OVERSPEND, CAP_DAILY_OVERSPEND - earned); // Allow negative values
     if (apply !== 0) {
       await this.disciplineScore.applyDelta(userId, apply);
     }
@@ -513,7 +513,7 @@ export class SpendService {
       const deducted = (event.payload as any)?.points_deducted;
       if (typeof deducted === 'number') earned -= deducted;
     }
-    const apply = Math.max(POINTS_ESSENTIAL_OVERRIDE, Math.min(0, CAP_ESSENTIAL_OVERRIDE - earned));
+    const apply = Math.min(POINTS_ESSENTIAL_OVERRIDE, CAP_ESSENTIAL_OVERRIDE - earned); // Allow negative values
     if (apply !== 0) {
       await this.disciplineScore.applyDelta(userId, apply);
     }

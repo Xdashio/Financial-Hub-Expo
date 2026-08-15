@@ -13,21 +13,13 @@ import { LoadingState, ErrorState, SearchBar, Toast, EmptyState } from '@/compon
 import { getExpenseIcon } from '@/utils/expenseIcon';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
+import { CategoryIcon } from '@/components/icons';
 import {
   ArrowLeft,
   Plus,
   Trash2,
   Edit,
   Package,
-  ShoppingCart,
-  Car,
-  Film,
-  Scissors,
-  Lightbulb,
-  HeartPulse,
-  GraduationCap,
-  MoreHorizontal,
-  Home,
   Users,
 } from 'lucide-react-native';
 
@@ -63,24 +55,22 @@ export default function FixedExpensesScreen() {
   });
 
   const categories = [
-    { id: 'food', name: 'Food & Groceries', icon: ShoppingCart },
-    { id: 'transport', name: 'Transport', icon: Car },
-    { id: 'leisure', name: 'Personal & Leisure', icon: Film },
-    { id: 'personal', name: 'Personal Care', icon: Scissors },
-    { id: 'utilities', name: 'Utilities', icon: Lightbulb },
-    { id: 'housing', name: 'Housing', icon: Home },
-    { id: 'family', name: 'Family & dependents', icon: Users },
-    { id: 'healthcare', name: 'Healthcare', icon: HeartPulse },
-    { id: 'education', name: 'Education', icon: GraduationCap },
-    { id: 'other', name: 'Other', icon: MoreHorizontal },
+    { id: 'food', name: 'Food & Groceries', icon: 'food' },
+    { id: 'transport', name: 'Transport', icon: 'transport' },
+    { id: 'leisure', name: 'Personal & Leisure', icon: 'leisure' },
+    { id: 'personal', name: 'Personal Care', icon: 'personal' },
+    { id: 'utilities', name: 'Utilities', icon: 'utilities' },
+    { id: 'housing', name: 'Housing', icon: 'housing' },
+    { id: 'family', name: 'Family & dependents', icon: 'family' },
+    { id: 'healthcare', name: 'Healthcare', icon: 'healthcare' },
+    { id: 'education', name: 'Education', icon: 'education' },
+    { id: 'other', name: 'Other', icon: 'other' },
   ];
 
-  const getCategoryIcon = (categoryId: string) => {
-    const category = categories.find((c) => c.id === categoryId);
-    return category?.icon || Package;
+  const getIconFor = (name: string, categoryId: string) => {
+    const IconComponent = getExpenseIcon(name, categoryId);
+    return IconComponent;
   };
-
-  const getIconFor = (name: string, categoryId: string) => getExpenseIcon(name, categoryId);
 
   useEffect(() => {
     fetchExpenses();
@@ -290,7 +280,7 @@ export default function FixedExpensesScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <CategoryIcon size={24} color={colors.emerald} strokeWidth={2} />
+                    <CategoryIcon size={24} strokeWidth={2} />
                   </View>
                   
                   <View style={{ flex: 1, marginLeft: spacing.md }}>

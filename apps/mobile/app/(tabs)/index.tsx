@@ -12,6 +12,7 @@ import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { loansApi, emergencyUnlockApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, PocketGlyph, ActionsSheet } from '@/components/ui';
+import { CategoryIcon } from '@/components/icons';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
 import { useAlertModal } from '@/hooks/useAlertModal';
@@ -228,7 +229,13 @@ export default function HomeScreen() {
         <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocketColor }} />
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1, paddingRight: spacing.sm }}>
-            <PocketGlyph kind={pocketGlyphKind(pocket.kind)} color={pocketColor} size={16} muted />
+            {pocket.category ? (
+              <CategoryIcon category={pocket.category} size={16} />
+            ) : pocket.kind === 'savings' ? (
+              <CategoryIcon category="emergency" size={16} />
+            ) : (
+              <PocketGlyph kind={pocketGlyphKind(pocket.kind)} color={pocketColor} size={16} muted />
+            )}
             <View style={{ flex: 1 }}>
               <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
               <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>{purpose}</Text>
@@ -432,7 +439,11 @@ export default function HomeScreen() {
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocket.color }} />
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                      <PocketGlyph kind="spendable" color={pocket.color} size={16} muted />
+                      {pocket.category ? (
+                        <CategoryIcon category={pocket.category} size={16} />
+                      ) : (
+                        <PocketGlyph kind="spendable" color={pocket.color} size={16} muted />
+                      )}
                       <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>

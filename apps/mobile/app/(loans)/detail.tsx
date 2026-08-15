@@ -11,7 +11,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, Button, Input } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
@@ -145,9 +145,10 @@ export default function LoanDetailScreen() {
   const [isFunding, setIsFunding] = useState(false);
 
   // Purpose sub-pocket creation
+  const [showPurposeForm, setShowPurposeForm] = useState(false);
   const [purposeName, setPurposeName] = useState('');
   const [purposeCategory, setPurposeCategory] = useState('');
-  const [purposeAllocation, setPurposeAllocation] = useState('');
+  const [purposeSplitPercentage, setPurposeSplitPercentage] = useState('');
   const [isCreatingPurpose, setIsCreatingPurpose] = useState(false);
 
   const loadLoan = useCallback(async () => {
@@ -188,24 +189,6 @@ export default function LoanDetailScreen() {
   };
 
   const handleRepaymentConfirm = async () => {
-    const confirmed = await confirm(
-      'Fund Repayment',
-      `Enter repayment amount (must be exactly ${fmt(loan?.repayment_schedule?.repaymentAmount || 0)})`
-    );
-    if (!confirmed) return;
-    handleFundRepayment();
-  };
-
-  const handlePurposeConfirm = async () => {
-    const confirmed = await confirm(
-      'Create Purpose Sub-pocket',
-      'Create a sub-pocket for a specific loan purpose (e.g., school fees, business stock)'
-    );
-    if (!confirmed) return;
-    handleCreatePurpose();
-  };
-
-  const handleFundRepayment = async () => {
     if (!repaymentAmount || parseFloat(repaymentAmount) <= 0) {
       await alert('Invalid Amount', 'Please enter a valid repayment amount');
       return;
@@ -219,6 +202,41 @@ export default function LoanDetailScreen() {
       return;
     }
 
+    const confirmed = await confirm(
+      'Fund Repayment',
+      `Transfer ${fmt(parseFloat(repaymentAmount))} to your repayment pocket?`
+    );
+    if (!confirmed) return;
+    handleFundRepayment();
+  };
+
+  const handlePurposeConfirm = async () => {
+    if (!purposeName.trim()) {
+      await alert('Missing Name', 'Please enter a name for the purpose sub-pocket');
+      return;
+    }
+    if (!purposeCategory) {
+      await alert('Missing Category', 'Please select a category');
+      return;
+    }
+    if (!purposeSplitPercentage || parseFloat(purposeSplitPercentage) <= 0) {
+      await alert('Invalid Percentage', 'Please enter a valid split percentage (0-100)');
+      return;
+    }
+    if (parseFloat(purposeSplitPercentage) > 100) {
+      await alert('Invalid Percentage', 'Split percentage cannot exceed 100%');
+      return;
+    }
+
+    const confirmed = await confirm(
+      'Create Purpose Sub-pocket',
+      `Create "${purposeName.trim()}" with ${purposeSplitPercentage}% of the loan amount?`
+    );
+    if (!confirmed) return;
+    handleCreatePurpose();
+  };
+
+  const handleFundRepayment = async () => {
     setIsFunding(true);
     try {
       await loansApi.fundRepayment(id, parseFloat(repaymentAmount));
@@ -234,29 +252,16 @@ export default function LoanDetailScreen() {
   };
 
   const handleCreatePurpose = async () => {
-    if (!purposeName.trim()) {
-      await alert('Missing Name', 'Please enter a name for the purpose sub-pocket');
-      return;
-    }
-    if (!purposeCategory) {
-      await alert('Missing Category', 'Please select a category');
-      return;
-    }
-    if (!purposeAllocation || parseFloat(purposeAllocation) <= 0) {
-      await alert('Invalid Amount', 'Please enter a valid allocation amount');
-      return;
-    }
-
     setIsCreatingPurpose(true);
     try {
       await loansApi.createPurposeSubPocket(id, {
         name: purposeName.trim(),
         category: purposeCategory,
-        monthlyAllocation: parseFloat(purposeAllocation),
+        splitPercentage: parseFloat(purposeSplitPercentage),
       });
       setPurposeName('');
       setPurposeCategory('');
-      setPurposeAllocation('');
+      setPurposeSplitPercentage('');
       await loadLoan();
       await alert('Success', 'Purpose sub-pocket created successfully');
     } catch (e) {
@@ -272,6 +277,7 @@ export default function LoanDetailScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
+        {modal}
         <View
           style={{
             flexDirection: 'row',
@@ -300,6 +306,7 @@ export default function LoanDetailScreen() {
   if (!loan) {
     return (
       <ScreenContainer>
+        {modal}
         <View
           style={{
             flexDirection: 'row',
@@ -535,19 +542,84 @@ export default function LoanDetailScreen() {
               Sub-pockets
             </Text>
             <Pressable
-              onPress={handlePurposeConfirm}
+              onPress={() => setShowPurposeForm(!showPurposeForm)}
               style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}
             >
               <Plus size={16} color={colors.emeraldDeep} strokeWidth={2} />
               <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-                Add Purpose
+                {showPurposeForm ? 'Cancel' : 'Add Purpose'}
               </Text>
             </Pressable>
           </View>
           
-          {subPockets.length === 0 ? (
+          {/* Purpose creation form */}
+          {showPurposeForm && (
+            <View style={{ backgroundColor: colors.surface, borderRadius: radius.sm, padding: spacing.md, marginTop: spacing.md, borderWidth: borderWidth, borderColor: colors.line }}>
+              <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>
+                Create Purpose Sub-pocket
+              </Text>
+              
+              <Input
+                label="Purpose Name"
+                placeholder="e.g., School Fees, Business Stock"
+                value={purposeName}
+                onChangeText={setPurposeName}
+                helperText="What this sub-pocket is for"
+              />
+              
+              <View style={{ marginBottom: spacing.lg }}>
+                <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
+                  Category
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                  {['food', 'transport', 'leisure', 'personal', 'utilities', 'healthcare', 'education', 'housing', 'family', 'other'].map((cat) => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setPurposeCategory(cat)}
+                      style={{
+                        paddingHorizontal: spacing.md,
+                        paddingVertical: spacing.sm,
+                        borderRadius: radius.pill,
+                        backgroundColor: purposeCategory === cat ? colors.emeraldDeep : colors.lineSoft,
+                        borderWidth: 1,
+                        borderColor: purposeCategory === cat ? colors.emeraldDeep : colors.line,
+                      }}
+                    >
+                      <Text style={{ 
+                        ...typography.caption, 
+                        color: purposeCategory === cat ? colors.surface : colors.ink,
+                        textTransform: 'capitalize'
+                      }}>
+                        {cat}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              
+              <Input
+                label="Split Percentage"
+                placeholder="0-100"
+                keyboardType="numeric"
+                value={purposeSplitPercentage}
+                onChangeText={setPurposeSplitPercentage}
+                helperText="Percentage of loan amount to allocate to this purpose (0-100%)"
+              />
+              
+              <Button
+                fullWidth
+                onPress={handlePurposeConfirm}
+                disabled={isCreatingPurpose}
+                style={{ marginTop: spacing.md }}
+              >
+                {isCreatingPurpose ? 'Creating...' : 'Create Purpose'}
+              </Button>
+            </View>
+          )}
+          
+          {subPockets.length === 0 && !showPurposeForm ? (
             <Text style={{ ...typography.caption, color: colors.sage }}>
-              No sub-pockets yet
+              No sub-pockets yet. Tap "Add Purpose" to create one.
             </Text>
           ) : (
             subPockets.map((subPocket) => (
@@ -561,15 +633,37 @@ export default function LoanDetailScreen() {
           )}
         </View>
 
-        {/* Actions */}
+        {/* Fund Repayment */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Button
-            fullWidth
-            leftIcon={<DollarSign size={16} color={colors.surface} strokeWidth={2} />}
-            onPress={handleRepaymentConfirm}
-          >
+          <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>
             Fund Repayment
-          </Button>
+          </Text>
+          
+          <View style={{ backgroundColor: colors.surface, borderRadius: radius.sm, padding: spacing.md, borderWidth: borderWidth, borderColor: colors.line }}>
+            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
+              Required amount: {fmt(loan?.repayment_schedule?.repaymentAmount || 0)}
+            </Text>
+            
+            <Input
+              label="Repayment Amount"
+              placeholder={fmt(loan?.repayment_schedule?.repaymentAmount || 0)}
+              keyboardType="numeric"
+              leftElement={<DollarSign size={20} color={colors.sage} strokeWidth={2} />}
+              value={repaymentAmount}
+              onChangeText={setRepaymentAmount}
+              helperText="Enter the exact repayment amount"
+            />
+            
+            <Button
+              fullWidth
+              leftIcon={<DollarSign size={16} color={colors.surface} strokeWidth={2} />}
+              onPress={handleRepaymentConfirm}
+              disabled={isFunding}
+              style={{ marginTop: spacing.md }}
+            >
+              {isFunding ? 'Processing...' : 'Fund Repayment'}
+            </Button>
+          </View>
         </View>
       </ScrollView>
       {modal}

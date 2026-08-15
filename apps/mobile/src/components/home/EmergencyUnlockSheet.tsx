@@ -8,6 +8,7 @@ import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { Button } from '@/components/ui/Button';
 import { PocketGlyph } from '@/components/ui/PocketGlyph';
 import { PocketLoader } from '@/components/ui/PocketLoader';
+import { CategoryIcon } from '@/components/icons';
 import { emergencyUnlockApi } from '@/services/api';
 
 interface EmergencyUnlockSheetProps {
@@ -346,7 +347,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
         {/* Days Lasting Display */}
         <View style={{ backgroundColor: colors.emeraldTint, borderRadius: radius.md, padding: spacing.lg, marginBottom: spacing.lg, alignItems: 'center' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <PocketGlyph kind="savings" size={20} color={colors.emeraldDeep} />
+            <CategoryIcon category="emergency" size={20} />
             <Text style={{ ...typography.body, color: colors.emeraldDeep }}>
               {formatCurrency(selectedAmount)} will last you{' '}
               <Text style={{ ...typography.heading, color: colors.emeraldDeep }}>

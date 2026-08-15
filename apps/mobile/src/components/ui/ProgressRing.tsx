@@ -12,12 +12,13 @@ import { stitch } from '@/theme';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface ProgressRingProps {
-  /** 0–1 */
+  /** Can be negative for below-baseline discipline scores (e.g., -5, -10) */
   progress: number;
   size?: number;
   strokeWidth?: number;
   color: string;
   trackColor: string;
+  negativeColor?: string; // Optional color for negative progress
   children?: React.ReactNode;
 }
 
@@ -27,16 +28,23 @@ interface ProgressRingProps {
  * this" reads as thread being sewn, not a generic dashboard donut. The
  * value arc draws in with a single eased animation on mount/update rather
  * than snapping straight to its final angle.
+ * 
+ * Supports negative progress values for below-baseline discipline scores.
  */
-export function ProgressRing({ progress, size = 120, strokeWidth = 8, color, trackColor, children }: ProgressRingProps) {
+export function ProgressRing({ progress, size = 120, strokeWidth = 8, color, trackColor, negativeColor, children }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const clamped = Math.max(0, Math.min(1, progress));
+  
+  // Handle negative progress values for discipline scores (e.g., -5, -10, 15)
+  const isNegative = progress < 0;
+  const absProgress = Math.abs(progress);
+  const displayProgress = Math.max(0, Math.min(1, absProgress / 100)); // Convert percentage to 0-1 range
+  const displayColor = isNegative ? (negativeColor || color) : color;
 
   const animatedProgress = useSharedValue(0);
   useEffect(() => {
-    animatedProgress.value = withTiming(clamped, { duration: 900, easing: Easing.out(Easing.cubic) });
-  }, [clamped]);
+    animatedProgress.value = withTiming(displayProgress, { duration: 900, easing: Easing.out(Easing.cubic) });
+  }, [displayProgress]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - animatedProgress.value),
@@ -60,7 +68,7 @@ export function ProgressRing({ progress, size = 120, strokeWidth = 8, color, tra
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={color}
+          stroke={displayColor}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={`${circumference},${circumference}`}

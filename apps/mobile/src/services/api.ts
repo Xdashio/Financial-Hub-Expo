@@ -144,7 +144,7 @@ export const loansApi = {
     loanPurpose?: string;
   }) => api.post<any>('/loans', data),
   update: (id: string, data: any) => api.put<any>(`/loans/${id}`, data),
-  createPurposeSubPocket: (id: string, data: { name: string; category: string; monthlyAllocation: number }) =>
+  createPurposeSubPocket: (id: string, data: { name: string; category: string; splitPercentage: number }) =>
     api.post<any>(`/loans/${id}/purpose-sub-pockets`, data),
   fundRepayment: (id: string, amount: number) =>
     api.post<any>(`/loans/${id}/fund-repayment`, { amount }),

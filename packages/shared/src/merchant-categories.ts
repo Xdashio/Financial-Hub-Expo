@@ -10,23 +10,26 @@ export interface MerchantCategoryOption {
 /**
  * Ordered for picker display. Excludes 'unclassified' — that's an internal
  * state, never something a user selects.
+ * 
+ * Icon strings are now category keys that map to Lucide icons with brand colors
+ * via the mobile app's categoryIcons utility.
  */
 export const MERCHANT_CATEGORIES: MerchantCategoryOption[] = [
-  { id: 'grocery', label: 'Groceries', icon: 'cart-outline' },
-  { id: 'landlord_rent', label: 'Rent', icon: 'home-outline' },
-  { id: 'utility', label: 'Utilities', icon: 'lightning-bolt-outline' },
-  { id: 'transport', label: 'Transport', icon: 'car-outline' },
-  { id: 'healthcare', label: 'Healthcare', icon: 'medical-bag' },
-  { id: 'education', label: 'Education', icon: 'book-education-outline' },
-  { id: 'entertainment', label: 'Entertainment', icon: 'movie-open-outline' },
-  { id: 'personal_care', label: 'Personal Care', icon: 'content-cut' },
+  { id: 'grocery', label: 'Groceries', icon: 'food' },
+  { id: 'landlord_rent', label: 'Rent', icon: 'housing' },
+  { id: 'utility', label: 'Utilities', icon: 'utilities' },
+  { id: 'transport', label: 'Transport', icon: 'transport' },
+  { id: 'healthcare', label: 'Healthcare', icon: 'healthcare' },
+  { id: 'education', label: 'Education', icon: 'education' },
+  { id: 'entertainment', label: 'Entertainment', icon: 'leisure' },
+  { id: 'personal_care', label: 'Personal Care', icon: 'personal' },
   {
     id: 'gambling_betting',
     label: 'Betting & gambling',
-    icon: 'shield-alert-outline',
+    icon: 'other',
     alwaysBlocked: true,
   },
-  { id: 'other', label: 'Other', icon: 'package-variant-closed' },
+  { id: 'other', label: 'Other', icon: 'other' },
 ];
 
 /**

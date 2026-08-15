@@ -204,13 +204,14 @@ export default function InsightsScreen() {
             <>
               <View style={{ marginTop: spacing.md }}>
                 <ProgressRing
-                  progress={(score ?? 0) / 100}
+                  progress={score ?? 0}
                   size={120}
                   strokeWidth={8}
-                  color={colors.surface}
+                  color={colors.emeraldDeep}
                   trackColor={`${colors.surface}55`}
+                  negativeColor={colors.clay}
                 >
-                  <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score}%</Text>
+                  <Text style={{ ...typography.display, color: (score ?? 0) >= 0 ? colors.surface : colors.clay, fontSize: 36 }}>{score ?? 0}%</Text>
                 </ProgressRing>
               </View>
               <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Spending discipline</Text>

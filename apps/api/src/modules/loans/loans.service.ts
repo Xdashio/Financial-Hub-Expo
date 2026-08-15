@@ -215,23 +215,26 @@ export class LoansService {
       throw new ForbiddenException('You do not have access to this loan');
     }
 
-    // Validate that purpose sub-pocket allocation doesn't exceed available loan amount
+    // Validate that purpose sub-pocket split percentage doesn't exceed available space
     const currentSubPockets = await this.repository.getSubPocketsByParentId(loanId);
-    const currentPurposeAllocation = currentSubPockets
+    const currentPurposeSplits = currentSubPockets
       .filter(p => p.name !== 'Repayment') // Exclude the system repayment sub-pocket
-      .reduce((sum, p) => sum + (p.monthly_allocation || 0), 0);
+      .reduce((sum, p) => sum + (p.split_percentage || 0), 0);
     
     const repaymentSubPocket = currentSubPockets.find(p => p.name === 'Repayment');
-    const repaymentAllocation = repaymentSubPocket?.monthly_allocation || 0;
+    const currentRepaymentSplit = repaymentSubPocket?.split_percentage || 100;
 
-    const totalAllocated = currentPurposeAllocation + repaymentAllocation + parsed.monthlyAllocation;
-    if (totalAllocated > loan.monthly_allocation) {
+    // Calculate new split percentages
+    const newPurposeSplit = currentPurposeSplits + parsed.splitPercentage;
+    const newRepaymentSplit = 100 - newPurposeSplit;
+
+    if (newPurposeSplit > 100) {
       throw new BadRequestException(
-        `Purpose sub-pocket allocation (${parsed.monthlyAllocation}) would exceed available loan amount (${loan.monthly_allocation - repaymentAllocation})`
+        `Purpose sub-pocket split (${parsed.splitPercentage}%) would exceed available loan amount (${100 - currentPurposeSplits}%)`
       );
     }
 
-    // Create the purpose sub-pocket directly
+    // Create the purpose sub-pocket with split_percentage
     const purposeSubPocketInsert: PocketInsert = {
       plan_id: loan.plan_id,
       name: parsed.name,
@@ -239,14 +242,22 @@ export class LoansService {
       category: parsed.category,
       is_time_locked: false,
       lock_until: null,
-      monthly_allocation: parsed.monthlyAllocation,
+      monthly_allocation: 0, // Will be calculated by system based on split_percentage
       daily_cap: null,
       parent_pocket_id: loanId,
+      split_percentage: parsed.splitPercentage,
     };
 
     const purposeSubPocket = await this.repository.createPocket(purposeSubPocketInsert);
     if (!purposeSubPocket) {
       throw new BadRequestException('Failed to create purpose sub-pocket');
+    }
+
+    // Update the repayment sub-pocket split percentage to maintain 100% total
+    if (repaymentSubPocket) {
+      await this.repository.updatePocket(repaymentSubPocket.id, {
+        split_percentage: newRepaymentSplit,
+      });
     }
 
     return purposeSubPocket;
@@ -377,6 +388,10 @@ export class LoansService {
       throw new NotFoundException('Loan pocket not found');
     }
 
+    // Calculate split percentage for repayment sub-pocket
+    // It should take 100% of the loan by default (unless purpose sub-pockets are created)
+    const repaymentSplitPercentage = 100;
+
     // Create the repayment sub-pocket directly using repository
     // to bypass the ownership check since this is a system-created pocket
     const repaymentSubPocketInsert: PocketInsert = {
@@ -386,9 +401,10 @@ export class LoansService {
       category: 'other',
       is_time_locked: true, // Lock immediately
       lock_until: null,
-      monthly_allocation: repaymentAmount,
+      monthly_allocation: 0, // Will be calculated by system based on split_percentage
       daily_cap: null,
       parent_pocket_id: loanId,
+      split_percentage: repaymentSplitPercentage,
     };
 
     const repaymentSubPocket = await this.repository.createPocket(repaymentSubPocketInsert);

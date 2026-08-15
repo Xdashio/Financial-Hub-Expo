@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer, Button, LoadingState, PocketGlyph } from '@/components/ui';
+import { CategoryIcon } from '@/components/icons';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketGlyphKind } from '@/utils/pocketGlyph';
 import { safeGoBack } from '@/utils/navigation';
@@ -131,7 +132,13 @@ export default function PocketsManageModal() {
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
                   <View style={{ width: 40, height: 40, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
-                    <PocketGlyph kind={pocketGlyphKind(pocket.kind)} size={20} color={colors.emeraldDeep} />
+                    {pocket.category ? (
+                      <CategoryIcon category={pocket.category} size={20} />
+                    ) : pocket.kind === 'savings' ? (
+                      <CategoryIcon category="emergency" size={20} />
+                    ) : (
+                      <PocketGlyph kind={pocketGlyphKind(pocket.kind)} size={20} color={colors.emeraldDeep} />
+                    )}
                   </View>
                   <View>
                     <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>

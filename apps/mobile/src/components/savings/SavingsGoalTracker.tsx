@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, Animated, Easing } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography } from '@/theme';
-import { Target, Sparkles, Award, TrendingUp, Calendar, Check } from 'lucide-react-native';
+import { Sparkles, Check, Target, Calendar, Award } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
+import { CategoryIcon } from '@/components/icons';
 
 interface SavingsGoal {
   id: string;
@@ -82,17 +83,8 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
     });
   }, [goals]);
 
-  const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'emergency': return Target;
-      case 'goal': return Calendar;
-      case 'investment': return TrendingUp;
-      case 'debt': return Award;
-      default: return Target;
-    }
-  };
-
   const getCategoryColor = (category: string) => {
+    // Use the centralized color system
     switch (category) {
       case 'emergency': return colors.emeraldDeep;
       case 'goal': return colors.gold;
@@ -160,7 +152,6 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
 
       {goals.map((goal) => {
         const percentage = (goal.currentAmount / goal.targetAmount) * 100;
-        const CategoryIcon = getCategoryIcon(goal.category);
         const categoryColor = getCategoryColor(goal.category);
         const isComplete = percentage >= 100;
         const isCelebrating = celebratingGoal === goal.id;
@@ -187,7 +178,7 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
                   alignItems: 'center', 
                   justifyContent: 'center' 
                 }}>
-                  <CategoryIcon size={18} color={categoryColor} strokeWidth={2} />
+                  <CategoryIcon category={goal.category} size={18} color={categoryColor} />
                 </View>
                 <View>
                   <Text style={{ ...typography.heading, color: colors.ink }}>{goal.name}</Text>

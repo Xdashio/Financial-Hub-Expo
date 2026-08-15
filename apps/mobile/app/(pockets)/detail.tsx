@@ -15,6 +15,7 @@ import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button } from
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { SubPocketRebalanceSheet } from '@/components/pockets/SubPocketRebalanceSheet';
+import { SubPocketIcon } from '@/components/icons';
 import {
   ArrowLeft,
   ArrowLeftRight,
@@ -26,7 +27,6 @@ import {
   AlertTriangle,
   ShieldCheck,
   CircleDollarSign,
-  Layers,
   Plus,
   Sliders,
   Trash2,
@@ -814,7 +814,7 @@ export default function PocketDetailScreen() {
             >
               {/* Header row: title + Rebalance (when siblings exist) + Add */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
-                <Layers size={15} color={colors.ink} strokeWidth={2} />
+                <SubPocketIcon size={15} color={colors.ink} strokeWidth={2} />
                 <Text style={{ ...typography.eyebrow, color: colors.ink, flex: 1 }}>Sub-pockets</Text>
 
                 {subPockets.length >= 1 && (
@@ -869,7 +869,7 @@ export default function PocketDetailScreen() {
                     alignItems: 'center',
                     justifyContent: 'center',
                   }}>
-                    <Layers size={18} color={colors.emeraldDeep} strokeWidth={2} />
+                    <SubPocketIcon size={18} color={colors.emeraldDeep} strokeWidth={2} />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ ...typography.heading, color: colors.ink }}>
