@@ -263,7 +263,8 @@ export const profileApi = {
         nextRetakeAvailableOn: string;
       };
     }>('/profile/plan/retake', data),
-  commitPlanPercentages: (data: any) => api.post<any>('/profile/plan/percentages', data),
+  commitPlanPercentages: (data: any) => api.post<any>('/profile/plan/percentages/commit', data),
+  editPlanPercentages: (data: any) => api.patch<any>('/profile/plan/percentages', data),
 };
 
 export interface NotificationPreferences {

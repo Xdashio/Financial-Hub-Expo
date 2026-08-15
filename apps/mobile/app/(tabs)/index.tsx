@@ -11,7 +11,7 @@ import {
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { loansApi, emergencyUnlockApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState, PocketGlyph } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, PocketGlyph, ActionsSheet } from '@/components/ui';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
 import { useAlertModal } from '@/hooks/useAlertModal';
@@ -43,6 +43,7 @@ export default function HomeScreen() {
 
   const [nudgesVisible, setNudgesVisible] = React.useState(false);
   const [emergencyUnlockVisible, setEmergencyUnlockVisible] = React.useState(false);
+  const [actionsVisible, setActionsVisible] = React.useState(false);
   const [isUnlocking, setIsUnlocking] = React.useState(false);
 
   // Check if all non-savings pockets are depleted for emergency unlock
@@ -391,7 +392,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={{ marginTop: spacing.sm, alignSelf: 'center', paddingVertical: spacing.sm, minHeight: touchTarget.minHeight, justifyContent: 'center' }}
           activeOpacity={0.8}
-          onPress={() => router.push('/(modals)/actions')}
+          onPress={() => setActionsVisible(true)}
           accessibilityLabel="More money actions"
           accessibilityRole="button"
         >
@@ -536,6 +537,7 @@ export default function HomeScreen() {
         isLoading={isUnlocking}
         pockets={pockets.filter((p) => p.kind !== 'savings')}
       />
+      <ActionsSheet visible={actionsVisible} onClose={() => setActionsVisible(false)} />
       {modal}
     </ScreenContainer>
   );
