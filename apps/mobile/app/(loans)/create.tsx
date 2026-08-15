@@ -3,14 +3,14 @@ import {
   View,
   Text,
   ScrollView,
-  TextInput,
   Pressable,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { radius, spacing, typography, borderWidth } from '../../src/theme';
+import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
-import { ScreenContainer, Button } from '@/components/ui';
+import { ScreenContainer, Button, Input, DatePickerSheet } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import {
   ArrowLeft,
@@ -18,6 +18,7 @@ import {
   Calendar,
   DollarSign,
   Info,
+  AlertTriangle,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
@@ -26,6 +27,39 @@ import { formatMoney } from '@/utils/money';
 
 function fmt(amount: number) {
   return formatMoney(amount);
+}
+
+function formatDateDisplay(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function isValidDate(dateString: string): boolean {
+  const date = new Date(dateString);
+  return !isNaN(date.getTime());
+}
+
+function calculateNumberOfPayments(
+  startDate: string,
+  endDate: string,
+  cadence: 'weekly' | 'biweekly' | 'monthly'
+): number {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const diffTime = Math.abs(end.getTime() - start.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  switch (cadence) {
+    case 'weekly':
+      return Math.floor(diffDays / 7) + 1;
+    case 'biweekly':
+      return Math.floor(diffDays / 14) + 1;
+    case 'monthly':
+      const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      return months + 1;
+    default:
+      return 1;
+  }
 }
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
@@ -45,6 +79,10 @@ export default function CreateLoanScreen() {
   const [loanProvider, setLoanProvider] = useState('');
   const [loanPurpose, setLoanPurpose] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Date picker states
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   const goBack = () => {
     safeGoBack(router, '/(loans)');
@@ -68,17 +106,43 @@ export default function CreateLoanScreen() {
       return false;
     }
     if (!startDate) {
-      await alert('Missing Date', 'Please enter the start date');
+      await alert('Missing Date', 'Please select the start date');
+      return false;
+    }
+    if (!isValidDate(startDate)) {
+      await alert('Invalid Date', 'Please select a valid start date');
       return false;
     }
     if (!endDate) {
-      await alert('Missing Date', 'Please enter the end date');
+      await alert('Missing Date', 'Please select the end date');
+      return false;
+    }
+    if (!isValidDate(endDate)) {
+      await alert('Invalid Date', 'Please select a valid end date');
+      return false;
+    }
+    if (new Date(startDate) >= new Date(endDate)) {
+      await alert('Invalid Date Range', 'End date must be after start date');
       return false;
     }
     if (!dueDay || parseInt(dueDay) < 1 || parseInt(dueDay) > 31) {
       await alert('Invalid Day', 'Please enter a valid due day (1-31)');
       return false;
     }
+
+    // Validate repayment schedule
+    const numPayments = calculateNumberOfPayments(startDate, endDate, cadence);
+    const totalRepayment = parseFloat(repaymentAmount) * numPayments;
+    const totalLoan = parseFloat(totalAmount);
+
+    if (totalRepayment !== totalLoan) {
+      await alert(
+        'Invalid Repayment Schedule',
+        `Your repayment schedule doesn't match the loan total:\n\n${numPayments} payments of ${fmt(parseFloat(repaymentAmount))} = ${fmt(totalRepayment)}\n\nBut your loan total is ${fmt(totalLoan)}.\n\nPlease adjust the repayment amount or date range.`
+      );
+      return false;
+    }
+
     return true;
   };
 
@@ -142,90 +206,34 @@ export default function CreateLoanScreen() {
         {/* Form */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
           {/* Loan name */}
-          <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
-              Loan Name
-            </Text>
-            <TextInput
-              style={{
-                ...typography.body,
-                color: colors.ink,
-                backgroundColor: colors.surface,
-                borderRadius: radius.sm,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm,
-                borderWidth: borderWidth,
-                borderColor: colors.lineSoft,
-              }}
-              placeholder="e.g., Business Expansion Loan"
-              placeholderTextColor={colors.sage}
-              value={name}
-              onChangeText={setName}
-            />
-          </View>
+          <Input
+            label="Loan Name"
+            placeholder="e.g., Business Expansion Loan"
+            value={name}
+            onChangeText={setName}
+          />
 
           {/* Total amount */}
-          <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
-              Total Loan Amount
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <DollarSign size={20} color={colors.sage} strokeWidth={2} />
-              <TextInput
-                style={{
-                  flex: 1,
-                  ...typography.body,
-                  color: colors.ink,
-                  backgroundColor: colors.surface,
-                  borderRadius: radius.sm,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  marginLeft: spacing.sm,
-                  borderWidth: borderWidth,
-                  borderColor: colors.lineSoft,
-                  fontVariant: ['tabular-nums'],
-                }}
-                placeholder="0.00"
-                placeholderTextColor={colors.sage}
-                keyboardType="numeric"
-                value={totalAmount}
-                onChangeText={setTotalAmount}
-              />
-            </View>
-          </View>
+          <Input
+            label="Total Loan Amount"
+            placeholder="0.00"
+            keyboardType="numeric"
+            leftElement={<DollarSign size={20} color={colors.sage} strokeWidth={2} />}
+            value={totalAmount}
+            onChangeText={setTotalAmount}
+            helperText="Total amount borrowed"
+          />
 
           {/* Repayment amount */}
-          <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
-              Repayment Amount
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Calculator size={20} color={colors.sage} strokeWidth={2} />
-              <TextInput
-                style={{
-                  flex: 1,
-                  ...typography.body,
-                  color: colors.ink,
-                  backgroundColor: colors.surface,
-                  borderRadius: radius.sm,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
-                  marginLeft: spacing.sm,
-                  borderWidth: borderWidth,
-                  borderColor: colors.lineSoft,
-                  fontVariant: ['tabular-nums'],
-                }}
-                placeholder="0.00"
-                placeholderTextColor={colors.sage}
-                keyboardType="numeric"
-                value={repaymentAmount}
-                onChangeText={setRepaymentAmount}
-              />
-            </View>
-            <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
-              Amount to pay each period
-            </Text>
-          </View>
+          <Input
+            label="Repayment Amount"
+            placeholder="0.00"
+            keyboardType="numeric"
+            leftElement={<Calculator size={20} color={colors.sage} strokeWidth={2} />}
+            value={repaymentAmount}
+            onChangeText={setRepaymentAmount}
+            helperText="Amount to pay each period"
+          />
 
           {/* Cadence */}
           <View style={{ marginBottom: spacing.lg }}>
@@ -243,8 +251,8 @@ export default function CreateLoanScreen() {
                     paddingHorizontal: spacing.md,
                     borderRadius: radius.sm,
                     backgroundColor: cadence === option ? colors.emeraldDeep : colors.surface,
-                    borderWidth: borderWidth,
-                    borderColor: cadence === option ? colors.emeraldDeep : colors.lineSoft,
+                    borderWidth: 1,
+                    borderColor: cadence === option ? colors.emeraldDeep : colors.line,
                   }}
                 >
                   <Text
@@ -262,32 +270,57 @@ export default function CreateLoanScreen() {
             </View>
           </View>
 
+          {/* Repayment Schedule Preview */}
+          {startDate && endDate && repaymentAmount ? (
+            <View style={{ marginBottom: spacing.lg, backgroundColor: colors.emeraldTint, padding: spacing.md, borderRadius: radius.sm }}>
+              <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginBottom: spacing.xs }}>
+                Repayment Schedule Preview
+              </Text>
+              <Text style={{ ...typography.body, color: colors.emeraldDeep }}>
+                {calculateNumberOfPayments(startDate, endDate, cadence)} payments of {fmt(parseFloat(repaymentAmount))} = {fmt(parseFloat(repaymentAmount) * calculateNumberOfPayments(startDate, endDate, cadence))}
+              </Text>
+              {parseFloat(repaymentAmount) * calculateNumberOfPayments(startDate, endDate, cadence) !== parseFloat(totalAmount) ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs }}>
+                  <AlertTriangle size={14} color={colors.clay} strokeWidth={2} />
+                  <Text style={{ ...typography.caption, color: colors.clay }}>
+                    Total doesn't match loan amount ({fmt(parseFloat(totalAmount))})
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
           {/* Start date */}
           <View style={{ marginBottom: spacing.lg }}>
             <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
               Start Date
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable
+              onPress={() => setShowStartDatePicker(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.line,
+                borderRadius: radius.md,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                minHeight: 44,
+              }}
+            >
               <Calendar size={20} color={colors.sage} strokeWidth={2} />
-              <TextInput
+              <Text
                 style={{
                   flex: 1,
                   ...typography.body,
-                  color: colors.ink,
-                  backgroundColor: colors.surface,
-                  borderRadius: radius.sm,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
+                  color: startDate ? colors.ink : colors.sage,
                   marginLeft: spacing.sm,
-                  borderWidth: borderWidth,
-                  borderColor: colors.lineSoft,
                 }}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.sage}
-                value={startDate}
-                onChangeText={setStartDate}
-              />
-            </View>
+              >
+                {startDate ? formatDateDisplay(startDate) : 'Select start date'}
+              </Text>
+            </Pressable>
             <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
               When the first payment is due
             </Text>
@@ -298,82 +331,54 @@ export default function CreateLoanScreen() {
             <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
               End Date
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Pressable
+              onPress={() => setShowEndDatePicker(true)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.line,
+                borderRadius: radius.md,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm,
+                minHeight: 44,
+              }}
+            >
               <Calendar size={20} color={colors.sage} strokeWidth={2} />
-              <TextInput
+              <Text
                 style={{
                   flex: 1,
                   ...typography.body,
-                  color: colors.ink,
-                  backgroundColor: colors.surface,
-                  borderRadius: radius.sm,
-                  paddingHorizontal: spacing.md,
-                  paddingVertical: spacing.sm,
+                  color: endDate ? colors.ink : colors.sage,
                   marginLeft: spacing.sm,
-                  borderWidth: borderWidth,
-                  borderColor: colors.lineSoft,
                 }}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={colors.sage}
-                value={endDate}
-                onChangeText={setEndDate}
-              />
-            </View>
+              >
+                {endDate ? formatDateDisplay(endDate) : 'Select end date'}
+              </Text>
+            </Pressable>
             <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
               When the loan will be fully repaid
             </Text>
           </View>
 
           {/* Due day */}
-          <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
-              Payment Due Day
-            </Text>
-            <TextInput
-              style={{
-                ...typography.body,
-                color: colors.ink,
-                backgroundColor: colors.surface,
-                borderRadius: radius.sm,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm,
-                borderWidth: borderWidth,
-                borderColor: colors.lineSoft,
-                fontVariant: ['tabular-nums'],
-              }}
-              placeholder="e.g., 15"
-              placeholderTextColor={colors.sage}
-              keyboardType="numeric"
-              value={dueDay}
-              onChangeText={setDueDay}
-            />
-            <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
-              Day of the month (1-31) when payment is due
-            </Text>
-          </View>
+          <Input
+            label="Payment Due Day"
+            placeholder="e.g., 15"
+            keyboardType="numeric"
+            value={dueDay}
+            onChangeText={setDueDay}
+            helperText="Day of the month (1-31) when payment is due"
+          />
 
           {/* Loan provider (optional) */}
-          <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
-              Loan Provider (Optional)
-            </Text>
-            <TextInput
-              style={{
-                ...typography.body,
-                color: colors.ink,
-                backgroundColor: colors.surface,
-                borderRadius: radius.sm,
-                paddingHorizontal: spacing.md,
-                paddingVertical: spacing.sm,
-                borderWidth: borderWidth,
-                borderColor: colors.lineSoft,
-              }}
-              placeholder="e.g., Equity Bank"
-              placeholderTextColor={colors.sage}
-              value={loanProvider}
-              onChangeText={setLoanProvider}
-            />
-          </View>
+          <Input
+            label="Loan Provider (Optional)"
+            placeholder="e.g., Equity Bank"
+            value={loanProvider}
+            onChangeText={setLoanProvider}
+          />
 
           {/* Loan purpose (optional) */}
           <View style={{ marginBottom: spacing.lg }}>
@@ -385,13 +390,13 @@ export default function CreateLoanScreen() {
                 ...typography.body,
                 color: colors.ink,
                 backgroundColor: colors.surface,
-                borderRadius: radius.sm,
+                borderRadius: radius.md,
                 paddingHorizontal: spacing.md,
                 paddingVertical: spacing.sm,
-                borderWidth: borderWidth,
-                borderColor: colors.lineSoft,
+                borderWidth: 1,
+                borderColor: colors.line,
                 textAlignVertical: 'top',
-                height: 80,
+                minHeight: 80,
               }}
               placeholder="e.g., Business expansion, education, etc."
               placeholderTextColor={colors.sage}
@@ -421,6 +426,22 @@ export default function CreateLoanScreen() {
           </View>
         </View>
       </ScrollView>
+      
+      {/* Date pickers */}
+      <DatePickerSheet
+        visible={showStartDatePicker}
+        onClose={() => setShowStartDatePicker(false)}
+        onDateSelect={setStartDate}
+        initialDate={startDate}
+      />
+      <DatePickerSheet
+        visible={showEndDatePicker}
+        onClose={() => setShowEndDatePicker(false)}
+        onDateSelect={setEndDate}
+        initialDate={endDate}
+        minDate={startDate}
+      />
+      
       {modal}
     </ScreenContainer>
   );
