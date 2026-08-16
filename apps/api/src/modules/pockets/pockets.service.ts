@@ -935,9 +935,6 @@ export class PocketsService {
     const currentLockUntil = pocket.lock_until ? new Date(pocket.lock_until) : new Date();
     const newLockUntil = new Date(currentLockUntil.getTime() + additionalDays * 24 * 60 * 60 * 1000);
 
-    // Calculate discipline bonus
-    const disciplineBonus = Math.ceil(additionalDays * 0.2); // 0.2 points per day extended
-
     // Extend the lock
     const updatedPocket = await this.repository.updatePocket(pocketId, {
       lock_until: newLockUntil.toISOString(),
@@ -947,21 +944,31 @@ export class PocketsService {
       throw new NotFoundException('Failed to extend lock');
     }
 
-    // Create behavior event for the Insights activity log
+    // Create behavior event for the Insights activity log. Extending a lock
+    // is still worth recording (it's a real thing the user did), but it no
+    // longer carries a discipline_score bonus — see discipline_bonus below.
+    // points_added stays 0 in the payload rather than being omitted, so any
+    // historical event scanning code doesn't have to special-case its shape.
     await this.repository.createBehaviorEvent({
       user_id: userId,
       type: 'lock_extension',
       payload: {
         pocket_id: pocketId,
         days_added: additionalDays,
-        points_added: disciplineBonus,
+        points_added: 0,
         reason: body.reason,
       },
     });
 
-    // Apply the bonus through the shared discipline-score service (see
-    // unlockPocket above and discipline-score.service.ts for why).
-    const { previousScore, newScore } = await this.disciplineScore.applyDelta(userId, disciplineBonus);
+    // Intentionally no disciplineScore.applyDelta call here. Extending a
+    // lock ahead of time doesn't demonstrate the same restraint that not
+    // touching a pocket during its lock term does, and it costs the user
+    // nothing to do — awarding points for it was a free-points incentive
+    // that didn't map to any real discipline being shown. The score stays
+    // untouched; we still return a discipline_bonus object with a 0 delta
+    // (rather than dropping the field) so the existing mobile response
+    // shape / success message keeps working without a breaking change.
+    const currentScore = await this.disciplineScore.getCurrentScore(userId);
 
     return {
       extension: {
@@ -972,10 +979,10 @@ export class PocketsService {
         total_lock_days: Math.ceil((newLockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
       },
       discipline_bonus: {
-        points_added: disciplineBonus,
-        previous_score: previousScore === null ? 0 : previousScore,
-        new_score: newScore,
-        reason: `lock_extension_${additionalDays}_days`,
+        points_added: 0,
+        previous_score: currentScore === null ? 0 : currentScore,
+        new_score: currentScore === null ? 0 : currentScore,
+        reason: `lock_extension_${additionalDays}_days_no_bonus`,
       },
     };
   }

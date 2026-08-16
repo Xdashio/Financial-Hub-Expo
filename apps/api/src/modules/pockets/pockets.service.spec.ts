@@ -96,7 +96,7 @@ describe('PocketsService discipline-score unification', () => {
       getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
     } as any;
     disciplineScore = {
-      getCurrentScore: jest.fn(),
+      getCurrentScore: jest.fn().mockResolvedValue(100),
       applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 95 }),
     } as any;
     runway = {
@@ -115,14 +115,18 @@ describe('PocketsService discipline-score unification', () => {
     expect(result.discipline_cost.new_score).toBe(95);
   });
 
-  it('extendLock applies a positive bonus through the shared DisciplineScoreService', async () => {
+  it('extendLock no longer grants a discipline bonus (points removed, extension still applies)', async () => {
     const result = await service.extendLock('pocket-1', 'user-1', { additional_days: 10, reason: 'staying disciplined' });
 
-    expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', expect.any(Number));
-    const [, delta] = disciplineScore.applyDelta.mock.calls[0];
-    expect(delta).toBeGreaterThan(0); // extension is a bonus, never a cost
+    // The lock itself still extends and the response still returns a
+    // discipline_bonus object (for API shape compatibility), but it must
+    // not touch the score — applyDelta is only for costs like unlockPocket
+    // above, never for extending a lock.
+    expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+    expect(result.discipline_bonus.points_added).toBe(0);
     expect(result.discipline_bonus.previous_score).toBe(100);
-    expect(result.discipline_bonus.new_score).toBe(95);
+    expect(result.discipline_bonus.new_score).toBe(100);
+    expect(result.extension.days_added).toBe(10);
   });
 
   it('extendLock rejects a pocket that has already been extended once this lock term', async () => {
@@ -157,7 +161,8 @@ describe('PocketsService discipline-score unification', () => {
 
     const result = await service.extendLock('pocket-1', 'user-1', { additional_days: 10, reason: 'staying disciplined' });
 
-    expect(result.discipline_bonus.new_score).toBe(95);
+    expect(result.discipline_bonus.new_score).toBe(100); // unchanged — no bonus is applied
+    expect(result.extension.days_added).toBe(10);
   });
 
   it('extendLock rejects an extension inside the blackout window before unlock', async () => {

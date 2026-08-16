@@ -8,6 +8,7 @@ import {
   EmergencyUnlockEligibilityReason,
 } from '@financial-hub/shared';
 import { SpendingAnalysisService } from '../insights/spending-analysis.service';
+import { sumMoney, toCents, fromCents } from '@financial-hub/shared';
 
 const MINIMUM_HISTORY_DAYS = 7;
 const RESERVE_PERCENTAGE = 0.2; // 20% minimum reserve
@@ -308,11 +309,15 @@ export class EmergencyUnlockService {
     amount: number;
     percentage: number;
   }> {
-    const totalAllocation = pockets.reduce((sum, p) => sum + (p.monthly_allocation || 0), 0);
+    // Summed in integer cents (see @financial-hub/shared) for the same
+    // reason as getPocketSummary — this total feeds the emergency-unlock
+    // payout split below, so float drift here would misallocate real money
+    // across pockets.
+    const totalAllocation = sumMoney(pockets.map((p) => p.monthly_allocation || 0));
 
     if (totalAllocation === 0) {
       // Equal distribution if no allocations set
-      const equalAmount = amount / pockets.length;
+      const equalAmount = round2(amount / pockets.length);
       return pockets.map((p) => ({
         pocket_id: p.id,
         pocket_name: p.name,
@@ -325,7 +330,7 @@ export class EmergencyUnlockService {
     return pockets.map((p) => {
       const pocketAllocation = p.monthly_allocation || 0;
       const percentage = (pocketAllocation / totalAllocation) * 100;
-      const pocketAmount = (amount * percentage) / 100;
+      const pocketAmount = round2((amount * percentage) / 100);
 
       return {
         pocket_id: p.id,
@@ -335,4 +340,8 @@ export class EmergencyUnlockService {
       };
     });
   }
+}
+
+function round2(n: number): number {
+  return fromCents(toCents(n));
 }

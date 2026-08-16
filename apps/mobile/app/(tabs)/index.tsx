@@ -139,7 +139,12 @@ export default function HomeScreen() {
 
   const getPocketStatus = (pocket: any) => {
     if (pocket.isTimeLocked) return 'Locked';
-    if (pocket.availableBalance <= 0) return 'Awaiting income';
+    // A pocket at exactly 0 has simply never been funded / is fully spent
+    // within budget — "Awaiting income" fits. A pocket that's gone negative
+    // (via the insufficient-funds "spend anyway" override) is a distinct,
+    // more urgent state and should not be mislabeled the same way.
+    if (pocket.availableBalance < 0) return 'Overspent';
+    if (pocket.availableBalance === 0) return 'Awaiting income';
     if (pocket.kind === 'savings') return 'Protected';
     if (pocket.kind === 'fixed') return 'Funded';
     return 'Available';
@@ -245,7 +250,19 @@ export default function HomeScreen() {
               {pocket.isTimeLocked && (
                 <Lock color={colors.sage} size={13} strokeWidth={2} />
               )}
-              <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatCurrency(pocket.availableBalance)}</Text>
+              <Text
+                style={{
+                  ...typography.heading,
+                  // A negative balance (from an overridden overspend, see
+                  // spend.service.ts's insufficient_funds override flow)
+                  // is visually distinct from a normal balance instead of
+                  // silently rendering in the same neutral ink color.
+                  color: pocket.availableBalance < 0 ? colors.clay : colors.ink,
+                  fontVariant: ['tabular-nums'],
+                }}
+              >
+                {formatCurrency(pocket.availableBalance)}
+              </Text>
             </View>
             <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>{status}</Text>
           </View>

@@ -434,7 +434,7 @@ describe('SpendService.commitSpend', () => {
       expect(result.shortfall).toBe(200);
       expect(result.borrow_from_parent_available).toBeUndefined();
       expect(result.parent_pocket).toBeUndefined();
-      expect(result.message).toBe('Insufficient funds. Available: 100, Requested: 300');
+      expect(result.message).toBe('Insufficient funds. Available: KSh 100, Requested: KSh 300');
     });
 
     it('does not offer borrow_from_parent for top-level pockets (no parent)', async () => {

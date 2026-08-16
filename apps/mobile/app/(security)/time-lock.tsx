@@ -158,14 +158,14 @@ export default function TimeLockScreen() {
     if (!resolvedPocketId || isExtending) return;
     const confirmed = await confirm(
       'Extend Lock Period',
-      'Extending your lock will earn you discipline bonus points for better security.',
+      'You can extend your lock by 30 days to keep this pocket protected for longer.',
       { confirmLabel: 'Extend 30 Days' }
     );
     if (!confirmed) return;
 
     try {
       setIsExtending(true);
-      const result = await pocketsApi.extendLock(resolvedPocketId, {
+      await pocketsApi.extendLock(resolvedPocketId, {
         additional_days: 30,
         reason: 'Building emergency fund',
       });
@@ -173,7 +173,7 @@ export default function TimeLockScreen() {
 
       alert(
         'Lock Extended',
-        `Your lock has been extended by 30 days. Discipline score: ${result.discipline_bonus.previous_score} → ${result.discipline_bonus.new_score}.`
+        'Your lock has been extended by 30 days.'
       );
       loadLockStatus(resolvedPocketId);
     } catch (error) {
