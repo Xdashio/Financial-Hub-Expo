@@ -69,12 +69,12 @@ export class DisciplineScoreService {
    * Applies a signed delta (positive = bonus, negative = cost) to the
    * user's current-period discipline score and persists the result.
    * If no score exists (null), starts from 0 and applies the delta.
-   * Allows negative scores to show below-baseline discipline performance.
+   * Clamps to the PRD [0, 100] range.
    */
   async applyDelta(userId: string, delta: number): Promise<DisciplineScoreChange> {
     const previousScore = await this.getCurrentScore(userId);
     const startingScore = previousScore ?? 0;
-    const newScore = Math.min(100, startingScore + delta); // Allow negative scores, only cap max at 100
+    const newScore = Math.max(0, Math.min(100, startingScore + delta));
 
     await this.repo.upsertDisciplineScore({
       user_id: userId,
@@ -84,49 +84,6 @@ export class DisciplineScoreService {
       calculated_at: new Date().toISOString(),
     });
 
-    return { previousScore, newScore };
-  }
-
-  /**
-   * Recalculates the current period's score from behavior events.
-   * Useful for data migration after logic changes or manual corrections.
-   * Starts from 0 and sums all points from events in the current period.
-   */
-  async recalculateFromEvents(userId: string): Promise<DisciplineScoreChange> {
-    const currentPeriod = this.currentPeriod();
-    const periodStart = `${currentPeriod}-01T00:00:00.000Z`;
-    const periodEnd = `${currentPeriod}-01T00:00:00.000Z`; // This will be updated to next month
-    
-    // Calculate end of current month
-    const [year, month] = currentPeriod.split('-').map(Number);
-    const nextMonth = month === 12 ? 1 : month + 1;
-    const nextYear = month === 12 ? year + 1 : year;
-    const periodEndStr = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00.000Z`;
-    
-    const behaviorEvents = await this.repo.getBehaviorEventsBetween(userId, periodStart, periodEndStr);
-    
-    let totalPoints = 0;
-    for (const event of behaviorEvents) {
-      const payload = event.payload as any;
-      if (typeof payload.points_added === 'number') {
-        totalPoints += payload.points_added;
-      }
-      if (typeof payload.points_deducted === 'number') {
-        totalPoints -= payload.points_deducted;
-      }
-    }
-    
-    const newScore = Math.min(100, totalPoints); // Allow negative scores, only cap max at 100
-    const previousScore = await this.getCurrentScore(userId);
-    
-    await this.repo.upsertDisciplineScore({
-      user_id: userId,
-      score: newScore,
-      delta: totalPoints - (previousScore ?? 0),
-      period: currentPeriod,
-      calculated_at: new Date().toISOString(),
-    });
-    
     return { previousScore, newScore };
   }
 

@@ -36,8 +36,14 @@ export function daysInUtcMonth(dateIso: string): number {
  * Effective daily cap for a spendable pocket on a given day.
  * Prefers persisted daily_cap (daily plans); otherwise derives from
  * monthly_allocation ÷ days in that month (structured plans).
+ * For structured plans, returns 0 since they don't use daily caps.
  */
-export function effectiveDailyCap(pocket: Pick<Pocket, 'daily_cap' | 'monthly_allocation'>, dateIso: string): number {
+export function effectiveDailyCap(pocket: Pick<Pocket, 'daily_cap' | 'monthly_allocation'>, dateIso: string, planType: string): number {
+  // Structured plans don't use daily caps
+  if (planType !== 'daily') {
+    return 0;
+  }
+  
   if (pocket.daily_cap != null && pocket.daily_cap > 0) {
     return pocket.daily_cap;
   }

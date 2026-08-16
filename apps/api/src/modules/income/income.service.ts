@@ -124,12 +124,36 @@ export class IncomeService {
       throw new BadRequestException('No pockets found in your plan.');
     }
 
-    // Income surplus detection (audit_team.md item 1)
-    // Compare entered amount against expected_income_amount
-    // If no expectation is set, allocate the full amount normally (no surplus)
-    const hasSurplus = plan.expected_income_amount && dto.amount > plan.expected_income_amount;
-    const normalAllocationAmount = hasSurplus ? plan.expected_income_amount! : dto.amount;
-    const surplusAmount = hasSurplus ? dto.amount - plan.expected_income_amount! : 0;
+    // Income surplus detection (audit_team.md item 1).
+    // Prefer plan.expected_income_amount (set at onboarding from incomeAmount).
+    // If missing on older plans, fall back to the sum of top-level pocket
+    // allocations and best-effort backfill the plan so surplus works next time.
+    let expectedIncome = plan.expected_income_amount;
+    if (expectedIncome == null || expectedIncome <= 0) {
+      const derived = round2(
+        pockets.reduce((sum, p) => sum + (Number(p.monthly_allocation) || 0), 0),
+      );
+      if (derived > 0) {
+        expectedIncome = derived;
+        if (typeof this.repository.updatePlan === 'function') {
+          try {
+            await this.repository.updatePlan(plan.id, {
+              expected_income_amount: derived,
+            });
+          } catch (err) {
+            this.logger.warn(
+              `could not backfill expected_income_amount: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          }
+        }
+      }
+    }
+
+    const hasSurplus = !!expectedIncome && expectedIncome > 0 && dto.amount > expectedIncome;
+    const normalAllocationAmount = hasSurplus ? expectedIncome! : dto.amount;
+    const surplusAmount = hasSurplus ? dto.amount - expectedIncome! : 0;
 
     // Create income event. Production DBs that predate surplus columns
     // reject inserts that mention those fields (PGRST204) — so we never

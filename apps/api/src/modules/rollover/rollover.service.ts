@@ -73,6 +73,17 @@ export class RolloverService {
       throw new NotFoundException('No active plan found');
     }
 
+    // Only run rollover logic for daily budget plans
+    if (plan.type !== 'daily') {
+      return {
+        days: [],
+        totalAmount: 0,
+        latestAmount: 0,
+        streak: await this.getStreak(userId, now),
+        milestoneAwarded: null,
+      };
+    }
+
     const pockets = await this.repository.getPocketsByPlanId(plan.id);
     const spendable = pockets.filter((p) => p.kind === 'spendable');
     const savings = pockets.find((p) => p.kind === 'savings');
@@ -140,7 +151,7 @@ export class RolloverService {
         continue;
       }
 
-      const result = await this.processDay(userId, dateIso, spendable, savings);
+      const result = await this.processDay(userId, dateIso, plan.type, spendable, savings);
       dayResults.push(result);
       totalAmount += result.amount;
       latestAmount = result.amount;
@@ -248,6 +259,7 @@ export class RolloverService {
   private async processDay(
     userId: string,
     dateIso: string,
+    planType: string,
     spendable: Array<{
       id: string;
       name: string;
@@ -270,7 +282,7 @@ export class RolloverService {
       inputs.push({
         pocketId: pocket.id,
         pocketName: pocket.name,
-        dailyCap: effectiveDailyCap(pocket, dateIso),
+        dailyCap: effectiveDailyCap(pocket, dateIso, planType),
         spent: spendTotals.get(pocket.id) || 0,
         available: summary.available,
       });
