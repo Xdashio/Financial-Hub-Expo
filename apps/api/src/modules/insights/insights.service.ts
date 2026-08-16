@@ -93,6 +93,17 @@ export class InsightsService {
         'fixed_payment_on_time',
         'goal_achieved',
         'streak_freeze_used',
+        // lock_extension (PocketsService.extendLock) and early_unlock
+        // (PocketsService.unlockPocket) both write points_added /
+        // points_deducted through the same shared discipline-score
+        // service as every other event here, and both actually move the
+        // real score. Leaving them out of this list made the hero's "pts
+        // this period" copy silently ignore lock extensions and early
+        // unlocks — a user could rack up +6 three times from extending a
+        // lock and still see "Recent drag: -N pts this period" because
+        // only the unrelated daily_overspend events were being summed.
+        'lock_extension',
+        'early_unlock',
       ],
       monthStart,
     );
