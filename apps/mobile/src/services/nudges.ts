@@ -93,14 +93,20 @@ export function deriveNudges(input: NudgeInput): Nudge[] {
     });
   }
 
-  // Discipline score trending down.
+  // Discipline score trending down. Mirrors the recovery framing used on
+  // the Insights tab (floor at 0, small wins rebuild it) once the score is
+  // low enough that it matters, instead of leaving Home sounding more
+  // alarming than the screen the nudge links to.
   if (disciplineScore !== null && scoreDelta < 0) {
+    const isLow = disciplineScore <= 25;
     nudges.push({
       id: 'score-drop',
       severity: 'caution',
       icon: TrendingDown,
       title: 'Discipline score dipped',
-      message: `Your score dropped ${Math.abs(scoreDelta)} pts this period. Sticking to caps and avoiding early reallocations brings it back up fastest.`,
+      message: isLow
+        ? `Your score dropped ${Math.abs(scoreDelta)} pts this period, but it floors at 0 — it never goes "more broken." One under-cap day starts the rebuild.`
+        : `Your score dropped ${Math.abs(scoreDelta)} pts this period. Sticking to caps and avoiding early reallocations brings it back up fastest.`,
       actionLabel: 'View insights',
       route: '/(tabs)/insights',
     });

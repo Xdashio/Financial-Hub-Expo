@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { LoadingState, ErrorState, Button } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
 import { profileApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { useAlertModal } from '@/hooks/useAlertModal';
@@ -202,28 +201,28 @@ export default function EditPlanPercentagesScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         {modal}
         <LoadingState label="Loading plan..." />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         {modal}
         <ErrorState message={error} onRetry={loadCurrentPockets} />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (!localPercentages || !originalPercentages) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         {modal}
         <ErrorState message="Unable to load plan data" onRetry={loadCurrentPockets} />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
@@ -236,7 +235,7 @@ export default function EditPlanPercentagesScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       {modal}
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
         {/* Header */}
@@ -414,6 +413,6 @@ export default function EditPlanPercentagesScreen() {
           </Button>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

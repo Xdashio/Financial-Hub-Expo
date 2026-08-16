@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
@@ -9,7 +8,7 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { useFixedExpensesStore, getFixedPocketBalance } from '@/services/fixed-expenses-store';
 import { useHomeStore } from '@/services/home-store';
 import { pocketsApi } from '@/services/api';
-import { LoadingState, ErrorState, SearchBar, Toast, EmptyState } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, SearchBar, Toast, EmptyState } from '@/components/ui';
 import { getExpenseIcon } from '@/utils/expenseIcon';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
@@ -157,22 +156,22 @@ export default function FixedExpensesScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <LoadingState label="Loading fixed expenses…" />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <ErrorState message={error} onRetry={fetchExpenses} />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <ScreenContainer style={{ backgroundColor: colors.surface }}>
       <ScrollView 
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingBottom: spacing.xxl }}
@@ -347,6 +346,6 @@ export default function FixedExpensesScreen() {
         onDismiss={() => setToast(prev => ({ ...prev, visible: false }))}
         duration={3000}
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ArrowLeft, Bell } from 'lucide-react-native';
-import { Card, useMakeStyles, LoadingState, ErrorState, ToggleRow } from '@/components/ui';
+import { ScreenContainer, Card, useMakeStyles, LoadingState, ErrorState, ToggleRow } from '@/components/ui';
 import { notificationsApi } from '@/services/api';
 import {
   clearNotificationPreferencesCache,
@@ -127,7 +126,7 @@ export default function NotificationsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <View style={styles.header}>
           <Pressable
             onPress={goBack}
@@ -143,13 +142,13 @@ export default function NotificationsScreen() {
           </Text>
         </View>
         <LoadingState label="Loading your preferences…" />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (loadError) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <View style={styles.header}>
           <Pressable
             onPress={goBack}
@@ -165,12 +164,12 @@ export default function NotificationsScreen() {
           </Text>
         </View>
         <ErrorState message={loadError} onRetry={loadPreferences} />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <ScreenContainer style={{ backgroundColor: colors.surface }}>
       <ScrollView 
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingBottom: spacing.xxl }}
@@ -302,6 +301,6 @@ export default function NotificationsScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

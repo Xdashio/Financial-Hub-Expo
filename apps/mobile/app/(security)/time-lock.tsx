@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Card, LoadingState, ErrorState } from '@/components/ui';
+import { ScreenContainer, Card, LoadingState, ErrorState } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
@@ -186,15 +185,15 @@ export default function TimeLockScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <LoadingState label="Loading lock status…" />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (loadError) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
@@ -202,13 +201,13 @@ export default function TimeLockScreen() {
           <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Time-Lock Savings</Text>
         </View>
         <ErrorState message={loadError} onRetry={retry} />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (!resolvedPocketId || !lockStatus) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+      <ScreenContainer style={{ backgroundColor: colors.surface }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
@@ -223,12 +222,12 @@ export default function TimeLockScreen() {
             You don't have a time-locked savings pocket yet.
           </Text>
         </View>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <ScreenContainer style={{ backgroundColor: colors.surface }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
@@ -463,6 +462,6 @@ export default function TimeLockScreen() {
         )}
       </ScrollView>
       {modal}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

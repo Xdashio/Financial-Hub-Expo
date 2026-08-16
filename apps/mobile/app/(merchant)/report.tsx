@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
+import { ScreenContainer } from '@/components/ui';
 import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -66,7 +66,7 @@ export default function ReportMerchantScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
@@ -272,6 +272,6 @@ export default function ReportMerchantScreen() {
         </View>
       </ScrollView>
       {modal}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

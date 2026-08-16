@@ -1,13 +1,12 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarCheck, ArrowLeftRight, Timer } from 'lucide-react-native';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { LoadingState, ErrorState, InlineLoading, SearchBar, EmptyState, ProgressRing } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, InlineLoading, SearchBar, EmptyState, ProgressRing } from '@/components/ui';
 import { StreakHeatmap } from '@/components/insights/StreakHeatmap';
 import { mapBehaviorEvent } from '@/utils/behaviorEvent';
 
@@ -193,24 +192,24 @@ export default function InsightsScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <LoadingState label="Loading insights…" />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (loadError) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <ErrorState message={loadError} onRetry={load} />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
-        <Text style={{ ...typography.title, color: colors.ink, marginTop: spacing.xl }}>Insights</Text>
+        <Text style={{ ...typography.title, color: colors.ink, marginTop: spacing.sm }}>Insights</Text>
 
         <View style={{ marginTop: spacing.xl, borderRadius: radius.lg, paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, backgroundColor: colors.emeraldDeep, alignItems: 'center' }}>
           {/* Gate on hasScoreHistory (not score === null) so a backend regression
@@ -262,7 +261,7 @@ export default function InsightsScreen() {
                     borderColor: `${colors.surface}33`,
                   }}
                 >
-                  <Text style={{ ...typography.body, color: colors.surface, fontWeight: '600', marginBottom: spacing.xs }}>
+                  <Text style={{ ...typography.heading, color: colors.surface, marginBottom: spacing.xs }}>
                     A tough stretch — not a dead end
                   </Text>
                   <Text style={{ ...typography.caption, color: `${colors.surface}CC`, lineHeight: 16, marginBottom: spacing.md }}>
@@ -280,7 +279,7 @@ export default function InsightsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Review today’s safe-to-spend"
                     >
-                      <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontWeight: '700' }}>
+                      <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
                         Review today
                       </Text>
                     </Pressable>
@@ -297,7 +296,7 @@ export default function InsightsScreen() {
                       accessibilityRole="button"
                       accessibilityLabel="Check savings lock"
                     >
-                      <Text style={{ ...typography.caption, color: colors.surface, fontWeight: '600' }}>
+                      <Text style={{ ...typography.caption, color: colors.surface }}>
                         Check savings lock
                       </Text>
                     </Pressable>
@@ -402,6 +401,6 @@ export default function InsightsScreen() {
           </>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

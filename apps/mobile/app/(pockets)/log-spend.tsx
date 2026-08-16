@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { spendApi, createIdempotencyKey } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { Button } from '@/components/ui';
+import { ScreenContainer, Button } from '@/components/ui';
 import { ArrowLeft, ShoppingCart } from 'lucide-react-native';
 import { enqueueWrite } from '@/services/offline-queue';
 import { safeGoBack } from '@/utils/navigation';
@@ -190,7 +189,7 @@ export default function LogSpendScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
@@ -340,6 +339,6 @@ export default function LogSpendScreen() {
         </View>
       </KeyboardAvoidingView>
       {modal}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

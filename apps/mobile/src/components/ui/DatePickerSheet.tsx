@@ -123,7 +123,6 @@ export function DatePickerSheet({
             style={{
               ...typography.body,
               color: isSelected ? colors.surface : colors.ink,
-              fontWeight: isSelected ? '600' : '400',
               fontSize: 15,
             }}
           >
@@ -230,7 +229,7 @@ export function DatePickerSheet({
             alignItems: 'center',
           }}
         >
-          <Text style={{ ...typography.body, color: colors.surface, fontWeight: '600' }}>
+          <Text style={{ ...typography.heading, color: colors.surface }}>
             Confirm Date
           </Text>
         </TouchableOpacity>

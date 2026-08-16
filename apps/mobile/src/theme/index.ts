@@ -1,19 +1,5 @@
 // import { StyleSheet, ViewStyle, TextStyle, ImageStyle } from 'react-native';
 
-import { lightColors } from './palettes';
-
-// NOTE: This is the static LIGHT palette, kept for backward compatibility
-// with screens that haven't migrated to the theme system yet — importing
-// `colors` from here always gives you light-mode colors regardless of the
-// device's actual appearance.
-//
-// For new/updated screens, prefer:
-//   import { useTheme } from '@/theme/ThemeContext';
-//   const { colors } = useTheme();
-// which returns the correct palette for the current light/dark mode and
-// re-renders when it changes.
-export const colors = lightColors;
-
 export { lightColors, darkColors } from './palettes';
 export type { ColorPalette } from './palettes';
 export { ThemeProvider, useTheme } from './ThemeContext';
@@ -140,18 +126,3 @@ export const touchTarget = {
   minHeight: 44,
   minWidth: 44,
 };
-
-const theme = {
-  colors,
-  radius,
-  stitch,
-  spacing,
-  typography,
-  shadow,
-  borderWidth,
-  borderWidthThick,
-  animation,
-  touchTarget,
-};
-
-export default theme;

@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ViewStyle, TextStyle } from 'react-native';
+import { View, Text, Pressable, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, touchTarget, borderWidthThick } from '@/theme';
 import { PocketLoader } from './PocketLoader';
 
-export interface ButtonProps extends Omit<React.ComponentPropsWithoutRef<typeof TouchableOpacity>, 'children' | 'style'> {
+export interface ButtonProps extends Omit<React.ComponentPropsWithoutRef<typeof Pressable>, 'children' | 'style'> {
   children: React.ReactNode;
   variant?: 'primary' | 'secondary' | 'ghost' | 'outline';
   size?: 'sm' | 'md' | 'lg';
@@ -78,17 +78,16 @@ export function Button({
   };
 
   return (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         baseStyle,
         variantStyles[variant],
         sizeStyles[size],
         fullWidth && { width: '100%' },
-        { opacity: loading || disabled ? 0.6 : 1 },
+        { opacity: loading || disabled ? 0.6 : pressed ? 0.85 : 1 },
         style,
       ]}
       disabled={loading || disabled}
-      activeOpacity={0.85}
       {...props}
     >
       {loading ? (
@@ -104,6 +103,6 @@ export function Button({
           )}
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }
