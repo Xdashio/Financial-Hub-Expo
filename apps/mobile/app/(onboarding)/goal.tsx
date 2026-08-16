@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTheme } from '@/theme/ThemeContext';
@@ -148,9 +148,9 @@ export default function GoalScreen() {
             <SectionTitle>Roughly by when</SectionTitle>
             <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {TIMEFRAMES.map((option) => (
-                <TouchableOpacity
+                <Pressable
                   key={option.id}
-                  style={[
+                  style={({ pressed }) => [
                     {
                       paddingHorizontal: spacing.lg,
                       paddingVertical: spacing.sm + 2,
@@ -163,6 +163,7 @@ export default function GoalScreen() {
                       justifyContent: 'center',
                     },
                     goalTimeframe === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                    { opacity: pressed ? 0.7 : 1 },
                   ]}
                   onPress={() => setGoalTimeframe(option.id)}
                   hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -178,7 +179,7 @@ export default function GoalScreen() {
                   >
                     {option.label}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </>
@@ -215,12 +216,12 @@ function ChoiceRow({
 }) {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      style={[
+      style={({ pressed }) => [
         {
           flexDirection: 'row',
           alignItems: 'center',
@@ -233,6 +234,7 @@ function ChoiceRow({
           minHeight: touchTarget.minHeight,
         },
         selected && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+        { opacity: pressed ? 0.7 : 1 },
       ]}
     >
       {Icon && (
@@ -265,6 +267,6 @@ function ChoiceRow({
           {description}
         </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }

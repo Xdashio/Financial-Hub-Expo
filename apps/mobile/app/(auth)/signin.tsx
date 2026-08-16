@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -170,9 +170,9 @@ export default function SignInScreen() {
 
         <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.xxl, alignItems: 'center', paddingBottom: spacing.xl }}>
           <Text style={{ ...typography.body, color: colors.sage }}>New here?</Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+          <Pressable onPress={() => router.push('/(auth)/signup')} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
             <Text style={{ color: colors.emeraldDeep }}>Create an account</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </SafeScrollView>
       {modal}

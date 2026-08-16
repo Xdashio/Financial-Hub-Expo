@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowRight, Check } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
@@ -184,10 +184,9 @@ function PocketRow({
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.7}
+    <Pressable
       onPress={onPress}
-      style={[styles.pocketRow, selected && styles.pocketRowSelected]}
+      style={({ pressed }) => [styles.pocketRow, selected && styles.pocketRowSelected, { opacity: pressed ? 0.7 : 1 }]}
     >
       <View style={[styles.dot, { backgroundColor: dotColor(pocket, colors) }]} />
       <View style={{ flex: 1 }}>
@@ -196,6 +195,6 @@ function PocketRow({
       </View>
       {selected && <Check size={18} color={colors.emeraldDeep} strokeWidth={2} />}
       <Text style={styles.pocketAmount}>{formatCurrency(pocket.monthlyAllocation)}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }

@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, Keyboard, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import React from 'react';
@@ -198,10 +198,9 @@ export default function FixedScreen() {
               const IconComponent = getIconComponent(expense.name, expense.category);
               return (
                 <View key={expense.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, minHeight: touchTarget.minHeight }}
+                  <Pressable
+                    style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.85 : 1 }]}
                     onPress={() => handleEdit(expense)}
-                    activeOpacity={0.85}
                     accessibilityLabel={`Edit ${expense.name}, KSh ${expense.amount.toLocaleString()}`}
                     accessibilityRole="button"
                   >
@@ -213,15 +212,15 @@ export default function FixedScreen() {
                       <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage }}>Paid by the {expense.dueDay}{expense.dueDay === 1 ? 'st' : expense.dueDay === 2 ? 'nd' : expense.dueDay === 3 ? 'rd' : 'th'}</Text>
                     </View>
                     <Text style={{ ...typography.body, color: colors.ink }}>KSh {expense.amount.toLocaleString()}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={{ padding: spacing.sm, minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight }}
+                  </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [{ padding: spacing.sm, minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.7 : 1 }]}
                     onPress={() => handleDelete(expense.id)}
                     accessibilityLabel={`Delete ${expense.name}`}
                     accessibilityRole="button"
                   >
                     <Trash2 size={16} color={colors.error} strokeWidth={2} />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               );
             })}
@@ -231,26 +230,26 @@ export default function FixedScreen() {
         <SectionTitle>Quick add</SectionTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md }}>
           {SUGGESTIONS.map((suggestion) => (
-            <TouchableOpacity
+            <Pressable
               key={suggestion.name}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }}
+              style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.7 : 1 }]}
               onPress={() => handleAddSuggestion(suggestion)}
               accessibilityLabel={`Add ${suggestion.name}`}
               accessibilityRole="button"
             >
               <suggestion.icon size={12} color={colors.ink} strokeWidth={2.2} />
               <Text style={{ ...typography.caption, color: colors.ink }}>{suggestion.name}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }}
+          <Pressable
+            style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.7 : 1 }]}
             onPress={handleAddCustom}
             accessibilityLabel="Add custom expense"
             accessibilityRole="button"
           >
             <Plus size={12} color={colors.ink} strokeWidth={2.2} />
             <Text style={{ ...typography.caption, color: colors.ink }}>Custom</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
         <Text style={{ ...typography.caption, fontSize: 11.5, color: colors.sage, lineHeight: 18, marginBottom: spacing.xl }}>
           Tap a suggestion to add it — these are suggestions, not auto-detection (manual entry only in this build).
@@ -285,22 +284,22 @@ export default function FixedScreen() {
             style={{ flex: 1, justifyContent: 'flex-end' }}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           >
-            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }} onPress={() => { setShowAddModal(false); resetForm(); }} activeOpacity={1} />
+            <Pressable style={({ pressed }) => [{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }, { opacity: 1 }]} onPress={() => { setShowAddModal(false); resetForm(); }} />
             <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
               <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>
                 <Text style={{ ...typography.title, color: colors.ink }}>
                   {editingId ? 'Edit fixed expense' : 'Add fixed expense'}
                 </Text>
-                <TouchableOpacity
-                  style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }}
+                <Pressable
+                  style={({ pressed }) => [{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }, { opacity: pressed ? 0.7 : 1 }]}
                   onPress={() => { setShowAddModal(false); resetForm(); }}
                   accessibilityLabel="Close"
                   accessibilityRole="button"
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
                   <X size={18} color={colors.inkSoft} strokeWidth={2} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               <View style={{ gap: spacing.lg }}>
@@ -377,20 +376,20 @@ export default function FixedScreen() {
           onRequestClose={cancelDelete}
         >
           <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-            <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }} onPress={cancelDelete} activeOpacity={1} />
+            <Pressable style={({ pressed }) => [{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }, { opacity: 1 }]} onPress={cancelDelete} />
             <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
               <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>
                 <Text style={{ ...typography.title, color: colors.ink }}>Delete expense</Text>
-                <TouchableOpacity
-                  style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }}
+                <Pressable
+                  style={({ pressed }) => [{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }, { opacity: pressed ? 0.7 : 1 }]}
                   onPress={cancelDelete}
                   accessibilityLabel="Close"
                   accessibilityRole="button"
                   hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                 >
                   <X size={18} color={colors.inkSoft} strokeWidth={2} />
-                </TouchableOpacity>
+                </Pressable>
               </View>
 
               <Text style={{ ...typography.body, color: colors.inkSoft, lineHeight: 21 }}>

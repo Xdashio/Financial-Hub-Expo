@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTheme } from '@/theme/ThemeContext';
@@ -193,12 +193,12 @@ function ChoiceRow({
 }) {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={label}
-      style={[
+      style={({ pressed }) => [
         {
           flexDirection: 'row',
           alignItems: 'center',
@@ -211,6 +211,7 @@ function ChoiceRow({
           minHeight: touchTarget.minHeight,
         },
         selected && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+        { opacity: pressed ? 0.7 : 1 },
       ]}
     >
       <View
@@ -241,6 +242,6 @@ function ChoiceRow({
           {description}
         </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }

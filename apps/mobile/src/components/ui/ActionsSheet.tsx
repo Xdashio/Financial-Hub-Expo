@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -80,9 +80,9 @@ export function ActionsSheet({ visible, onClose }: ActionsSheetProps) {
         {actions.map((action) => {
           const Icon = action.icon;
           return (
-            <TouchableOpacity
+            <Pressable
               key={action.id}
-              style={{
+              style={({ pressed }) => [{
                 backgroundColor: colors.surface,
                 borderWidth: 1,
                 borderColor: colors.line,
@@ -91,9 +91,8 @@ export function ActionsSheet({ visible, onClose }: ActionsSheetProps) {
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: spacing.md,
-              }}
+              }, { opacity: pressed ? 0.8 : 1 }]}
               onPress={() => handleActionPress(action.route)}
-              activeOpacity={0.8}
               accessibilityLabel={action.label}
               accessibilityRole="button"
             >
@@ -104,7 +103,7 @@ export function ActionsSheet({ visible, onClose }: ActionsSheetProps) {
                 <Text style={{ ...typography.body, color: colors.ink }}>{action.label}</Text>
                 <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>{action.description}</Text>
               </View>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>

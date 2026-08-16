@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Pressable, ScrollView } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -105,19 +105,19 @@ export function DatePickerSheet({
       const isDisabled = isDateDisabled(date);
 
       currentWeek.push(
-        <TouchableOpacity
+        <Pressable
           key={day}
           onPress={() => handleDayPress(day)}
           disabled={isDisabled}
-          style={{
+          style={({ pressed }) => [{
             flex: 1,
             aspectRatio: 1,
             alignItems: 'center',
             justifyContent: 'center',
             borderRadius: radius.sm,
             backgroundColor: isSelected ? colors.emeraldDeep : 'transparent',
-            opacity: isDisabled ? 0.3 : 1,
-          }}
+            opacity: isDisabled ? 0.3 : pressed ? 0.7 : 1,
+          }]}
         >
           <Text
             style={{
@@ -128,7 +128,7 @@ export function DatePickerSheet({
           >
             {day}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       );
 
       // Start a new week when we have 7 days
@@ -167,23 +167,23 @@ export function DatePickerSheet({
       <View style={{ gap: spacing.lg }}>
         {/* Month selector */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <TouchableOpacity
+          <Pressable
             onPress={handlePreviousMonth}
-            style={{ padding: spacing.sm }}
+            style={({ pressed }) => [{ padding: spacing.sm }, { opacity: pressed ? 0.7 : 1 }]}
             hitSlop={8}
           >
             <ChevronLeft size={24} color={colors.ink} strokeWidth={2} />
-          </TouchableOpacity>
+          </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>
             {MONTHS[currentMonth.getMonth()]} {currentMonth.getFullYear()}
           </Text>
-          <TouchableOpacity
+          <Pressable
             onPress={handleNextMonth}
-            style={{ padding: spacing.sm }}
+            style={({ pressed }) => [{ padding: spacing.sm }, { opacity: pressed ? 0.7 : 1 }]}
             hitSlop={8}
           >
             <ChevronRight size={24} color={colors.ink} strokeWidth={2} />
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Weekday headers */}
@@ -220,19 +220,19 @@ export function DatePickerSheet({
         </View>
 
         {/* Confirm button */}
-        <TouchableOpacity
+        <Pressable
           onPress={handleConfirm}
-          style={{
+          style={({ pressed }) => [{
             backgroundColor: colors.emeraldDeep,
             paddingVertical: spacing.md,
             borderRadius: radius.sm,
             alignItems: 'center',
-          }}
+          }, { opacity: pressed ? 0.7 : 1 }]}
         >
           <Text style={{ ...typography.heading, color: colors.surface }}>
             Confirm Date
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </BottomSheetModal>
   );
