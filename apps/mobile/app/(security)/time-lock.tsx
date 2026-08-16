@@ -31,6 +31,7 @@ export default function TimeLockScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isUnlocking, setIsUnlocking] = useState(false);
+  const [isExtending, setIsExtending] = useState(false);
   const [reason, setReason] = useState('');
   const { alert, confirm, modal } = useAlertModal();
 
@@ -154,7 +155,7 @@ export default function TimeLockScreen() {
   };
 
   const handleExtendLock = async () => {
-    if (!resolvedPocketId) return;
+    if (!resolvedPocketId || isExtending) return;
     const confirmed = await confirm(
       'Extend Lock Period',
       'Extending your lock will earn you discipline bonus points for better security.',
@@ -163,6 +164,7 @@ export default function TimeLockScreen() {
     if (!confirmed) return;
 
     try {
+      setIsExtending(true);
       const result = await pocketsApi.extendLock(resolvedPocketId, {
         additional_days: 30,
         reason: 'Building emergency fund',
@@ -175,7 +177,10 @@ export default function TimeLockScreen() {
       );
       loadLockStatus(resolvedPocketId);
     } catch (error) {
-      alert('Error', 'Failed to extend lock. Please try again.');
+      const message = error instanceof Error ? error.message : 'Failed to extend lock. Please try again.';
+      alert('Error', message);
+    } finally {
+      setIsExtending(false);
     }
   };
 
@@ -423,11 +428,20 @@ export default function TimeLockScreen() {
                       borderColor: colors.line,
                     }}
                     onPress={handleExtendLock}
+                    disabled={isExtending}
                   >
-                    <TrendingUp size={20} color={colors.emeraldDeep} strokeWidth={2} />
-                    <Text style={{ ...typography.heading, color: colors.ink, marginLeft: spacing.sm }}>
-                      Extend Lock Period
-                    </Text>
+                    {isExtending ? (
+                      <Text style={{ ...typography.heading, color: colors.ink }}>
+                        Extending...
+                      </Text>
+                    ) : (
+                      <>
+                        <TrendingUp size={20} color={colors.emeraldDeep} strokeWidth={2} />
+                        <Text style={{ ...typography.heading, color: colors.ink, marginLeft: spacing.sm }}>
+                          Extend Lock Period
+                        </Text>
+                      </>
+                    )}
                   </Pressable>
                 </>
               )}

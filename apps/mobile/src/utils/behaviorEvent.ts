@@ -39,6 +39,17 @@ export function mapBehaviorEvent(event: any, colors: any): DisplayEventOrNull {
       : 'Funds moved between pockets';
     return { title: payload.disciplineCost > 0 ? 'Reallocation (skipped cooling-off)' : 'Reallocation', desc, time, color: colors.plum };
   }
+  // Logged when a move is first requested, separately from
+  // reallocation_completed (which fires once cooling-off finishes or is
+  // skipped). Without an explicit case here this fell through to the
+  // generic fallback below and printed the raw "reallocation initiated"
+  // type right under the completed entry, reading like a stray duplicate.
+  if (event.type === 'reallocation_initiated') {
+    const desc = payload.amount && payload.fromPocket && payload.toPocket
+      ? `Requested moving ${payload.amount} from ${payload.fromPocket} → ${payload.toPocket}`
+      : 'A pocket move was requested';
+    return { title: payload.status === 'cooling_off' ? 'Reallocation started (cooling-off)' : 'Reallocation requested', desc, time, color: colors.sage };
+  }
   if (event.type === 'early_unlock') {
     const desc = payload.points_deducted ? `−${payload.points_deducted} discipline points` : 'Savings unlocked early';
     return { title: 'Early unlock', desc, time, color: colors.clay };

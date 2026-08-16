@@ -78,7 +78,7 @@ describe('PocketsService discipline-score unification', () => {
   let repository: jest.Mocked<
     Pick<
       SupabaseRepository,
-      'getPocketById' | 'getPlanById' | 'updatePocket' | 'createBehaviorEvent' | 'createTransaction' | 'getTransactionsByPocketId'
+      'getPocketById' | 'getPlanById' | 'updatePocket' | 'createBehaviorEvent' | 'createTransaction' | 'getTransactionsByPocketId' | 'getBehaviorEventsByTypesSince'
     >
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
@@ -93,6 +93,7 @@ describe('PocketsService discipline-score unification', () => {
       createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'event-1' }),
       createTransaction: jest.fn().mockResolvedValue({ id: 'txn-1' }),
       getTransactionsByPocketId: jest.fn().mockResolvedValue([]),
+      getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
     } as any;
     disciplineScore = {
       getCurrentScore: jest.fn(),
@@ -122,6 +123,56 @@ describe('PocketsService discipline-score unification', () => {
     expect(delta).toBeGreaterThan(0); // extension is a bonus, never a cost
     expect(result.discipline_bonus.previous_score).toBe(100);
     expect(result.discipline_bonus.new_score).toBe(95);
+  });
+
+  it('extendLock rejects a pocket that has already been extended once this lock term', async () => {
+    repository.getBehaviorEventsByTypesSince.mockResolvedValue([
+      {
+        id: 'event-prev',
+        user_id: 'user-1',
+        type: 'lock_extension',
+        payload: { pocket_id: 'pocket-1', days_added: 30, points_added: 6 },
+        created_at: '2026-01-15T00:00:00.000Z', // well within the lock term, long ago
+      } as any,
+    ]);
+
+    await expect(
+      service.extendLock('pocket-1', 'user-1', { additional_days: 30, reason: 'farming points' })
+    ).rejects.toThrow(/already been extended once/i);
+
+    expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+    expect(repository.updatePocket).not.toHaveBeenCalled();
+  });
+
+  it('extendLock ignores prior extensions on a different pocket', async () => {
+    repository.getBehaviorEventsByTypesSince.mockResolvedValue([
+      {
+        id: 'event-prev',
+        user_id: 'user-1',
+        type: 'lock_extension',
+        payload: { pocket_id: 'some-other-pocket' },
+        created_at: '2026-01-15T00:00:00.000Z',
+      } as any,
+    ]);
+
+    const result = await service.extendLock('pocket-1', 'user-1', { additional_days: 10, reason: 'staying disciplined' });
+
+    expect(result.discipline_bonus.new_score).toBe(95);
+  });
+
+  it('extendLock rejects an extension inside the blackout window before unlock', async () => {
+    repository.getPocketById.mockResolvedValue({
+      ...LOCKED_POCKET,
+      lock_until: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days out, inside the 7-day blackout
+    } as any);
+
+    await expect(
+      service.extendLock('pocket-1', 'user-1', { additional_days: 30, reason: 'last-minute farming' })
+    ).rejects.toThrow(/more than 7 days before it unlocks/i);
+
+    expect(repository.getBehaviorEventsByTypesSince).not.toHaveBeenCalled();
+    expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+    expect(repository.updatePocket).not.toHaveBeenCalled();
   });
 });
 
