@@ -12,13 +12,13 @@ import { stitch } from '@/theme';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 interface ProgressRingProps {
-  /** Can be negative for below-baseline discipline scores (e.g., -5, -10) */
+  /** 0–100. Discipline scores are clamped server-side, so the ring never
+   * needs to represent a below-baseline value. */
   progress: number;
   size?: number;
   strokeWidth?: number;
   color: string;
   trackColor: string;
-  negativeColor?: string; // Optional color for negative progress
   children?: React.ReactNode;
 }
 
@@ -28,18 +28,14 @@ interface ProgressRingProps {
  * this" reads as thread being sewn, not a generic dashboard donut. The
  * value arc draws in with a single eased animation on mount/update rather
  * than snapping straight to its final angle.
- * 
- * Supports negative progress values for below-baseline discipline scores.
  */
-export function ProgressRing({ progress, size = 120, strokeWidth = 8, color, trackColor, negativeColor, children }: ProgressRingProps) {
+export function ProgressRing({ progress, size = 120, strokeWidth = 8, color, trackColor, children }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  
-  // Handle negative progress values for discipline scores (e.g., -5, -10, 15)
-  const isNegative = progress < 0;
-  const absProgress = Math.abs(progress);
-  const displayProgress = Math.max(0, Math.min(1, absProgress / 100)); // Convert percentage to 0-1 range
-  const displayColor = isNegative ? (negativeColor || color) : color;
+
+  // Convert 0–100 to a 0–1 fill ratio, clamped defensively in case a caller
+  // ever passes something out of range.
+  const displayProgress = Math.max(0, Math.min(1, progress / 100));
 
   const animatedProgress = useSharedValue(0);
   useEffect(() => {
@@ -68,7 +64,7 @@ export function ProgressRing({ progress, size = 120, strokeWidth = 8, color, tra
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={displayColor}
+          stroke={color}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={`${circumference},${circumference}`}

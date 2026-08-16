@@ -1,11 +1,10 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, TouchableOpacity, Modal, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { Button, Input, LoadingState, SectionTitle, ProgressIndicator } from '@/components/ui';
+import { ScreenContainer, Button, Input, LoadingState, SectionTitle, ProgressIndicator } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { profileApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
@@ -321,7 +320,7 @@ export default function RetakeCheckinScreen() {
 
   if (eligibilityBlocked && !submitted) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+      <ScreenContainer style={{ backgroundColor: colors.surface }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           <Pressable
             onPress={() => safeGoBack(router, '/(tabs)/profile')}
@@ -351,13 +350,13 @@ export default function RetakeCheckinScreen() {
           </Button>
         </View>
         {modal}
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (submitted) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+      <ScreenContainer style={{ backgroundColor: colors.surface }}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, paddingTop: spacing.xl }}>
           <View style={{ width: 64, height: 64, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg, alignSelf: 'center' }}>
             <Check size={28} color={colors.emeraldDeep} strokeWidth={2.5} />
@@ -437,12 +436,12 @@ export default function RetakeCheckinScreen() {
           </Button>
         </ScrollView>
         {modal}
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <ScreenContainer style={{ backgroundColor: colors.surface }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
         <Pressable
           onPress={() => {
@@ -828,6 +827,6 @@ export default function RetakeCheckinScreen() {
         </ScrollView>
       )}
       {modal}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

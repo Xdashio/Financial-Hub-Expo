@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { ScreenContainer } from '@/components/ui';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -142,7 +142,7 @@ export default function ReportHistoryScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <View style={{ flex: 1 }}>
         {/* Header */}
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
@@ -405,6 +405,6 @@ export default function ReportHistoryScreen() {
         </ScrollView>
       </View>
       {modal}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

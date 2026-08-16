@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -11,7 +10,7 @@ import { useDataSync } from '@/services/data-sync';
 import { ArrowLeft, Plus, Calendar } from 'lucide-react-native';
 import { showAllocationReceived } from '@/services/notifications';
 import { enqueueWrite } from '@/services/offline-queue';
-import { MoneyAllocationPrompt } from '@/components/ui';
+import { ScreenContainer, MoneyAllocationPrompt } from '@/components/ui';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
 
@@ -272,7 +271,7 @@ export default function IncomeEntryScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }} keyboardShouldPersistTaps="handled">
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
@@ -503,6 +502,6 @@ export default function IncomeEntryScreen() {
         onCancel={handleSurplusCancel}
         loading={isSubmitting}
       />
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

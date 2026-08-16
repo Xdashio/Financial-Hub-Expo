@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, Modal, RefreshControl } from 'react-native';
-import { PocketLoader } from '@/components/ui';
+import { PocketLoader, ScreenContainer } from '@/components/ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
@@ -260,7 +260,7 @@ export default function ProfileScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <ScrollView 
         style={{ flex: 1 }} 
         contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
@@ -273,7 +273,7 @@ export default function ProfileScreen() {
           />
         }
       >
-        <View style={{ alignItems: 'center', paddingTop: spacing.lg }}>
+        <View style={{ alignItems: 'center', paddingTop: spacing.sm }}>
           <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
             <User size={32} color={colors.gold} strokeWidth={2} />
           </View>
@@ -389,6 +389,6 @@ export default function ProfileScreen() {
       </Modal>
 
       {modal}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

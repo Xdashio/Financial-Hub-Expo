@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { useFixedExpensesStore } from '@/services/fixed-expenses-store';
 import { useDataSync } from '@/services/data-sync';
-import { LoadingState } from '@/components/ui';
+import { ScreenContainer, LoadingState } from '@/components/ui';
 import { getExpenseIcon } from '@/utils/expenseIcon';
 import { CategoryIcon } from '@/components/icons';
 import {
@@ -174,14 +173,14 @@ export default function FixedExpenseFormScreen() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <LoadingState label="Loading..." />
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <KeyboardAvoidingView 
         style={{ flex: 1 }} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -381,7 +380,7 @@ export default function FixedExpenseFormScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
 

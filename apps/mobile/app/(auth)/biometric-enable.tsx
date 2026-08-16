@@ -1,12 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography } from '@/theme';
 import { useAuthStore } from '@/services/auth';
-import { Button, Card, PocketLoader } from '@/components/ui';
+import { ScreenContainer, Button, Card, PocketLoader } from '@/components/ui';
 import { Fingerprint, ScanFace, Shield, ArrowLeft } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 
@@ -187,18 +186,18 @@ export default function BiometricEnableScreen() {
 
   if (!isReady) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <PocketLoader size={40} color={colors.emeraldDeep} />
         </View>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   if (!biometricAvailable) {
     if (fromSignup) return null;
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
             <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
@@ -246,14 +245,14 @@ export default function BiometricEnableScreen() {
             </Button>
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   // Waiting on biometric confirmation before revealing settings.
   if (!isUnlocked) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+      <ScreenContainer>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
@@ -268,12 +267,12 @@ export default function BiometricEnableScreen() {
             Confirm {biometricLabel} to continue
           </Text>
         </View>
-      </SafeAreaView>
+      </ScreenContainer>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.paper }}>
+    <ScreenContainer>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: spacing.xxl }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
           {!fromSignup && (
@@ -414,6 +413,6 @@ export default function BiometricEnableScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }

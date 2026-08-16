@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { LoadingState, ErrorState } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
 import { profileApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { safeGoBack } from '@/utils/navigation';
@@ -88,7 +87,7 @@ export default function CurrentPlanScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surface }}>
+    <ScreenContainer style={{ backgroundColor: colors.surface }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', padding: spacing.lg }}>
         <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
           <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
@@ -231,6 +230,6 @@ export default function CurrentPlanScreen() {
           </Pressable>
         </ScrollView>
       )}
-    </SafeAreaView>
+    </ScreenContainer>
   );
 }
