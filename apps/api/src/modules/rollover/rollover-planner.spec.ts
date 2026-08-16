@@ -7,12 +7,20 @@ import {
 
 describe('effectiveDailyCap', () => {
   it('prefers a positive daily_cap when present', () => {
-    expect(effectiveDailyCap({ daily_cap: 400, monthly_allocation: 12000 }, '2026-08-10')).toBe(400);
+    expect(effectiveDailyCap({ daily_cap: 400, monthly_allocation: 12000 }, '2026-08-10', 'daily')).toBe(400);
   });
 
-  it('derives from monthly_allocation when daily_cap is null', () => {
+  it('derives from monthly_allocation when daily_cap is null for daily plans', () => {
     // August has 31 days
-    expect(effectiveDailyCap({ daily_cap: null, monthly_allocation: 3100 }, '2026-08-10')).toBe(100);
+    expect(effectiveDailyCap({ daily_cap: null, monthly_allocation: 3100 }, '2026-08-10', 'daily')).toBe(100);
+  });
+
+  it('returns 0 for structured plans regardless of daily_cap', () => {
+    expect(effectiveDailyCap({ daily_cap: 400, monthly_allocation: 12000 }, '2026-08-10', 'structured')).toBe(0);
+  });
+
+  it('returns 0 for structured plans even with null daily_cap', () => {
+    expect(effectiveDailyCap({ daily_cap: null, monthly_allocation: 3100 }, '2026-08-10', 'structured')).toBe(0);
   });
 });
 

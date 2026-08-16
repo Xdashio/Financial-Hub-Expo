@@ -36,6 +36,7 @@ describe('RolloverService.runForUser', () => {
       getActivePlanByUserId: jest.fn().mockResolvedValue({
         id: 'plan-1',
         user_id: 'user-1',
+        type: 'daily',
         created_at: '2026-07-01T00:00:00.000Z',
       }),
       getPocketsByPlanId: jest.fn().mockResolvedValue([FOOD, SAVINGS]),
@@ -152,6 +153,7 @@ describe('RolloverService.runForUser', () => {
     repository.getActivePlanByUserId.mockResolvedValue({
       id: 'plan-1',
       user_id: 'user-1',
+      type: 'daily',
       created_at: '2026-08-10T15:00:00.000Z',
     });
 

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.SavingsReserveSchema = exports.SpendingAnalysisSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = void 0;
+exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.SavingsReserveSchema = exports.SpendingAnalysisSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -117,12 +117,24 @@ exports.NeedsBandSchema = zod_1.z.enum(['high', 'mid', 'low']);
 // audit_team.md item 3). Deliberately narrower than PocketCategorySchema —
 // only the categories the spendable-pocket provisioner ever creates.
 exports.SpendableCategorySchema = zod_1.z.enum(['food', 'transport', 'leisure', 'family']);
+/**
+ * User-friendly labels for spendable categories.
+ * These are the only categories that can appear for spendable pockets
+ * (see pocket-provisioning.ts). Other categories like 'grocery', 'healthcare',
+ * etc. are merchant classification categories, not spendable pocket categories.
+ */
+exports.SPENDABLE_CATEGORY_LABELS = {
+    food: 'Food & Groceries',
+    transport: 'Transport',
+    leisure: 'Personal & Leisure',
+    family: 'Family & Dependents',
+};
 // Partial map of category -> percentage (0-100) of the spendable amount.
 // Partial because which categories exist depends on persona (student gets
 // only 'leisure'; dependents add 'family') — the server resolves which keys
 // are expected and rejects a mismatched set rather than the schema trying to
 // enforce that here.
-exports.CategoryPercentagesSchema = zod_1.z.record(exports.SpendableCategorySchema, zod_1.z.number().min(0).max(100));
+exports.CategoryPercentagesSchema = zod_1.z.record(zod_1.z.string(), zod_1.z.number().min(0).max(100));
 // ----------------------------------------------------------------------------
 // Goal-driven savings (ONBOARDING_AND_SCORING_REDESIGN.md Part 4). Replaces
 // the flat-rate-for-everyone savings model with an optional captured goal —
@@ -220,7 +232,7 @@ exports.OnboardingInputSchema = zod_1.z.object({
     // cover exactly the categories the persona resolves to and sum to 100
     // (server-validated in validateCategoryPercentages, not here, since the
     // expected key set depends on lifeStage/hasDependents).
-    categoryPercentages: exports.CategoryPercentagesSchema.optional(),
+    categoryPercentages: zod_1.z.record(zod_1.z.string(), zod_1.z.number().min(0).max(100)).optional(),
 });
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
@@ -270,7 +282,7 @@ exports.PlanPreviewResultSchema = exports.OnboardingAssignResultSchema.extend({
     // caller's categoryPercentages echoed back, or the rules engine's default
     // weighting when none was supplied. Lets the client seed sliders/inputs
     // with sane defaults on first render.
-    categoryPercentages: exports.CategoryPercentagesSchema,
+    categoryPercentages: zod_1.z.record(zod_1.z.string(), zod_1.z.number().min(0).max(100)),
 });
 exports.OnboardingCommitResultSchema = zod_1.z.object({
     planId: zod_1.z.string().uuid(),
@@ -512,7 +524,7 @@ exports.LoanUpdateInputSchema = zod_1.z.object({
 exports.LoanPurposePocketInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     category: exports.PocketCategorySchema,
-    monthlyAllocation: zod_1.z.number().nonnegative(),
+    splitPercentage: zod_1.z.number().min(0).max(100),
 });
 exports.LoanDetailSchema = exports.PocketSchema.extend({
     kind: zod_1.z.literal('loan'),
@@ -615,6 +627,7 @@ exports.schemas = {
     MerchantCategory: exports.MerchantCategorySchema,
     PlanStatus: exports.PlanStatusSchema,
     SpendableCategory: exports.SpendableCategorySchema,
+    SPENDABLE_CATEGORY_LABELS: exports.SPENDABLE_CATEGORY_LABELS,
     CategoryPercentages: exports.CategoryPercentagesSchema,
     IncomeConcentration: exports.IncomeConcentrationSchema,
     OnboardingInput: exports.OnboardingInputSchema,

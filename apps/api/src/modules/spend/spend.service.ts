@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
@@ -21,6 +21,8 @@ import { utcDayBounds } from '../rollover/rollover-planner';
 
 @Injectable()
 export class SpendService {
+  private readonly logger = new Logger(SpendService.name);
+
   constructor(
     private readonly repository: SupabaseRepository,
     private readonly disciplineScore: DisciplineScoreService,
@@ -93,20 +95,22 @@ export class SpendService {
     // minus spend debits and reallocation outflows. monthly_allocation is the
     // planning ceiling only and is never used for balance checks.
     const summary = await this.repository.getPocketSummary(dto.pocket_id);
-    let availableBalance = summary.available;
+    let availableBalance = round2(summary.available);
 
     // Fence off parent's reserved balance from direct spending (subpocket-feature-spec.md §2)
     // If this pocket has sub-pockets, only the distributable portion is spendable
     const subPockets = await this.repository.getSubPocketsByParentId(dto.pocket_id);
     if (subPockets.length > 0) {
-      const reservedBalance = await this.repository.getParentReservedBalance(dto.pocket_id);
+      const reservedBalance = round2(await this.repository.getParentReservedBalance(dto.pocket_id));
       // Distributable = total available - reserved
-      availableBalance = Math.max(0, availableBalance - reservedBalance);
+      availableBalance = Math.max(0, round2(availableBalance - reservedBalance));
     }
 
-    // Check if spend exceeds available balance
-    if (dto.amount > availableBalance) {
-      const shortfall = round2(dto.amount - availableBalance);
+    // Check if spend exceeds available balance with small tolerance for floating point precision
+    const amount = round2(dto.amount);
+    const tolerance = 0.01; // 1 cent tolerance for floating point precision
+    if (amount > availableBalance + tolerance) {
+      const shortfall = round2(amount - availableBalance);
       
       // Overflow/borrow flow for sub-pockets (subpocket-feature-spec.md §5):
       // If this is a sub-pocket, check if parent has enough reserved balance to cover
@@ -144,7 +148,7 @@ export class SpendService {
       return {
         allowed: false,
         block_reason: 'insufficient_funds',
-        message: `Insufficient funds. Available: ${availableBalance}, Requested: ${dto.amount}`,
+        message: `Insufficient funds. Available: ${availableBalance}, Requested: ${amount}`,
         // Soft block, unlike blocked_category / pocket_time_locked: the
         // client can resubmit with `override: true` (see commitSpend) and
         // log it as a deliberate choice rather than being stuck at "no".
@@ -164,7 +168,7 @@ export class SpendService {
       const blockedCategories = getBlockedCategoriesForPocket(pocket);
       if (blockedCategories.includes(dto.category)) {
         if (!isReviewableBlock(dto.category)) {
-          await this.recordGamblingBlockedAttempt(pocket, userId, dto.category, dto.recipient_key, dto.amount);
+          await this.recordGamblingBlockedAttempt(pocket, userId, dto.category, dto.recipient_key, amount);
         }
         return {
           allowed: false,
@@ -217,13 +221,18 @@ export class SpendService {
       const blockedCategories = getBlockedCategoriesForPocket(pocket);
       if (blockedCategories.includes(classification.category)) {
         if (!isReviewableBlock(classification.category)) {
-          await this.recordGamblingBlockedAttempt(
-            pocket,
-            userId,
-            classification.category,
-            dto.recipient_key,
-            dto.amount,
-          );
+          try {
+            await this.recordGamblingBlockedAttempt(
+              pocket,
+              userId,
+              classification.category,
+              dto.recipient_key,
+              dto.amount,
+            );
+          } catch (error) {
+            // Log the error but don't fail the spend check - the block should still work
+            this.logger.error('Failed to record gambling blocked attempt', error instanceof Error ? error.stack : String(error));
+          }
         }
         return {
           allowed: false,
@@ -314,7 +323,7 @@ export class SpendService {
 
     const transaction = await this.repository.createTransaction({
       pocket_id: dto.pocket_id,
-      amount: dto.amount,
+      amount: round2(dto.amount),
       type: 'spend',
       merchant: dto.recipient_key || null,
       category: dto.category || null,
@@ -381,55 +390,67 @@ export class SpendService {
   }
 
   private async maybeRecordDailyOverspend(pocket: Pocket, userId: string): Promise<void> {
-    if (pocket.kind !== 'spendable') return;
-    const cap = pocket.daily_cap;
-    if (cap == null || cap <= 0) return;
+    try {
+      if (pocket.kind !== 'spendable') return;
+      const cap = pocket.daily_cap;
+      if (cap == null || cap <= 0) return;
 
-    const todayIso = new Date().toISOString().slice(0, 10);
-    const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
-    const existing = await this.repository.getBehaviorEventsByTypesSince(
-      userId,
-      [EVENT_DAILY_OVERSPEND],
-      startIso,
-    );
-    if (existing.some((e) => (e.payload as any)?.date === todayIso)) return;
+      // Only enforce daily cap logic for daily budget plans
+      const plan = await this.repository.getActivePlanByUserId(userId);
+      if (!plan || plan.type !== 'daily') return;
 
-    const totals = await this.repository.getSpendTotalsByPocketBetween(
-      [pocket.id],
-      startIso,
-      endIsoExclusive,
-    );
-    const spentToday = totals.get(pocket.id) || 0;
-    if (spentToday <= cap) return;
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
+      const existing = await this.repository.getBehaviorEventsByTypesSince(
+        userId,
+        [EVENT_DAILY_OVERSPEND],
+        startIso,
+      );
+      if (existing.some((e) => (e.payload as any)?.date === todayIso)) return;
 
-    // Cap monthly penalty the same way rollover does.
-    const monthStart = `${todayIso.slice(0, 7)}-01T00:00:00.000Z`;
-    const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
-      userId,
-      [EVENT_DAILY_OVERSPEND],
-      monthStart,
-    );
-    let earned = 0;
-    for (const event of monthEvents) {
-      const deducted = (event.payload as any)?.points_deducted;
-      if (typeof deducted === 'number') earned -= deducted;
+      const totals = await this.repository.getSpendTotalsByPocketBetween(
+        [pocket.id],
+        startIso,
+        endIsoExclusive,
+      );
+      const spentToday = totals.get(pocket.id) || 0;
+      if (spentToday <= cap) return;
+
+      // Cap monthly penalty the same way rollover does.
+      const monthStart = `${todayIso.slice(0, 7)}-01T00:00:00.000Z`;
+      const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
+        userId,
+        [EVENT_DAILY_OVERSPEND],
+        monthStart,
+      );
+      let earned = 0;
+      for (const event of monthEvents) {
+        const deducted = (event.payload as any)?.points_deducted;
+        if (typeof deducted === 'number') earned -= deducted;
+      }
+      const apply = Math.max(
+        POINTS_DAILY_OVERSPEND,
+        Math.min(0, CAP_DAILY_OVERSPEND - earned),
+      ); // Monthly cap; score itself is clamped in DisciplineScoreService
+      if (apply !== 0) {
+        await this.disciplineScore.applyDelta(userId, apply);
+      }
+
+      await this.repository.createBehaviorEvent({
+        user_id: userId,
+        type: EVENT_DAILY_OVERSPEND,
+        payload: {
+          date: todayIso,
+          pocket_id: pocket.id,
+          spent: round2(spentToday),
+          daily_cap: round2(cap),
+          points_deducted: apply < 0 ? -apply : 0,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error recording daily overspend', error instanceof Error ? error.stack : String(error));
+      // Don't throw - the overspend check should still work
     }
-    const apply = Math.min(POINTS_DAILY_OVERSPEND, CAP_DAILY_OVERSPEND - earned); // Allow negative values
-    if (apply !== 0) {
-      await this.disciplineScore.applyDelta(userId, apply);
-    }
-
-    await this.repository.createBehaviorEvent({
-      user_id: userId,
-      type: EVENT_DAILY_OVERSPEND,
-      payload: {
-        date: todayIso,
-        pocket_id: pocket.id,
-        spent: spentToday,
-        daily_cap: cap,
-        points_deducted: apply < 0 ? -apply : 0,
-      },
-    });
   }
 
   /**
@@ -450,39 +471,44 @@ export class SpendService {
     recipientKey: string | undefined,
     amount: number,
   ): Promise<void> {
-    const nowIso = new Date().toISOString();
-    const monthStart = `${nowIso.slice(0, 7)}-01T00:00:00.000Z`;
-    const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
-      userId,
-      [EVENT_GAMBLING_BLOCKED_ATTEMPT],
-      monthStart,
-    );
-    let earned = 0;
-    for (const event of monthEvents) {
-      const deducted = (event.payload as any)?.points_deducted;
-      if (typeof deducted === 'number') earned -= deducted;
-    }
-    const apply = Math.max(
-      POINTS_GAMBLING_BLOCKED_ATTEMPT,
-      Math.min(0, CAP_GAMBLING_BLOCKED_ATTEMPT - earned),
-    );
-    if (apply !== 0) {
-      await this.disciplineScore.applyDelta(userId, apply);
-    }
+    try {
+      const nowIso = new Date().toISOString();
+      const monthStart = `${nowIso.slice(0, 7)}-01T00:00:00.000Z`;
+      const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
+        userId,
+        [EVENT_GAMBLING_BLOCKED_ATTEMPT],
+        monthStart,
+      );
+      let earned = 0;
+      for (const event of monthEvents) {
+        const deducted = (event.payload as any)?.points_deducted;
+        if (typeof deducted === 'number') earned -= deducted;
+      }
+      const apply = Math.max(
+        POINTS_GAMBLING_BLOCKED_ATTEMPT,
+        Math.min(0, CAP_GAMBLING_BLOCKED_ATTEMPT - earned),
+      ); // Monthly cap; score itself is clamped in DisciplineScoreService
+      if (apply !== 0) {
+        await this.disciplineScore.applyDelta(userId, apply);
+      }
 
-    await this.repository.createBehaviorEvent({
-      user_id: userId,
-      type: EVENT_GAMBLING_BLOCKED_ATTEMPT,
-      payload: {
-        date: nowIso,
-        pocket_id: pocket.id,
-        pocket_kind: pocket.kind,
-        category,
-        recipient_key: recipientKey ?? null,
-        amount,
-        points_deducted: apply < 0 ? -apply : 0,
-      },
-    });
+      await this.repository.createBehaviorEvent({
+        user_id: userId,
+        type: EVENT_GAMBLING_BLOCKED_ATTEMPT,
+        payload: {
+          date: nowIso,
+          pocket_id: pocket.id,
+          pocket_kind: pocket.kind,
+          category,
+          recipient_key: recipientKey ?? null,
+          amount: round2(amount),
+          points_deducted: apply < 0 ? -apply : 0,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error recording gambling blocked attempt', error instanceof Error ? error.stack : String(error));
+      // Don't throw - the block should still work even if logging fails
+    }
   }
 
   /**
@@ -501,36 +527,44 @@ export class SpendService {
     shortfall: number,
     reason: string | undefined,
   ): Promise<void> {
-    const nowIso = new Date().toISOString();
-    const monthStart = `${nowIso.slice(0, 7)}-01T00:00:00.000Z`;
-    const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
-      userId,
-      [EVENT_ESSENTIAL_OVERRIDE],
-      monthStart,
-    );
-    let earned = 0;
-    for (const event of monthEvents) {
-      const deducted = (event.payload as any)?.points_deducted;
-      if (typeof deducted === 'number') earned -= deducted;
-    }
-    const apply = Math.min(POINTS_ESSENTIAL_OVERRIDE, CAP_ESSENTIAL_OVERRIDE - earned); // Allow negative values
-    if (apply !== 0) {
-      await this.disciplineScore.applyDelta(userId, apply);
-    }
+    try {
+      const nowIso = new Date().toISOString();
+      const monthStart = `${nowIso.slice(0, 7)}-01T00:00:00.000Z`;
+      const monthEvents = await this.repository.getBehaviorEventsByTypesSince(
+        userId,
+        [EVENT_ESSENTIAL_OVERRIDE],
+        monthStart,
+      );
+      let earned = 0;
+      for (const event of monthEvents) {
+        const deducted = (event.payload as any)?.points_deducted;
+        if (typeof deducted === 'number') earned -= deducted;
+      }
+      const apply = Math.max(
+        POINTS_ESSENTIAL_OVERRIDE,
+        Math.min(0, CAP_ESSENTIAL_OVERRIDE - earned),
+      ); // Monthly cap; score itself is clamped in DisciplineScoreService
+      if (apply !== 0) {
+        await this.disciplineScore.applyDelta(userId, apply);
+      }
 
-    await this.repository.createBehaviorEvent({
-      user_id: userId,
-      type: EVENT_ESSENTIAL_OVERRIDE,
-      payload: {
-        date: nowIso,
-        pocket_id: pocket.id,
-        pocket_kind: pocket.kind,
-        amount,
-        shortfall,
-        reason: reason ?? null,
-        points_deducted: apply < 0 ? -apply : 0,
-      },
-    });
+      await this.repository.createBehaviorEvent({
+        user_id: userId,
+        type: EVENT_ESSENTIAL_OVERRIDE,
+        payload: {
+          date: nowIso,
+          pocket_id: pocket.id,
+          pocket_kind: pocket.kind,
+          amount: round2(amount),
+          shortfall: round2(shortfall),
+          reason: reason ?? null,
+          points_deducted: apply < 0 ? -apply : 0,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error recording essential override', error instanceof Error ? error.stack : String(error));
+      // Don't throw - the override should still work
+    }
   }
 
   async getBlockedReasons(pocketId: string, userId: string): Promise<{

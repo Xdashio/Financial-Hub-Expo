@@ -1,18 +1,14 @@
-import { Controller, Get, Query, Request, Post } from '@nestjs/common';
+import { Controller, Get, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { InsightsService, DisciplineScoreResult, PaginatedBehaviorEvents, HeatmapDay } from './insights.service';
 import { BehaviorEvent } from '../../database/database.types';
 import type { NudgeItem } from '../nudges/nudge.calculator';
-import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 
 @ApiTags('Insights')
 @Controller('insights')
 @ApiBearerAuth()
 export class InsightsController {
-  constructor(
-    private readonly insightsService: InsightsService,
-    private readonly disciplineScoreService: DisciplineScoreService
-  ) {}
+  constructor(private readonly insightsService: InsightsService) {}
 
   @Get('discipline-score')
   @ApiOperation({ summary: "Get the current user's discipline score and recent delta" })
@@ -87,13 +83,5 @@ export class InsightsController {
   @ApiResponse({ status: 200, description: 'Nudges computed server-side: runway_low, sweep_surplus, and streak_at_risk items' })
   getNudges(@Request() req: any): Promise<NudgeItem[]> {
     return this.insightsService.getNudges(req.user.id);
-  }
-
-  @Post('discipline-score/recalculate')
-  @ApiOperation({ summary: "Recalculate the current user's discipline score from behavior events" })
-  @ApiResponse({ status: 200, description: 'Recalculated discipline score' })
-  recalculateDisciplineScore(@Request() req: any) {
-    const userId = req.user.id;
-    return this.disciplineScoreService.recalculateFromEvents(userId);
   }
 }
