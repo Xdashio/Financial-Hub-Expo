@@ -89,6 +89,36 @@ describe('InsightsService', () => {
         cardOrder: expect.any(Array),
       });
     });
+
+    it('includes lock_extension and early_unlock points in the period delta', async () => {
+      // Regression test: sumPeriodDisciplinePoints previously omitted
+      // 'lock_extension' and 'early_unlock' from the event types it asked
+      // the repo for, so points from those actions (which do move the
+      // real score via DisciplineScoreService.applyDelta) never showed up
+      // in the "pts this period" momentum copy on the Insights screen.
+      supabaseRepo.getLatestDisciplineScore.mockResolvedValue({
+        user_id: 'user-123',
+        score: 18,
+        delta: -3,
+        period: '2026-08',
+        calculated_at: new Date().toISOString(),
+      } as any);
+      (supabaseRepo.getBehaviorEventsByTypesSince as jest.Mock).mockResolvedValue([
+        { created_at: '2026-08-01T12:00:00.000Z', payload: { points_added: 6 } }, // lock_extension
+        { created_at: '2026-08-02T12:00:00.000Z', payload: { points_added: 6 } }, // lock_extension
+        { created_at: '2026-08-03T12:00:00.000Z', payload: { points_added: 6 } }, // lock_extension
+        { created_at: '2026-08-04T12:00:00.000Z', payload: { points_deducted: 3 } }, // daily_overspend
+      ]);
+
+      const result = await service.getDisciplineScore('user-123');
+
+      expect(supabaseRepo.getBehaviorEventsByTypesSince).toHaveBeenCalledWith(
+        'user-123',
+        expect.arrayContaining(['lock_extension', 'early_unlock']),
+        expect.any(String),
+      );
+      expect(result.delta).toBe(15); // 6 + 6 + 6 - 3, not just -3
+    });
   });
 
   describe('getStreak', () => {
