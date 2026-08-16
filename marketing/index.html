@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Financial Hub — Behavioral finance for institutions</title>
+    <meta
+      name="description"
+      content="Financial Hub is an embeddable behavioral finance layer for SACCOs and banks. A Kabarak University innovation with KECOBO-registered IP, piloting with Boresha Sacco."
+    />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div class="grain" aria-hidden="true"></div>
+    <header class="nav" data-reveal>
+      <a class="nav__brand" href="#top" aria-label="Financial Hub home">
+        <img src="/logo.png" alt="" width="40" height="40" />
+        <span>Financial Hub</span>
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="#layer">The layer</a>
+        <a href="#pilot">Pilot</a>
+        <a href="#trust">Trust</a>
+        <a href="#partners">Partners</a>
+        <a href="#contact" class="nav__cta" data-i18n="navCta">Talk to us</a>
+      </nav>
+      <div class="nav__actions">
+        <button type="button" class="lang-toggle" id="langToggle" aria-label="Switch language">
+          <span id="langLabel">Kiswahili</span>
+        </button>
+        <button
+          type="button"
+          class="nav__menu"
+          id="menuToggle"
+          aria-expanded="false"
+          aria-controls="mobileNav"
+          aria-label="Open menu"
+        >
+          <span class="nav__menu-lines" aria-hidden="true">
+            <i></i><i></i><i></i>
+          </span>
+        </button>
+      </div>
+    </header>
+
+    <div class="drawer" id="mobileNav" hidden>
+      <div class="drawer__backdrop" data-close-menu></div>
+      <div class="drawer__panel" role="dialog" aria-modal="true" aria-label="Menu">
+        <div class="drawer__top">
+          <span class="drawer__brand">Financial Hub</span>
+          <button type="button" class="drawer__close" data-close-menu aria-label="Close menu">
+            <span></span><span></span>
+          </button>
+        </div>
+        <nav class="drawer__nav">
+          <a href="#layer" data-i18n="navLayer">The layer</a>
+          <a href="#pilot" data-i18n="navPilot">Pilot</a>
+          <a href="#trust" data-i18n="navTrust">Trust</a>
+          <a href="#partners" data-i18n="navPartners">Partners</a>
+        </nav>
+        <a href="#contact" class="btn btn--primary drawer__cta" data-i18n="navCta">Talk to us</a>
+      </div>
+    </div>
+
+    <main id="top">
+      <section class="hero">
+        <div class="hero__atmosphere" aria-hidden="true">
+          <div class="hero__orb hero__orb--a"></div>
+          <div class="hero__orb hero__orb--b"></div>
+          <div class="hero__mesh"></div>
+        </div>
+        <div class="hero__content">
+          <p class="hero__brand" data-reveal>Financial Hub</p>
+          <h1 class="hero__title" data-i18n="heroTitle" data-reveal>
+            The behavioral layer inside the systems people already trust.
+          </h1>
+          <p class="hero__lede" data-i18n="heroLede" data-reveal>
+            We structure income, protect savings, and shape spending habits — then embed that intelligence into SACCOs and banks, starting with Boresha Sacco.
+          </p>
+          <div class="hero__actions" data-reveal>
+            <a class="btn btn--primary" href="#contact" data-i18n="ctaPartner">Partner with us</a>
+            <a class="btn btn--ghost" href="#layer" data-i18n="ctaLearn">See how it works</a>
+          </div>
+        </div>
+        <div class="hero__visual" data-reveal aria-hidden="true">
+          <img class="hero__logo" src="/logo.png" alt="" />
+          <div class="hero__ring"></div>
+        </div>
+      </section>
+
+      <section class="section section--layer" id="layer">
+        <div class="section__intro" data-reveal>
+          <p class="eyebrow" data-i18n="layerEyebrow">Not another banking app</p>
+          <h2 data-i18n="layerTitle">Infrastructure for better money behavior</h2>
+          <p data-i18n="layerBody">
+            Financial Hub is not competing with SACCOs or banks. The mobile app is our presentation layer — a living demo of the engine. The product is a financial behavioral layer that partners plug into systems members already use.
+          </p>
+        </div>
+        <div class="split">
+          <article class="split__item" data-reveal>
+            <h3 data-i18n="layerCard1Title">Income before spending</h3>
+            <p data-i18n="layerCard1Body">
+              Money is allocated into purpose-based pockets the moment income arrives — savings protected, essentials settled, spendable amounts made clear.
+            </p>
+          </article>
+          <article class="split__item" data-reveal>
+            <h3 data-i18n="layerCard2Title">Habits, not spreadsheets</h3>
+            <p data-i18n="layerCard2Body">
+              Discipline scoring, smart nudges, and deliberate friction on risky moves help people change behavior without building a budget by hand.
+            </p>
+          </article>
+          <article class="split__item" data-reveal>
+            <h3 data-i18n="layerCard3Title">Built to embed</h3>
+            <p data-i18n="layerCard3Body">
+              Long-term: an SDK/API that sits inside SACCO apps, bank apps, and telco super-apps — intelligence without forcing members to switch institutions.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section section--pilot" id="pilot">
+        <div class="pilot" data-reveal>
+          <div class="pilot__copy">
+            <p class="eyebrow" data-i18n="pilotEyebrow">Go-to-market</p>
+            <h2 data-i18n="pilotTitle">Pilot with Boresha Sacco. Scale with institutions after.</h2>
+            <p data-i18n="pilotBody">
+              We start where trust already lives. Boresha Sacco is our first institutional partner path — prove member outcomes, refine the embed model, then expand to other SACCOs and financial institutions.
+            </p>
+            <ul class="checklist">
+              <li data-i18n="pilotPoint1">Member-facing behavior engine, institution-owned relationship</li>
+              <li data-i18n="pilotPoint2">Showcase app for demos; production path is integration</li>
+              <li data-i18n="pilotPoint3">Clear path from pilot metrics to multi-institution rollout</li>
+            </ul>
+          </div>
+          <aside class="pilot-path" aria-label="Pilot focus">
+            <p class="pilot-path__eyebrow" data-i18n="pilotPanelLabel">Pilot path</p>
+            <ol class="pilot-path__steps">
+              <li class="pilot-path__step is-active">
+                <span class="pilot-path__index">01</span>
+                <div>
+                  <p class="pilot-path__status" data-i18n="pilotNow">Now</p>
+                  <p class="pilot-path__name">Boresha Sacco</p>
+                  <p class="pilot-path__desc" data-i18n="pilotNowDesc">First institutional pilot</p>
+                </div>
+              </li>
+              <li class="pilot-path__step">
+                <span class="pilot-path__index">02</span>
+                <div>
+                  <p class="pilot-path__status" data-i18n="pilotNext">Next</p>
+                  <p class="pilot-path__name" data-i18n="pilotNextName">Other SACCOs</p>
+                </div>
+              </li>
+              <li class="pilot-path__step">
+                <span class="pilot-path__index">03</span>
+                <div>
+                  <p class="pilot-path__status" data-i18n="pilotLater">Later</p>
+                  <p class="pilot-path__name" data-i18n="pilotLaterName">Banks &amp; digital finance</p>
+                </div>
+              </li>
+            </ol>
+          </aside>
+        </div>
+      </section>
+
+      <section class="section section--trust" id="trust">
+        <div class="section__intro section__intro--center" data-reveal>
+          <p class="eyebrow" data-i18n="trustEyebrow">Origin &amp; IP</p>
+          <h2 data-i18n="trustTitle">Born at Kabarak. Protected with KECOBO.</h2>
+          <p data-i18n="trustBody">
+            Financial Hub is an innovation under Kabarak University. Our intellectual property is registered with KECOBO, with Kabarak as a stakeholder in that IP — academic rigor meeting commercial readiness.
+          </p>
+          <p class="ip-ref" data-i18n="ipRef">KECOBO registration on file — reference available on request</p>
+        </div>
+        <div class="trust-grid">
+          <div class="trust-card" data-reveal>
+            <div class="trust-card__logo trust-card__logo--light">
+              <img src="/partners/kabarak-university.png" alt="Kabarak University" />
+            </div>
+            <h3>Kabarak University</h3>
+            <p data-i18n="trustKabarak">Innovation home — research, mentorship, and institutional backing for the venture.</p>
+          </div>
+          <div class="trust-card" data-reveal>
+            <div class="trust-card__logo trust-card__logo--light">
+              <img src="/partners/kecobo-logo.webp" alt="Kenya Copyright Board (KECOBO)" />
+            </div>
+            <h3>KECOBO</h3>
+            <p data-i18n="trustKecobo">Copyright-protected IP, with Kabarak University as a party to the registration.</p>
+          </div>
+          <div class="trust-card" data-reveal>
+            <div class="trust-card__logo trust-card__logo--flag">
+              <img src="/partners/kenya-flag.svg" alt="Flag of Kenya" />
+            </div>
+            <h3 data-i18n="trustKenyaTitle">Built for Kenya</h3>
+            <p data-i18n="trustKenya">Designed around real income patterns — salaried, gig, freelancer — and the institutions Kenyans already use.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--partners" id="partners">
+        <div class="partners" data-reveal>
+          <div>
+            <p class="eyebrow" data-i18n="partnersEyebrow">For partners &amp; investors</p>
+            <h2 data-i18n="partnersTitle">Help us put behavioral finance where money already moves.</h2>
+            <p data-i18n="partnersBody">
+              We are raising attention and capital to move from a presentation-ready showcase to an embeddable layer with institutional pilots. If you build or fund financial infrastructure in East Africa, we want to talk.
+            </p>
+          </div>
+          <div class="partners__points">
+            <div>
+              <strong data-i18n="investorsLabel">Investors</strong>
+              <p data-i18n="investorsBody">Fund the path from demo engine → partner SDK → billed institutional deployments.</p>
+            </div>
+            <div>
+              <strong data-i18n="saccosLabel">SACCOs &amp; banks</strong>
+              <p data-i18n="saccosBody">Pilot member outcomes without replacing your core banking or mobile app.</p>
+            </div>
+            <div>
+              <strong data-i18n="publicLabel">Public &amp; press</strong>
+              <p data-i18n="publicBody">Follow the journey as we prove that better money habits can live inside trusted systems.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section--contact" id="contact">
+        <div class="contact" data-reveal>
+          <div class="contact__copy">
+            <p class="eyebrow" data-i18n="contactEyebrow">Contact</p>
+            <h2 data-i18n="contactTitle">Let’s start a conversation</h2>
+            <p data-i18n="contactBody">
+              Partnerships, pilot interest, or investment — send a note and we’ll follow up.
+            </p>
+            <ul class="contact__perks">
+              <li data-i18n="contactPerk1">SACCO &amp; bank pilots</li>
+              <li data-i18n="contactPerk2">Investor conversations</li>
+              <li data-i18n="contactPerk3">Press &amp; introductions</li>
+            </ul>
+            <p class="contact__note" data-i18n="contactNote">
+              No public domain email yet — your note is copied so you can paste it into WhatsApp, Telegram, or email when you reach out.
+            </p>
+          </div>
+          <form class="contact__form" id="contactForm" novalidate>
+            <fieldset class="contact__interest">
+              <legend data-i18n="interestLabel">I’m reaching out as</legend>
+              <div class="contact__chips" role="group">
+                <label class="chip">
+                  <input type="radio" name="interest" value="partner" checked />
+                  <span data-i18n="interestPartner">Institution</span>
+                </label>
+                <label class="chip">
+                  <input type="radio" name="interest" value="investor" />
+                  <span data-i18n="interestInvestor">Investor</span>
+                </label>
+                <label class="chip">
+                  <input type="radio" name="interest" value="other" />
+                  <span data-i18n="interestOther">Other</span>
+                </label>
+              </div>
+            </fieldset>
+            <div class="contact__row">
+              <label class="field">
+                <span data-i18n="nameLabel">Name</span>
+                <input type="text" name="name" required autocomplete="name" placeholder=" " />
+              </label>
+              <label class="field">
+                <span data-i18n="emailLabel">Email</span>
+                <input type="email" name="email" required autocomplete="email" placeholder=" " />
+              </label>
+            </div>
+            <label class="field">
+              <span data-i18n="orgLabel">Organization</span>
+              <input type="text" name="organization" autocomplete="organization" placeholder=" " />
+            </label>
+            <label class="field">
+              <span data-i18n="messageLabel">Message</span>
+              <textarea name="message" rows="5" required placeholder=" "></textarea>
+            </label>
+            <div class="contact__submit">
+              <button type="submit" class="btn btn--primary" data-i18n="submitLabel">Copy message</button>
+              <p class="form-status" id="formStatus" role="status" aria-live="polite"></p>
+            </div>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer__main">
+        <div class="footer__brand">
+          <img src="/logo.png" alt="" width="40" height="40" />
+          <div>
+            <strong>Financial Hub</strong>
+            <p data-i18n="footerTag">Behavioral finance layer · Kabarak University innovation</p>
+          </div>
+        </div>
+        <nav class="footer__nav" aria-label="Footer">
+          <a href="#layer" data-i18n="navLayer">The layer</a>
+          <a href="#pilot" data-i18n="navPilot">Pilot</a>
+          <a href="#trust" data-i18n="navTrust">Trust</a>
+          <a href="#partners" data-i18n="navPartners">Partners</a>
+          <a href="#contact" data-i18n="navCta">Talk to us</a>
+        </nav>
+        <div class="footer__marks" aria-label="Affiliations">
+          <img src="/partners/kabarak-university.png" alt="Kabarak University" />
+          <img src="/partners/kecobo-logo.webp" alt="KECOBO" />
+          <img class="footer__flag" src="/partners/kenya-flag.svg" alt="Kenya" />
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <p class="footer__meta" data-i18n="footerMeta">
+          IP registered with KECOBO · Kabarak University stakeholder · Pilot: Boresha Sacco
+        </p>
+        <p class="footer__copy" data-i18n="copyright">© 2026 Financial Hub. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
