@@ -27,12 +27,14 @@ export function OfflineIndicator({ isOffline: isOfflineProp, onDismiss }: { isOf
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
-      }).start();
+            useNativeDriver: true,
+          }).start();
     } else {
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 300,
-      }).start();
+            useNativeDriver: true,
+          }).start();
     }
   }, [isOffline, dismissed]);
 
@@ -42,7 +44,8 @@ export function OfflineIndicator({ isOffline: isOfflineProp, onDismiss }: { isOf
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 300,
-    }).start();
+            useNativeDriver: true,
+          }).start();
   };
 
   if (!isOffline || dismissed) return null;

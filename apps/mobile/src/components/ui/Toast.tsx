@@ -30,12 +30,14 @@ export function Toast({ visible, message, type = 'info', duration = 3000, onDism
           toValue: 1,
           duration: 300,
           easing: Easing.out(Easing.cubic),
-        }),
+            useNativeDriver: true,
+          }),
         Animated.timing(slideAnim.current, {
           toValue: 0,
           duration: 300,
           easing: Easing.out(Easing.cubic),
-        }),
+            useNativeDriver: true,
+          }),
       ]).start();
 
       const timer = setTimeout(() => {
@@ -48,11 +50,13 @@ export function Toast({ visible, message, type = 'info', duration = 3000, onDism
         Animated.timing(fadeAnim.current, {
           toValue: 0,
           duration: 200,
-        }),
+            useNativeDriver: true,
+          }),
         Animated.timing(slideAnim.current, {
           toValue: 50,
           duration: 200,
-        }),
+            useNativeDriver: true,
+          }),
       ]).start();
     }
   }, [visible, duration]);

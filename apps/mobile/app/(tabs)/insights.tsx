@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarCheck, ArrowLeftRight, Timer } from 'lucide-react-native';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -24,6 +24,31 @@ function isSameMonth(iso: string) {
   return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
 }
 
+function scoreBandLabel(score: number): string {
+  if (score >= 70) return 'Steady';
+  if (score >= 40) return 'Under pressure';
+  return 'Needs a reset';
+}
+
+function disciplineMomentumCopy(delta: number, score: number): string {
+  if (score <= 25) {
+    if (delta < 0) {
+      return `Recent drag: ${delta} pts this period. The floor is 0 — recovery starts with the next under-cap day.`;
+    }
+    if (delta > 0) {
+      return `Climbing back: +${delta} pts this period. Keep pockets on purpose.`;
+    }
+    return 'At the floor for now — one under-cap day or an unbroken cooling-off starts the rebuild.';
+  }
+  if (delta > 0) {
+    return `What moved it: +${delta} pts from under-cap days and staying on purpose.`;
+  }
+  if (delta < 0) {
+    return `What moved it: ${delta} pts from over-cap days or cooling-off skips.`;
+  }
+  return 'What moved it: steady this period — keep pockets on purpose.';
+}
+
 interface Metric {
   label: string;
   value: string;
@@ -34,6 +59,7 @@ interface Metric {
 
 export default function InsightsScreen() {
   const { colors } = useTheme();
+  const router = useRouter();
 
   const [score, setScore] = React.useState<number | null>(null);
   const [delta, setDelta] = React.useState(0);
@@ -79,18 +105,6 @@ export default function InsightsScreen() {
       setLoadError('Failed to load your insights. Please try again.');
     } finally {
       setIsLoading(false);
-    }
-  }, []);
-
-  // Debug function to test negative score - remove after migration fix
-  const testNegativeScore = React.useCallback(async () => {
-    try {
-      console.log('Testing negative score by manually applying -1 delta...');
-      // This is a temporary workaround to test the negative score logic
-      // We'll call the recalculation endpoint once it's deployed
-      alert('The recalculation endpoint needs to be deployed. Try triggering a new overspend event to test negative scores.');
-    } catch (e) {
-      console.error('Test error:', e);
     }
   }, []);
 
@@ -219,30 +233,77 @@ export default function InsightsScreen() {
                   progress={score ?? 0}
                   size={120}
                   strokeWidth={8}
-                  color={colors.emeraldDeep}
+                  color={colors.surface}
                   trackColor={`${colors.surface}55`}
-                  negativeColor={colors.clay}
                 >
-                  <Text style={{ ...typography.display, color: (score ?? 0) >= 0 ? colors.surface : colors.clay, fontSize: 36 }}>{score ?? 0}%</Text>
+                  <Text style={{ ...typography.display, color: colors.surface, fontSize: 36 }}>{score ?? 0}</Text>
                 </ProgressRing>
               </View>
-              <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>Spending discipline</Text>
+              <Text style={{ ...typography.caption, color: `${colors.surface}99`, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.xs }}>
+                {scoreBandLabel(score ?? 0)}
+              </Text>
               {scorePeriod && (
                 <Text style={{ ...typography.caption, color: `${colors.surface}80`, marginTop: spacing.xs }}>
                   {scorePeriod}
                 </Text>
               )}
               <Text style={{ ...typography.caption, color: `${colors.surface}CC`, marginTop: spacing.sm, textAlign: 'center', lineHeight: 18 }}>
-                {delta > 0
-                  ? `What moved it: +${delta} pts from under-cap days and staying on purpose.`
-                  : delta < 0
-                    ? `What moved it: ${delta} pts from over-cap days or cooling-off skips.`
-                    : 'What moved it: steady this period — keep pockets on purpose.'}
+                {disciplineMomentumCopy(delta, score ?? 0)}
               </Text>
-              {/* Debug button to test negative score - remove after migration fix */}
-              <Pressable onPress={testNegativeScore} style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: `${colors.surface}30`, borderRadius: radius.sm }}>
-                <Text style={{ ...typography.caption, color: colors.surface, fontSize: 10 }}>Test Negative Score</Text>
-              </Pressable>
+              {(score ?? 0) <= 25 && (
+                <View
+                  style={{
+                    marginTop: spacing.lg,
+                    width: '100%',
+                    backgroundColor: `${colors.surface}18`,
+                    borderRadius: radius.md,
+                    padding: spacing.md,
+                    borderWidth: 1,
+                    borderColor: `${colors.surface}33`,
+                  }}
+                >
+                  <Text style={{ ...typography.body, color: colors.surface, fontWeight: '600', marginBottom: spacing.xs }}>
+                    A tough stretch — not a dead end
+                  </Text>
+                  <Text style={{ ...typography.caption, color: `${colors.surface}CC`, lineHeight: 16, marginBottom: spacing.md }}>
+                    Your score floors at 0 so it never goes “more broken.” Small wins rebuild it: stay under today’s caps, let cooling-off finish, keep savings locked.
+                  </Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+                    <Pressable
+                      onPress={() => router.push('/(tabs)/')}
+                      style={{
+                        backgroundColor: colors.surface,
+                        paddingVertical: spacing.sm,
+                        paddingHorizontal: spacing.md,
+                        borderRadius: radius.pill,
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Review today’s safe-to-spend"
+                    >
+                      <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontWeight: '700' }}>
+                        Review today
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => router.push('/(security)/time-lock')}
+                      style={{
+                        backgroundColor: 'transparent',
+                        paddingVertical: spacing.sm,
+                        paddingHorizontal: spacing.md,
+                        borderRadius: radius.pill,
+                        borderWidth: 1,
+                        borderColor: `${colors.surface}66`,
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Check savings lock"
+                    >
+                      <Text style={{ ...typography.caption, color: colors.surface, fontWeight: '600' }}>
+                        Check savings lock
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
             </>
           )}
         </View>
