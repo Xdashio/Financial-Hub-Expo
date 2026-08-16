@@ -8,6 +8,14 @@ import { Pocket, PocketUpdate, PocketInsert, Transaction, MerchantClassification
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
 import { v4 as uuidv4 } from 'uuid';
 
+// A pocket's lock may be extended at most once per lock term — from when it
+// was locked (pocket.created_at, since pockets are locked at creation) up
+// until EXTENSION_BLACKOUT_DAYS days before it unlocks. Without this bound,
+// extendLock could be called repeatedly (additional_days has no upper
+// limit) to farm unlimited discipline bonus, or called in the final days
+// before maturity purely to bank a bonus with no real added commitment.
+const EXTENSION_BLACKOUT_DAYS = 7;
+
 @Injectable()
 export class PocketsService {
   constructor(
@@ -898,6 +906,30 @@ export class PocketsService {
     const additionalDays = body.additional_days;
     if (additionalDays <= 0) {
       throw new BadRequestException('Additional days must be positive');
+    }
+
+    // Reject rather than silently zero-bonus, so the response is honest
+    // about why nothing happened — mirrors the "Already retaken this
+    // month" pattern used for the behavior check-in.
+    if (pocket.lock_until) {
+      const blackoutStart = new Date(
+        new Date(pocket.lock_until).getTime() - EXTENSION_BLACKOUT_DAYS * 24 * 60 * 60 * 1000
+      );
+      if (Date.now() >= blackoutStart.getTime()) {
+        throw new BadRequestException(
+          `This lock can only be extended more than ${EXTENSION_BLACKOUT_DAYS} days before it unlocks (${pocket.lock_until}).`
+        );
+      }
+    }
+
+    const priorExtensions = await this.repository.getBehaviorEventsByTypesSince(
+      userId,
+      ['lock_extension'],
+      pocket.created_at,
+    );
+    const alreadyExtended = priorExtensions.some((e) => (e.payload as any)?.pocket_id === pocketId);
+    if (alreadyExtended) {
+      throw new BadRequestException('This lock has already been extended once. It can only be extended once per lock term.');
     }
 
     const currentLockUntil = pocket.lock_until ? new Date(pocket.lock_until) : new Date();
