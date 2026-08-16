@@ -12,6 +12,7 @@ apk/
 #graphify
 
 graphify-out/
+**/graphify-out/
 
 #skills rules
 .opencode/
