@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, TouchableOpacity, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
@@ -506,14 +506,14 @@ export default function RetakeCheckinScreen() {
           <SectionTitle>Income pattern</SectionTitle>
           <View style={{ marginTop: spacing.md, gap: spacing.md }}>
             {INCOME_PATTERNS.map((option) => (
-              <TouchableOpacity
+              <Pressable
                 key={option.id}
-                style={[
+                style={({ pressed }) => [
                   { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: radius.lg, minHeight: touchTarget.minHeight * 2 },
                   incomePattern === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  { opacity: pressed ? 0.85 : 1 },
                 ]}
                 onPress={() => setIncomePattern(option.id)}
-                activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityState={{ selected: incomePattern === option.id }}
               >
@@ -524,7 +524,7 @@ export default function RetakeCheckinScreen() {
                   <Text style={[{ ...typography.heading, color: colors.ink }, incomePattern === option.id && { color: colors.surface }]}>{option.label}</Text>
                   <Text style={[{ ...typography.caption, fontSize: 12, color: colors.sage, marginTop: 2 }, incomePattern === option.id && { color: `${colors.surface}CC` }]}>{option.description}</Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
@@ -536,11 +536,12 @@ export default function RetakeCheckinScreen() {
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
                 {INCOME_INTERVAL_BANDS.map((band) => (
-                  <TouchableOpacity
+                  <Pressable
                     key={band.id}
-                    style={[
+                    style={({ pressed }) => [
                       { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minWidth: 88, alignItems: 'center', justifyContent: 'center' },
                       incomeIntervalBand === band.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                      { opacity: pressed ? 0.7 : 1 },
                     ]}
                     onPress={() => setIncomeIntervalBand(band.id)}
                     hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -548,7 +549,7 @@ export default function RetakeCheckinScreen() {
                     accessibilityState={{ selected: incomeIntervalBand === band.id }}
                   >
                     <Text style={[{ ...typography.caption, color: colors.ink, textAlign: 'center' }, incomeIntervalBand === band.id && { color: colors.surface }]}>{band.label}</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 ))}
               </View>
             </View>
@@ -569,11 +570,12 @@ export default function RetakeCheckinScreen() {
           <SectionTitle>Income sources</SectionTitle>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xl }}>
             {SOURCE_COUNTS.map((option) => (
-              <TouchableOpacity
+              <Pressable
                 key={option.id}
-                style={[
+                style={({ pressed }) => [
                   { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minWidth: 88, alignItems: 'center', justifyContent: 'center' },
                   sourceCount === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  { opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => setSourceCount(option.id)}
                 hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -581,21 +583,21 @@ export default function RetakeCheckinScreen() {
                 accessibilityState={{ selected: sourceCount === option.id }}
               >
                 <Text style={[{ ...typography.caption, color: colors.ink, textAlign: 'center' }, sourceCount === option.id && { color: colors.surface }]}>{option.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
           <SectionTitle>When money runs low, what usually happens?</SectionTitle>
           <View style={{ marginTop: spacing.md, marginBottom: spacing.xl, gap: spacing.md }}>
             {HABIT_OPTIONS.map((option) => (
-              <TouchableOpacity
+              <Pressable
                 key={option.id}
-                style={[
+                style={({ pressed }) => [
                   { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: radius.lg, minHeight: touchTarget.minHeight * 2 },
                   spendingHabit === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  { opacity: pressed ? 0.85 : 1 },
                 ]}
                 onPress={() => setSpendingHabit(option.id)}
-                activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityState={{ selected: spendingHabit === option.id }}
               >
@@ -606,7 +608,7 @@ export default function RetakeCheckinScreen() {
                   <Text style={[{ ...typography.heading, color: colors.ink }, spendingHabit === option.id && { color: colors.surface }]}>{option.label}</Text>
                   <Text style={[{ ...typography.caption, fontSize: 12, color: colors.sage, marginTop: 2 }, spendingHabit === option.id && { color: `${colors.surface}CC` }]}>{option.description}</Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
@@ -625,18 +627,19 @@ export default function RetakeCheckinScreen() {
               { id: 'working_adult' as const, label: 'Working adult' },
               { id: 'self_employed' as const, label: 'Self-employed' },
             ]).map((option) => (
-              <TouchableOpacity
+              <Pressable
                 key={option.id}
-                style={[
+                style={({ pressed }) => [
                   { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
                   lifeStage === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  { opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => setLifeStage(option.id)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: lifeStage === option.id }}
               >
                 <Text style={[{ ...typography.heading, color: colors.ink }, lifeStage === option.id && { color: colors.surface }]}>{option.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
@@ -646,18 +649,19 @@ export default function RetakeCheckinScreen() {
               { id: true, label: 'Yes — school fees, family, dependents' },
               { id: false, label: 'No — mainly myself' },
             ]).map((option) => (
-              <TouchableOpacity
+              <Pressable
                 key={String(option.id)}
-                style={[
+                style={({ pressed }) => [
                   { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
                   hasDependents === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  { opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => setHasDependents(option.id)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: hasDependents === option.id }}
               >
                 <Text style={[{ ...typography.heading, color: colors.ink }, hasDependents === option.id && { color: colors.surface }]}>{option.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
@@ -669,18 +673,19 @@ export default function RetakeCheckinScreen() {
               { id: '1_to_3_months' as const, label: '1–3 months' },
               { id: '3_plus_months' as const, label: '3+ months' },
             ]).map((option) => (
-              <TouchableOpacity
+              <Pressable
                 key={option.id}
-                style={[
+                style={({ pressed }) => [
                   { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
                   emergencyBuffer === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  { opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => setEmergencyBuffer(option.id)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: emergencyBuffer === option.id }}
               >
                 <Text style={[{ ...typography.heading, color: colors.ink }, emergencyBuffer === option.id && { color: colors.surface }]}>{option.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
@@ -691,18 +696,19 @@ export default function RetakeCheckinScreen() {
               { id: 'saver' as const, label: 'I put it aside' },
               { id: 'avoider' as const, label: 'I leave it alone for a while' },
             ]).map((option) => (
-              <TouchableOpacity
+              <Pressable
                 key={option.id}
-                style={[
+                style={({ pressed }) => [
                   { padding: spacing.md, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight },
                   moneyPersonality === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                  { opacity: pressed ? 0.7 : 1 },
                 ]}
                 onPress={() => setMoneyPersonality(option.id)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: moneyPersonality === option.id }}
               >
                 <Text style={[{ ...typography.heading, color: colors.ink }, moneyPersonality === option.id && { color: colors.surface }]}>{option.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 
@@ -721,10 +727,9 @@ export default function RetakeCheckinScreen() {
                 const IconComponent = getExpenseIcon(expense.name, expense.category);
                 return (
                   <View key={expense.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
-                    <TouchableOpacity
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, minHeight: touchTarget.minHeight }}
+                    <Pressable
+                      style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.85 : 1 }]}
                       onPress={() => handleEdit(expense)}
-                      activeOpacity={0.85}
                     >
                       <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
                         <IconComponent size={16} color={colors.ink} strokeWidth={2} />
@@ -734,13 +739,13 @@ export default function RetakeCheckinScreen() {
                         <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage }}>Paid by the {expense.dueDay}{expense.dueDay === 1 ? 'st' : expense.dueDay === 2 ? 'nd' : expense.dueDay === 3 ? 'rd' : 'th'}</Text>
                       </View>
                       <Text style={{ ...typography.body, color: colors.ink }}>KSh {expense.amount.toLocaleString()}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={{ padding: spacing.sm, minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight }}
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [{ padding: spacing.sm, minWidth: touchTarget.minWidth, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.7 : 1 }]}
                       onPress={() => setDeleteTargetId(expense.id)}
                     >
                       <Trash2 size={16} color={colors.error} strokeWidth={2} />
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 );
               })}
@@ -749,22 +754,22 @@ export default function RetakeCheckinScreen() {
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.sm }}>
             {SUGGESTIONS.map((suggestion) => (
-              <TouchableOpacity
+              <Pressable
                 key={suggestion.name}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }}
+                style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.7 : 1 }]}
                 onPress={() => handleAddSuggestion(suggestion)}
               >
                 <suggestion.icon size={12} color={colors.ink} strokeWidth={2.2} />
                 <Text style={{ ...typography.caption, color: colors.ink }}>{suggestion.name}</Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.emeraldDeep, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }}
+            <Pressable
+              style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.emeraldDeep, backgroundColor: colors.surface, minHeight: touchTarget.minHeight }, { opacity: pressed ? 0.7 : 1 }]}
               onPress={handleAddCustom}
             >
               <Plus size={12} color={colors.emeraldDeep} strokeWidth={2.2} />
               <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>Custom</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, marginTop: spacing.md, marginBottom: spacing.xl, backgroundColor: colors.emeraldTint, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line }}>
@@ -779,14 +784,14 @@ export default function RetakeCheckinScreen() {
           {/* Add/Edit fixed expense modal */}
           <Modal visible={showAddModal} transparent animationType="slide" statusBarTranslucent onRequestClose={() => { setShowAddModal(false); resetExpenseForm(); }}>
             <KeyboardAvoidingView style={{ flex: 1, justifyContent: 'flex-end' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-              <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }} onPress={() => { setShowAddModal(false); resetExpenseForm(); }} activeOpacity={1} />
+              <Pressable style={({ pressed }) => [{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }, { opacity: pressed ? 1 : 1 }]} onPress={() => { setShowAddModal(false); resetExpenseForm(); }} />
               <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
                 <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl }}>
                   <Text style={{ ...typography.title, color: colors.ink }}>{editingId ? 'Edit fixed expense' : 'Add fixed expense'}</Text>
-                  <TouchableOpacity style={{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }} onPress={() => { setShowAddModal(false); resetExpenseForm(); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+                  <Pressable style={({ pressed }) => [{ width: 32, height: 32, borderRadius: radius.pill, backgroundColor: colors.lineSoft, alignItems: 'center', justifyContent: 'center' }, { opacity: pressed ? 0.7 : 1 }]} onPress={() => { setShowAddModal(false); resetExpenseForm(); }} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
                     <X size={18} color={colors.inkSoft} strokeWidth={2} />
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
                 <View style={{ gap: spacing.lg }}>
                   <Input label="Name" value={editingId ? editName : newName} onChangeText={editingId ? setEditName : setNewName} placeholder="e.g., Rent" autoFocus />
@@ -810,7 +815,7 @@ export default function RetakeCheckinScreen() {
           {/* Delete confirmation modal */}
           <Modal visible={!!deleteTargetId} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setDeleteTargetId(null)}>
             <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-              <TouchableOpacity style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }} onPress={() => setDeleteTargetId(null)} activeOpacity={1} />
+              <Pressable style={({ pressed }) => [{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: `${colors.ink}73` }, { opacity: pressed ? 1 : 1 }]} onPress={() => setDeleteTargetId(null)} />
               <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg, paddingHorizontal: spacing.lg, paddingTop: spacing.md, maxHeight: '85%', ...shadow.elevated, paddingBottom: insets.bottom + spacing.lg }}>
                 <View style={{ width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.line, alignSelf: 'center', marginBottom: spacing.lg }} />
                 <Text style={{ ...typography.title, color: colors.ink, marginBottom: spacing.md }}>Delete expense</Text>
