@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
@@ -162,11 +162,12 @@ export default function IncomeScreen() {
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
               {INCOME_INTERVAL_BANDS.map((band) => (
-                <TouchableOpacity
+                <Pressable
                   key={band.id}
-                  style={[
+                  style={({ pressed }) => [
                     { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minWidth: 88, alignItems: 'center', justifyContent: 'center' },
                     incomeIntervalBand === band.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                    { opacity: pressed ? 0.7 : 1 },
                   ]}
                   onPress={() => setIncomeIntervalBand(band.id)}
                   hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -178,7 +179,7 @@ export default function IncomeScreen() {
                     { ...typography.caption, color: colors.ink, textAlign: 'center' },
                     incomeIntervalBand === band.id && { color: colors.surface },
                   ]}>{band.label}</Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </View>
@@ -201,11 +202,12 @@ export default function IncomeScreen() {
         <SectionTitle>Income sources</SectionTitle>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm, marginBottom: spacing.xl }}>
           {SOURCE_COUNTS.map((option) => (
-            <TouchableOpacity
+            <Pressable
               key={option.id}
-              style={[
+              style={({ pressed }) => [
                 { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minWidth: 88, alignItems: 'center', justifyContent: 'center' },
                 sourceCount === option.id && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
+                { opacity: pressed ? 0.7 : 1 },
               ]}
               onPress={() => setSourceCount(option.id)}
               hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
@@ -217,7 +219,7 @@ export default function IncomeScreen() {
                 { ...typography.caption, color: colors.ink, textAlign: 'center' },
                 sourceCount === option.id && { color: colors.surface },
               ]}>{option.label}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 
@@ -249,20 +251,20 @@ function TouchableOption({
 }: any) {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: radius.lg },
         selected && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
         { minHeight: touchTarget.minHeight * 2 },
+        { opacity: pressed ? 0.85 : 1 },
       ]}
       onPress={onPress}
-      activeOpacity={0.85}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
       {...props}
     >
       {children}
-    </TouchableOpacity>
+    </Pressable>
   );
 }

@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useEffect } from 'react';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
@@ -146,9 +146,9 @@ export default function VerifyOtpScreen() {
 
         <View style={{ marginTop: spacing.xl, marginBottom: spacing.xl }}>
           {canResend ? (
-            <TouchableOpacity onPress={handleResend}>
+            <Pressable onPress={handleResend} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
               <Text style={{ ...typography.body, color: colors.emeraldDeep, textAlign: 'center' }}>Resend code</Text>
-            </TouchableOpacity>
+            </Pressable>
           ) : (
             <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center' }}>
               <Text>Resend code</Text> in {Math.floor(resendTimer / 60)}:{String(resendTimer % 60).padStart(2, '0')}
@@ -169,9 +169,9 @@ export default function VerifyOtpScreen() {
 
         <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.xxl, alignItems: 'center', paddingBottom: spacing.xl }}>
           <Text style={{ ...typography.body, color: colors.sage }}>Wrong number?</Text>
-          <TouchableOpacity onPress={() => safeGoBack(router, '/(auth)/signin')}>
+          <Pressable onPress={() => safeGoBack(router, '/(auth)/signin')} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
             <Text style={{ color: colors.emeraldDeep }}>Edit it</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </SafeScrollView>
       {modal}

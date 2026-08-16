@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import React from 'react';
 import { useTheme } from '@/theme/ThemeContext';
@@ -129,19 +129,19 @@ function TouchableOption({
 }: any) {
   const { colors } = useTheme();
   return (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.line, borderRadius: radius.lg },
         selected && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
         { minHeight: touchTarget.minHeight * 2 },
+        { opacity: pressed ? 0.85 : 1 },
       ]}
       onPress={onPress}
-      activeOpacity={0.85}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
       accessibilityState={accessibilityState}
     >
       {children}
-    </TouchableOpacity>
+    </Pressable>
   );
 }

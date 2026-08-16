@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
@@ -157,9 +157,9 @@ export default function SignUpScreen() {
 
         <View style={{ flexDirection: 'row', gap: 4, marginTop: spacing.xxl, alignItems: 'center', paddingBottom: spacing.xl }}>
           <Text style={{ ...typography.body, color: colors.sage }}>Already have an account?</Text>
-          <TouchableOpacity onPress={() => router.replace('/(auth)/signin')}>
+          <Pressable onPress={() => router.replace('/(auth)/signin')} style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}>
             <Text style={{ color: colors.emeraldDeep }}>Sign in</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </SafeScrollView>
       {modal}

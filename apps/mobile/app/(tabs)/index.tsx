@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Image, ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, Image, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -173,14 +173,14 @@ export default function HomeScreen() {
             <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
               Complete onboarding to create your personalized pockets for savings, fixed costs, and daily spending.
             </Text>
-            <TouchableOpacity
-              style={{
+            <Pressable
+              style={({ pressed }) => [{
                 marginTop: spacing.lg,
                 backgroundColor: colors.emeraldDeep,
                 borderRadius: radius.md,
                 paddingVertical: spacing.md,
                 paddingHorizontal: spacing.xl,
-              }}
+              }, { opacity: pressed ? 0.7 : 1 }]}
               onPress={() => router.push('/(onboarding)/income')}
               accessibilityLabel="Start onboarding"
               accessibilityRole="button"
@@ -188,7 +188,7 @@ export default function HomeScreen() {
               <Text style={{ ...typography.heading, color: colors.surface, textAlign: 'center' }}>
                 Start Onboarding
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </ScrollView>
       </ScreenContainer>
@@ -217,10 +217,9 @@ export default function HomeScreen() {
       ? Math.max(0, Math.min(1, pocket.availableBalance / pocket.monthlyAllocation))
       : 0;
     return (
-      <TouchableOpacity
+      <Pressable
         key={pocket.id}
-        style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
-        activeOpacity={0.8}
+        style={({ pressed }) => [{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }, { opacity: pressed ? 0.8 : 1 }]}
         onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
         accessibilityRole="button"
         accessibilityLabel={`${pocket.name} pocket, ${purpose}, ${formatCurrency(pocket.availableBalance)} available, ${status}`}
@@ -261,7 +260,7 @@ export default function HomeScreen() {
             }}
           />
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -283,11 +282,10 @@ export default function HomeScreen() {
             />
             <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }}>Financial Hub</Text>
           </View>
-          <TouchableOpacity
+          <Pressable
             onPress={() => setNudgesVisible(true)}
-            activeOpacity={0.8}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{ width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}
+            style={({ pressed }) => [{ width: 38, height: 38, borderRadius: radius.sm, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }, { opacity: pressed ? 0.8 : 1 }]}
             accessibilityLabel={nudges.length > 0 ? `Nudges, ${nudges.length} new` : 'Nudges'}
             accessibilityRole="button"
           >
@@ -307,7 +305,7 @@ export default function HomeScreen() {
                 }}
               />
             )}
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <View style={{ marginTop: spacing.xl }}>
@@ -369,9 +367,9 @@ export default function HomeScreen() {
           ).map((action) => {
             const Icon = action.icon;
             return (
-              <TouchableOpacity
+              <Pressable
                 key={action.id}
-                style={{
+                style={({ pressed }) => [{
                   flex: 1,
                   minHeight: touchTarget.minHeight,
                   backgroundColor: colors.surface,
@@ -383,28 +381,26 @@ export default function HomeScreen() {
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: spacing.xs,
-                }}
-                activeOpacity={0.8}
+                }, { opacity: pressed ? 0.8 : 1 }]}
                 onPress={() => router.push(action.route as any)}
                 accessibilityLabel={action.label}
                 accessibilityRole="button"
               >
                 <Icon size={18} color={colors.emeraldDeep} strokeWidth={2} />
                 <Text style={{ ...typography.caption, color: colors.ink, textAlign: 'center' }}>{action.label}</Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>
 
-        <TouchableOpacity
-          style={{ marginTop: spacing.sm, alignSelf: 'center', paddingVertical: spacing.sm, minHeight: touchTarget.minHeight, justifyContent: 'center' }}
-          activeOpacity={0.8}
+        <Pressable
+          style={({ pressed }) => [{ marginTop: spacing.sm, alignSelf: 'center', paddingVertical: spacing.sm, minHeight: touchTarget.minHeight, justifyContent: 'center' }, { opacity: pressed ? 0.8 : 1 }]}
           onPress={() => setActionsVisible(true)}
           accessibilityLabel="More money actions"
           accessibilityRole="button"
         >
           <Text style={{ ...typography.caption, color: colors.sage }}>More actions</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {isDaily && (
           <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
@@ -427,10 +423,9 @@ export default function HomeScreen() {
 
             {dailyPockets.map((pocket) => {
               return (
-                <TouchableOpacity
+                <Pressable
                   key={pocket.id}
-                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}
-                  activeOpacity={0.8}
+                  style={({ pressed }) => [{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }, { opacity: pressed ? 0.8 : 1 }]}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
                   accessibilityRole="button"
                   accessibilityLabel={`${pocket.name} pocket, ${formatCurrency(pocket.remaining)} left of ${formatCurrency(pocket.cap)} cap`}
@@ -461,7 +456,7 @@ export default function HomeScreen() {
                       }}
                     />
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </>
@@ -510,16 +505,15 @@ export default function HomeScreen() {
 
         {/* Emergency Unlock Banner */}
         {showEmergencyUnlock && (
-          <TouchableOpacity
-            style={{
+          <Pressable
+            style={({ pressed }) => [{
               marginTop: spacing.lg,
               backgroundColor: colors.clayTint,
               borderRadius: radius.md,
               padding: spacing.lg,
               borderWidth: 1,
               borderColor: colors.clay,
-            }}
-            activeOpacity={0.8}
+            }, { opacity: pressed ? 0.8 : 1 }]}
             onPress={() => setEmergencyUnlockVisible(true)}
             accessibilityLabel="Emergency unlock from savings"
             accessibilityRole="button"
@@ -536,7 +530,7 @@ export default function HomeScreen() {
               </View>
               <Text style={{ ...typography.caption, color: colors.clay }}>Tap to unlock →</Text>
             </View>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </ScrollView>
 

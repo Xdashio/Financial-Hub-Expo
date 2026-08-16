@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowRight, Clock, AlertTriangle } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
@@ -315,13 +315,13 @@ export default function ReallocReviewScreen() {
         <SectionTitle>Why are you moving this?</SectionTitle>
         <View style={styles.chipRow}>
           {REASONS.map((r) => (
-            <TouchableOpacity
+            <Pressable
               key={r.value}
               onPress={() => setReason(r.value)}
-              style={[styles.chip, reason === r.value && styles.chipSelected]}
+              style={({ pressed }) => [styles.chip, reason === r.value && styles.chipSelected, { opacity: pressed ? 0.7 : 1 }]}
             >
               <Text style={[styles.chipText, reason === r.value && styles.chipTextSelected]}>{r.label}</Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </View>
 

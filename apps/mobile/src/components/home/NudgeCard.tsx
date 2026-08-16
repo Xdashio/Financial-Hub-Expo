@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -63,8 +63,8 @@ export function NudgeCard({ nudge, onNavigate }: NudgeCardProps) {
   if (!nudge.route) return content;
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.8}
+    <Pressable
+      style={({ pressed }) => [{ opacity: pressed ? 0.8 : 1 }]}
       onPress={() => {
         onNavigate?.();
         router.push(nudge.route as any);
@@ -73,6 +73,6 @@ export function NudgeCard({ nudge, onNavigate }: NudgeCardProps) {
       accessibilityLabel={`${nudge.title}. ${nudge.message}`}
     >
       {content}
-    </TouchableOpacity>
+    </Pressable>
   );
 }

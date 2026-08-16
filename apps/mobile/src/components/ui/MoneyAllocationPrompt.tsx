@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, Pressable, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Modal, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, borderWidth } from '@/theme';
@@ -127,12 +127,11 @@ export function MoneyAllocationPrompt({
               {options.map((option) => {
                 const Icon = option.icon;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={option.id}
                     disabled={loading}
                     onPress={() => onSelectOption(option.id)}
-                    activeOpacity={0.7}
-                    style={{
+                    style={({ pressed }) => [{
                       flexDirection: 'row',
                       alignItems: 'center',
                       gap: spacing.md,
@@ -141,8 +140,8 @@ export function MoneyAllocationPrompt({
                       borderWidth: borderWidth,
                       borderColor: colors.line,
                       borderRadius: radius.md,
-                      opacity: loading ? 0.5 : 1,
-                    }}
+                      opacity: loading ? 0.5 : pressed ? 0.7 : 1,
+                    }]}
                   >
                     <View
                       style={{
@@ -163,7 +162,7 @@ export function MoneyAllocationPrompt({
                       </Text>
                     </View>
                     <ArrowRight size={16} color={colors.sage} />
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>

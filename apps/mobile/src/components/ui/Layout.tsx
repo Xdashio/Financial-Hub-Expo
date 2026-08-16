@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ViewStyle, Image } from 'react-native';
+import { View, Text, ScrollView, Pressable, ViewStyle, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { ChevronLeft } from 'lucide-react-native';
@@ -77,16 +77,15 @@ export function BrandHeader({
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: onBack ? 'space-between' : 'center', paddingTop: onBack ? spacing.md : spacing.lg, marginBottom: spacing.md }}>
       {!!onBack && (
-        <TouchableOpacity
-          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+        <Pressable
+          style={({ pressed }) => [{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, { opacity: pressed ? 0.7 : 1 }]}
           onPress={handleBack}
-          activeOpacity={0.7}
           hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
           accessibilityLabel="Go back"
           accessibilityRole="button"
         >
           <ChevronLeft size={20} color={colors.ink} />
-        </TouchableOpacity>
+        </Pressable>
       )}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
         <Image

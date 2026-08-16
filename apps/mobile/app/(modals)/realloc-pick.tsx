@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ArrowLeftRight, Lock, ArrowRight } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
@@ -225,10 +225,15 @@ function PocketRow({
   };
 
   return (
-    <TouchableOpacity
-      activeOpacity={disabled ? 1 : 0.7}
+    <Pressable
+      disabled={disabled}
       onPress={disabled ? undefined : onPress}
-      style={[styles.pocketRow, selected && styles.pocketRowSelected, disabled && styles.pocketRowDisabled]}
+      style={({ pressed }) => [
+        styles.pocketRow,
+        selected && styles.pocketRowSelected,
+        disabled && styles.pocketRowDisabled,
+        !disabled && { opacity: pressed ? 0.7 : 1 },
+      ]}
     >
       <View style={[styles.dot, { backgroundColor: dotColor(pocket, colors) }]} />
       <View style={{ flex: 1 }}>
@@ -237,6 +242,6 @@ function PocketRow({
       </View>
       {disabled && <Lock size={14} color={colors.sage} style={{ marginRight: spacing.xs }} />}
       <Text style={styles.pocketAmount}>{formatCurrency(pocket.availableBalance)}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
