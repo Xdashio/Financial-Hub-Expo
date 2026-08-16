@@ -356,6 +356,17 @@ export default function InsightsScreen() {
           onClear={() => setSearchQuery('')}
         />
 
+        {/* Load More previously lived only inside the "has events" branch
+            below, so it silently disappeared whenever the current page's
+            events were all filtered out — either by an active search
+            matching nothing on this page, or by mapBehaviorEvent returning
+            null for every event on this page (e.g. a page made up entirely
+            of zero-amount daily_rollover_success events, which are
+            intentionally hidden). hasMore reflects real backend pagination
+            state independent of what's renderable right now, so it's
+            checked and rendered outside/after the branch below instead —
+            the user can always reach further pages as long as more exist,
+            even when nothing on the current page happens to be visible. */}
         {filteredEvents.length === 0 && displayEvents.length > 0 ? (
           <EmptyState
             variant="no-results"
@@ -364,41 +375,39 @@ export default function InsightsScreen() {
             actionLabel="Clear search"
             onAction={() => setSearchQuery('')}
           />
-        ) : displayEvents.length === 0 ? (
+        ) : displayEvents.length === 0 && !hasMore ? (
           <EmptyState
             variant="empty"
             title="No spending activity yet"
             description="Start tracking your spending to see insights and patterns"
           />
         ) : (
-          <>
-            {filteredEvents.map((event, i) => (
-              <View key={i} style={{ flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
-                <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 6, backgroundColor: event.color }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ ...typography.heading, color: colors.ink }}>{event.title}</Text>
-                  {event.desc ? <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs, lineHeight: 16 }}>{event.desc}</Text> : null}
-                </View>
-                <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, marginLeft: 'auto' }}>{event.time}</Text>
+          filteredEvents.map((event, i) => (
+            <View key={i} style={{ flexDirection: 'row', gap: spacing.md, paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, marginTop: 6, backgroundColor: event.color }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...typography.heading, color: colors.ink }}>{event.title}</Text>
+                {event.desc ? <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs, lineHeight: 16 }}>{event.desc}</Text> : null}
               </View>
-            ))}
-            {hasMore && (
-              loadingMore ? (
-                <InlineLoading />
-              ) : (
-                <Pressable
-                  onPress={loadMoreEvents}
-                  style={{ paddingVertical: spacing.md, alignItems: 'center' }}
-                  accessibilityLabel="Load more activity"
-                  accessibilityRole="button"
-                >
-                  <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-                    Load more
-                  </Text>
-                </Pressable>
-              )
-            )}
-          </>
+              <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, marginLeft: 'auto' }}>{event.time}</Text>
+            </View>
+          ))
+        )}
+        {hasMore && (
+          loadingMore ? (
+            <InlineLoading />
+          ) : (
+            <Pressable
+              onPress={loadMoreEvents}
+              style={{ paddingVertical: spacing.md, alignItems: 'center' }}
+              accessibilityLabel="Load more activity"
+              accessibilityRole="button"
+            >
+              <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                Load more
+              </Text>
+            </Pressable>
+          )
         )}
       </ScrollView>
     </ScreenContainer>
