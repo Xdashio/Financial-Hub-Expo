@@ -49,6 +49,12 @@ export class SpendService {
     // "cancel", instead of the block being a dead end.
     shortfall?: number;
     overridable?: boolean;
+    // Discloses the discipline-score cost of overriding *before* the user
+    // commits to it (mirrors real overdraft disclosure — see
+    // recordEssentialOverride below for where this is actually applied).
+    // Surfaced as a positive number of points ("this will cost you N
+    // points") even though the applied delta is negative internally.
+    override_points_cost?: number;
     reallocation_sources?: Array<{
       pocket_id: string;
       pocket_name: string;
@@ -83,6 +89,28 @@ export class SpendService {
         allowed: false,
         block_reason: 'pocket_time_locked',
         message: `${pocket.name} is time-locked and can't be spent from until it unlocks.`,
+        pocket: {
+          id: pocket.id,
+          name: pocket.name,
+          available_balance: (await this.repository.getPocketSummary(dto.pocket_id)).available,
+        },
+      };
+    }
+
+    // Savings pockets never enter the insufficient_funds override flow,
+    // locked or not. is_time_locked only covers a pocket the user has
+    // explicitly locked — an unlocked savings pocket would otherwise sail
+    // straight through to the overridable insufficient_funds branch below
+    // and let a "spend anyway" push real savings negative, which defeats
+    // the entire purpose of a savings pocket (see emergency-unlock.service.ts,
+    // which specifically depends on savings staying protected/available as
+    // the last-resort reserve). This is a hard block, never overridable,
+    // same as pocket_time_locked.
+    if (pocket.kind === 'savings') {
+      return {
+        allowed: false,
+        block_reason: 'savings_protected',
+        message: `${pocket.name} is a savings pocket and can't be spent from directly. Use emergency unlock if you need to access it.`,
         pocket: {
           id: pocket.id,
           name: pocket.name,
@@ -158,6 +186,7 @@ export class SpendService {
         // log it as a deliberate choice rather than being stuck at "no".
         shortfall,
         overridable: true,
+        override_points_cost: -POINTS_ESSENTIAL_OVERRIDE, // e.g. 10, matches recordEssentialOverride's deduction
         reallocation_sources: reallocationSources,
         pocket: {
           id: pocket.id,

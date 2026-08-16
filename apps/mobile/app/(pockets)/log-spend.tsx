@@ -138,13 +138,20 @@ export default function LogSpendScreen() {
       // Plain insufficient_funds (no borrow-from-parent option): the API
       // still marks this overridable and computes reallocation_sources, so
       // offer "spend anyway" here instead of dead-ending like a hard block.
+      // Discloses the discipline-score cost up front (mirrors real overdraft
+      // disclosure) rather than letting the user find out only after the
+      // fact — see spend.service.ts's recordEssentialOverride for where the
+      // actual deduction is applied.
       if (checkResult.block_reason === 'insufficient_funds' && checkResult.overridable) {
         const shortfallText = checkResult.shortfall
           ? ` You're short ${formatMoney(checkResult.shortfall)}.`
           : '';
+        const costText = checkResult.override_points_cost
+          ? ` This will cost you ${checkResult.override_points_cost} discipline points.`
+          : '';
         const confirmed = await confirm(
           "Can't log this spend",
-          `${checkResult.message || 'Insufficient funds in this pocket.'}${shortfallText} Log it anyway?`,
+          `${checkResult.message || 'Insufficient funds in this pocket.'}${shortfallText}${costText} Log it anyway?`,
           { confirmLabel: 'Spend anyway', cancelLabel: 'Cancel' }
         );
 

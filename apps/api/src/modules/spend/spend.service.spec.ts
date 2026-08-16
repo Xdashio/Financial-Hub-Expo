@@ -345,155 +345,98 @@ describe('SpendService.commitSpend', () => {
     });
   });
 
-  describe('SpendService overflow/borrow flow (subpocket-feature-spec.md §5)', () => {
-    let repository: jest.Mocked<
-      Pick<
-        SupabaseRepository,
-        | 'getPocketById'
-        | 'getPlanById'
-        | 'getPocketSummary'
-        | 'getMerchantClassification'
-        | 'createTransaction'
-        | 'getBehaviorEventsByTypesSince'
-        | 'getSpendTotalsByPocketBetween'
-        | 'createBehaviorEvent'
-        | 'getTopLevelPocketsByPlanId'
-        | 'getSubPocketsByParentId'
-        | 'getParentReservedBalance'
-        | 'createImmediateParentToChildReallocation'
-      >
-    >;
-    let disciplineScore: { applyDelta: jest.Mock };
-    let service: SpendService;
+  describe('savings guard (prevents spend transactions on savings pockets)', () => {
+    const SAVINGS_POCKET = { ...SPENDABLE_POCKET, id: 'pocket-savings', name: 'Emergency Fund', kind: 'savings' as const };
 
-    beforeEach(() => {
-      repository = {
-        getPocketById: jest.fn().mockResolvedValue(SPENDABLE_POCKET),
-        getPlanById: jest.fn().mockResolvedValue({ id: 'plan-1', user_id: 'user-1' }),
-        getPocketSummary: jest.fn().mockResolvedValue(makePocketSummary()),
-        getMerchantClassification: jest.fn().mockResolvedValue(null),
-        getIdempotencyRecord: jest.fn().mockResolvedValue(null),
-        saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
-        createTransaction: jest.fn().mockImplementation((tx) => ({ id: 'tx-1', ...tx })),
-        getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
-        getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([['pocket-1', 500]])),
-        createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'evt-1' }),
-        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([SPENDABLE_POCKET, FIXED_POCKET]),
-        getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
-        getParentReservedBalance: jest.fn().mockResolvedValue(0),
-        createImmediateParentToChildReallocation: jest.fn().mockResolvedValue({ id: 'realloc-1' }),
-      } as any;
-      disciplineScore = { applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 100 }) };
-      service = new SpendService(
-        repository as unknown as SupabaseRepository,
-        disciplineScore as any,
-      );
-    });
+    it('blocks spend attempts on savings pockets regardless of balance', async () => {
+      repository.getPocketById.mockResolvedValue(SAVINGS_POCKET as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 50000 }));
 
-    it('offers borrow_from_parent option when sub-pocket exceeds balance and parent has enough reserved', async () => {
-      repository.getPocketById.mockImplementation(async (id: string) => {
-        if (id === 'sub-pocket-1') return SUB_POCKET;
-        if (id === 'pocket-1') return PARENT_WITH_SUBS;
-        return SPENDABLE_POCKET;
-      });
-      repository.getPocketSummary.mockImplementation(async (id: string) => {
-        if (id === 'sub-pocket-1') return makePocketSummary({ available: 100 }); // Sub-pocket has 100
-        return makePocketSummary({ available: 1000 }); // Parent has 1000 total
-      });
-      repository.getParentReservedBalance.mockResolvedValue(500); // Parent has 500 reserved
-
-      const result = await service.checkSpend(
-        { pocket_id: 'sub-pocket-1', amount: 300 },
-        'user-1'
-      );
+      const result = await service.commitSpend({ pocket_id: 'pocket-savings', amount: 500 }, 'user-1');
 
       expect(result.allowed).toBe(false);
-      expect(result.block_reason).toBe('insufficient_funds');
-      expect(result.shortfall).toBe(200);
-      expect(result.borrow_from_parent_available).toBe(true);
-      expect(result.parent_pocket).toEqual({
-        id: 'pocket-1',
-        name: 'Food & Groceries',
-        available_balance: 500, // Only reserved portion shown
-      });
-      expect(result.message).toContain('Snacks is short 200');
+      expect(result.block_reason).toBe('savings_protected');
+      expect(repository.createTransaction).not.toHaveBeenCalled();
     });
 
-    it('does not offer borrow_from_parent when parent has insufficient reserved balance', async () => {
-      repository.getPocketById.mockResolvedValue(SUB_POCKET as any);
-      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 100 })); // Sub-pocket has 100
-      repository.getParentReservedBalance.mockResolvedValue(50); // Parent only has 50 reserved
-
-      const result = await service.checkSpend(
-        { pocket_id: 'sub-pocket-1', amount: 300 },
-        'user-1'
-      );
-
-      expect(result.allowed).toBe(false);
-      expect(result.block_reason).toBe('insufficient_funds');
-      expect(result.shortfall).toBe(200);
-      expect(result.borrow_from_parent_available).toBeUndefined();
-      expect(result.parent_pocket).toBeUndefined();
-      expect(result.message).toBe('Insufficient funds. Available: KSh 100, Requested: KSh 300');
-    });
-
-    it('does not offer borrow_from_parent for top-level pockets (no parent)', async () => {
-      repository.getPocketById.mockResolvedValue(SPENDABLE_POCKET as any);
-      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 100 }));
-
-      const result = await service.checkSpend(
-        { pocket_id: 'pocket-1', amount: 300 },
-        'user-1'
-      );
-
-      expect(result.allowed).toBe(false);
-      expect(result.block_reason).toBe('insufficient_funds');
-      expect(result.borrow_from_parent_available).toBeUndefined();
-      expect(result.parent_pocket).toBeUndefined();
-    });
-
-    it('executes immediate parent-to-child reallocation when borrow_from_parent is confirmed', async () => {
-      repository.getPocketById.mockImplementation(async (id: string) => {
-        if (id === 'sub-pocket-1') return SUB_POCKET;
-        if (id === 'pocket-1') return PARENT_WITH_SUBS;
-        return SPENDABLE_POCKET;
-      });
-      repository.getPocketSummary.mockImplementation(async (id: string) => {
-        if (id === 'sub-pocket-1') return makePocketSummary({ available: 100 });
-        return makePocketSummary({ available: 1000 });
-      });
-      repository.getParentReservedBalance.mockResolvedValue(500);
+    it('blocks spend attempts on savings pockets even with override: true', async () => {
+      repository.getPocketById.mockResolvedValue(SAVINGS_POCKET as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 50000 }));
 
       const result = await service.commitSpend(
-        { pocket_id: 'sub-pocket-1', amount: 300, borrow_from_parent: true },
-        'user-1'
+        { pocket_id: 'pocket-savings', amount: 500, override: true, override_reason: 'emergency' },
+        'user-1',
       );
 
-      expect(repository.createImmediateParentToChildReallocation).toHaveBeenCalledWith(
-        'pocket-1',
-        'sub-pocket-1',
-        200,
-        'other'
-      );
-      expect(result.borrowed_from_parent).toBe(true);
-      expect(result.allowed).toBe(true);
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('savings_protected');
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
     });
 
-    it('fences off parent reserved balance from direct spending', async () => {
-      repository.getPocketById.mockResolvedValue(PARENT_WITH_SUBS as any);
-      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 1000 })); // Parent has 1000 total
-      repository.getSubPocketsByParentId.mockResolvedValue([SUB_POCKET]); // Has sub-pockets
-      repository.getParentReservedBalance.mockResolvedValue(400); // 400 is reserved
+    it('provides clear messaging that savings pockets are protected', async () => {
+      repository.getPocketById.mockResolvedValue(SAVINGS_POCKET as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 50000 }));
 
-      const result = await service.checkSpend(
-        { pocket_id: 'pocket-1', amount: 700 },
-        'user-1'
+      const result = await service.commitSpend({ pocket_id: 'pocket-savings', amount: 500 }, 'user-1');
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('savings_protected');
+      expect((result as any).overridable).toBeUndefined();
+      expect((result as any).override_points_cost).toBeUndefined();
+    });
+  });
+
+  describe('savings pockets are never overridable (real banking practice: overdrafts are a designed product, savings is not one)', () => {
+    const SAVINGS_POCKET = { ...SPENDABLE_POCKET, id: 'pocket-savings', name: 'Savings', kind: 'savings' as const };
+
+    it('hard-blocks insufficient_funds on an unlocked savings pocket, never reaching overridable', async () => {
+      repository.getPocketById.mockResolvedValue(SAVINGS_POCKET as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 200 }));
+
+      const result = await service.commitSpend({ pocket_id: 'pocket-savings', amount: 500 }, 'user-1');
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('savings_protected');
+      expect((result as any).overridable).toBeUndefined();
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+    });
+
+    it('never overrides savings_protected, even with override: true', async () => {
+      repository.getPocketById.mockResolvedValue(SAVINGS_POCKET as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 200 }));
+
+      const result = await service.commitSpend(
+        { pocket_id: 'pocket-savings', amount: 500, override: true },
+        'user-1',
       );
 
-      // Only 600 is spendable (1000 - 400 reserved)
       expect(result.allowed).toBe(false);
-      expect(result.shortfall).toBe(100);
-      expect(result.message).toContain('Insufficient funds');
+      expect(result.block_reason).toBe('savings_protected');
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+    });
+
+    it('blocks even a savings pocket with ample balance — this is a kind-based rule, not a balance check', async () => {
+      repository.getPocketById.mockResolvedValue(SAVINGS_POCKET as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 50000 }));
+
+      const result = await service.commitSpend({ pocket_id: 'pocket-savings', amount: 500 }, 'user-1');
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('savings_protected');
+    });
+  });
+
+  describe('insufficient_funds discloses the override point cost up front (real overdraft disclosure practice)', () => {
+    it('includes override_points_cost matching what recordEssentialOverride actually deducts', async () => {
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 200 }));
+
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('insufficient_funds');
+      expect((result as any).override_points_cost).toBe(10);
     });
   });
 });
