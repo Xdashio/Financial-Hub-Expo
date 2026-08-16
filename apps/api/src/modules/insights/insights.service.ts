@@ -104,6 +104,17 @@ export class InsightsService {
         // only the unrelated daily_overspend events were being summed.
         'lock_extension',
         'early_unlock',
+        // reallocation_completed also moves the real score via
+        // ReallocationsService.applyDisciplineCost whenever a user skips
+        // the cooling-off period (SKIP_COOLING_OFF_COST, currently -5).
+        // Was missing from this list entirely, so a skipped cooling-off
+        // silently vanished from "pts this period" the same way lock
+        // extensions did above — the score genuinely dropped further than
+        // the hero copy reported. reallocation_initiated is intentionally
+        // excluded: it always writes discipline_cost: 0 at creation time
+        // (the real cost, if any, is only known and applied once the
+        // reallocation completes).
+        'reallocation_completed',
       ],
       monthStart,
     );
@@ -114,6 +125,13 @@ export class InsightsService {
       const payload = (event.payload || {}) as Record<string, unknown>;
       if (typeof payload.points_added === 'number') net += payload.points_added;
       if (typeof payload.points_deducted === 'number') net -= payload.points_deducted;
+      // reallocation_completed doesn't follow the points_added/points_deducted
+      // convention above — it's written by ReallocationsService with a
+      // differently-named field (see applyDisciplineCost in
+      // reallocations.service.ts), so it needs its own read here.
+      if (event.type === 'reallocation_completed' && typeof payload.disciplineCost === 'number') {
+        net -= payload.disciplineCost;
+      }
     }
     return net;
   }

@@ -119,6 +119,62 @@ describe('InsightsService', () => {
       );
       expect(result.delta).toBe(15); // 6 + 6 + 6 - 3, not just -3
     });
+
+    it('includes reallocation_completed disciplineCost (skipped cooling-off) in the period delta', async () => {
+      // Regression test: reallocation_completed was missing from the event
+      // types list entirely, and even if present, its cost lives under a
+      // differently-named field (payload.disciplineCost, written by
+      // ReallocationsService.applyDisciplineCost) rather than the
+      // points_added/points_deducted convention every other event type
+      // uses — so a skipped cooling-off silently vanished from "pts this
+      // period" the same way lock extensions did above, even though it
+      // genuinely moves the real, persisted discipline score.
+      supabaseRepo.getLatestDisciplineScore.mockResolvedValue({
+        user_id: 'user-123',
+        score: 0,
+        delta: -3,
+        period: '2026-08',
+        calculated_at: new Date().toISOString(),
+      } as any);
+      (supabaseRepo.getBehaviorEventsByTypesSince as jest.Mock).mockResolvedValue([
+        { created_at: '2026-08-04T12:00:00.000Z', payload: { points_deducted: 3 } }, // daily_overspend
+        {
+          created_at: '2026-08-10T12:00:00.000Z',
+          type: 'reallocation_completed',
+          payload: { disciplineCost: 5, amount: 99, fromPocket: 'Food & Groceries', toPocket: 'Personal & Leisure' },
+        },
+      ]);
+
+      const result = await service.getDisciplineScore('user-123');
+
+      expect(supabaseRepo.getBehaviorEventsByTypesSince).toHaveBeenCalledWith(
+        'user-123',
+        expect.arrayContaining(['reallocation_completed']),
+        expect.any(String),
+      );
+      expect(result.delta).toBe(-8); // -3 - 5, not just -3
+    });
+
+    it('ignores reallocation_initiated events (always zero cost at creation time)', async () => {
+      supabaseRepo.getLatestDisciplineScore.mockResolvedValue({
+        user_id: 'user-123',
+        score: 50,
+        delta: 0,
+        period: '2026-08',
+        calculated_at: new Date().toISOString(),
+      } as any);
+      (supabaseRepo.getBehaviorEventsByTypesSince as jest.Mock).mockResolvedValue([
+        {
+          created_at: '2026-08-10T12:00:00.000Z',
+          type: 'reallocation_initiated',
+          payload: { disciplineCost: 0, amount: 1280, fromPocket: 'Transport', toPocket: 'Personal & Leisure' },
+        },
+      ]);
+
+      const result = await service.getDisciplineScore('user-123');
+
+      expect(result.delta).toBe(0);
+    });
   });
 
   describe('getStreak', () => {
