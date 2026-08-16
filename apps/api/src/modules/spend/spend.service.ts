@@ -4,7 +4,7 @@ import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { Pocket } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket, isReviewableBlock } from '../../common/pocket-rules';
-import { getMerchantCategoryLabel } from '@financial-hub/shared';
+import { getMerchantCategoryLabel, toCents, fromCents, formatWholeKsh } from '@financial-hub/shared';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import {
   CAP_DAILY_OVERSPEND,
@@ -148,7 +148,11 @@ export class SpendService {
       return {
         allowed: false,
         block_reason: 'insufficient_funds',
-        message: `Insufficient funds. Available: ${availableBalance}, Requested: ${amount}`,
+        // Round to whole KSh for the message so it matches formatMoney()'s
+        // default display everywhere else in the app — showing raw cents
+        // here (e.g. "2165.72") while every other screen rounds the same
+        // balance to "2,166" made the block look wrong/inconsistent.
+        message: `Insufficient funds. Available: ${formatWholeKsh(availableBalance)}, Requested: ${formatWholeKsh(amount)}`,
         // Soft block, unlike blocked_category / pocket_time_locked: the
         // client can resubmit with `override: true` (see commitSpend) and
         // log it as a deliberate choice rather than being stuck at "no".
@@ -685,6 +689,8 @@ export class SpendService {
   }
 }
 
+// Delegates to the shared integer-cents helper (packages/shared/src/money.ts)
+// so every boundary-round in the app uses the same single conversion rule.
 function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+  return fromCents(toCents(n));
 }

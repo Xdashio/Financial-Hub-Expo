@@ -135,6 +135,39 @@ export default function LogSpendScreen() {
         }
       }
 
+      // Plain insufficient_funds (no borrow-from-parent option): the API
+      // still marks this overridable and computes reallocation_sources, so
+      // offer "spend anyway" here instead of dead-ending like a hard block.
+      if (checkResult.block_reason === 'insufficient_funds' && checkResult.overridable) {
+        const shortfallText = checkResult.shortfall
+          ? ` You're short ${formatMoney(checkResult.shortfall)}.`
+          : '';
+        const confirmed = await confirm(
+          "Can't log this spend",
+          `${checkResult.message || 'Insufficient funds in this pocket.'}${shortfallText} Log it anyway?`,
+          { confirmLabel: 'Spend anyway', cancelLabel: 'Cancel' }
+        );
+
+        if (confirmed) {
+          const payload = {
+            pocket_id: pocketId,
+            amount: numericAmount,
+            recipient_key: merchant || undefined,
+            category: category || undefined,
+            idempotency_key: idempotencyKey,
+            override: true,
+          };
+          const result = await spendApi.commit(payload);
+
+          if (result.allowed) {
+            useDataSync.getState().bump();
+            await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
+            safeGoBack(router, '/(tabs)');
+          }
+        }
+        return;
+      }
+
       if (checkResult.block_reason === 'unclassified_merchant') {
         router.push({
           pathname: '/(classification)/classify',

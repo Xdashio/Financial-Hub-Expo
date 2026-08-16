@@ -19,6 +19,7 @@ import {
   IdempotencyRecord, IdempotencyRecordInsert, IdempotencyScope,
   EmergencyUnlockRow, EmergencyUnlockRowInsert,
 } from '../database/database.types';
+import { sumMoney, netMoney } from '@financial-hub/shared';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -537,29 +538,42 @@ export class SupabaseRepository {
     //              rollover with negative amount (daily unspent leaving a spendable)
     // monthly_allocation on the pocket row is a planning ceiling only and is
     // never mutated after onboarding — balances are always derived from here.
-    const allocated = transactions
-      .filter(t => t.type === 'allocation' || t.type === 'reallocation_in')
-      .reduce((sum, t) => sum + t.amount, 0);
+    // Summed in integer cents (see @financial-hub/shared money.ts) rather
+    // than raw float addition — Postgres NUMERIC is exact, but a JS
+    // reduce() over many ledger rows can accumulate float rounding error
+    // that a final Math.round(n*100)/100 patch doesn't prevent, since the
+    // error is baked into every intermediate sum before that final round.
+    const allocated = sumMoney(
+      transactions
+        .filter(t => t.type === 'allocation' || t.type === 'reallocation_in')
+        .map(t => t.amount),
+    );
 
-    const spent = transactions
-      .filter(t => t.type === 'spend')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const spent = sumMoney(
+      transactions
+        .filter(t => t.type === 'spend')
+        .map(t => t.amount),
+    );
 
     // reallocation_out amounts are stored as negative values in the ledger
     // (see reallocations.service.ts createTransactions call), so summing them
     // reduces the balance correctly without a separate subtract step.
-    const reallocatedOut = transactions
-      .filter(t => t.type === 'reallocation_out')
-      .reduce((sum, t) => sum + t.amount, 0); // amounts are negative
+    const reallocatedOut = sumMoney(
+      transactions
+        .filter(t => t.type === 'reallocation_out')
+        .map(t => t.amount), // amounts are negative
+    );
 
     // Daily under-cap rollover (Batch 6): signed amounts — negative leaves a
     // spendable pocket, positive lands in Savings. Zero-amount placeholder
     // rows (early unlock audit) are no-ops.
-    const rolloverNet = transactions
-      .filter(t => t.type === 'rollover')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const rolloverNet = sumMoney(
+      transactions
+        .filter(t => t.type === 'rollover')
+        .map(t => t.amount),
+    );
 
-    const available = allocated + reallocatedOut - spent + rolloverNet;
+    const available = netMoney(allocated, reallocatedOut, -spent, rolloverNet);
 
     const transactionCount = transactions.length;
     const reallocationCount = (reallocations.data || []).length;
@@ -567,7 +581,12 @@ export class SupabaseRepository {
     return {
       allocated,
       spent,
-      available: Math.max(0, available),
+      // NOT clamped to 0 here: an overridden spend (spend.service.ts
+      // `override: true`) can legitimately push a pocket negative, and
+      // emergency-unlock eligibility depends on seeing that true negative/
+      // zero value. Clamping here would silently hide overdrafts and make
+      // emergency unlock permanently unreachable even after this fix.
+      available,
       transactionCount,
       reallocationCount,
     };
@@ -592,13 +611,10 @@ export class SupabaseRepository {
     const subPocketSummaries = await Promise.all(
       subPockets.map(sp => this.getPocketSummary(sp.id))
     );
-    const distributable = subPocketSummaries.reduce(
-      (sum, summary) => sum + summary.available,
-      0
-    );
+    const distributable = sumMoney(subPocketSummaries.map(summary => summary.available));
 
     // Reserved = parent total - distributable to children
-    const reserved = Math.max(0, parentSummary.available - distributable);
+    const reserved = Math.max(0, netMoney(parentSummary.available, -distributable));
     return reserved;
   }
 
@@ -909,7 +925,7 @@ export class SupabaseRepository {
       .gte('created_at', startIso)
       .lt('created_at', endIsoExclusive);
     if (error) throw error;
-    return (data || []).reduce((sum, row) => sum + Number(row.amount), 0);
+    return sumMoney((data || []).map((row) => Number(row.amount)));
   }
 
   // Discipline Scores
