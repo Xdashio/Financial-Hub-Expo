@@ -172,11 +172,13 @@ export function StreakHeatmap() {
             toValue: 1.05,
             duration: 400,
             easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
           }),
           Animated.timing(scaleAnim.current, {
             toValue: 1,
             duration: 400,
             easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
           }),
         ]).start();
 
@@ -194,12 +196,14 @@ export function StreakHeatmap() {
           toValue: 1.1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-        }),
+            useNativeDriver: true,
+          }),
         Animated.timing(pulseAnim.current, {
           toValue: 1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
-        }),
+            useNativeDriver: true,
+          }),
       ])
     );
     return () => pulse.stop();
