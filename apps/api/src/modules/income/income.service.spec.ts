@@ -478,8 +478,6 @@ describe('IncomeService.createManualIncome', () => {
         ])
       );
     });
-  });
-
 
     it('keeps full amount with parent when all sub-pockets have null split_percentage', async () => {
       // Regression: before the shared helper, split_percentage || 0 treated null
@@ -552,6 +550,7 @@ describe('IncomeService.createManualIncome', () => {
       );
       expect(result.allocation.allocations.find(a => a.pocket_id === 'sub-dining')).toBeUndefined();
     });
+  });
 
   describe('fixed pocket capping', () => {
     it('caps fixed pockets at their monthly_allocation and redistributes excess', async () => {

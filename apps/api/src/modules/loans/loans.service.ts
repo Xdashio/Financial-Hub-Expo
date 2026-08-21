@@ -345,9 +345,13 @@ export class LoansService {
     const today = new Date().toISOString().split('T')[0];
     const isLate = today > schedule.nextDueDate;
 
-    // Record behavioral event
+    // Record behavioral event. Single source of truth for the point swing
+    // — the payload below and the applyDelta call after it both derive
+    // from this instead of each hardcoding their own +5/-3, which is what
+    // let them drift apart before (payload had no points at all).
     const eventType = isLate ? 'loan_repayment_late' : 'loan_repayment_ontime';
     const scoreChange = isLate ? -3 : 5; // Negative for late, positive for on-time
+
 
     await this.repository.createBehaviorEvent({
       user_id: userId,
@@ -359,6 +363,16 @@ export class LoansService {
         due_date: schedule.nextDueDate,
         paid_date: today,
         is_late: isLate,
+        // points_added/points_deducted follow the same convention every
+        // other scoring event's payload uses (see InsightsService.
+        // sumPeriodDisciplinePoints) so this event's real score movement
+        // is readable generically instead of needing a bespoke reader.
+        // Previously omitted, which — combined with these two event types
+        // never being in sumPeriodDisciplinePoints' type list either —
+        // meant on-time/late loan repayments silently never showed up in
+        // "pts this period" despite genuinely moving the score below via
+        // applyDelta.
+        ...(isLate ? { points_deducted: -scoreChange } : { points_added: scoreChange }),
       } as any,
     });
 
@@ -547,16 +561,22 @@ export class LoansService {
    * Marks a loan as fully repaid
    */
   private async markLoanFullyRepaid(loanId: string, userId: string): Promise<void> {
+    // Bonus for completing a loan — single source of truth for both the
+    // event payload and the applyDelta call right below, same reasoning
+    // as loan_repayment_ontime/late above.
+    const bonus = 10;
+
     // Record completion event
     await this.repository.createBehaviorEvent({
       user_id: userId,
       type: 'loan_fully_repaid',
       payload: {
         loan_id: loanId,
+        points_added: bonus,
       } as any,
     });
 
     // Award bonus discipline score for completing loan
-    await this.disciplineScore.applyDelta(userId, 10);
+    await this.disciplineScore.applyDelta(userId, bonus);
   }
 }

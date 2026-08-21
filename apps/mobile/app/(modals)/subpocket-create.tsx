@@ -24,7 +24,7 @@ import { formatMoney } from '@/utils/money';
  * the parent summary + siblings on mount to compute the remaining headroom.
  */
 
-const PCT_STEP = 5;
+const PCT_STEP = 1;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
