@@ -175,6 +175,47 @@ export default function LogSpendScreen() {
         return;
       }
 
+      // Emergency-overspend confirmation (daily plans only): the pocket has
+      // the money, but spending it today blows past the pacing cap meant
+      // to stretch it across the rest of the cycle. Show exactly what the
+      // cap becomes for the remaining days if the user goes ahead, mirrors
+      // the insufficient_funds "spend anyway" pattern above but persists a
+      // recalculated daily_cap on confirm instead of just logging an
+      // override.
+      if (checkResult.block_reason === 'daily_cap_exceeded' && checkResult.overridable) {
+        const confirmed = await confirm(
+          'Above your daily cap',
+          checkResult.message || 'This spend is above what your daily budget can absorb today.',
+          { confirmLabel: 'Spend anyway', cancelLabel: 'Adjust amount' }
+        );
+
+        if (confirmed) {
+          const payload = {
+            pocket_id: pocketId,
+            amount: numericAmount,
+            recipient_key: merchant || undefined,
+            category: category || undefined,
+            idempotency_key: idempotencyKey,
+            override_daily_cap: true,
+          };
+          const result = await spendApi.commit(payload);
+
+          if (result.allowed) {
+            useDataSync.getState().bump();
+            const newCap = result.adjusted_daily_cap;
+            await alert(
+              'Spend logged',
+              `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.` +
+                (typeof newCap === 'number'
+                  ? ` Your daily cap for the rest of the cycle is now ${formatMoney(newCap)}.`
+                  : ''),
+            );
+            safeGoBack(router, '/(tabs)');
+          }
+        }
+        return;
+      }
+
       if (checkResult.block_reason === 'unclassified_merchant') {
         router.push({
           pathname: '/(classification)/classify',

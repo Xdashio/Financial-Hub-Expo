@@ -1,4 +1,5 @@
 import { SpendService } from './spend.service';
+import { remainingDaysAfterToday } from '../rollover/rollover-planner';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 
 const SPENDABLE_POCKET: any = {
@@ -79,6 +80,8 @@ describe('SpendService.commitSpend', () => {
       | 'getSpendTotalsByPocketBetween'
       | 'createBehaviorEvent'
       | 'getTopLevelPocketsByPlanId'
+      | 'getActivePlanByUserId'
+      | 'updatePocket'
     >
   >;
   let disciplineScore: { applyDelta: jest.Mock };
@@ -100,6 +103,12 @@ describe('SpendService.commitSpend', () => {
       getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
       getParentReservedBalance: jest.fn().mockResolvedValue(0),
       createImmediateParentToChildReallocation: jest.fn().mockResolvedValue({ id: 'realloc-1' }),
+      // Defaults to no active plan (i.e. not on a 'daily' plan) so existing
+      // tests, which predate the daily-cap emergency-overspend check, keep
+      // exercising the same insufficient_funds/blocked_category paths
+      // untouched. Tests for the new daily_cap_exceeded flow override this.
+      getActivePlanByUserId: jest.fn().mockResolvedValue(null),
+      updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
     } as any;
     disciplineScore = { applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 100 }) };
     service = new SpendService(
@@ -437,6 +446,62 @@ describe('SpendService.commitSpend', () => {
       expect(result.allowed).toBe(false);
       expect(result.block_reason).toBe('insufficient_funds');
       expect((result as any).override_points_cost).toBe(10);
+    });
+  });
+
+  describe('daily_cap_exceeded — emergency overspend on a daily plan', () => {
+    const DAILY_POCKET = { ...SPENDABLE_POCKET, daily_cap: 833 };
+
+    beforeEach(() => {
+      repository.getPocketById.mockResolvedValue(DAILY_POCKET as any);
+      repository.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1', type: 'daily' } as any);
+      // 25,000 left in the pocket, nothing spent yet today.
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 25000 }));
+      repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map());
+    });
+
+    it('soft-blocks a spend that fits the balance but blows past today\'s cap', async () => {
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 2000 }, 'user-1');
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('daily_cap_exceeded');
+      expect((result as any).current_daily_cap).toBe(833);
+      expect((result as any).overridable).toBe(true);
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.updatePocket).not.toHaveBeenCalled();
+    });
+
+    it('does not block a spend that fits within what is left of today\'s cap', async () => {
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
+
+      expect(result.allowed).toBe(true);
+      expect(repository.createTransaction).toHaveBeenCalled();
+      expect(repository.updatePocket).not.toHaveBeenCalled();
+    });
+
+    it('lets the spend through and shrinks the daily cap once the user confirms via override_daily_cap', async () => {
+      const result = await service.commitSpend(
+        { pocket_id: 'pocket-1', amount: 2000, override_daily_cap: true },
+        'user-1',
+      );
+
+      expect(result.allowed).toBe(true);
+      expect((result as any).overridden_daily_cap).toBe(true);
+      expect(repository.createTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ pocket_id: 'pocket-1', amount: 2000 }),
+      );
+      // 25,000 - 2,000 = 23,000 left, spread over the days-remaining figure
+      // remainingDaysAfterToday computes for "today" (real clock time in
+      // this test run) — assert the shape and that it's a sane positive
+      // number rather than pinning an exact date-dependent value.
+      expect(repository.updatePocket).toHaveBeenCalledWith(
+        'pocket-1',
+        expect.objectContaining({ daily_cap: expect.any(Number) }),
+      );
+      const [, updates] = repository.updatePocket.mock.calls[0];
+      const daysRemaining = remainingDaysAfterToday(new Date().toISOString().slice(0, 10));
+      const expectedCap = Math.round((23000 / Math.max(1, daysRemaining)) * 100) / 100;
+      expect((updates as any).daily_cap).toBeCloseTo(expectedCap, 2);
     });
   });
 });

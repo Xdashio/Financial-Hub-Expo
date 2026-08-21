@@ -44,4 +44,15 @@ export class SpendCheckDto {
    */
   @IsOptional()
   borrow_from_parent?: boolean;
+
+  /**
+   * Set only on a resubmission after the client showed the user a
+   * `block_reason: 'daily_cap_exceeded'` response (the emergency-spend
+   * flow) and they chose "spend anyway" over adjusting the amount. This
+   * both lets the spend through and persists the recalculated daily_cap
+   * for the rest of the cycle — see spend.service.ts's
+   * applyDailyCapOverride.
+   */
+  @IsOptional()
+  override_daily_cap?: boolean;
 }
