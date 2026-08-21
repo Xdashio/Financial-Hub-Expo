@@ -353,7 +353,24 @@ export class PocketsService {
       parent_pocket_id: parent.id,
     };
 
-    const created = await this.repository.createPocket(insert);
+    let created: Pocket | null;
+    try {
+      created = await this.repository.createPocket(insert);
+    } catch (err) {
+      // Translate a DB-level constraint violation into a clear 400 instead
+      // of letting Nest's default filter turn the raw Postgres error into
+      // an opaque 500 — this is what was happening for sub-pockets of a
+      // Loan pocket before 012_loan_subpocket_constraint_fix.sql (kind
+      // inherited as 'loan' but no repayment_schedule/due_day, tripping
+      // loan_schedule_only_for_loans / loan_due_day_only_for_loans). Any
+      // other future CHECK/FK violation on this insert now surfaces the
+      // same way instead of 500ing.
+      const code = (err as { code?: string })?.code;
+      if (code === '23514' || code === '23503' || code === '23502') {
+        throw new BadRequestException('Could not create sub-pocket: the request conflicts with a database rule for this pocket type.');
+      }
+      throw err;
+    }
     if (!created) {
       throw new Error('Failed to create sub-pocket');
     }
