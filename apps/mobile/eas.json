@@ -35,8 +35,7 @@
         "SENTRY_PROJECT": "financial_hub"
       },
       "android": {
-        "buildType": "app-bundle",
-        "enableProguardInReleaseBuilds": true
+        "buildType": "app-bundle"
       }
     }
   },
