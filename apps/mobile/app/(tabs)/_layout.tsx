@@ -30,6 +30,14 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontFamily: typography.caption.fontFamily,
           fontSize: typography.caption.fontSize,
+          // Prevent label clipping on narrow screens — without an explicit
+          // lineHeight the OS default can be taller than the allocated
+          // label slot on some Android densities, clipping the descenders.
+          lineHeight: typography.caption.lineHeight,
+        },
+        // Ensure label always sits below icon and has room to render fully
+        tabBarItemStyle: {
+          paddingVertical: spacing.xs,
         },
       }}
     >

@@ -251,11 +251,11 @@ export default function HomeScreen() {
               <PocketGlyph kind={pocketGlyphKind(pocket.kind)} color={pocketColor} size={16} muted />
             )}
             <View style={{ flex: 1 }}>
-              <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
-              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>{purpose}</Text>
+              <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>{pocket.name}</Text>
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }} numberOfLines={1}>{purpose}</Text>
             </View>
           </View>
-          <View style={{ alignItems: 'flex-end' }}>
+          <View style={{ alignItems: 'flex-end', flexShrink: 0 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {pocket.isTimeLocked && (
                 <Lock color={colors.sage} size={13} strokeWidth={2} />
@@ -339,10 +339,9 @@ export default function HomeScreen() {
         <View style={{ marginTop: spacing.xl }}>
           <Text style={{ ...typography.caption, color: colors.sage, letterSpacing: 0.36, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>{isDaily ? 'Safe to spend today' : 'Safe to spend'}</Text>
           <Text style={{ ...typography.display, color: colors.emeraldDeep, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>{formatCurrency(safeToSpendToday)}</Text>
-          <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }}>
+          <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }} numberOfLines={2}>
             {isDaily ? 'Sum of daily caps' : 'Total across spendable pockets'}
-            {' · '}
-            Rolling last 30 days alongside this calendar month
+            {' · Rolling last 30 days'}
           </Text>
         </View>
 
@@ -423,16 +422,16 @@ export default function HomeScreen() {
 
         {isDaily && (
           <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-              <View style={{ width: 32, height: 32, borderRadius: radius.xs, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, flex: 1, marginRight: spacing.md }}>
+              <View style={{ width: 32, height: 32, borderRadius: radius.xs, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <RefreshCw size={16} color={colors.gold} strokeWidth={2.5} />
               </View>
-              <View>
-                <Text style={{ ...typography.heading, color: colors.ink }}>Today's rollover</Text>
-                <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 1 }}>Unspent amounts move to Savings at midnight</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>Today's rollover</Text>
+                <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 1 }} numberOfLines={1}>Unspent daily amounts roll to Savings at midnight</Text>
               </View>
             </View>
-            <Text style={{ ...typography.body, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>{formatCurrency(rolloverAmount)}</Text>
+            <Text style={{ ...typography.body, color: colors.emeraldDeep, fontVariant: ['tabular-nums'], flexShrink: 0 }}>{formatCurrency(rolloverAmount)}</Text>
           </View>
         )}
 
