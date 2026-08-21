@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ArrowLeftRight, Lock, ArrowRight } from 'lucide-react-native';
 import { radius, spacing, typography, borderWidth, borderWidthThick } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -35,12 +35,16 @@ function formatCurrency(amount: number) {
 
 export default function ReallocPickScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ fromId?: string; amount?: string }>();
   const pockets = useHomeStore((s) => s.pockets);
   const { colors } = useTheme();
 
-  const [fromId, setFromId] = React.useState<string | null>(null);
+  // Allows callers (e.g. the "Goal reached" flow on a completed savings
+  // pocket) to deep-link straight in with the source pocket and amount
+  // pre-filled, skipping the manual picker step.
+  const [fromId, setFromId] = React.useState<string | null>(params.fromId ?? null);
   const [toId, setToId] = React.useState<string | null>(null);
-  const [amount, setAmount] = React.useState('');
+  const [amount, setAmount] = React.useState(params.amount ?? '');
 
   const fromPocket = pockets.find((p) => p.id === fromId) || null;
   const toOptions = pockets.filter((p) => p.id !== fromId);

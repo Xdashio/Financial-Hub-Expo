@@ -7,11 +7,11 @@ import type { RunwayService } from '../runway/runway.service';
 const POCKET = {
   id: 'pocket-1',
   plan_id: 'plan-1',
-  name: 'Savings',
-  kind: 'savings',
+  name: 'Spendable',
+  kind: 'spendable',
   category: null,
-  is_time_locked: true,
-  lock_until: '2099-01-01T00:00:00.000Z',
+  is_time_locked: false,
+  lock_until: null,
   monthly_allocation: 1000,
   daily_cap: null,
   created_at: '2026-01-01T00:00:00.000Z',
@@ -72,6 +72,7 @@ describe('PocketsService.updateForUser', () => {
 describe('PocketsService discipline-score unification', () => {
   const LOCKED_POCKET = {
     ...POCKET,
+    is_time_locked: true,
     lock_until: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
   };
 
