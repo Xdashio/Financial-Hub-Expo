@@ -11,7 +11,7 @@ import {
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { loansApi, emergencyUnlockApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState, PocketGlyph, SavingsGoalTracker } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, PocketGlyph } from '@/components/ui';
 import { CategoryIcon } from '@/components/icons';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
@@ -582,23 +582,6 @@ export default function HomeScreen() {
               )}
             </Pressable>
             {(expandedSections.savings || savingsPockets.length <= 3 ? savingsPockets : savingsPockets.slice(0, 3)).map(renderPocketCard)}
-            
-            {/* Savings Goal Progress */}
-            {savingsPockets.length > 0 && (
-              <View style={{ marginTop: spacing.lg, backgroundColor: colors.paper, borderRadius: radius.md, padding: spacing.lg }}>
-                <SavingsGoalTracker 
-                  goals={savingsPockets.map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    targetAmount: p.monthlyAllocation * 12, // Mock annual target
-                    currentAmount: p.availableBalance,
-                    targetDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-                    category: 'goal',
-                    createdAt: new Date().toISOString(),
-                  }))}
-                />
-              </View>
-            )}
           </>
         )}
         {isDaily && fixedPockets.length > 0 && (

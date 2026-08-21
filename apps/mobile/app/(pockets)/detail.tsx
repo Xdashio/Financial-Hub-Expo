@@ -15,6 +15,7 @@ import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button, Searc
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { SubPocketRebalanceSheet } from '@/components/pockets/SubPocketRebalanceSheet';
+import { SavingsPocketGoalsCard } from '@/components/savings/SavingsPocketGoalsCard';
 import { SubPocketIcon } from '@/components/icons';
 import {
   ArrowLeft,
@@ -779,6 +780,28 @@ export default function PocketDetailScreen() {
             <Text style={{ ...typography.caption, color: colors.emeraldDeep, flex: 1, lineHeight: 18 }}>
               Savings are protected — minimum 10% of income is enforced here. Unspent daily amounts roll over into this pocket at midnight.
             </Text>
+          </View>
+        )}
+
+        {/* ── Savings goals — savings pockets only ── */}
+        {pocket?.kind === 'savings' && stat && (
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
+            <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>
+              Goal progress
+            </Text>
+            <SavingsPocketGoalsCard
+              goals={[{
+                id: pocket.id,
+                name: pocket.name,
+                // Use monthly_allocation × 12 as an annual savings target
+                // (same convention as the home screen's SavingsGoalTracker).
+                // Once a goal-setting API exists this can be replaced with
+                // the stored target amount.
+                targetAmount: stat.monthly_allocation * 12,
+                currentAmount: stat.available,
+                category: 'goal',
+              }]}
+            />
           </View>
         )}
 
