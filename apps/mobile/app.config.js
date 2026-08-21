@@ -4,7 +4,12 @@
 // Production keeps building for all architectures (app-bundle already lets
 // Google Play do per-device splitting, so there's no APK bloat there).
 
-const arm64Only = process.env.EAS_BUILD_ARM64_ONLY === "true";
+// NOTE: do NOT use an "EAS_BUILD_" prefix for custom env vars — that prefix
+// is reserved by EAS Build for its own internal build metadata
+// (EAS_BUILD_PROFILE, EAS_BUILD_PLATFORM, etc). Custom vars with that
+// prefix get silently dropped, which is why arm64-only restriction was
+// never actually applied.
+const arm64Only = process.env.ARM64_ONLY_BUILD === "true";
 
 module.exports = {
   expo: {

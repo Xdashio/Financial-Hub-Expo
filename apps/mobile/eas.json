@@ -33,7 +33,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api-production-8db1.up.railway.app/api",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
-        "EAS_BUILD_ARM64_ONLY": "true"
+        "ARM64_ONLY_BUILD": "true"
       },
       "android": {
         "buildType": "apk"
