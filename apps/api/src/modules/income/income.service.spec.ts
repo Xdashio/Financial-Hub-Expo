@@ -480,6 +480,79 @@ describe('IncomeService.createManualIncome', () => {
     });
   });
 
+
+    it('keeps full amount with parent when all sub-pockets have null split_percentage', async () => {
+      // Regression: before the shared helper, split_percentage || 0 treated null
+      // and 0 identically. The deeper bug was that allocateSurplus never called
+      // applySubPocketSplits at all. This test guards the null path of the helper.
+      const NULL_SUBS = [
+        { ...SUB_POCKETS[0], split_percentage: null },
+        { ...SUB_POCKETS[1], split_percentage: null },
+      ];
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(NULL_SUBS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      // Full amount stays with parent; neither sub receives anything
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 4000 }),
+        ])
+      );
+      expect(result.allocation.allocations.find(a => a.pocket_id === 'sub-snacks')).toBeUndefined();
+      expect(result.allocation.allocations.find(a => a.pocket_id === 'sub-dining')).toBeUndefined();
+    });
+
+    it('keeps full amount with parent when all sub-pockets have zero split_percentage', async () => {
+      const ZERO_SUBS = [
+        { ...SUB_POCKETS[0], split_percentage: 0 },
+        { ...SUB_POCKETS[1], split_percentage: 0 },
+      ];
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(ZERO_SUBS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 4000 }),
+        ])
+      );
+      expect(result.allocation.allocations.find(a => a.pocket_id === 'sub-snacks')).toBeUndefined();
+      expect(result.allocation.allocations.find(a => a.pocket_id === 'sub-dining')).toBeUndefined();
+    });
+
+    it('only distributes to sub-pockets with a positive split_percentage (mixed)', async () => {
+      // One sub has a real percentage, one has null — only the positive one gets money
+      const MIXED_SUBS = [
+        { ...SUB_POCKETS[0], split_percentage: 30 }, // sub-snacks: 30%
+        { ...SUB_POCKETS[1], split_percentage: null }, // sub-dining: opted out
+      ];
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(PARENT_WITH_SUBS),
+        getSubPocketsByParentId: jest.fn().mockResolvedValue(MIXED_SUBS),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      const result = await service.createManualIncome(BASE_DTO, 'user-1');
+
+      // sub-snacks: 30% of 4000 = 1200; pocket-food reserved: 70% = 2800
+      expect(result.allocation.allocations).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ pocket_id: 'sub-snacks', amount: 1200 }),
+          expect.objectContaining({ pocket_id: 'pocket-food', amount: 2800 }),
+        ])
+      );
+      expect(result.allocation.allocations.find(a => a.pocket_id === 'sub-dining')).toBeUndefined();
+    });
+
   describe('fixed pocket capping', () => {
     it('caps fixed pockets at their monthly_allocation and redistributes excess', async () => {
       const POCKETS_WITH_FIXED = [
