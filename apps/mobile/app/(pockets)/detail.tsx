@@ -7,6 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
@@ -15,7 +16,8 @@ import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button, Searc
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { SubPocketRebalanceSheet } from '@/components/pockets/SubPocketRebalanceSheet';
-import { SavingsPocketGoalsCard } from '@/components/savings/SavingsPocketGoalsCard';
+import { SavingsPocketGoalsCard, SavingsGoal } from '@/components/savings/SavingsPocketGoalsCard';
+import { GoalReachedSheet } from '@/components/savings/GoalReachedSheet';
 import { SubPocketIcon } from '@/components/icons';
 import {
   ArrowLeft,
@@ -257,6 +259,8 @@ export default function PocketDetailScreen() {
   const [rebalanceSheetVisible, setRebalanceSheetVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'spend' | 'allocation' | 'reallocation'>('all');
+  const [goalReachedSheetVisible, setGoalReachedSheetVisible] = useState(false);
+  const [reachedGoal, setReachedGoal] = useState<SavingsGoal | null>(null);
 
   const filteredTransactions = transactions.filter(tx => {
     const matchesSearch = searchQuery === '' || 
@@ -384,6 +388,96 @@ export default function PocketDetailScreen() {
       await alert(enhancedError.title, enhancedError.message);
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleGoalReached = (goal: SavingsGoal) => {
+    setReachedGoal(goal);
+    setGoalReachedSheetVisible(true);
+  };
+
+  const handleKeepGrowing = () => {
+    // Navigate to goal-setting modal to set a new target
+    setGoalReachedSheetVisible(false);
+    setReachedGoal(null);
+    if (pocket?.id) {
+      router.push({ pathname: '/(modals)/goal-set', params: { pocketId: pocket.id } });
+    }
+  };
+
+  const handleUnlockEarly = () => {
+    // Navigate to time-lock screen to unlock early (normal flow with discipline cost)
+    if (pocket?.id) {
+      router.push({ pathname: '/(security)/time-lock', params: { pocketId: pocket.id } });
+    }
+  };
+
+  const handleUnlockWithGoalWaiver = async () => {
+    if (!pocket?.id) return;
+
+    const confirmed = await confirm(
+      'Unlock Early',
+      'You\'ve reached your savings goal! Unlocking early is free as a reward for your discipline. Would you like to proceed?',
+      { confirmLabel: 'Unlock with Biometric' }
+    );
+    if (!confirmed) return;
+
+    try {
+      // Biometric confirmation
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      let biometricConfirmed = false;
+      if (hasHardware && isEnrolled) {
+        const bioResult = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Confirm unlock',
+        });
+        if (!bioResult.success) {
+          await alert('Unlock Cancelled', 'Biometric confirmation was not completed.');
+          return;
+        }
+        biometricConfirmed = true;
+      } else {
+        await alert(
+          'Biometric Unavailable',
+          'Unlock requires biometric confirmation, and this device has no biometrics set up.'
+        );
+        return;
+      }
+
+      // Unlock with goal_reached flag (no discipline cost)
+      const result = await pocketsApi.unlock(pocket.id, {
+        reason: 'Goal reached',
+        biometric_confirmed: biometricConfirmed,
+        goal_reached: true,
+      });
+
+      await alert(
+        'Unlocked Successfully',
+        `Your pocket has been unlocked early with no discipline cost. Great job reaching your goal!`
+      );
+
+      // Reload data and offer to reallocate
+      await loadAll();
+
+      // Offer to reallocate immediately
+      const shouldReallocate = await confirm(
+        'Use Your Savings',
+        `You now have ${formatMoney(reachedGoal?.currentAmount || 0)} available. Would you like to move it to another pocket?`,
+        { confirmLabel: 'Yes, reallocate' }
+      );
+
+      if (shouldReallocate && reachedGoal) {
+        router.push({
+          pathname: '/(modals)/realloc-pick',
+          params: { fromId: pocket.id, amount: String(reachedGoal.currentAmount) },
+        });
+      }
+
+      setGoalReachedSheetVisible(false);
+      setReachedGoal(null);
+    } catch (e) {
+      console.error('Unlock error:', e);
+      await alert('Error', e instanceof Error ? e.message : 'Failed to unlock pocket.');
     }
   };
 
@@ -801,6 +895,7 @@ export default function PocketDetailScreen() {
                 currentAmount: stat.available,
                 category: 'goal',
               }]}
+              onGoalReached={handleGoalReached}
             />
           </View>
         )}
@@ -841,8 +936,9 @@ export default function PocketDetailScreen() {
           </View>
         )}
 
-        {/* ── Sub-pockets (audit_team.md item 10) — top-level pockets only, one level of nesting ── */}
-        {pocket && !pocket.parent_pocket_id && (
+        {/* ── Sub-pockets (audit_team.md item 10) — top-level pockets only, one level of nesting
+            Only available for spendable and loan pockets, not savings or fixed. */}
+        {pocket && !pocket.parent_pocket_id && (pocket.kind === 'spendable' || pocket.kind === 'loan') && (
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
             <View
               style={{
@@ -1074,25 +1170,29 @@ export default function PocketDetailScreen() {
               onClear={() => setSearchQuery('')}
             />
             
-            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ flexDirection: 'row', gap: spacing.sm, paddingRight: spacing.lg }}
+            >
               {(['all', 'spend', 'allocation', 'reallocation'] as const).map((type) => (
                 <Pressable
                   key={type}
                   onPress={() => setFilterType(type)}
                   style={{
-                    flex: 1,
-                    paddingVertical: spacing.sm,
+                    paddingVertical: spacing.sm - 1,
                     paddingHorizontal: spacing.md,
-                    borderRadius: radius.sm,
+                    borderRadius: radius.pill,
                     backgroundColor: filterType === type ? colors.emeraldDeep : colors.surface,
-                    borderWidth: 1,
+                    borderWidth: 1.5,
                     borderColor: filterType === type ? colors.emeraldDeep : colors.line,
                   }}
                 >
                   <Text
                     style={{
                       ...typography.caption,
-                      color: filterType === type ? colors.surface : colors.ink,
+                      fontWeight: '500',
+                      color: filterType === type ? colors.surface : colors.inkSoft,
                       textAlign: 'center',
                       textTransform: 'capitalize',
                     }}
@@ -1101,7 +1201,7 @@ export default function PocketDetailScreen() {
                   </Text>
                 </Pressable>
               ))}
-            </View>
+            </ScrollView>
           </View>
 
           {filteredTransactions.length === 0 && transactions.length > 0 ? (
@@ -1178,6 +1278,22 @@ export default function PocketDetailScreen() {
           onSuccess={loadAll}
         />
       )}
+
+      {/* Goal reached sheet — shown when a savings pocket hits its target */}
+      {reachedGoal && (
+        <GoalReachedSheet
+          visible={goalReachedSheetVisible}
+          onClose={() => setGoalReachedSheetVisible(false)}
+          pocketId={reachedGoal.id}
+          pocketName={reachedGoal.name}
+          amount={reachedGoal.currentAmount}
+          isTimeLocked={pocket?.is_time_locked ?? false}
+          onKeepGrowing={handleKeepGrowing}
+          onUnlockEarly={handleUnlockEarly}
+          onUnlockWithGoalWaiver={handleUnlockWithGoalWaiver}
+        />
+      )}
+
       {modal}
     </ScreenContainer>
   );

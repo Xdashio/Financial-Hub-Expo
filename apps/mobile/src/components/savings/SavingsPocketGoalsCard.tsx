@@ -36,6 +36,12 @@ interface SavingsPocketGoalsCardProps {
   goals: SavingsGoal[];
   /** Called when the user taps "Set target" on a goal-less pocket. */
   onSetTarget?: () => void;
+  /**
+   * Called when the user taps "What's next?" on a goal that's hit 100%.
+   * Without this, "Target reached" is a dead end — this is what wires it
+   * up to an actual follow-up flow (reallocate the surplus, keep growing).
+   */
+  onGoalReached?: (goal: SavingsGoal) => void;
 }
 
 function statusMessage(pct: number): string {
@@ -46,7 +52,7 @@ function statusMessage(pct: number): string {
   return 'Getting started';
 }
 
-export function SavingsPocketGoalsCard({ goals, onSetTarget }: SavingsPocketGoalsCardProps) {
+export function SavingsPocketGoalsCard({ goals, onSetTarget, onGoalReached }: SavingsPocketGoalsCardProps) {
   const { colors } = useTheme();
 
   if (goals.length === 0) {
@@ -187,6 +193,30 @@ export function SavingsPocketGoalsCard({ goals, onSetTarget }: SavingsPocketGoal
                 {statusMessage(pct)}
               </Text>
             </View>
+
+            {/* Goal reached — surface a real next step instead of a dead end */}
+            {isComplete && onGoalReached && (
+              <Pressable
+                onPress={() => onGoalReached(goal)}
+                style={({ pressed }) => ({
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: spacing.xs,
+                  marginTop: spacing.md,
+                  paddingVertical: spacing.sm,
+                  borderRadius: radius.pill,
+                  backgroundColor: colors.emeraldTint,
+                  opacity: pressed ? 0.75 : 1,
+                })}
+                accessibilityRole="button"
+                accessibilityLabel={`Decide what's next for ${goal.name}`}
+              >
+                <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontWeight: '600' }}>
+                  What's next?
+                </Text>
+              </Pressable>
+            )}
 
             {/* Target date — only when set */}
             {goal.targetDate && !isComplete && (

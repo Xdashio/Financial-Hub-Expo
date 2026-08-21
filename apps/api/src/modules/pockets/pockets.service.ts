@@ -332,6 +332,11 @@ export class PocketsService {
       throw new BadRequestException('Sub-pockets cannot themselves have sub-pockets (max depth of one level)');
     }
 
+    // Sub-pockets are only allowed for spendable and loan pockets
+    if (parent.kind === 'savings' || parent.kind === 'fixed') {
+      throw new BadRequestException(`Sub-pockets are not supported for ${parent.kind} pockets`);
+    }
+
     const siblings = await this.repository.getSubPocketsByParentId(parentId);
     const siblingPercentTotal = siblings.reduce((sum, p) => sum + (p.split_percentage || 0), 0);
     if (siblingPercentTotal + parsed.splitPercentage > 100 + 0.01) {
@@ -725,7 +730,7 @@ export class PocketsService {
   async unlockPocket(
     pocketId: string,
     userId: string,
-    body: { reason?: string; biometric_confirmed: boolean }
+    body: { reason?: string; biometric_confirmed: boolean; goal_reached?: boolean }
   ): Promise<{
     unlock: {
       pocket_id: string;
@@ -767,7 +772,8 @@ export class PocketsService {
     }
 
     const daysRemaining = Math.ceil((lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    const disciplineCost = Math.ceil(daysRemaining * 0.5); // 0.5 points per day
+    // Goal-reached waiver: no discipline cost if user has reached their savings goal
+    const disciplineCost = body.goal_reached ? 0 : Math.ceil(daysRemaining * 0.5); // 0.5 points per day
 
     // Unlock the pocket
     const updatedPocket = await this.repository.updatePocket(pocketId, {
@@ -782,12 +788,13 @@ export class PocketsService {
     // Create behavior event for the Insights activity log
     await this.repository.createBehaviorEvent({
       user_id: userId,
-      type: 'early_unlock',
+      type: body.goal_reached ? 'goal_reached_unlock' : 'early_unlock',
       payload: {
         pocket_id: pocketId,
         days_remaining: daysRemaining,
         points_deducted: disciplineCost,
         reason: body.reason,
+        goal_reached: body.goal_reached,
       },
     });
 
@@ -795,7 +802,19 @@ export class PocketsService {
     // `discipline_scores` table ReallocationsService/InsightsService use, so
     // this unlock and a reallocation skip-cooldown both move the one score
     // the user sees everywhere (see discipline-score.service.ts).
-    const { previousScore, newScore } = await this.disciplineScore.applyDelta(userId, -disciplineCost);
+    // If goal_reached is true, no cost is applied (disciplineCost is 0).
+    let previousScore: number | null = null;
+    let newScore: number | null = null;
+    if (disciplineCost > 0) {
+      const result = await this.disciplineScore.applyDelta(userId, -disciplineCost);
+      previousScore = result.previousScore;
+      newScore = result.newScore;
+    } else {
+      // Still fetch current score for response consistency
+      const currentScore = await this.disciplineScore.getCurrentScore(userId);
+      previousScore = currentScore ?? 0;
+      newScore = currentScore ?? 0;
+    }
 
     // Create transaction record (use 'rollover' type as placeholder since 'early_unlock' is not in schema)
     const transaction = await this.repository.createTransaction({

@@ -100,7 +100,7 @@ export const pocketsApi = {
     api.get<any>(`/pockets/${id}/transactions?page=${page}&limit=${limit}`),
   getMerchantScope: (id: string) => api.get<any>(`/pockets/${id}/merchant-scope`),
   getLockStatus: (id: string) => api.get<any>(`/pockets/${id}/lock-status`),
-  unlock: (id: string, data: { reason?: string; biometric_confirmed: boolean }) =>
+  unlock: (id: string, data: { reason?: string; biometric_confirmed: boolean; goal_reached?: boolean }) =>
     api.post<any>(`/pockets/${id}/unlock`, data),
   extendLock: (id: string, data: { additional_days: number; reason?: string }) =>
     api.post<any>(`/pockets/${id}/extend-lock`, data),
