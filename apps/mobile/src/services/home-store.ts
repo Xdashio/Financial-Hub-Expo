@@ -86,7 +86,25 @@ function derivePlanType(pockets: Pocket[]): 'daily' | 'structured' {
   return hasDailyCap ? 'daily' : 'structured';
 }
 
-function calculateSafeToSpend(pockets: Pocket[]): number {
+function calculateSafeToSpend(pockets: Pocket[], planType: 'daily' | 'structured'): number {
+  // Daily plans: "safe to spend today" must be the sum of *today's slice*
+  // (each pocket's dailyCap, capped by whatever's actually left in the
+  // ledger) — not the full remaining balance for the whole month. Summing
+  // availableBalance here previously showed the entire month's money under
+  // a "today" label, which is the exact bug this fixes: a user with 25,000
+  // left and 15 days to go should see ~833/day (or their adjusted cap),
+  // not 25,000.
+  if (planType === 'daily') {
+    return pockets
+      .filter((p) => p.kind === 'spendable')
+      .reduce((sum, p) => {
+        const cap = p.dailyCap ?? p.monthlyAllocation;
+        return sum + Math.max(0, Math.min(cap, p.availableBalance));
+      }, 0);
+  }
+
+  // Structured plans have no daily pacing — "safe to spend" is genuinely
+  // the full remaining spendable balance for the month.
   return pockets
     .filter((p) => p.kind === 'spendable')
     .reduce((sum, p) => sum + p.availableBalance, 0);
@@ -203,7 +221,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
       const runwayRes =
         runwayOutcome.status === 'fulfilled' ? runwayOutcome.value : ({ applicable: false } as RunwaySummary);
       const previous = get();
-      const safeToSpendToday = calculateSafeToSpend(pockets);
+      const safeToSpendToday = calculateSafeToSpend(pockets, planType);
       const totalBalance = calculateTotalBalance(pockets);
 
       set({
@@ -252,7 +270,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
         : p,
     );
     const dailyPockets = calculateDailyPockets(pockets);
-    const safeToSpendToday = calculateSafeToSpend(pockets);
+    const safeToSpendToday = calculateSafeToSpend(pockets, get().planType);
     const totalBalance = calculateTotalBalance(pockets);
     set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
     return previous;
@@ -261,7 +279,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
   rollbackOptimisticUpdate: (snapshot) => {
     const pockets = snapshot;
     const dailyPockets = calculateDailyPockets(pockets);
-    const safeToSpendToday = calculateSafeToSpend(pockets);
+    const safeToSpendToday = calculateSafeToSpend(pockets, get().planType);
     const totalBalance = calculateTotalBalance(pockets);
     set({ pockets, dailyPockets, safeToSpendToday, totalBalance });
   },
@@ -269,6 +287,7 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
   updatePocketLocal: (id, patch) => {
     const pockets = get().pockets.map((p) => (p.id === id ? { ...p, ...patch } : p));
     const dailyPockets = calculateDailyPockets(pockets);
-    set({ pockets, dailyPockets });
+    const safeToSpendToday = calculateSafeToSpend(pockets, get().planType);
+    set({ pockets, dailyPockets, safeToSpendToday });
   },
 }));

@@ -158,6 +158,7 @@ export const spendApi = {
     category?: string;
     override?: boolean;
     borrow_from_parent?: boolean;
+    override_daily_cap?: boolean;
   }) =>
     api.post<any>('/spend/check', data),
   commit: (data: {
@@ -168,6 +169,7 @@ export const spendApi = {
     idempotency_key?: string;
     override?: boolean;
     borrow_from_parent?: boolean;
+    override_daily_cap?: boolean;
   }) =>
     api.post<any>('/spend/commit', {
       ...data,

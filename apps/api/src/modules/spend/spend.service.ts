@@ -17,7 +17,7 @@ import {
   POINTS_ESSENTIAL_OVERRIDE,
   POINTS_GAMBLING_BLOCKED_ATTEMPT,
 } from '../rollover/rollover.constants';
-import { utcDayBounds } from '../rollover/rollover-planner';
+import { utcDayBounds, effectiveDailyCap, previewDailyCapAfterSpend } from '../rollover/rollover-planner';
 
 @Injectable()
 export class SpendService {
@@ -55,6 +55,15 @@ export class SpendService {
     // Surfaced as a positive number of points ("this will cost you N
     // points") even though the applied delta is negative internally.
     override_points_cost?: number;
+    // Emergency-overspend preview (block_reason: 'daily_cap_exceeded'):
+    // this spend is fully covered by the pocket's available_balance, but
+    // it would push today's spend past the daily cap. current_daily_cap /
+    // adjusted_daily_cap / days_remaining let the client show "if you
+    // continue, your cap for the rest of the month drops to X" before the
+    // user commits. See previewDailyCapAfterSpend.
+    current_daily_cap?: number;
+    adjusted_daily_cap?: number;
+    days_remaining?: number;
     reallocation_sources?: Array<{
       pocket_id: string;
       pocket_name: string;
@@ -196,6 +205,22 @@ export class SpendService {
       };
     }
 
+    // Emergency-overspend check: the pocket has the money (passed the
+    // availableBalance check above), but spending it today would blow past
+    // the daily cap that's meant to stretch it across the rest of the
+    // cycle — e.g. a KSh 2,000 emergency on day 15 of a KSh 833/day plan.
+    // Soft block (same overridable pattern as insufficient_funds) so the
+    // client can show "spend anyway, your cap drops to X for the
+    // remaining N days" instead of either silently allowing it or hard
+    // -blocking a legitimate emergency. Skipped entirely on the
+    // resubmission once the user has confirmed (dto.override_daily_cap).
+    if (pocket.kind === 'spendable' && !dto.override_daily_cap) {
+      const dailyCapPreview = await this.checkDailyCapExceeded(pocket, userId, amount, availableBalance);
+      if (dailyCapPreview) {
+        return dailyCapPreview;
+      }
+    }
+
     // Check merchant category against pocket type
     if (dto.category) {
       const blockedCategories = getBlockedCategoriesForPocket(pocket);
@@ -307,6 +332,7 @@ export class SpendService {
       transaction_id?: string;
       idempotent_replay?: boolean;
       overridden?: boolean;
+      overridden_daily_cap?: boolean;
       borrowed_from_parent?: boolean;
     }
   > {
@@ -336,6 +362,15 @@ export class SpendService {
 
     // Overflow/borrow flow (subpocket-feature-spec.md §5): handle parent borrow confirmation
     const isBorrowFromParent = !result.allowed && result.borrow_from_parent_available === true && dto.borrow_from_parent === true;
+
+    // Emergency-overspend confirmation: dto.override_daily_cap === true means
+    // this is the resubmission after checkSpend already showed the user the
+    // "your cap drops to X" preview and they chose to proceed. checkSpend
+    // skips its own daily-cap check on this resubmission (see checkSpend's
+    // `!dto.override_daily_cap` guard), so `result.allowed` is already true
+    // here rather than a block to override — this flag is just how commit
+    // knows to also shrink the pocket's daily_cap for the rest of the cycle.
+    const isOverrideDailyCap = result.allowed && dto.override_daily_cap === true;
 
     if (!result.allowed && !isOverride && !isBorrowFromParent) {
       return result;
@@ -378,10 +413,27 @@ export class SpendService {
       await this.recordEssentialOverride(pocket, userId, dto.amount, result.shortfall ?? 0, dto.override_reason);
     }
 
+    // Emergency-overspend confirmed: shrink the daily cap for the rest of
+    // the cycle now, using the *pre-spend* balance/spent-today figures
+    // (result.pocket.available_balance is the balance checkSpend saw
+    // before this transaction was written) so the math matches exactly
+    // what the user was shown in the confirmation prompt.
+    let adjustedDailyCap: number | undefined;
+    if (isOverrideDailyCap && pocket) {
+      const preview = await this.getDailyCapPreview(pocket, userId, dto.amount, result.pocket.available_balance);
+      if (preview) {
+        adjustedDailyCap = preview.adjustedDailyCap;
+        await this.repository.updatePocket(pocket.id, { daily_cap: preview.adjustedDailyCap });
+      }
+    }
+
     // Batch 6: if this push a spendable pocket over its daily cap, emit
     // daily_overspend immediately so the heatmap/streak don't wait for
-    // tomorrow's rollover catch-up.
-    if (pocket) {
+    // tomorrow's rollover catch-up. Skipped when we just confirmed an
+    // emergency overspend — the cap was deliberately shrunk to absorb it,
+    // not blown past by surprise, so penalizing it here would double up
+    // with the user's own explicit choice.
+    if (pocket && !isOverrideDailyCap) {
       await this.maybeRecordDailyOverspend(pocket, userId);
     }
 
@@ -391,6 +443,7 @@ export class SpendService {
       block_reason: null,
       ...(isOverride ? { overridden: true } : {}),
       ...(isBorrowFromParent ? { borrowed_from_parent: true } : {}),
+      ...(isOverrideDailyCap ? { overridden_daily_cap: true, adjusted_daily_cap: adjustedDailyCap } : {}),
       pocket: {
         ...result.pocket,
         available_balance: postSpendSummary.available,
@@ -420,6 +473,79 @@ export class SpendService {
     }
 
     return response;
+  }
+
+  /**
+   * Returns a `daily_cap_exceeded` soft-block response when this spend
+   * would push a daily-plan pocket past today's cap, or null when it's
+   * fine to proceed (structured plans, pockets with no cap yet, or the
+   * amount fits within what's left of today's cap). Only spendable
+   * pockets on 'daily' plans have a cap to exceed — structured plans and
+   * fixed/savings pockets always return null here.
+   */
+  private async checkDailyCapExceeded(
+    pocket: Pocket,
+    userId: string,
+    amount: number,
+    availableBalance: number,
+  ): Promise<Awaited<ReturnType<SpendService['checkSpend']>> | null> {
+    const preview = await this.getDailyCapPreview(pocket, userId, amount, availableBalance);
+    if (!preview || !preview.exceedsCap) return null;
+
+    const daysWord = preview.daysRemaining === 1 ? 'day' : 'days';
+    return {
+      allowed: false,
+      block_reason: 'daily_cap_exceeded',
+      message:
+        `This is above today's safe-to-spend cap of ${formatWholeKsh(preview.currentDailyCap)}. ` +
+        `If you continue, your daily cap for the remaining ${preview.daysRemaining} ${daysWord} ` +
+        `will drop to ${formatWholeKsh(preview.adjustedDailyCap)} so it still lasts the month.`,
+      overridable: true,
+      current_daily_cap: preview.currentDailyCap,
+      adjusted_daily_cap: preview.adjustedDailyCap,
+      days_remaining: preview.daysRemaining,
+      pocket: {
+        id: pocket.id,
+        name: pocket.name,
+        available_balance: availableBalance,
+      },
+    };
+  }
+
+  /**
+   * Raw emergency-overspend math shared by checkDailyCapExceeded (the
+   * pre-spend soft block) and commitSpend (persisting the recalculated cap
+   * once the user has confirmed via override_daily_cap). Returns null for
+   * structured plans, non-spendable pockets, or pockets without a cap yet
+   * — the same "not applicable" cases checkDailyCapExceeded already
+   * treated as pass-through.
+   */
+  private async getDailyCapPreview(
+    pocket: Pocket,
+    userId: string,
+    amount: number,
+    availableBalance: number,
+  ): Promise<ReturnType<typeof previewDailyCapAfterSpend> | null> {
+    if (pocket.kind !== 'spendable') return null;
+
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan || plan.type !== 'daily') return null;
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const cap = effectiveDailyCap(pocket, todayIso, plan.type);
+    if (cap <= 0) return null;
+
+    const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
+    const totals = await this.repository.getSpendTotalsByPocketBetween([pocket.id], startIso, endIsoExclusive);
+    const spentToday = totals.get(pocket.id) || 0;
+
+    return previewDailyCapAfterSpend({
+      dailyCap: cap,
+      spentToday,
+      requestedAmount: amount,
+      availableBalance,
+      dateIso: todayIso,
+    });
   }
 
   private async maybeRecordDailyOverspend(pocket: Pocket, userId: string): Promise<void> {

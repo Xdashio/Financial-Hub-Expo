@@ -2,6 +2,8 @@ import {
   catchupDateIsos,
   effectiveDailyCap,
   planDayRollover,
+  previewDailyCapAfterSpend,
+  remainingDaysAfterToday,
   utcDayBounds,
 } from './rollover-planner';
 
@@ -79,5 +81,58 @@ describe('catchupDateIsos / utcDayBounds', () => {
       startIso: '2026-08-09T00:00:00.000Z',
       endIsoExclusive: '2026-08-10T00:00:00.000Z',
     });
+  });
+});
+
+describe('remainingDaysAfterToday / previewDailyCapAfterSpend', () => {
+  it('counts calendar days left in the month after today, today excluded', () => {
+    // 30-day month, day 15 -> 15 days left (16th through 30th)
+    expect(remainingDaysAfterToday('2026-06-15')).toBe(15);
+    // Last day of the month -> 0 days left
+    expect(remainingDaysAfterToday('2026-06-30')).toBe(0);
+  });
+
+  it('matches the worked example: 25,000 left, 2,000 emergency spend on day 15 of 30', () => {
+    // 30,000 income - 5,000 fixed+savings = 25,000 spendable, 833.33/day.
+    // By day 15 nothing else has been spent, so available balance is still
+    // the full 25,000. A 2,000 emergency spend today should re-flatten the
+    // remaining 25,000 - 2,000 = 23,000 across the 15 days left.
+    const preview = previewDailyCapAfterSpend({
+      dailyCap: 833.33,
+      spentToday: 0,
+      requestedAmount: 2000,
+      availableBalance: 25000,
+      dateIso: '2026-06-15',
+    });
+
+    expect(preview.exceedsCap).toBe(true);
+    expect(preview.daysRemaining).toBe(15);
+    expect(preview.adjustedDailyCap).toBeCloseTo(23000 / 15, 2);
+  });
+
+  it('does not flag a spend that fits within what is left of today\'s cap', () => {
+    const preview = previewDailyCapAfterSpend({
+      dailyCap: 833,
+      spentToday: 200,
+      requestedAmount: 600,
+      availableBalance: 25000,
+      dateIso: '2026-06-15',
+    });
+
+    expect(preview.exceedsCap).toBe(false);
+  });
+
+  it('falls back to spreading the leftover balance on the last day of the month', () => {
+    const preview = previewDailyCapAfterSpend({
+      dailyCap: 833,
+      spentToday: 0,
+      requestedAmount: 1000,
+      availableBalance: 900,
+      dateIso: '2026-06-30',
+    });
+
+    expect(preview.daysRemaining).toBe(0);
+    // availableBalance - requestedAmount goes negative, clamped to 0
+    expect(preview.adjustedDailyCap).toBe(0);
   });
 });
