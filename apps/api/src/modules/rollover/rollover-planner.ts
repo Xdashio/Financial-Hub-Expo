@@ -117,6 +117,14 @@ export interface OverspendPreviewInput {
   availableBalance: number;
   /** Today's date, e.g. '2026-08-15'. */
   dateIso: string;
+  /**
+   * Overrides the calendar-month day count used to spread the post-spend
+   * balance. Freelancer/daily plans pace against runwayDays (days until
+   * the next expected payment) instead of the calendar month — pass that
+   * here so the same preview math works for both plan types. Omit for
+   * salaried/daily plans to keep the calendar-based default.
+   */
+  daysRemainingOverride?: number;
 }
 
 export interface OverspendPreview {
@@ -142,8 +150,9 @@ export interface OverspendPreview {
  * any future client-side preview can share the exact same math.
  */
 export function previewDailyCapAfterSpend(input: OverspendPreviewInput): OverspendPreview {
-  const { dailyCap, spentToday, requestedAmount, availableBalance, dateIso } = input;
-  const daysRemaining = remainingDaysAfterToday(dateIso);
+  const { dailyCap, spentToday, requestedAmount, availableBalance, dateIso, daysRemainingOverride } = input;
+  const daysRemaining =
+    typeof daysRemainingOverride === 'number' ? Math.max(0, daysRemainingOverride) : remainingDaysAfterToday(dateIso);
   const exceedsCap = dailyCap > 0 && spentToday + requestedAmount > dailyCap + 0.01;
   const balanceAfterSpend = Math.max(0, availableBalance - requestedAmount);
   const adjustedDailyCap =

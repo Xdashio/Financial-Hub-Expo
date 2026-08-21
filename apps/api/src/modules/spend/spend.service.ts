@@ -6,6 +6,7 @@ import { Pocket } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket, isReviewableBlock } from '../../common/pocket-rules';
 import { getMerchantCategoryLabel, toCents, fromCents, formatWholeKsh } from '@financial-hub/shared';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import { RunwayService } from '../runway/runway.service';
 import {
   CAP_DAILY_OVERSPEND,
   CAP_ESSENTIAL_OVERRIDE,
@@ -26,6 +27,7 @@ export class SpendService {
   constructor(
     private readonly repository: SupabaseRepository,
     private readonly disciplineScore: DisciplineScoreService,
+    private readonly runway: RunwayService,
   ) {}
 
   async checkSpend(dto: SpendCheckDto, userId: string): Promise<{
@@ -539,12 +541,31 @@ export class SpendService {
     const totals = await this.repository.getSpendTotalsByPocketBetween([pocket.id], startIso, endIsoExclusive);
     const spentToday = totals.get(pocket.id) || 0;
 
+    // Freelancers don't have a fixed monthly cycle — their pacing is
+    // "days until the next expected payment" (runwayDays), which the
+    // pockets-read path already uses to derive their live daily_cap (see
+    // computeSpendableDailyCaps / docs/FREELANCER_RUNWAY.md). Reusing
+    // remainingDaysAfterToday's calendar-month math for them would be
+    // wrong — e.g. someone 3 days into a 9-day runway isn't "day 15 of
+    // 30", spreading an emergency spend over the wrong number of days
+    // entirely. runwayDays is already "days from today until next
+    // expected payment", recomputed fresh each call, so it drops in
+    // directly as daysRemaining with no extra subtraction needed.
+    let daysRemaining: number | undefined;
+    if (plan.income_pattern === 'freelancer') {
+      const runwaySummary = await this.runway.getRunwayForPlan(userId, plan);
+      if (runwaySummary.applicable && typeof runwaySummary.runwayDays === 'number') {
+        daysRemaining = runwaySummary.runwayDays;
+      }
+    }
+
     return previewDailyCapAfterSpend({
       dailyCap: cap,
       spentToday,
       requestedAmount: amount,
       availableBalance,
       dateIso: todayIso,
+      daysRemainingOverride: daysRemaining,
     });
   }
 
