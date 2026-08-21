@@ -32,8 +32,17 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: 'Request failed' }));
-    const raw = error.message ?? error.error ?? `HTTP ${response.status}`;
+    // Try to get the response text first to see the raw error
+    const responseText = await response.text().catch(() => '');
+    let error: any;
+    try {
+      error = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      error = { message: responseText || 'Request failed' };
+    }
+
+    // Handle different error response formats from NestJS/Express
+    const raw = error.message ?? error.error ?? error.error?.message ?? error.statusCode ?? responseText ?? `HTTP ${response.status}`;
     const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
     throw new Error(message || `HTTP ${response.status}`);
   }

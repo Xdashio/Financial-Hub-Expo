@@ -46,6 +46,7 @@ export default function SubPocketCreateScreen() {
   const [parentAllocation, setParentAllocation] = React.useState<number | null>(null);
   const [usedPercentage, setUsedPercentage] = React.useState(0);
   const [loadingParent, setLoadingParent] = React.useState(true);
+  const [parentKind, setParentKind] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!parentId) return;
@@ -58,6 +59,7 @@ export default function SubPocketCreateScreen() {
         ]);
         if (cancelled) return;
         setParentAllocation(summary.pocket.monthly_allocation ?? 0);
+        setParentKind(summary.pocket.kind);
         const used = (siblings as any[]).reduce(
           (sum: number, s: any) => sum + (s.split_percentage ?? 0),
           0,
@@ -95,7 +97,25 @@ export default function SubPocketCreateScreen() {
     if (!canSubmit || !parentId) return;
     setSubmitting(true);
     setError(null);
+
+    // Client-side validation: sub-pockets only allowed for spendable and loan pockets
+    if (parentKind === 'savings' || parentKind === 'fixed') {
+      setError(`Sub-pockets are not supported for ${parentKind} pockets. They are only available for spendable and loan pockets.`);
+      setSubmitting(false);
+      return;
+    }
+
     try {
+      // Log current state before creation
+      console.log('Creating sub-pocket with:', {
+        parentId,
+        parentKind,
+        name: name.trim(),
+        percentage,
+        usedPercentage,
+        maxPct,
+      });
+
       await pocketsApi.createSubPocket(parentId, {
         name: name.trim(),
         splitPercentage: percentage,
@@ -103,7 +123,11 @@ export default function SubPocketCreateScreen() {
       bump();
       safeGoBack(router, '/(pockets)/detail?id=' + parentId);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create this sub-pocket.');
+      console.error('Sub-pocket creation error:', e);
+      console.error('Error details:', JSON.stringify(e, null, 2));
+      const errorMessage = e instanceof Error ? e.message : 'Could not create this sub-pocket.';
+      // Add more context for debugging
+      setError(`${errorMessage}\n\nParent ID: ${parentId}\nParent Kind: ${parentKind}\nName: ${name.trim()}\nPercentage: ${percentage}%\nCurrent siblings: ${usedPercentage}% used\nAvailable: ${maxPct}%`);
     } finally {
       setSubmitting(false);
     }

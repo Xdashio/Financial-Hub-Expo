@@ -6,12 +6,12 @@ import { useTheme } from '@/theme/ThemeContext';
 import {
   Shield, RefreshCw, Lock,
   ArrowLeftRight, Plus,
-  Calendar, TrendingUp, Bell, ShoppingCart, AlertTriangle, PiggyBank, ChevronDown, ChevronUp,
+  Calendar, TrendingUp, Bell, ShoppingCart, AlertTriangle, PiggyBank, ChevronDown, ChevronUp, MoreHorizontal,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { loansApi, emergencyUnlockApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState, PocketGlyph } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, PocketGlyph, ActionsSheet } from '@/components/ui';
 import { CategoryIcon } from '@/components/icons';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
@@ -45,6 +45,7 @@ export default function HomeScreen() {
 
   const [nudgesVisible, setNudgesVisible] = React.useState(false);
   const [emergencyUnlockVisible, setEmergencyUnlockVisible] = React.useState(false);
+  const [actionsVisible, setActionsVisible] = React.useState(false);
   const [isUnlocking, setIsUnlocking] = React.useState(false);
   const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({
     spendable: false,
@@ -382,14 +383,14 @@ export default function HomeScreen() {
         <View style={{ marginTop: spacing.lg, flexDirection: 'row', gap: spacing.sm }}>
           {(cardOrder[0] === 'reallocation_frequency'
             ? [
-                { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const },
-                { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const },
-                { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const },
+                { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const, color: colors.plum },
+                { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const, color: colors.clay },
+                { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const, color: colors.emerald },
               ]
             : [
-                { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const },
-                { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const },
-                { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const },
+                { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const, color: colors.clay },
+                { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const, color: colors.emerald },
+                { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const, color: colors.plum },
               ]
           ).map((action) => {
             const Icon = action.icon;
@@ -413,12 +414,20 @@ export default function HomeScreen() {
                 accessibilityLabel={action.label}
                 accessibilityRole="button"
               >
-                <Icon size={18} color={colors.emeraldDeep} strokeWidth={2} />
+                <Icon size={18} color={action.color} strokeWidth={2} />
                 <Text style={{ ...typography.caption, color: colors.ink, textAlign: 'center' }}>{action.label}</Text>
               </Pressable>
             );
           })}
         </View>
+        <Pressable
+          style={({ pressed }) => [{ marginTop: spacing.sm, alignItems: 'center' }, { opacity: pressed ? 0.7 : 1 }]}
+          onPress={() => setActionsVisible(true)}
+          accessibilityLabel="More actions"
+          accessibilityRole="button"
+        >
+          <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>More actions</Text>
+        </Pressable>
 
         {isDaily && (
           <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
@@ -646,6 +655,7 @@ export default function HomeScreen() {
         isLoading={isUnlocking}
         pockets={pockets.filter((p) => p.kind !== 'savings')}
       />
+      <ActionsSheet visible={actionsVisible} onClose={() => setActionsVisible(false)} />
       {modal}
     </ScreenContainer>
   );
