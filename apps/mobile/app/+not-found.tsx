@@ -11,7 +11,7 @@ export default function NotFound() {
       <Text style={{ ...typography.display, fontSize: 24, marginBottom: 8, color: colors.ink }}>404 - Page Not Found</Text>
       <Text style={{ ...typography.body, color: colors.sage, marginBottom: 24, textAlign: 'center' }}>The page you're looking for doesn't exist.</Text>
       <Link href="/" style={{ backgroundColor: colors.emeraldDeep, paddingHorizontal: 24, paddingVertical: 12, borderRadius: radius.button }}>
-        <Text style={{ color: colors.surface, ...typography.body }}>Go Home</Text>
+        <Text style={{ color: colors.surface, ...typography.body }}>Go home</Text>
       </Link>
     </View>
   );

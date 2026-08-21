@@ -516,7 +516,7 @@ export default function InsightsScreen() {
         <View style={{ marginTop: spacing.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg }}>
             <TrendingUp size={15} color={colors.ink} strokeWidth={2} />
-            <Text style={{ ...typography.eyebrow, color: colors.ink }}>Spending Trends</Text>
+            <Text style={{ ...typography.eyebrow, color: colors.ink }}>Spending trends</Text>
           </View>
           <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.md, lineHeight: 16 }}>
             Track your spending patterns over different time periods.

@@ -330,7 +330,7 @@ export default function RetakeCheckinScreen() {
           >
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake Check-in</Text>
+          <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake check-in</Text>
         </View>
         <View style={{ flex: 1, paddingHorizontal: spacing.xl, justifyContent: 'center' }}>
           <View style={{ width: 64, height: 64, borderRadius: radius.pill, backgroundColor: colors.line, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg, alignSelf: 'center' }}>
@@ -453,7 +453,7 @@ export default function RetakeCheckinScreen() {
           style={{ padding: spacing.sm }} accessibilityLabel="Go back" accessibilityRole="button">
           <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
         </Pressable>
-        <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake Check-in</Text>
+        <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Retake check-in</Text>
       </View>
 
       {showForm && !isPrefilling && (

@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { BottomSheetModal } from './BottomSheetModal';
-import { ArrowLeftRight, Plus, Wallet, TrendingUp, ShoppingCart } from 'lucide-react-native';
+import { Wallet, TrendingUp } from 'lucide-react-native';
 
 interface ActionsSheetProps {
   visible: boolean;
@@ -16,33 +16,6 @@ export function ActionsSheet({ visible, onClose }: ActionsSheetProps) {
   const { colors } = useTheme();
 
   const actions = [
-    {
-      id: 'spend',
-      icon: ShoppingCart,
-      label: 'Log spend',
-      description: 'Record a payment from a pocket',
-      color: colors.emeraldTint,
-      iconColor: colors.emeraldDeep,
-      route: '/(pockets)/log-spend',
-    },
-    {
-      id: 'income',
-      icon: Plus,
-      label: 'Add income',
-      description: 'Record salary, freelance payments, or other income',
-      color: colors.emeraldTint,
-      iconColor: colors.emeraldDeep,
-      route: '/(income)/entry',
-    },
-    {
-      id: 'reallocate',
-      icon: ArrowLeftRight,
-      label: 'Reallocate money',
-      description: 'Move money between pockets',
-      color: colors.plumTint,
-      iconColor: colors.plum,
-      route: '/(modals)/realloc-pick',
-    },
     {
       id: 'pockets',
       icon: Wallet,
@@ -74,7 +47,7 @@ export function ActionsSheet({ visible, onClose }: ActionsSheetProps) {
     <BottomSheetModal
       visible={visible}
       onClose={onClose}
-      title="Manage your money"
+      title="Manage pockets & loans"
     >
       <View style={{ gap: spacing.sm }}>
         {actions.map((action) => {

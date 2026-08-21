@@ -92,7 +92,7 @@ export default function PocketCreateModal() {
           <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.heading, color: colors.ink }}>Add Pocket</Text>
+          <Text style={{ ...typography.heading, color: colors.ink }}>Add pocket</Text>
           <Pressable onPress={handleCreate} disabled={!name.trim() || loading} hitSlop={8}>
             <Text style={{ ...typography.body, color: name.trim() && !loading ? colors.emeraldDeep : colors.lineSoft }}>
               {loading ? 'Creating...' : 'Create'}

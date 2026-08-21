@@ -301,7 +301,7 @@ export default function LoanDetailScreen() {
           >
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.title, color: colors.ink }}>Loan Details</Text>
+          <Text style={{ ...typography.title, color: colors.ink }}>Loan details</Text>
         </View>
         <LoadingState label="Loading loan details…" variant="cards" />
       </ScreenContainer>
@@ -330,7 +330,7 @@ export default function LoanDetailScreen() {
           >
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.title, color: colors.ink }}>Loan Details</Text>
+          <Text style={{ ...typography.title, color: colors.ink }}>Loan details</Text>
         </View>
         <ErrorState message={error || "Couldn't load loan details."} onRetry={onRefresh} />
       </ScreenContainer>
@@ -529,12 +529,12 @@ export default function LoanDetailScreen() {
           )}
           
           <View style={{ marginBottom: spacing.sm }}>
-            <Text style={{ ...typography.caption, color: colors.sage }}>Due Day</Text>
+            <Text style={{ ...typography.caption, color: colors.sage }}>Due day</Text>
             <Text style={{ ...typography.body, color: colors.ink }}>Day {loan.due_day} of each month</Text>
           </View>
           
           <View style={{ marginBottom: spacing.sm }}>
-            <Text style={{ ...typography.caption, color: colors.sage }}>Repayment Schedule</Text>
+            <Text style={{ ...typography.caption, color: colors.sage }}>Repayment schedule</Text>
             <Text style={{ ...typography.body, color: colors.ink }}>
               {progress.paymentsMade} of {progress.totalPayments} payments made
             </Text>

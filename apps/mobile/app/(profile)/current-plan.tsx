@@ -97,7 +97,7 @@ export default function CurrentPlanScreen() {
         <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} style={{ padding: spacing.sm }}>
           <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
         </Pressable>
-        <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Current Plan</Text>
+        <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Current plan</Text>
       </View>
 
       {isLoading ? (

@@ -204,7 +204,7 @@ export default function FixedExpenseFormScreen() {
 
           {/* Quick Suggestions */}
           <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick Add</Text>
+            <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick add</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {suggestions.map((suggestion) => {
                 const IconComponent = getIconFor(suggestion.name, suggestion.category);
