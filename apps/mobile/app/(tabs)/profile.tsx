@@ -124,7 +124,19 @@ export default function ProfileScreen() {
     }, [loadProfileMeta])
   );
 
-  const planLabel = plan?.type === 'daily' ? 'Daily Budget' : 'Structured Salaried';
+  // Compose the label from both type AND income_pattern — plan.type alone
+  // collapses every daily-budget persona (freelancer, gig, salaried,
+  // salaried+side-income) into the same generic string. See profile.plan
+  // shape from GET /profile/plan (apps/api plans table: type + income_pattern).
+  const planLabel = (() => {
+    const type = plan?.type;
+    const incomePattern = plan?.income_pattern;
+    if (!type) return 'Structured Salaried';
+    const typeLabel = type === 'daily' ? 'Daily Budget' : 'Structured';
+    if (incomePattern === 'freelancer') return `Freelancer — ${typeLabel}`;
+    if (incomePattern === 'salaried') return `Salaried — ${typeLabel}`;
+    return typeLabel;
+  })();
 
   const themeOptions = [
     { id: 'light' as ThemeMode, label: 'Light', icon: Sun, desc: 'Always light mode' },

@@ -502,6 +502,37 @@ export default function PocketDetailScreen() {
 
   const pctRemaining = Math.max(0, Math.min(100, stat?.percentage_remaining ?? 0));
 
+  // Daily-budget spendable pockets carry a daily_cap. `stat.available` is
+  // the ledger-derived balance, which for these pockets is really "left
+  // today" — it rolls unspent to Savings at midnight (see the home hero /
+  // rollover copy). Leading with the monthly total here trains the wrong
+  // habit: it makes today's number look tiny/irrelevant next to a much
+  // bigger figure, and invites "I've barely touched the month" thinking on
+  // a day the user should really be pacing against ~$cap/day.
+  const isDailyCapped = pocket?.kind === 'spendable' && (pocket?.daily_cap ?? 0) > 0;
+  const dailyCap = pocket?.daily_cap ?? 0;
+  const availableToday = stat?.available ?? 0;
+  // Simple, non-shaming pace signal: are they at/above the fraction of the
+  // cap you'd expect to still have left, given time already spent today.
+  // Deliberately coarse (three states) rather than a precise percentage —
+  // the goal is a quick "you're fine" / "ease up" glance, not a number to
+  // optimize against.
+  const hourOfDay = new Date().getHours();
+  const dayFractionElapsed = Math.min(1, Math.max(0, hourOfDay / 24));
+  const expectedRemainingFraction = 1 - dayFractionElapsed;
+  const actualRemainingFraction = dailyCap > 0 ? availableToday / dailyCap : 1;
+  const paceState: 'ahead' | 'onTrack' | 'behind' =
+    actualRemainingFraction >= expectedRemainingFraction + 0.1
+      ? 'ahead'
+      : actualRemainingFraction >= expectedRemainingFraction - 0.15
+      ? 'onTrack'
+      : 'behind';
+  const paceCopy: Record<typeof paceState, string> = {
+    ahead: 'Ahead of pace — nice cushion for later today',
+    onTrack: 'Right on pace for today',
+    behind: 'Spending a bit faster than usual today',
+  };
+
   // ── Loading state ──────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -654,7 +685,7 @@ export default function PocketDetailScreen() {
             />
 
             <Text style={{ ...typography.caption, color: colors.surface + 'AA', marginTop: spacing.sm }}>
-              Available in this pocket
+              {isDailyCapped ? "Left today" : 'Available in this pocket'}
             </Text>
             <Text
               style={{
@@ -666,13 +697,18 @@ export default function PocketDetailScreen() {
                 fontVariant: ['tabular-nums'],
               }}
             >
-              {fmt(stat?.available ?? 0)}
+              {fmt(isDailyCapped ? availableToday : (stat?.available ?? 0))}
             </Text>
             <Text style={{ ...typography.caption, color: colors.surface + '88', marginTop: 4 }}>
-              of {fmt(stat?.monthly_allocation ?? 0)} monthly allocation · {Math.round(pctRemaining)}% remaining
+              {isDailyCapped
+                ? `of ${fmt(dailyCap)} daily budget · ${Math.round(pctRemaining)}% left today`
+                : `of ${fmt(stat?.monthly_allocation ?? 0)} monthly allocation · ${Math.round(pctRemaining)}% remaining`}
             </Text>
 
-            {/* Progress bar */}
+            {/* Progress bar — for daily-cap pockets this now tracks against
+                the daily_cap (via the corrected percentage_remaining), so a
+                healthy pace shows a healthy-looking bar instead of reading
+                as "almost empty" against the full month's total. */}
             <View
               style={{
                 height: 6,
@@ -692,12 +728,41 @@ export default function PocketDetailScreen() {
               />
             </View>
 
+            {isDailyCapped && (
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: spacing.xs,
+                  marginTop: spacing.md,
+                  backgroundColor: colors.surface + '14',
+                  borderRadius: radius.sm,
+                  paddingHorizontal: spacing.sm,
+                  paddingVertical: spacing.sm - 2,
+                  alignSelf: 'flex-start',
+                }}
+              >
+                <View
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 3,
+                    backgroundColor:
+                      paceState === 'behind' ? colors.clay : paceState === 'ahead' ? colors.emerald : colors.gold,
+                  }}
+                />
+                <Text style={{ ...typography.caption, fontSize: 11, color: colors.surface + 'CC' }}>
+                  {paceCopy[paceState]}
+                </Text>
+              </View>
+            )}
+
             {/* Stats row */}
             <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.xl }}>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Spent</Text>
+                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Spent{isDailyCapped ? ' today' : ''}</Text>
                 <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>
-                  {fmt(stat?.spent ?? 0)}
+                  {fmt(isDailyCapped ? Math.max(0, dailyCap - availableToday) : (stat?.spent ?? 0))}
                 </Text>
               </View>
               <View>
@@ -707,14 +772,43 @@ export default function PocketDetailScreen() {
                 </Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Days left</Text>
+                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>
+                  {isDailyCapped ? 'Resets in' : 'Days left'}
+                </Text>
                 <Text style={{ ...typography.heading, color: colors.surface }}>
-                  {stat?.days_remaining ?? '—'}
+                  {isDailyCapped ? `${Math.max(0, 24 - hourOfDay)}h` : (stat?.days_remaining ?? '—')}
                 </Text>
               </View>
             </View>
           </View>
         </View>
+
+        {/* This month, at a glance — demoted below the daily hero on
+            purpose. It's still one tap away for anyone who wants the big
+            picture, but it no longer competes with "left today" for the
+            user's attention, which is the number that should actually
+            drive today's spending decisions. */}
+        {isDailyCapped && (
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                borderWidth: 1,
+                borderColor: colors.line,
+                borderRadius: radius.sm,
+                paddingHorizontal: spacing.md,
+                paddingVertical: spacing.sm + 2,
+              }}
+            >
+              <Text style={{ ...typography.caption, color: colors.sage }}>This month's allocation</Text>
+              <Text style={{ ...typography.caption, color: colors.inkSoft, fontVariant: ['tabular-nums'] }}>
+                {fmt(stat?.monthly_allocation ?? 0)} · {stat?.days_remaining ?? '—'} days left
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* ── Action buttons ──
             "Add money" used to sit next to "Reallocate" here, but both
