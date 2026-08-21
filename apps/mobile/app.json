@@ -4,7 +4,7 @@
     "slug": "financial-hub-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.webp",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "platforms": [
       "ios",
@@ -21,8 +21,8 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#F6F7F2",
-        "foregroundImage": "./assets/icon.webp",
-        "monochromeImage": "./assets/icon.webp"
+        "foregroundImage": "./assets/icon.png",
+        "monochromeImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.financialhub.mobile",
@@ -30,7 +30,7 @@
     },
     "web": {
       "bundler": "metro",
-      "favicon": "./assets/icon.webp",
+      "favicon": "./assets/icon.png",
       "config": "./web.config.js",
       "meta": {
         "viewport": {
@@ -48,7 +48,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.webp",
+          "image": "./assets/splash-icon.png",
           "imageWidth": 260,
           "resizeMode": "contain",
           "backgroundColor": "#F6F7F2"
