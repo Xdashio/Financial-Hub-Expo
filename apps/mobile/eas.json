@@ -28,7 +28,6 @@
       }
     },
     "preview-arm64": {
-      "inherits": "preview",
       "distribution": "internal",
       "environment": "preview",
       "env": {
@@ -36,8 +35,7 @@
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
-        "buildType": "apk",
-        "abi": ["arm64-v8a"]
+        "buildType": "apk"
       }
     },
     "production": {
