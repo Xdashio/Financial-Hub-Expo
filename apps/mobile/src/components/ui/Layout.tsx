@@ -93,7 +93,7 @@ export function BrandHeader({
           // src/components/ui.tsx (src/components/ui/Layout.tsx vs
           // src/components/ui.tsx), so the relative path needs an extra
           // `../` to still resolve to apps/mobile/assets/.
-          source={require('../../../assets/financial_hub_logo_transparent.png')}
+          source={require('../../../assets/icon.webp')}
           style={{ width: 26, height: 26 }}
           resizeMode="contain"
         />

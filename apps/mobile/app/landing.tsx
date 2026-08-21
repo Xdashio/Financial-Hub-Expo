@@ -84,7 +84,7 @@ export default function LandingScreen() {
               {index === 0 && (
                 <View style={{ alignItems: 'center', marginBottom: spacing.xl }}>
                   <Image 
-                    source={require('../assets/financial_hub_logo_transparent.png')}
+                    source={require('../assets/icon.webp')}
                     style={{ width: 72, height: 72 }}
                     resizeMode="contain"
                   />

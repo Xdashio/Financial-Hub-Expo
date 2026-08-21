@@ -305,7 +305,7 @@ export default function HomeScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <Image
-              source={require('../../assets/financial_hub_logo_transparent.png')}
+              source={require('../../assets/icon.webp')}
               style={{ width: 26, height: 26 }}
               resizeMode="contain"
             />
