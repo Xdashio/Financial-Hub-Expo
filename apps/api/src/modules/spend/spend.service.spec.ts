@@ -1,5 +1,6 @@
 import { SpendService } from './spend.service';
 import { remainingDaysAfterToday } from '../rollover/rollover-planner';
+import { RunwayService } from '../runway/runway.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 
 const SPENDABLE_POCKET: any = {
@@ -82,9 +83,11 @@ describe('SpendService.commitSpend', () => {
       | 'getTopLevelPocketsByPlanId'
       | 'getActivePlanByUserId'
       | 'updatePocket'
+      | 'getIncomeEventsByUserId'
     >
   >;
   let disciplineScore: { applyDelta: jest.Mock };
+  let runway: RunwayService;
   let service: SpendService;
 
   beforeEach(() => {
@@ -109,11 +112,14 @@ describe('SpendService.commitSpend', () => {
       // untouched. Tests for the new daily_cap_exceeded flow override this.
       getActivePlanByUserId: jest.fn().mockResolvedValue(null),
       updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
+      getIncomeEventsByUserId: jest.fn().mockResolvedValue([]),
     } as any;
     disciplineScore = { applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 100 }) };
+    runway = new RunwayService(repository as unknown as SupabaseRepository);
     service = new SpendService(
       repository as unknown as SupabaseRepository,
       disciplineScore as any,
+      runway,
     );
   });
 
@@ -502,6 +508,35 @@ describe('SpendService.commitSpend', () => {
       const daysRemaining = remainingDaysAfterToday(new Date().toISOString().slice(0, 10));
       const expectedCap = Math.round((23000 / Math.max(1, daysRemaining)) * 100) / 100;
       expect((updates as any).daily_cap).toBeCloseTo(expectedCap, 2);
+    });
+
+    it('freelancers pace against runwayDays (days to next expected payment), not the calendar month', async () => {
+      repository.getActivePlanByUserId.mockResolvedValue({
+        id: 'plan-1',
+        type: 'daily',
+        income_pattern: 'freelancer',
+        income_interval_days: 9,
+      } as any);
+      // Last payment was 6 days ago; the payment before that was 9 days
+      // before *that* — a clean 9-day cadence — so runwayDays clamps to
+      // 9 - 6 = 3, regardless of what calendar day of the month it is.
+      const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      repository.getIncomeEventsByUserId.mockResolvedValue([
+        { date: sixDaysAgo },
+        { date: fifteenDaysAgo },
+      ] as any);
+
+      const result = await service.commitSpend(
+        { pocket_id: 'pocket-1', amount: 2000, override_daily_cap: true },
+        'user-1',
+      );
+
+      expect(result.allowed).toBe(true);
+      const [, updates] = repository.updatePocket.mock.calls[0];
+      // 25,000 - 2,000 = 23,000 spread over a 3-day runway, not ~15
+      // calendar days -> a much higher (and correct) adjusted cap.
+      expect((updates as any).daily_cap).toBeCloseTo(23000 / 3, 2);
     });
   });
 });

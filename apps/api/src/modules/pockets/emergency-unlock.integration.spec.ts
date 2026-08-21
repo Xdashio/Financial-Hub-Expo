@@ -191,7 +191,7 @@ describe('Emergency unlock reachability (integration, real getPocketSummary)', (
       applyDelta: jest.fn().mockResolvedValue({ previousScore: 50, newScore: 40 }),
       getCurrentScore: jest.fn().mockResolvedValue(50),
     };
-    spendService = new SpendService(repo as any, disciplineScore as any);
+    spendService = new SpendService(repo as any, disciplineScore as any, { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any);
 
     spendingAnalysis = {
       analyze30DaySpending: jest.fn().mockResolvedValue({
