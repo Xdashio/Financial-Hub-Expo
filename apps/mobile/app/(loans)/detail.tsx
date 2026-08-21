@@ -160,7 +160,12 @@ export default function LoanDetailScreen() {
     } catch (e) {
       console.error('Loan detail load error:', e);
       const errorMessage = e instanceof Error ? e.message : 'Failed to load loan details';
-      setError(errorMessage);
+      // Provide a more helpful error message if it's a pocket vs loan issue
+      if (errorMessage.includes('not a loan') || errorMessage.includes('Pocket is not a loan')) {
+        setError('This is not a loan pocket. Please navigate to the pocket detail screen instead.');
+      } else {
+        setError(errorMessage);
+      }
     }
   }, [id]);
 
@@ -334,6 +339,7 @@ export default function LoanDetailScreen() {
 
   const { progress, repayment_schedule, loan_provider, loan_purpose, subPockets } = loan;
   const isOverdue = progress.isOverdue;
+  const repaymentSubPocket = subPockets?.find(sp => sp.name === 'Repayment');
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -633,38 +639,57 @@ export default function LoanDetailScreen() {
           )}
         </View>
 
-        {/* Fund Repayment */}
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
-          <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>
-            Fund Repayment
-          </Text>
-          
-          <View style={{ backgroundColor: colors.surface, borderRadius: radius.sm, padding: spacing.md, borderWidth: borderWidth, borderColor: colors.line }}>
-            <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
-              Required amount: {fmt(loan?.repayment_schedule?.repaymentAmount || 0)}
+        {/* Fund Repayment - only show if repayment sub-pocket exists */}
+        {repaymentSubPocket && (
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
+            <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>
+              Fund Repayment
             </Text>
-            
-            <Input
-              label="Repayment Amount"
-              placeholder={fmt(loan?.repayment_schedule?.repaymentAmount || 0)}
-              keyboardType="numeric"
-              leftElement={<DollarSign size={20} color={colors.sage} strokeWidth={2} />}
-              value={repaymentAmount}
-              onChangeText={setRepaymentAmount}
-              helperText="Enter the exact repayment amount"
-            />
-            
-            <Button
-              fullWidth
-              leftIcon={<DollarSign size={16} color={colors.surface} strokeWidth={2} />}
-              onPress={handleRepaymentConfirm}
-              disabled={isFunding}
-              style={{ marginTop: spacing.md }}
-            >
-              {isFunding ? 'Processing...' : 'Fund Repayment'}
-            </Button>
+
+            <View style={{ backgroundColor: colors.surface, borderRadius: radius.sm, padding: spacing.md, borderWidth: borderWidth, borderColor: colors.line }}>
+              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
+                Required amount: {fmt(loan?.repayment_schedule?.repaymentAmount || 0)}
+              </Text>
+
+              <Input
+                label="Repayment Amount"
+                placeholder={fmt(loan?.repayment_schedule?.repaymentAmount || 0)}
+                keyboardType="numeric"
+                leftElement={<DollarSign size={20} color={colors.sage} strokeWidth={2} />}
+                value={repaymentAmount}
+                onChangeText={setRepaymentAmount}
+                helperText="Enter the exact repayment amount"
+              />
+
+              <Button
+                fullWidth
+                leftIcon={<DollarSign size={16} color={colors.surface} strokeWidth={2} />}
+                onPress={handleRepaymentConfirm}
+                disabled={isFunding}
+                style={{ marginTop: spacing.md }}
+              >
+                {isFunding ? 'Processing...' : 'Fund Repayment'}
+              </Button>
+            </View>
           </View>
-        </View>
+        )}
+
+        {/* Show message if repayment sub-pocket doesn't exist */}
+        {!repaymentSubPocket && (
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
+            <View style={{ backgroundColor: colors.emeraldTint, borderRadius: radius.sm, padding: spacing.md, borderWidth: borderWidth, borderColor: colors.emeraldDeep }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <AlertCircle size={20} color={colors.emeraldDeep} strokeWidth={2} />
+                <Text style={{ ...typography.heading, color: colors.emeraldDeep }}>
+                  Repayment Pocket Not Set Up
+                </Text>
+              </View>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.sm }}>
+                A repayment sub-pocket is required to fund repayments. Please create it via the backend or contact support.
+              </Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
       {modal}
     </ScreenContainer>

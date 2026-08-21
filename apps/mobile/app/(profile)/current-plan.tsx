@@ -82,9 +82,12 @@ export default function CurrentPlanScreen() {
     load();
   }, [dataVersion, load]);
 
-  const totalAllocated = pockets.filter(p => p.kind !== 'loan').reduce((sum, p) => sum + (p.monthly_allocation ?? 0), 0);
+  // Only show top-level pockets in the current plan - sub-pockets are shown
+  // within their parent's detail screen, not at the plan level
+  const topLevelPockets = pockets.filter(p => !p.parent_id);
+  const totalAllocated = topLevelPockets.filter(p => p.kind !== 'loan').reduce((sum, p) => sum + (p.monthly_allocation ?? 0), 0);
   const grouped: Record<string, any[]> = { savings: [], fixed: [], spendable: [], loan: [] };
-  for (const p of pockets) {
+  for (const p of topLevelPockets) {
     if (grouped[p.kind]) grouped[p.kind].push(p);
   }
 

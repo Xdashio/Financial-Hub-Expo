@@ -18,6 +18,7 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: true,
         tabBarActiveTintColor: colors.emerald,
         tabBarInactiveTintColor: colors.sage,
         tabBarStyle: {
@@ -34,6 +35,7 @@ export default function TabsLayout() {
           // lineHeight the OS default can be taller than the allocated
           // label slot on some Android densities, clipping the descenders.
           lineHeight: typography.caption.lineHeight,
+          color: colors.sage, // Ensure inactive labels have the right color
         },
         // Ensure label always sits below icon and has room to render fully
         tabBarItemStyle: {
@@ -45,6 +47,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Home',
+          tabBarLabel: 'Home',
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
@@ -52,6 +55,7 @@ export default function TabsLayout() {
         name="insights"
         options={{
           title: 'Insights',
+          tabBarLabel: 'Insights',
           tabBarIcon: ({ color, size }) => <LineChart color={color} size={size} />,
         }}
       />
@@ -59,6 +63,7 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          tabBarLabel: 'Profile',
           tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
