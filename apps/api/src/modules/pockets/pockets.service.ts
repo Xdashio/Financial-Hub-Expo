@@ -638,8 +638,17 @@ export class PocketsService {
     // debits (and reallocation flows). monthly_allocation is the planning
     // ceiling — used here only for the percentage display, not for the balance.
     const remaining = summary.available;
-    const percentage_remaining = pocket.monthly_allocation > 0
-      ? Math.round((remaining / pocket.monthly_allocation) * 100)
+    // Daily-budget spendable pockets (pocket.daily_cap set) roll unspent
+    // balance to Savings every midnight, so `remaining` here is really
+    // "left today", not "left this month". Dividing that by the monthly
+    // ceiling produced a near-empty-looking bar even on a day the user is
+    // comfortably on pace (e.g. $45 left of a $60 daily cap showed as
+    // ~2.5% instead of 75%) — the opposite signal a daily-cap UX needs to
+    // reinforce good pacing. Use daily_cap as the denominator whenever it's
+    // set; monthly_allocation remains correct for structured pockets.
+    const percentageBase = pocket.daily_cap ?? pocket.monthly_allocation;
+    const percentage_remaining = percentageBase > 0
+      ? Math.round((remaining / percentageBase) * 100)
       : 0;
 
     const now = new Date();
