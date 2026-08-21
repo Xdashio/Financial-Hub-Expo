@@ -86,5 +86,53 @@ export function mapBehaviorEvent(event: any, colors: any): DisplayEventOrNull {
     const desc = payload.days ? `${payload.days} days without touching Savings pocket` : 'Savings streak continues';
     return { title: 'Savings streak', desc, time, color: colors.emerald };
   }
-  return { title: String(event.type ?? 'Activity').replace(/_/g, ' '), desc: '', time, color: colors.sage };
+  // Fixed-expense paid before/on its due_day (rollover.constants.ts
+  // EVENT_FIXED_PAYMENT_ON_TIME, +POINTS_FIXED_PAYMENT_ON_TIME). Previously
+  // had no case here, so it fell through to the generic fallback below and
+  // showed as a bare, colorless "fixed payment on time" with no points —
+  // even though it's counted in the period's discipline delta.
+  if (event.type === 'fixed_payment_on_time') {
+    const desc = payload.points_added ? `+${payload.points_added} discipline points` : 'Paid a fixed expense on time';
+    return { title: 'Fixed expense paid on time', desc, time, color: colors.emerald };
+  }
+  // Savings/spend goal reached (rollover.constants.ts EVENT_GOAL_ACHIEVED).
+  // Same gap as above — no case meant no visible points for a genuine win.
+  if (event.type === 'goal_achieved') {
+    const desc = payload.points_added ? `+${payload.points_added} discipline points` : 'Reached a savings goal';
+    return { title: 'Goal achieved', desc, time, color: colors.emerald };
+  }
+  // A spend against a known-gambling recipient was blocked and the user
+  // tried again anyway (rollover.constants.ts EVENT_GAMBLING_BLOCKED_ATTEMPT,
+  // -POINTS_GAMBLING_BLOCKED_ATTEMPT). Previously fell through to the
+  // fallback, which hid both the point cost and why it happened.
+  if (event.type === 'gambling_blocked_attempt') {
+    const desc = payload.points_deducted ? `−${payload.points_deducted} discipline points` : 'Blocked spend to a gambling recipient';
+    return { title: 'Gambling attempt blocked', desc, time, color: colors.clay };
+  }
+  // User deliberately spent past a pocket's available balance via the
+  // explicit override path (rollover.constants.ts EVENT_ESSENTIAL_OVERRIDE,
+  // -POINTS_ESSENTIAL_OVERRIDE) — the steepest single-event penalty. Same
+  // gap: no case meant this, the single costliest logged action, was the
+  // least visible one in the activity list.
+  if (event.type === 'essential_override') {
+    const desc = payload.points_deducted ? `−${payload.points_deducted} discipline points` : 'Spent past a pocket\u2019s available balance';
+    return { title: 'Spend override', desc, time, color: colors.clay };
+  }
+
+  // Generic fallback for any event type without an explicit case above.
+  // Rather than silently dropping the point movement (the bug behind the
+  // four cases just added — each one carried points_added/points_deducted
+  // in its payload the whole time, just nothing here read it), fall back
+  // to reading the same points_added/points_deducted convention every
+  // other case follows. This also future-proofs new event types: a
+  // scoring event that starts writing points but hasn't gotten a bespoke
+  // case yet still shows its point movement instead of going blank.
+  const title = String(event.type ?? 'Activity').replace(/_/g, ' ');
+  if (typeof payload.points_added === 'number' && payload.points_added > 0) {
+    return { title, desc: `+${payload.points_added} discipline points`, time, color: colors.emerald };
+  }
+  if (typeof payload.points_deducted === 'number' && payload.points_deducted > 0) {
+    return { title, desc: `−${payload.points_deducted} discipline points`, time, color: colors.clay };
+  }
+  return { title, desc: '', time, color: colors.sage };
 }

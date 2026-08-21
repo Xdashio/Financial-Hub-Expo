@@ -36,7 +36,7 @@ interface SubPocketRebalanceSheetProps {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const PCT_STEP = 5;
+const PCT_STEP = 1;
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
