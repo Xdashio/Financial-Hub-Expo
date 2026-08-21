@@ -25,7 +25,8 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.financialhub.mobile"
+      "package": "com.financialhub.mobile",
+      "enableProguardInReleaseBuilds": true
     },
     "web": {
       "bundler": "metro",

@@ -7,7 +7,7 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { incomeApi, createIdempotencyKey } from '@/services/api';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
-import { ArrowLeft, Plus, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Plus, Calendar, ShieldCheck } from 'lucide-react-native';
 import { showAllocationReceived } from '@/services/notifications';
 import { enqueueWrite } from '@/services/offline-queue';
 import { ScreenContainer, MoneyAllocationPrompt } from '@/components/ui';
@@ -28,6 +28,7 @@ interface ProjectedAllocation {
   amount: number;
   percentage: number;
   is_minimum?: boolean;
+  is_capped?: boolean;
 }
 
 export default function IncomeEntryScreen() {
@@ -442,16 +443,28 @@ export default function IncomeEntryScreen() {
                     {preview.projected_allocations.map((a) => (
                       <View
                         key={a.pocket_id}
-                        style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}
+                        style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}
                       >
-                        <Text style={{ ...typography.body, color: colors.ink }}>
-                          {a.pocket_name}{a.is_minimum ? ' (10% min)' : ''}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                          {a.is_capped && (
+                            <ShieldCheck size={14} color={colors.emeraldDeep} strokeWidth={2} style={{ marginRight: spacing.xs }} />
+                          )}
+                          <Text style={{ ...typography.body, color: colors.ink }}>
+                            {a.pocket_name}{a.is_minimum ? ' (10% min)' : ''}{a.is_capped ? ' (capped)' : ''}
+                          </Text>
+                        </View>
                         <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>
                           {formatCurrency(a.amount)}
                         </Text>
                       </View>
                     ))}
+                    {preview.projected_allocations.some(a => a.is_capped) && (
+                      <View style={{ marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.emeraldDeep + '33' }}>
+                        <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                          Fixed expenses are capped at their monthly allocation. Excess is redistributed to other pockets.
+                        </Text>
+                      </View>
+                    )}
                     <View style={{ borderTopWidth: 1, borderTopColor: colors.emeraldDeep + '33', marginTop: spacing.sm, paddingTop: spacing.sm, flexDirection: 'row', justifyContent: 'space-between' }}>
                       <Text style={{ ...typography.heading, color: colors.emeraldDeep }}>Total allocated</Text>
                       <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>

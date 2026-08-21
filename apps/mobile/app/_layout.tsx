@@ -10,7 +10,7 @@ import 'react-native-url-polyfill/auto';
 
 import { useEffect, useState } from 'react';
 import { AppState, View } from 'react-native';
-import { PocketLoader } from '@/components/ui';
+import { PocketLoader, OfflineIndicator } from '@/components/ui';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -22,7 +22,6 @@ import {
 } from '@/services/notifications';
 import { initSentry, wrapRoot } from '@/services/sentry';
 import { flushWriteQueue } from '@/services/offline-queue';
-import { OfflineIndicator } from '@/components/ui';
 import { AppLockGate } from '@/components/auth/AppLockGate';
 
 initSentry();

@@ -31,6 +31,7 @@ export default function PocketEditModal() {
   const [dailyCap, setDailyCap] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { planType } = useHomeStore();
 
   useEffect(() => {
     loadPocket();
@@ -140,7 +141,7 @@ export default function PocketEditModal() {
             />
           </View>
 
-          {pocket?.kind === 'spendable' && (
+          {pocket?.kind === 'spendable' && planType === 'daily' && (
             <View style={{ marginTop: spacing.lg }}>
               <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Daily cap (KSh)</Text>
               <TextInput

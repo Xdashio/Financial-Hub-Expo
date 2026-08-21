@@ -1,14 +1,15 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { CalendarCheck, ArrowLeftRight, Timer } from 'lucide-react-native';
-import { radius, spacing, typography, shadow } from '../../src/theme';
+import { CalendarCheck, ArrowLeftRight, Timer, TrendingUp, TrendingDown, PieChart } from 'lucide-react-native';
+import { radius, spacing, typography, shadow, categoryColors } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { insightsApi, reallocationsApi } from '@/services/api';
+import { insightsApi, reallocationsApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer, LoadingState, ErrorState, InlineLoading, SearchBar, EmptyState, ProgressRing } from '@/components/ui';
 import { StreakHeatmap } from '@/components/insights/StreakHeatmap';
 import { mapBehaviorEvent } from '@/utils/behaviorEvent';
+import { formatMoney } from '@/utils/money';
 
 interface DisplayEvent {
   title: string;
@@ -74,15 +75,21 @@ export default function InsightsScreen() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [searchQuery, setSearchQuery] = React.useState('');
+  const [pockets, setPockets] = React.useState<any[]>([]);
+  const [budgetComparison, setBudgetComparison] = React.useState<any[]>([]);
+  const [spendingTrends, setSpendingTrends] = React.useState<any[]>([]);
+  const [selectedTrendPeriod, setSelectedTrendPeriod] = React.useState<'7' | '30' | '90'>('30');
+  const [trendData, setTrendData] = React.useState<{ period: string; total: number; breakdown: any[] } | null>(null);
 
   const load = React.useCallback(async () => {
     try {
       setIsLoading(true);
       setLoadError(null);
-      const [scoreRes, eventsRes, reallocRes] = await Promise.all([
+      const [scoreRes, eventsRes, reallocRes, pocketsRes] = await Promise.all([
         insightsApi.getDisciplineScore(),
         insightsApi.getBehaviorEventsPaginated(1, 20),
         reallocationsApi.getAll().catch(() => []),
+        pocketsApi.getAll().catch(() => []),
       ]);
       setScore(scoreRes?.score ?? null);
       setDelta(scoreRes?.delta ?? 0);
@@ -99,6 +106,62 @@ export default function InsightsScreen() {
       );
       setReallocationsThisMonth(completedThisMonth.length);
       setCoolingOffSkips(completedThisMonth.filter((r: any) => (r.discipline_cost ?? 0) > 0).length);
+
+      // Calculate budget comparison
+      const pocketsData = Array.isArray(pocketsRes) ? pocketsRes : [];
+      setPockets(pocketsData);
+      
+      const budgetComparisonData = pocketsData
+        .filter(p => p.kind === 'spendable' && p.category)
+        .map(pocket => {
+          const monthlyAllocation = pocket.monthly_allocation ?? 0;
+          const availableBalance = pocket.available_balance ?? 0;
+          const spent = monthlyAllocation - availableBalance;
+          const percentage = monthlyAllocation > 0 ? (spent / monthlyAllocation) * 100 : 0;
+          const isOverBudget = spent > monthlyAllocation;
+          
+          return {
+            id: pocket.id,
+            name: pocket.name,
+            category: pocket.category,
+            monthlyAllocation,
+            spent,
+            remaining: availableBalance,
+            percentage: Math.min(100, Math.max(0, percentage)),
+            isOverBudget,
+          };
+        });
+      
+      setBudgetComparison(budgetComparisonData);
+
+      // For spending trends, we'll use behavior events
+      // Group spending by category from daily_overspend events
+      const categorySpending: Record<string, number> = {};
+      let totalSpending = 0;
+      
+      events.forEach(event => {
+        if (event.type === 'daily_overspend') {
+          const payload = event.payload || {};
+          const category = payload.category || 'other';
+          const amount = payload.amount || 0;
+          categorySpending[category] = (categorySpending[category] || 0) + amount;
+          totalSpending += amount;
+        }
+      });
+      
+      const breakdown = Object.entries(categorySpending)
+        .map(([category, amount]) => ({
+          category,
+          amount,
+          percentage: totalSpending > 0 ? (amount / totalSpending) * 100 : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+      
+      setTrendData({
+        period: selectedTrendPeriod,
+        total: totalSpending,
+        breakdown,
+      });
     } catch (e) {
       console.error('Insights load error:', e);
       setLoadError('Failed to load your insights. Please try again.');
@@ -107,7 +170,38 @@ export default function InsightsScreen() {
     }
   }, []);
 
-  // Discipline score and reallocation counts change from other screens
+  // Recalculate trends when period changes
+  React.useEffect(() => {
+    if (events.length > 0) {
+      // Group spending by category from daily_overspend events
+      const categorySpending: Record<string, number> = {};
+      let totalSpending = 0;
+      
+      events.forEach(event => {
+        if (event.type === 'daily_overspend') {
+          const payload = event.payload || {};
+          const category = payload.category || 'other';
+          const amount = payload.amount || 0;
+          categorySpending[category] = (categorySpending[category] || 0) + amount;
+          totalSpending += amount;
+        }
+      });
+      
+      const breakdown = Object.entries(categorySpending)
+        .map(([category, amount]) => ({
+          category,
+          amount,
+          percentage: totalSpending > 0 ? (amount / totalSpending) * 100 : 0,
+        }))
+        .sort((a, b) => b.amount - a.amount);
+      
+      setTrendData({
+        period: selectedTrendPeriod,
+        total: totalSpending,
+        breakdown,
+      });
+    }
+  }, [selectedTrendPeriod, events]);
   // (unlocking a pocket, completing a reallocation) that aren't this one —
   // a plain mount-time useEffect left this tab showing a stale score after
   // an action taken elsewhere until the app was reloaded. Refetching on
@@ -149,6 +243,14 @@ export default function InsightsScreen() {
     event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (event.desc && event.desc.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const getCategoryColor = (category: string): string => {
+    const normalizedCategory = category.toLowerCase();
+    if (categoryColors[normalizedCategory]) {
+      return categoryColors[normalizedCategory];
+    }
+    return categoryColors.other || '#6B7280';
+  };
 
   const metrics: (Metric & { kind: string })[] = [
     {
@@ -193,7 +295,7 @@ export default function InsightsScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading insights…" />
+        <LoadingState label="Loading insights…" variant="insights" />
       </ScreenContainer>
     );
   }
@@ -345,6 +447,176 @@ export default function InsightsScreen() {
             Day-by-day behavior over a rolling window — pair with your calendar-month score above.
           </Text>
           <StreakHeatmap />
+        </View>
+
+        {/* Budget Comparison Dashboard */}
+        <View style={{ marginTop: spacing.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg }}>
+            <PieChart size={15} color={colors.ink} strokeWidth={2} />
+            <Text style={{ ...typography.eyebrow, color: colors.ink }}>Budget vs. Actual</Text>
+          </View>
+          <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.md, lineHeight: 16 }}>
+            See how your spending compares to your monthly allocations by category.
+          </Text>
+          
+          {budgetComparison.length === 0 ? (
+            <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
+              <PieChart size={32} color={colors.sage} strokeWidth={2} />
+              <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.md }}>
+                No budget data available yet
+              </Text>
+              <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.xs, lineHeight: 16 }}>
+                Start by creating spendable pockets with monthly allocations to track your budget progress
+              </Text>
+            </View>
+          ) : (
+            budgetComparison.map((item) => (
+              <View key={item.id} style={{ marginBottom: spacing.lg }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                  <Text style={{ ...typography.heading, color: colors.ink }}>{item.name}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                    {item.isOverBudget ? (
+                      <TrendingUp size={14} color={colors.clay} strokeWidth={2} />
+                    ) : (
+                      <TrendingDown size={14} color={colors.emeraldDeep} strokeWidth={2} />
+                    )}
+                    <Text style={{ ...typography.caption, color: item.isOverBudget ? colors.clay : colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
+                      {item.percentage.toFixed(0)}%
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Progress bar */}
+                <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden', marginBottom: spacing.xs }}>
+                  <View
+                    style={{
+                      height: '100%',
+                      width: `${item.percentage}%`,
+                      backgroundColor: item.isOverBudget ? colors.clay : colors.emeraldDeep,
+                      borderRadius: radius.pill,
+                    }}
+                  />
+                </View>
+                
+                {/* Amount breakdown */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ ...typography.caption, color: colors.sage }}>
+                    Spent: {formatMoney(item.spent)}
+                  </Text>
+                  <Text style={{ ...typography.caption, color: colors.sage, fontVariant: ['tabular-nums'] }}>
+                    Budget: {formatMoney(item.monthlyAllocation)}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        {/* Spending Trends Analytics */}
+        <View style={{ marginTop: spacing.xxl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg }}>
+            <TrendingUp size={15} color={colors.ink} strokeWidth={2} />
+            <Text style={{ ...typography.eyebrow, color: colors.ink }}>Spending Trends</Text>
+          </View>
+          <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.md, lineHeight: 16 }}>
+            Track your spending patterns over different time periods.
+          </Text>
+          
+          {/* Period selector */}
+          <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+            {(['7', '30', '90'] as const).map((period) => (
+              <Pressable
+                key={period}
+                onPress={() => setSelectedTrendPeriod(period)}
+                style={{
+                  flex: 1,
+                  paddingVertical: spacing.sm,
+                  paddingHorizontal: spacing.md,
+                  borderRadius: radius.sm,
+                  backgroundColor: selectedTrendPeriod === period ? colors.emeraldDeep : colors.surface,
+                  borderWidth: 1,
+                  borderColor: selectedTrendPeriod === period ? colors.emeraldDeep : colors.line,
+                }}
+              >
+                <Text
+                  style={{
+                    ...typography.caption,
+                    color: selectedTrendPeriod === period ? colors.surface : colors.ink,
+                    textAlign: 'center',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {period} days
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {/* Total spending */}
+          {trendData && (
+            <View style={{ marginBottom: spacing.lg }}>
+              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>
+                Total spending
+              </Text>
+              <Text style={{ ...typography.display, color: colors.ink, fontSize: 36 }}>
+                {formatMoney(trendData.total)}
+              </Text>
+            </View>
+          )}
+
+          {/* Category breakdown bars */}
+          {trendData && trendData.breakdown.length > 0 ? (
+            <View style={{ gap: spacing.md }}>
+              {trendData.breakdown.slice(0, 5).map((item, index) => {
+                const barWidth = Math.max(5, item.percentage);
+                const categoryColor = getCategoryColor(item.category);
+                return (
+                  <View key={item.category}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: categoryColor }} />
+                        <Text style={{ ...typography.heading, color: colors.ink, fontSize: 15 }}>
+                          {item.category}
+                        </Text>
+                      </View>
+                      <Text style={{ ...typography.caption, color: colors.sage, fontVariant: ['tabular-nums'] }}>
+                        {item.percentage.toFixed(0)}%
+                      </Text>
+                    </View>
+                    <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden' }}>
+                      <View
+                        style={{
+                          height: '100%',
+                          width: `${barWidth}%`,
+                          backgroundColor: categoryColor,
+                          borderRadius: radius.pill,
+                        }}
+                      />
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>
+                        {formatMoney(item.amount)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+              {trendData.breakdown.length > 5 && (
+                <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.xs }}>
+                  +{trendData.breakdown.length - 5} more categories
+                </Text>
+              )}
+            </View>
+          ) : (
+            <View style={{ paddingVertical: spacing.xl, alignItems: 'center', backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.lg }}>
+              <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center' }}>
+                No spending data for this period
+              </Text>
+              <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.xs }}>
+                Your spending trends will appear here once you start tracking expenses
+              </Text>
+            </View>
+          )}
         </View>
 
         <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spending behavior insights</Text>

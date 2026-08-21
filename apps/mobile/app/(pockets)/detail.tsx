@@ -11,7 +11,7 @@ import { radius, spacing, typography, shadow, borderWidth } from '../../src/them
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
-import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button, SearchBar } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
 import { SubPocketRebalanceSheet } from '@/components/pockets/SubPocketRebalanceSheet';
@@ -30,9 +30,11 @@ import {
   Plus,
   Sliders,
   Trash2,
+  Filter,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
+import { getEnhancedErrorMessage } from '@/utils/errorMessages';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -252,6 +254,21 @@ export default function PocketDetailScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [rebalanceSheetVisible, setRebalanceSheetVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'spend' | 'allocation' | 'reallocation'>('all');
+
+  const filteredTransactions = transactions.filter(tx => {
+    const matchesSearch = searchQuery === '' || 
+      (tx.merchant && tx.merchant.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (tx.category && tx.category.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesFilter = filterType === 'all' || 
+      (filterType === 'spend' && tx.type === 'spend') ||
+      (filterType === 'allocation' && tx.type === 'allocation') ||
+      (filterType === 'reallocation' && (tx.type === 'reallocation_in' || tx.type === 'reallocation_out'));
+    
+    return matchesSearch && matchesFilter;
+  });
 
   const isFirstFocus = useRef(true);
 
@@ -361,8 +378,9 @@ export default function PocketDetailScreen() {
       await pocketsApi.deleteSubPocket(subPocket.id);
       await loadAll();
     } catch (e) {
+      const enhancedError = getEnhancedErrorMessage(e, { action: 'Retry Delete' });
       setDeleteError(e instanceof Error ? e.message : 'Could not delete this sub-pocket.');
-      await alert('Error', deleteError || 'Could not delete this sub-pocket.');
+      await alert(enhancedError.title, enhancedError.message);
     } finally {
       setDeleting(false);
     }
@@ -414,7 +432,7 @@ export default function PocketDetailScreen() {
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>Pocket</Text>
         </View>
-        <LoadingState label="Loading pocket…" />
+        <LoadingState label="Loading pocket…" variant="pocket-detail" />
       </ScreenContainer>
     );
   }
@@ -1024,7 +1042,53 @@ export default function PocketDetailScreen() {
             Transaction history
           </Text>
 
-          {transactions.length === 0 ? (
+          {/* Search and Filter */}
+          <View style={{ gap: spacing.sm, marginBottom: spacing.md }}>
+            <SearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search transactions..."
+              onClear={() => setSearchQuery('')}
+            />
+            
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {(['all', 'spend', 'allocation', 'reallocation'] as const).map((type) => (
+                <Pressable
+                  key={type}
+                  onPress={() => setFilterType(type)}
+                  style={{
+                    flex: 1,
+                    paddingVertical: spacing.sm,
+                    paddingHorizontal: spacing.md,
+                    borderRadius: radius.sm,
+                    backgroundColor: filterType === type ? colors.emeraldDeep : colors.surface,
+                    borderWidth: 1,
+                    borderColor: filterType === type ? colors.emeraldDeep : colors.line,
+                  }}
+                >
+                  <Text
+                    style={{
+                      ...typography.caption,
+                      color: filterType === type ? colors.surface : colors.ink,
+                      textAlign: 'center',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {type}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+
+          {filteredTransactions.length === 0 && transactions.length > 0 ? (
+            <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
+              <Filter size={28} color={colors.sage} strokeWidth={2} />
+              <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>
+                No transactions match your search
+              </Text>
+            </View>
+          ) : transactions.length === 0 ? (
             <View
               style={{
                 padding: spacing.xl,
@@ -1039,6 +1103,9 @@ export default function PocketDetailScreen() {
               <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>
                 No transactions yet
               </Text>
+              <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.xs, lineHeight: 16 }}>
+                Start by logging your first spend or allocation to see your transaction history here
+              </Text>
             </View>
           ) : (
             <View
@@ -1050,7 +1117,7 @@ export default function PocketDetailScreen() {
                 paddingHorizontal: spacing.md,
               }}
             >
-              {transactions.map(tx => (
+              {filteredTransactions.map(tx => (
                 <TxRow key={tx.id} tx={tx} colors={colors} />
               ))}
               {(hasMore || loadMoreError) && (

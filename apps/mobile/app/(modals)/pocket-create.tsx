@@ -5,6 +5,7 @@ import { radius, spacing, typography, borderWidth } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
+import { useHomeStore } from '@/services/home-store';
 import { ScreenContainer, Button, PocketLoader } from '@/components/ui';
 import { safeGoBack } from '@/utils/navigation';;
 import { ArrowLeft, Check, AlertTriangle } from 'lucide-react-native';
@@ -25,6 +26,7 @@ export default function PocketCreateModal() {
   const router = useRouter();
   const { colors } = useTheme();
   const dataSync = useDataSync();
+  const { planType } = useHomeStore();
   const [name, setName] = useState('');
   const [kind, setKind] = useState<'spendable' | 'fixed' | 'savings'>('spendable');
   const [category, setCategory] = useState('');
@@ -271,8 +273,8 @@ export default function PocketCreateModal() {
             ) : null}
           </View>
 
-          {/* ── Daily cap — spendable only ── */}
-          {kind === 'spendable' && (
+          {/* ── Daily cap — spendable only, daily plans only ── */}
+          {kind === 'spendable' && planType === 'daily' && (
             <View style={{ marginTop: spacing.lg }}>
               <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.xs }}>Daily cap (KSh, optional)</Text>
               <TextInput

@@ -12,7 +12,7 @@ export { Toggle, ToggleRow } from './Toggle';
 export { BottomSheetModal } from './BottomSheetModal';
 export { ActionsSheet } from './ActionsSheet';
 export { DatePickerSheet } from './DatePickerSheet';
-export { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton } from './Skeleton';
+export { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton, HomeSkeleton, PocketDetailSkeleton, LoansSkeleton, InsightsSkeleton } from './Skeleton';
 export { EmptyState, NoResultsEmptyState, NoItemsEmptyState, ErrorEmptyState } from './EmptyState';
 export { BackButton } from './BackButton';
 export { SearchBar } from './SearchBar';

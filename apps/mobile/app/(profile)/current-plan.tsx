@@ -18,12 +18,14 @@ const KIND_ICON: Record<string, any> = {
   savings: PiggyBank,
   fixed: House,
   spendable: ShoppingBasket,
+  loan: Briefcase,
 };
 
 const KIND_LABEL: Record<string, string> = {
   savings: 'Savings',
   fixed: 'Fixed & protected',
   spendable: 'Spendable',
+  loan: 'Loans',
 };
 
 export default function CurrentPlanScreen() {
@@ -80,8 +82,8 @@ export default function CurrentPlanScreen() {
     load();
   }, [dataVersion, load]);
 
-  const totalAllocated = pockets.reduce((sum, p) => sum + (p.monthly_allocation ?? 0), 0);
-  const grouped: Record<string, any[]> = { savings: [], fixed: [], spendable: [] };
+  const totalAllocated = pockets.filter(p => p.kind !== 'loan').reduce((sum, p) => sum + (p.monthly_allocation ?? 0), 0);
+  const grouped: Record<string, any[]> = { savings: [], fixed: [], spendable: [], loan: [] };
   for (const p of pockets) {
     if (grouped[p.kind]) grouped[p.kind].push(p);
   }
@@ -138,16 +140,21 @@ export default function CurrentPlanScreen() {
             </View>
           </View>
 
-          {(['savings', 'fixed', 'spendable'] as const).map(kind =>
+          {(['savings', 'fixed', 'spendable', 'loan'] as const).map(kind =>
             grouped[kind].length > 0 ? (
               <View key={kind} style={{ marginTop: spacing.xl }}>
                 <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>{KIND_LABEL[kind]}</Text>
+                {kind === 'loan' && (
+                  <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.md }}>
+                    Track your loans and repayment schedules. Loan amounts are excluded from your available balance.
+                  </Text>
+                )}
                 {grouped[kind].map(pocket => {
                   const Icon = KIND_ICON[kind];
                   return (
                     <Pressable
                       key={pocket.id}
-                      onPress={() => router.push({ pathname: '/(pockets)/detail', params: { id: pocket.id } })}
+                      onPress={() => kind === 'loan' ? router.push({ pathname: '/(loans)/detail', params: { id: pocket.id } }) : router.push({ pathname: '/(pockets)/detail', params: { id: pocket.id } })}
                       style={{
                         flexDirection: 'row',
                         alignItems: 'center',
@@ -193,6 +200,28 @@ export default function CurrentPlanScreen() {
                     <ShoppingBasket size={16} color={colors.surface} strokeWidth={2} />
                     <Text style={{ ...typography.heading, color: colors.surface }}>
                       Edit spendable percentages
+                    </Text>
+                  </Pressable>
+                )}
+
+                {/* View loans button for loan category */}
+                {kind === 'loan' && (
+                  <Pressable
+                    onPress={() => router.push('/(loans)')}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: spacing.sm,
+                      marginTop: spacing.md,
+                      padding: spacing.md,
+                      borderRadius: radius.md,
+                      backgroundColor: colors.emeraldDeep,
+                    }}
+                  >
+                    <Briefcase size={16} color={colors.surface} strokeWidth={2} />
+                    <Text style={{ ...typography.heading, color: colors.surface }}>
+                      View loans
                     </Text>
                   </Pressable>
                 )}

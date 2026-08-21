@@ -39,6 +39,8 @@ Goal: close the gap between what the code assumes and what the database actually
 >
 > Separately (not a Phase A item, but same session): swept `Alert.alert()`-backed `showAlert`/`showConfirm` calls (device-native dialogs, ignore the app's theme) in favor of the existing `useAlertModal()` hook across the OTP/auth flow (`verify-otp.tsx`, `signup.tsx`, `signin.tsx`) and the reallocation/onboarding flows (`realloc-review.tsx`, `realloc-cooloff.tsx`, `result.tsx`, `fixed.tsx`). `app/(tabs)/profile.tsx`'s sign-out message intentionally still uses the native path — it fires after `router.replace()` unmounts the screen, so a hook-backed modal tied to that screen's own state would never render.
 
+**Phase A Status (2026-08-16):** ✅ **COMPLETE** — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed. The backend foundation is now stable and ready for Phase 1 completion.
+
 ## Phase 1 — MVP showcase (Individual segment only)
 Goal: a clickable, real (not fake-static) app that demonstrates the core thesis to potential SACCO/bank partners.
 
@@ -59,6 +61,54 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 - [x] **Home screen nudges (2026-08-13)** — real gap closed: the header's avatar button (which just duplicated the Profile tab) is now a bell icon opening a `NudgesSheet` bottom sheet. Nudges (`src/services/nudges.ts`) are derived client-side from data Home already fetches — runway running low, a daily pocket near/over its cap, a time-locked pocket unlocking within 7 days, a discipline-score dip, a streak, or a rollover credit — not from a dedicated backend endpoint. **Not yet verified to compile/run**: no `node_modules` in the sandbox this was built in, so only a partial `tsc` pass (scoped to the new/changed files) succeeded; run `pnpm install && npx tsc --noEmit` and a device/simulator smoke test before treating this as done. Also worth a product decision: whether nudges eventually need server-side persistence (dismissal state, push delivery) or client-derived is the intended long-term shape.
 
 **Exit criteria:** you can hand a phone to a partner, walk through onboarding → plan → a week of simulated activity → a reallocation → insights, and every number on screen is real, not hardcoded.
+
+**Phase 1 Status (2026-08-16):** 🟡 **NEARLY COMPLETE** — All core screens are wired to real backend APIs. The main remaining work includes:
+- Final verification and testing of all implemented features
+- Performance optimization and polish
+- User testing and feedback integration
+- Documentation updates for partner demonstrations
+
+## Phase 1.5 — Advanced Features (Spec Complete, Implementation Pending)
+
+These features have detailed specifications complete but implementation has not yet started. They represent the next logical enhancements to the MVP showcase.
+
+### 1.5.1 Emergency Unlock Feature
+**Status:** ✅ **SPEC COMPLETE** — See `emergency-unlock-feature-spec.md`
+**Implementation:** 🔄 **PENDING**
+
+When all non-savings pockets are depleted, users can unlock funds from their savings pocket as an emergency measure. The feature analyzes their 30-day spending patterns to suggest a safe amount range, limits usage to once per month, and allocates the unlocked amount proportionally to non-savings pockets.
+
+**Implementation Phases:**
+1. Backend foundation (database, services, API endpoints)
+2. Backend integration (pockets, transactions, limits)
+3. Testing (unit, integration, edge cases)
+4. Mobile UI (bottom sheet, amount selector, allocation preview)
+5. Polish (analytics, A/B testing, user feedback)
+
+### 1.5.2 Sub-Pocket Percentage Splits
+**Status:** ✅ **SPEC COMPLETE** — See `subpocket-feature-spec.md`
+**Implementation:** 🔄 **PENDING**
+
+Replaces flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with an overflow/borrow mechanic from parent reserved balance.
+
+**Implementation Phases:**
+1. Data model + core allocation logic
+2. Overflow/borrow mechanics
+3. Mobile UI (rebalance bottom sheet, amount selector)
+4. Testing and validation
+
+### 1.5.3 Enhanced Nudges System
+**Status:** 🟡 **PARTIALLY IMPLEMENTED** — Client-side nudges in Home screen
+**Backend Module:** ✅ **EXISTS** — `apps/api/src/modules/nudges/`
+**Implementation:** 🔄 **PENDING** — Server-side persistence and push delivery
+
+Current implementation uses client-side nudges derived from Home screen data. Future enhancement will include server-side nudges with persistence, dismissal state, and push notification delivery.
+
+**Planned Enhancements:**
+- Server-side nudges database
+- Dismissal state tracking
+- Push notification integration
+- A/B testing framework for nudge effectiveness
 
 ### Phase 1 sequencing (screens ready to wire the moment Phase A lands)
 All screens in the original sequencing list are now wired — kept below as a historical record only.

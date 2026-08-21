@@ -1,6 +1,6 @@
 # Product Requirements Document — Financial Hub
 
-Status: **Draft v0.4** — updated to clarify Financial HUB as a behavior-driven financial intelligence layer, add income detection capabilities, expand daily spending engine documentation, include financial outcomes framework, and refine MVP limitations around merchant-aware spending and biometric confirmation.
+Status: **Draft v0.5** — updated to reflect current implementation status (React Native/Expo + NestJS), resolved open questions, Phase A completion, and new features (emergency unlock, subpockets, nudges, loans).
 
 ## 1. Problem statement
 
@@ -148,17 +148,83 @@ Since the revenue model itself is unresolved (§5), the SOM revenue figure speci
 
 **Out of scope for MVP:** MSME segment (including event planner/ticketing use cases), partner-embedding shell/SDK behavior, billing system UI, freelancer-specific onboarding tuning, live bank/statement integration (detection can be mocked/simulated for the showcase), any real wallet/PSP money movement, company registration (blocked on funding).
 
-## 8. Open questions to resolve before build
+## 8. New Features (Spec Complete, Implementation Pending)
+
+### 8.1 Emergency Unlock Feature
+**Status:** Detailed specification complete (see `emergency-unlock-feature-spec.md`), implementation pending.
+
+When all non-savings pockets are depleted, users can unlock funds from their savings pocket as an emergency measure. The feature analyzes their 30-day spending patterns to suggest a safe amount range, limits usage to once per month, and allocates the unlocked amount proportionally to non-savings pockets.
+
+**Key Capabilities:**
+- 30-day spending pattern analysis to calculate safe unlock amounts
+- Reserve protection (keeps minimum savings reserve)
+- Monthly limit enforcement (once per month)
+- Proportional allocation to non-savings pockets
+- Graceful handling for insufficient history (<7 days)
+
+**Implementation Phases:**
+1. Backend foundation (database, services, API endpoints)
+2. Backend integration (pockets, transactions, limits)
+3. Testing (unit, integration, edge cases)
+4. Mobile UI (bottom sheet, amount selector, allocation preview)
+5. Polish (analytics, A/B testing, user feedback)
+
+### 8.2 Sub-Pocket Percentage Splits
+**Status:** Detailed specification complete (see `subpocket-feature-spec.md`), implementation pending.
+
+Replaces flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with an overflow/borrow mechanic from parent reserved balance.
+
+**Key Capabilities:**
+- Percentage-based sub-pocket allocation
+- Immediate rebalance when percentages change
+- Overflow borrowing from parent reserved balance
+- Reserved balance concept (unsplit remainder stays with parent)
+- Per-event override in income entry preview
+
+**Implementation Phases:**
+1. Data model + core allocation logic
+2. Overflow/borrow mechanics
+3. Mobile UI (rebalance bottom sheet, amount selector)
+4. Testing and validation
+
+### 8.3 Nudges System
+**Status:** Basic client-side nudges implemented in Home screen, backend module exists.
+
+Behavioral prompts that guide users toward better financial decisions. Currently implemented as client-side nudges derived from Home screen data (runway low, daily cap warnings, time-lock alerts, discipline-score changes, streaks, rollover credits).
+
+**Current Nudge Types:**
+- Runway running low
+- Daily pocket near/over cap
+- Time-locked pocket unlocking soon
+- Discipline-score dip
+- Savings streak
+- Rollover credit
+
+**Future Enhancement:** Server-side nudges with persistence and push notification delivery.
+
+### 8.4 Loans Module
+**Status:** Basic backend structure exists, full implementation pending.
+
+Framework for lending functionality that will allow users to borrow against their disciplined savings behavior. This is planned as a post-MVP feature that leverages the behavioral scoring system to determine creditworthiness.
+
+**Current State:**
+- Backend module structure created
+- Database schema design in progress
+- Integration with discipline-score system planned
+
+## 9. Open questions to resolve before build
 
 **Resolved (settled) — no longer open:**
-1. **Daily Budget mode** — **per-pocket daily caps** with a rollup hero (settled). Each spendable pocket has its own daily cap; the hero is the sum of the caps. Savings shown separately, fed by daily rollover. (§3.2)
-2. **Reallocation cooling-off timer** — **essential → discretionary-leisure pairs only** (Rent/Food → Entertainment/Leisure), **1–2 hours** (default 1h), **skippable at a 5-point discipline cost**, supportive framing. (§3.4)
-3. **Merchant categorization UX** — **soft block + one-time self-classify prompt**, remembered going forward; blacklisted categories blocked outright from essential pockets, warning from discretionary; "report it" path creates a review record. (§3.5)
+1. **Daily Budget mode** — **per-pocket daily caps** with a rollup hero (settled). Each spendable pocket has its own daily cap; the hero is the sum of the caps. Savings shown separately, fed by daily rollover. (§3.2) ✅ **IMPLEMENTED**
+2. **Reallocation cooling-off timer** — **essential → discretionary-leisure pairs only** (Rent/Food → Entertainment/Leisure), **1–2 hours** (default 1h), **skippable at a 5-point discipline cost**, supportive framing. (§3.4) ✅ **IMPLEMENTED**
+3. **Merchant categorization UX** — **soft block + one-time self-classify prompt**, remembered going forward; blacklisted categories blocked outright from essential pockets, warning from discretionary; "report it" path creates a review record. (§3.5) ✅ **IMPLEMENTED**
+4. **Tech stack** — React Native (Expo) + NestJS + PostgreSQL (Supabase) chosen for MVP showcase ✅ **IMPLEMENTED**
+5. **Fixed-expense detection** — Manual entry for MVP; future versions will integrate account linking ✅ **IMPLEMENTED (manual)**
+6. **Plan reassignment trigger** — Manual retake from Profile implemented ✅ **IMPLEMENTED**
 
 **Still open:**
-4. **Revenue model** — not agreed; needs a dedicated decision pass before it's referenced in any build plan. (§6)
-5. How is fixed-expense **detection** actually sourced for MVP — mocked data, a statement upload, or a real account-linking integration? This affects both scope and which tech-stack pieces are needed early.
-6. What exactly triggers a **re-run of plan assignment** — manual retake only, or also automatic drift detection (e.g. income pattern changes)?
-7. MSME segment — same core screens with different categories, or a meaningfully different flow (event planner/ticketing suggests "meaningfully different" for at least some sub-segments)? Needs its own short discovery pass before design.
-8. Billing system — usage-based (per active end-user) or flat per-partner licensing? Relevant only once Phase 4 (embeddable layer) is real; not needed for MVP.
-9. Company registration — on hold pending funding; no timeline yet.
+7. **Revenue model** — not agreed; needs a dedicated decision pass before it's referenced in any build plan. (§6)
+8. MSME segment — same core screens with different categories, or a meaningfully different flow (event planner/ticketing suggests "meaningfully different" for at least some sub-segments)? Needs its own short discovery pass before design.
+9. Billing system — usage-based (per active end-user) or flat per-partner licensing? Relevant only once Phase 4 (embeddable layer) is real; not needed for MVP.
+10. Company registration — on hold pending funding; no timeline yet.
+11. **Freelancer income pattern support** — partially implemented (gig/platform-worker vs multi-client freelancer split), remaining work on salaried-with-side-income persona and money-personality-as-modifier-layer (see `ONBOARDING_AND_SCORING_REDESIGN.md` §2.3).

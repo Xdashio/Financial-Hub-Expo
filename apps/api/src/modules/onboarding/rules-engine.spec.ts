@@ -156,7 +156,7 @@ describe('Rules Engine — Plan Assignment', () => {
         description: 'Mix with stable base, caught off guard → daily caps',
       },
       {
-        name: 'freelancer (diversified, 3+ sources) + tracker + meaningful remainder → Structured',
+        name: 'freelancer (diversified, 3+ sources) + tracker + meaningful remainder → Daily Budget',
         input: createInput({
           incomePattern: 'freelancer',
           spendingHabit: 'tracker',
@@ -164,11 +164,11 @@ describe('Rules Engine — Plan Assignment', () => {
           fixedTotal: 30000,
           sourceCount: 4,
         }),
-        expectedPlan: 'Freelancer — Structured',
-        expectedPlanType: 'structured',
+        expectedPlan: 'Freelancer — Daily Budget',
+        expectedPlanType: 'daily',
         expectedIncomePattern: 'freelancer',
         expectedConcentration: 'diversified',
-        description: 'Irregular multi-client income, tracks spending, enough remaining to divide',
+        description: 'Freelancers always get daily budget plans for runway calculation',
       },
       {
         name: 'freelancer (diversified, 3+ sources) + tracker + small remainder → Daily Budget',
@@ -216,7 +216,7 @@ describe('Rules Engine — Plan Assignment', () => {
         description: 'Irregular multi-client income, caught off guard → daily caps',
       },
       {
-        name: 'freelancer (concentrated, ≤2 sources) + tracker + meaningful remainder → Gig Structured',
+        name: 'freelancer (concentrated, ≤2 sources) + tracker + meaningful remainder → Gig Daily Budget',
         input: createInput({
           incomePattern: 'freelancer',
           spendingHabit: 'tracker',
@@ -224,11 +224,11 @@ describe('Rules Engine — Plan Assignment', () => {
           fixedTotal: 30000,
           sourceCount: 1,
         }),
-        expectedPlan: 'Gig — Structured',
-        expectedPlanType: 'structured',
+        expectedPlan: 'Gig — Daily Budget',
+        expectedPlanType: 'daily',
         expectedIncomePattern: 'freelancer',
         expectedConcentration: 'concentrated',
-        description: 'Gig/platform-style income (1-2 sources), tracks spending, enough remaining to divide',
+        description: 'Gig/platform-style income (1-2 sources) - freelancers always get daily budget for runway',
       },
       {
         name: 'freelancer (concentrated, ≤2 sources) + tracker + small remainder → Gig Daily Budget',
@@ -313,18 +313,15 @@ describe('Rules Engine — Plan Assignment', () => {
         }
       }
 
-      // 8 now, not 6: the mix→salaried persona split (audit_team.md item 2)
-      // adds 'Salaried + Side Income — Structured/Daily Budget' as distinct
-      // plan names from pure 'Salaried — Structured/Daily Budget', on top
-      // of the existing Gig/Freelancer split within the freelancer pattern.
-      expect(plans.size).toBe(8);
+      // 6 now: freelancers only get daily budget plans (no structured),
+      // so we have: Salaried (structured/daily), Salaried + Side Income (structured/daily),
+      // Freelancer (daily), Gig (daily)
+      expect(plans.size).toBe(6);
       expect(plans.has('Salaried — Structured|structured|salaried')).toBe(true);
       expect(plans.has('Salaried — Daily Budget|daily|salaried')).toBe(true);
       expect(plans.has('Salaried + Side Income — Structured|structured|salaried')).toBe(true);
       expect(plans.has('Salaried + Side Income — Daily Budget|daily|salaried')).toBe(true);
-      expect(plans.has('Freelancer — Structured|structured|freelancer')).toBe(true);
       expect(plans.has('Freelancer — Daily Budget|daily|freelancer')).toBe(true);
-      expect(plans.has('Gig — Structured|structured|freelancer')).toBe(true);
       expect(plans.has('Gig — Daily Budget|daily|freelancer')).toBe(true);
     });
   });
@@ -358,6 +355,14 @@ describe('Rules Engine — Plan Assignment', () => {
       expect(patternReason.rule).toBe('income_pattern_freelancer_gig');
       expect(patternReason.reason).toContain('platform');
       expect(result.incomeConcentration).toBe('concentrated');
+    });
+
+    it('freelancer allocation style reason mentions runway and daily caps', () => {
+      const result = assignPlan(createInput({ incomePattern: 'freelancer', sourceCount: 4 }));
+      const styleReason = result.reasons[1];
+      expect(styleReason.rule).toBe('allocation_style_daily_freelancer');
+      expect(styleReason.reason).toContain('runway');
+      expect(styleReason.reason).toContain('daily caps');
     });
 
     it('mix pattern reason mentions stable base', () => {
@@ -434,7 +439,7 @@ describe('Rules Engine — Plan Assignment', () => {
         createInput({ incomePattern: 'freelancer', sourceCount: GIG_CONCENTRATION_MAX_SOURCES }),
       );
       expect(result.incomeConcentration).toBe('concentrated');
-      expect(result.plan).toBe('Gig — Structured');
+      expect(result.plan).toBe('Gig — Daily Budget');
     });
 
     it('sourceCount one above the threshold is diversified', () => {
@@ -442,7 +447,7 @@ describe('Rules Engine — Plan Assignment', () => {
         createInput({ incomePattern: 'freelancer', sourceCount: GIG_CONCENTRATION_MAX_SOURCES + 1 }),
       );
       expect(result.incomeConcentration).toBe('diversified');
-      expect(result.plan).toBe('Freelancer — Structured');
+      expect(result.plan).toBe('Freelancer — Daily Budget');
     });
 
     it('does not change the stored incomePattern — only the plan label/reasons', () => {
@@ -450,6 +455,16 @@ describe('Rules Engine — Plan Assignment', () => {
       const multiClient = assignPlan(createInput({ incomePattern: 'freelancer', sourceCount: 5 }));
       expect(gig.incomePattern).toBe('freelancer');
       expect(multiClient.incomePattern).toBe('freelancer');
+    });
+
+    it('freelancers always get daily budget plans regardless of habit or needs', () => {
+      const tracker = assignPlan(createInput({ incomePattern: 'freelancer', spendingHabit: 'tracker', incomeAmount: 100000, fixedTotal: 30000 }));
+      const saver = assignPlan(createInput({ incomePattern: 'freelancer', moneyPersonality: 'saver', incomeAmount: 100000, fixedTotal: 30000 }));
+      const lowNeeds = assignPlan(createInput({ incomePattern: 'freelancer', incomeAmount: 100000, fixedTotal: 20000 }));
+
+      expect(tracker.planType).toBe('daily');
+      expect(saver.planType).toBe('daily');
+      expect(lowNeeds.planType).toBe('daily');
     });
   });
 

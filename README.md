@@ -37,8 +37,8 @@ This adaptive approach aligns spending behavior with real-life income patterns r
 |---|---|---|
 | Salaried — Structured | Regular, predictable | Divided into pockets |
 | Salaried — Daily Budget | Regular, predictable | Behavior-aware daily packets |
-| Freelancer — Structured | Irregular, lumpy | Divided into pockets |
-| Freelancer — Daily Budget | Irregular, lumpy | Adaptive daily packets |
+| Freelancer — Daily Budget | Irregular, lumpy | Adaptive daily packets with runway calculation |
+| Gig — Daily Budget | Concentrated gig/platform income | Adaptive daily packets with runway calculation |
 
 An initial plan is assigned during onboarding and can be refined over time as behavior and income patterns change through continuous learning and optional reassessment.
 
@@ -79,3 +79,67 @@ See `PRD.md` for detailed requirements and open items, `TECH_STACK.md` for the r
 - `PRD.md` — product requirements: user flows, screens, rules, open questions
 - `TECH_STACK.md` — recommended stack for MVP → embeddable product, with rationale
 - `ROADMAP.md` — phased plan from MVP showcase to embeddable + billing
+- `emergency-unlock-feature-spec.md` — detailed spec for emergency savings unlock feature
+- `subpocket-feature-spec.md` — detailed spec for sub-pocket percentage splits feature
+- `ONBOARDING_AND_SCORING_REDESIGN.md` — updated onboarding and scoring system design
+- `FLUTTER_TO_EXPO_PORT_GUIDE.md` — guide for migrating from Flutter to Expo/React Native
+- `audit_team.md` — team audit findings and responses
+
+## Current Implementation Status
+
+**Phase A (Stabilize)**: ✅ Complete — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed.
+
+**Phase 1 (MVP Showcase)**: 🟡 Nearly Complete — Core screens wired to real backend API, with advanced features implemented:
+
+### Implemented Features
+- ✅ Auth (Supabase phone-OTP)
+- ✅ Onboarding flow with rules-engine plan assignment
+- ✅ Daily Budget & Structured plan variants
+- ✅ Home screen with real pocket data
+- ✅ Pocket detail with transactions
+- ✅ Manual income entry
+- ✅ Merchant categorization and spend blocking
+- ✅ Reallocation flow with cooling-off timer
+- ✅ Insights screen with behavioral scoring
+- ✅ Profile management and fixed expenses
+- ✅ Notifications settings
+- ✅ Time-lock with biometric confirmation
+- ✅ Home screen nudges (behavioral prompts)
+- 🔄 Emergency unlock (spec complete, implementation pending)
+- 🔄 Sub-pocket percentage splits (spec complete, implementation pending)
+- 🔄 Loans module (basic structure exists)
+
+### Backend Architecture
+The backend is built with **NestJS** and **PostgreSQL** (via Supabase), with modular architecture:
+
+**Core Modules:**
+- `onboarding` — Plan assignment and user onboarding
+- `pockets` — Pocket management and allocations
+- `income` — Income event processing
+- `reallocations` — Money movement between pockets
+- `spend` — Transaction logging and spend control
+- `merchant` — Merchant categorization and blocking
+- `insights` — Behavioral scoring and analytics
+- `discipline-score` — Unified discipline scoring system
+- `notifications` — Push notification management
+- `profile` — User profile and fixed expenses
+- `runway` — Financial runway calculations
+- `health` — System health monitoring
+- `nudges` — Behavioral nudges system
+- `loans` — Loans and lending functionality
+- `merchant-report` — Merchant reporting system
+- `rollover` — Daily rollover processing
+
+### Mobile App
+Built with **React Native (Expo)**, featuring:
+- Cross-platform iOS/Android support
+- Supabase integration for auth and data
+- Theme system with design tokens
+- Offline queue for data synchronization
+- Biometric authentication support
+- Bottom sheet components for complex interactions
+
+### Tech Stack Reality
+**Implemented:** React Native (Expo) + NestJS + PostgreSQL (Supabase) + TypeScript
+**Hosting:** Vercel (web) + EAS/Expo (mobile builds)
+**State Management:** Zustand for client state, Supabase for server state

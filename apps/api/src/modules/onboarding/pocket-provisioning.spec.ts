@@ -127,13 +127,14 @@ describe('pocket-provisioning', () => {
       expect(fixed[0].monthly_allocation).toBe(15000);
     });
 
-    it('creates a single Daily spend pocket for students', () => {
+    it('creates a single Spendable pocket for students (structured plan)', () => {
       const input: OnboardingInput = { ...baseInput, lifeStage: 'student', fixedTotal: 5000 };
       const pockets = buildPocketInputs('plan-1', structuredAssignment, input);
       const spendable = pockets.filter((p) => p.kind === 'spendable');
       expect(spendable).toHaveLength(1);
-      expect(spendable[0].name).toBe('Daily spend');
+      expect(spendable[0].name).toBe('Spendable');
       expect(spendable[0].monthly_allocation).toBeCloseTo(structuredAssignment.spendableAmount);
+      expect(spendable[0].daily_cap).toBeNull();
     });
 
     it('includes Family & obligations when dependents are signaled', () => {
@@ -361,6 +362,25 @@ describe('pocket-provisioning', () => {
       expect(byCategory.family.percentage).toBeCloseTo(byCategory.food.percentage, 0);
       const total = breakdown.reduce((sum, b) => sum + b.amount, 0);
       expect(total).toBeCloseTo(structuredAssignment.spendableAmount);
+    });
+
+    it('does not set daily_cap for structured plans', () => {
+      const input: OnboardingInput = { ...baseInput };
+      const pockets = buildPocketInputs('plan-1', structuredAssignment, input);
+      const spendable = pockets.filter((p) => p.kind === 'spendable');
+      spendable.forEach((pocket) => {
+        expect(pocket.daily_cap).toBeNull();
+      });
+    });
+
+    it('sets daily_cap for daily plans', () => {
+      const input: OnboardingInput = { ...baseInput };
+      const pockets = buildPocketInputs('plan-1', dailyAssignment, input);
+      const spendable = pockets.filter((p) => p.kind === 'spendable');
+      spendable.forEach((pocket) => {
+        expect(pocket.daily_cap).not.toBeNull();
+        expect(pocket.daily_cap).toBeGreaterThan(0);
+      });
     });
   });
 });
