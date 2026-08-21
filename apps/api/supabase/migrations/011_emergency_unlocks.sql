@@ -18,11 +18,40 @@ CREATE TABLE IF NOT EXISTS public.emergency_unlocks (
   least_daily_spend NUMERIC NOT NULL CHECK (least_daily_spend >= 0),
   average_daily_spend NUMERIC NOT NULL CHECK (average_daily_spend >= 0),
   reserve_kept NUMERIC NOT NULL CHECK (reserve_kept >= 0),
-  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-  
-  -- Enforce once-per-month limit at database level
-  CONSTRAINT emergency_unlocks_one_per_month UNIQUE (user_id, DATE_TRUNC('month', created_at))
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
+
+-- Enforce the once-per-month limit at the database level.
+--
+-- A table-level UNIQUE constraint can only reference plain columns, not
+-- expressions — `UNIQUE (user_id, DATE_TRUNC('month', created_at))` is
+-- invalid syntax (Postgres: "syntax error at or near ..."), which made this
+-- migration fail outright on a from-scratch run (nothing after it in this
+-- file, or in any later migration, ever applied either).
+--
+-- The fix needs two things, not just moving to CREATE UNIQUE INDEX:
+-- 1. An index on an expression requires that expression to be IMMUTABLE.
+--    date_trunc(text, timestamptz) is only STABLE — its result depends on
+--    the session's `TimeZone` setting, so Postgres refuses it in an index
+--    ("functions in index expression must be marked IMMUTABLE").
+-- 2. Pinning the conversion to UTC explicitly (rather than trusting
+--    whatever TimeZone happens to be set) makes the result genuinely
+--    deterministic, so wrapping it in a same-signature IMMUTABLE SQL
+--    function is safe, not just silencing the check — this is the
+--    standard pattern for indexing timestamptz by calendar bucket. Matches
+--    the UTC-anchoring convention already used elsewhere in this codebase
+--    (see InsightsService.getActivityHeatmap's Date.UTC/getUTC* comment).
+CREATE OR REPLACE FUNCTION public.immutable_utc_month(ts TIMESTAMPTZ)
+RETURNS DATE
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT (DATE_TRUNC('month', ts AT TIME ZONE 'UTC'))::date;
+$$;
+
+DROP INDEX IF EXISTS public.emergency_unlocks_one_per_month;
+CREATE UNIQUE INDEX emergency_unlocks_one_per_month
+  ON public.emergency_unlocks (user_id, public.immutable_utc_month(created_at));
 
 -- Add comment to explain the table
 COMMENT ON TABLE public.emergency_unlocks IS 'Tracks emergency unlock events from savings to enforce once-per-month usage limit';
