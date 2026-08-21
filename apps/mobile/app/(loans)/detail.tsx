@@ -298,7 +298,7 @@ export default function LoanDetailScreen() {
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>Loan Details</Text>
         </View>
-        <LoadingState label="Loading loan details…" />
+        <LoadingState label="Loading loan details…" variant="cards" />
       </ScreenContainer>
     );
   }

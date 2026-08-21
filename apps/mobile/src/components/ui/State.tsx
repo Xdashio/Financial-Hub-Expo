@@ -3,7 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { RefreshCw } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, touchTarget } from '@/theme';
-import { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton } from './Skeleton';
+import { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton, HomeSkeleton, PocketDetailSkeleton, LoansSkeleton, InsightsSkeleton } from './Skeleton';
 import { PocketLoader } from './PocketLoader';
 import { EmptyIllustration } from './EmptyIllustration';
 
@@ -13,7 +13,7 @@ import { EmptyIllustration } from './EmptyIllustration';
  * slightly different sizing, color, and copy. Using this everywhere keeps
  * every "screen is loading" moment in the app looking and feeling the same.
  */
-export function LoadingState({ label, variant = 'spinner' }: { label?: string; variant?: 'spinner' | 'cards' | 'list' | 'pockets' }) {
+export function LoadingState({ label, variant = 'spinner' }: { label?: string; variant?: 'spinner' | 'cards' | 'list' | 'pockets' | 'home' | 'pocket-detail' | 'loans' | 'insights' }) {
   const { colors } = useTheme();
 
   if (variant === 'spinner') {
@@ -54,6 +54,38 @@ export function LoadingState({ label, variant = 'spinner' }: { label?: string; v
         <PocketSkeleton />
         <PocketSkeleton />
         <PocketSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'home') {
+    return (
+      <View style={{ flex: 1 }}>
+        <HomeSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'pocket-detail') {
+    return (
+      <View style={{ flex: 1 }}>
+        <PocketDetailSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'loans') {
+    return (
+      <View style={{ flex: 1 }}>
+        <LoansSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'insights') {
+    return (
+      <View style={{ flex: 1 }}>
+        <InsightsSkeleton />
       </View>
     );
   }

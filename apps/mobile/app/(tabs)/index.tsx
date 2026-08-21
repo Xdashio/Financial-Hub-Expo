@@ -1,17 +1,17 @@
 import React from 'react';
 import { View, Text, Image, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
+import { radius, spacing, typography, shadow, touchTarget, categoryColors } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import {
   Shield, RefreshCw, Lock,
   ArrowLeftRight, Plus,
-  Calendar, TrendingUp, Bell, ShoppingCart, AlertTriangle, PiggyBank,
+  Calendar, TrendingUp, Bell, ShoppingCart, AlertTriangle, PiggyBank, ChevronDown, ChevronUp,
 } from 'lucide-react-native';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 import { loansApi, emergencyUnlockApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState, PocketGlyph, ActionsSheet } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, PocketGlyph, SavingsGoalTracker } from '@/components/ui';
 import { CategoryIcon } from '@/components/icons';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
 import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
@@ -19,6 +19,7 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { deriveNudges } from '@/services/nudges';
 import { formatMoney } from '@/utils/money';
 import { pocketGlyphKind } from '@/utils/pocketGlyph';
+import { getEnhancedErrorMessage } from '@/utils/errorMessages';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -44,8 +45,12 @@ export default function HomeScreen() {
 
   const [nudgesVisible, setNudgesVisible] = React.useState(false);
   const [emergencyUnlockVisible, setEmergencyUnlockVisible] = React.useState(false);
-  const [actionsVisible, setActionsVisible] = React.useState(false);
   const [isUnlocking, setIsUnlocking] = React.useState(false);
+  const [expandedSections, setExpandedSections] = React.useState<Record<string, boolean>>({
+    spendable: false,
+    fixed: false,
+    savings: false,
+  });
 
   // Check if all non-savings pockets are depleted for emergency unlock
   const showEmergencyUnlock = React.useMemo(() => {
@@ -121,6 +126,11 @@ export default function HomeScreen() {
     if (kind === 'fixed') return colors.gold;
     if (kind === 'savings') return colors.emeraldDeep;
     if (kind === 'spendable') {
+      // Use category-specific colors from theme
+      if (category && categoryColors[category]) {
+        return categoryColors[category];
+      }
+      // Fallback to existing color logic
       switch (category) {
         case 'food': return colors.emerald;
         case 'transport': return colors.plum;
@@ -153,7 +163,7 @@ export default function HomeScreen() {
   if (isLoading && pockets.length === 0) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading your financial hub…" />
+        <LoadingState label="Loading your financial hub…" variant="home" />
       </ScreenContainer>
     );
   }
@@ -283,13 +293,14 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
-        refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={refreshData} tintColor={colors.emeraldDeep} colors={[colors.emeraldDeep]} />
-        }
-      >
+      <View style={{ flex: 1, position: 'relative' }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
+          refreshControl={
+            <RefreshControl refreshing={isLoading} onRefresh={refreshData} tintColor={colors.emeraldDeep} colors={[colors.emeraldDeep]} />
+          }
+        >
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <Image
@@ -410,15 +421,6 @@ export default function HomeScreen() {
           })}
         </View>
 
-        <Pressable
-          style={({ pressed }) => [{ marginTop: spacing.sm, alignSelf: 'center', paddingVertical: spacing.sm, minHeight: touchTarget.minHeight, justifyContent: 'center' }, { opacity: pressed ? 0.8 : 1 }]}
-          onPress={() => setActionsVisible(true)}
-          accessibilityLabel="More money actions"
-          accessibilityRole="button"
-        >
-          <Text style={{ ...typography.caption, color: colors.sage }}>More actions</Text>
-        </Pressable>
-
         {isDaily && (
           <View style={{ marginTop: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.md }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
@@ -481,26 +483,80 @@ export default function HomeScreen() {
 
         {!isDaily && pocketSectionOrder.map((section) => {
           if (section === 'spendable' && structuredSpendablePockets.length > 0) {
+            const isExpanded = expandedSections.spendable;
+            const showAll = isExpanded || structuredSpendablePockets.length <= 3;
+            const displayPockets = showAll ? structuredSpendablePockets : structuredSpendablePockets.slice(0, 3);
             return (
               <React.Fragment key="spendable">
-                <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spendable pockets</Text>
-                {structuredSpendablePockets.map(renderPocketCard)}
+                <Pressable
+                  onPress={() => setExpandedSections(prev => ({ ...prev, spendable: !prev.spendable }))}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.md }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Toggle spendable pockets section`}
+                >
+                  <Text style={{ ...typography.eyebrow, color: colors.ink }}>Spendable pockets</Text>
+                  {structuredSpendablePockets.length > 3 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>
+                        {isExpanded ? 'Show less' : `${structuredSpendablePockets.length - 3} more`}
+                      </Text>
+                      {isExpanded ? <ChevronUp size={16} color={colors.sage} /> : <ChevronDown size={16} color={colors.sage} />}
+                    </View>
+                  )}
+                </Pressable>
+                {displayPockets.map(renderPocketCard)}
               </React.Fragment>
             );
           }
           if (section === 'fixed' && fixedPockets.length > 0) {
+            const isExpanded = expandedSections.fixed;
+            const showAll = isExpanded || fixedPockets.length <= 3;
+            const displayPockets = showAll ? fixedPockets : fixedPockets.slice(0, 3);
             return (
               <React.Fragment key="fixed">
-                <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Fixed costs</Text>
-                {fixedPockets.map(renderPocketCard)}
+                <Pressable
+                  onPress={() => setExpandedSections(prev => ({ ...prev, fixed: !prev.fixed }))}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.md }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Toggle fixed costs section`}
+                >
+                  <Text style={{ ...typography.eyebrow, color: colors.ink }}>Fixed costs</Text>
+                  {fixedPockets.length > 3 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>
+                        {isExpanded ? 'Show less' : `${fixedPockets.length - 3} more`}
+                      </Text>
+                      {isExpanded ? <ChevronUp size={16} color={colors.sage} /> : <ChevronDown size={16} color={colors.sage} />}
+                    </View>
+                  )}
+                </Pressable>
+                {displayPockets.map(renderPocketCard)}
               </React.Fragment>
             );
           }
           if (section === 'savings' && savingsPockets.length > 0) {
+            const isExpanded = expandedSections.savings;
+            const showAll = isExpanded || savingsPockets.length <= 3;
+            const displayPockets = showAll ? savingsPockets : savingsPockets.slice(0, 3);
             return (
               <React.Fragment key="savings">
-                <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Savings</Text>
-                {savingsPockets.map(renderPocketCard)}
+                <Pressable
+                  onPress={() => setExpandedSections(prev => ({ ...prev, savings: !prev.savings }))}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.md }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Toggle savings section`}
+                >
+                  <Text style={{ ...typography.eyebrow, color: colors.ink }}>Savings</Text>
+                  {savingsPockets.length > 3 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>
+                        {isExpanded ? 'Show less' : `${savingsPockets.length - 3} more`}
+                      </Text>
+                      {isExpanded ? <ChevronUp size={16} color={colors.sage} /> : <ChevronDown size={16} color={colors.sage} />}
+                    </View>
+                  )}
+                </Pressable>
+                {displayPockets.map(renderPocketCard)}
               </React.Fragment>
             );
           }
@@ -509,14 +565,61 @@ export default function HomeScreen() {
 
         {isDaily && savingsPockets.length > 0 && (
           <>
-            <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Savings</Text>
-            {savingsPockets.map(renderPocketCard)}
+            <Pressable
+              onPress={() => setExpandedSections(prev => ({ ...prev, savings: !prev.savings }))}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.md }}
+              accessibilityRole="button"
+              accessibilityLabel={`Toggle savings section`}
+            >
+              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Savings</Text>
+              {savingsPockets.length > 3 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                  <Text style={{ ...typography.caption, color: colors.sage }}>
+                    {expandedSections.savings ? 'Show less' : `${savingsPockets.length - 3} more`}
+                  </Text>
+                  {expandedSections.savings ? <ChevronUp size={16} color={colors.sage} /> : <ChevronDown size={16} color={colors.sage} />}
+                </View>
+              )}
+            </Pressable>
+            {(expandedSections.savings || savingsPockets.length <= 3 ? savingsPockets : savingsPockets.slice(0, 3)).map(renderPocketCard)}
+            
+            {/* Savings Goal Progress */}
+            {savingsPockets.length > 0 && (
+              <View style={{ marginTop: spacing.lg, backgroundColor: colors.paper, borderRadius: radius.md, padding: spacing.lg }}>
+                <SavingsGoalTracker 
+                  goals={savingsPockets.map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    targetAmount: p.monthlyAllocation * 12, // Mock annual target
+                    currentAmount: p.availableBalance,
+                    targetDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                    category: 'goal',
+                    createdAt: new Date().toISOString(),
+                  }))}
+                />
+              </View>
+            )}
           </>
         )}
         {isDaily && fixedPockets.length > 0 && (
           <>
-            <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Fixed costs</Text>
-            {fixedPockets.map(renderPocketCard)}
+            <Pressable
+              onPress={() => setExpandedSections(prev => ({ ...prev, fixed: !prev.fixed }))}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.md }}
+              accessibilityRole="button"
+              accessibilityLabel={`Toggle fixed costs section`}
+            >
+              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Fixed costs</Text>
+              {fixedPockets.length > 3 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                  <Text style={{ ...typography.caption, color: colors.sage }}>
+                    {expandedSections.fixed ? 'Show less' : `${fixedPockets.length - 3} more`}
+                  </Text>
+                  {expandedSections.fixed ? <ChevronUp size={16} color={colors.sage} /> : <ChevronDown size={16} color={colors.sage} />}
+                </View>
+              )}
+            </Pressable>
+            {(expandedSections.fixed || fixedPockets.length <= 3 ? fixedPockets : fixedPockets.slice(0, 3)).map(renderPocketCard)}
           </>
         )}
 
@@ -551,6 +654,8 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
+      </View>
+
       <NudgesSheet visible={nudgesVisible} onClose={() => setNudgesVisible(false)} nudges={nudges} />
       <EmergencyUnlockSheet
         visible={emergencyUnlockVisible}
@@ -559,7 +664,6 @@ export default function HomeScreen() {
         isLoading={isUnlocking}
         pockets={pockets.filter((p) => p.kind !== 'savings')}
       />
-      <ActionsSheet visible={actionsVisible} onClose={() => setActionsVisible(false)} />
       {modal}
     </ScreenContainer>
   );

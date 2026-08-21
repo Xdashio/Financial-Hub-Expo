@@ -168,9 +168,23 @@ function determineAllocationStyle(
   needsRatio: number,
   needsBand: NeedsBand,
 ): { planType: PlanType; reason: PlanAssignReason } {
-  const { spendingHabit } = input;
+  const { spendingHabit, incomePattern } = input;
   const personality: MoneyPersonality = input.moneyPersonality ?? 'saver';
   const pct = percentLabel(needsRatio);
+
+  // Freelancers always get daily budget plans - structured plans don't make sense
+  // for irregular income. The runway calculation requires daily caps.
+  if (incomePattern === 'freelancer') {
+    return {
+      planType: 'daily',
+      reason: {
+        rule: 'allocation_style_daily_freelancer',
+        reason: `Freelance income comes in bursts and is irregular — daily caps adapt to your actual cash flow and runway, so you always know what's safe to spend today.`,
+        needsRatio,
+        needsBand,
+      },
+    };
+  }
 
   // High needs (≥70%): daily regardless of habit — not enough room for category pockets.
   if (needsBand === 'high') {
@@ -274,6 +288,11 @@ function buildPlanName(
   concentration?: IncomeConcentration,
   hasSideIncome?: boolean,
 ): PlanName {
+  // Freelancers always get daily budget plans - enforce this invariant
+  if (incomePattern === 'freelancer' && planType === 'structured') {
+    throw new Error('Freelancers cannot have structured plans - they require daily budget for runway calculation');
+  }
+
   const patternLabel =
     incomePattern === 'salaried'
       ? hasSideIncome

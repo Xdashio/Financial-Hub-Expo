@@ -5,7 +5,7 @@ import type { RunwayService } from '../runway/runway.service';
 import type { PushDeliveryService } from '../notifications/push-delivery.service';
 import type { CreateIncomeDto } from './dto';
 
-const PLAN = { id: 'plan-1', user_id: 'user-1', type: 'structured', income_pattern: 'salaried', status: 'active', created_at: 'x', reassigned_at: null };
+const PLAN = { id: 'plan-1', user_id: 'user-1', type: 'structured', income_pattern: 'salaried', status: 'active', created_at: 'x', reassigned_at: null, expected_income_amount: null };
 
 const POCKETS = [
   { id: 'pocket-savings', plan_id: 'plan-1', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 1000, daily_cap: null, created_at: 'x', updated_at: 'x' },
@@ -477,6 +477,108 @@ describe('IncomeService.createManualIncome', () => {
           expect.objectContaining({ pocket_id: 'pocket-food', amount: 800 }), // reserved
         ])
       );
+    });
+  });
+
+  describe('fixed pocket capping', () => {
+    it('caps fixed pockets at their monthly_allocation and redistributes excess', async () => {
+      const POCKETS_WITH_FIXED = [
+        { id: 'pocket-savings', plan_id: 'plan-1', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 1000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-rent', plan_id: 'plan-1', name: 'Rent', kind: 'fixed', category: 'housing', is_time_locked: true, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      ];
+      // Set expected_income_amount high enough that surplus doesn't trigger
+      const PLAN_WITH_HIGH_EXPECTED = { 
+        ...PLAN, 
+        expected_income_amount: 20000 
+      };
+      const repository = makeRepository({
+        getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN_WITH_HIGH_EXPECTED),
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS_WITH_FIXED.map(p => ({ ...p }))),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      // Total monthly allocation is 7000 (1000 + 3000 + 3000)
+      // With 10500 income (< 20000 expected), no surplus, but capping should apply
+      const result = await service.createManualIncome({ ...BASE_DTO, amount: 10500 }, 'user-1');
+
+      const rentAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-rent');
+      const savingsAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-savings');
+      const foodAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-food');
+
+      // Rent should be capped at its monthly_allocation (3000)
+      expect(rentAllocation?.amount).toBe(3000);
+
+      // Total allocated should be 10500 (full income, no surplus)
+      expect(result.allocation.total_allocated).toBe(10500);
+
+      // Savings and food should receive more than their proportional share due to rent cap
+      expect(savingsAllocation?.amount).toBeGreaterThan(1500);
+      expect(foodAllocation?.amount).toBeGreaterThan(4500);
+    });
+
+    it('does not cap fixed pockets when income is within expected range', async () => {
+      const POCKETS_WITH_FIXED = [
+        { id: 'pocket-savings', plan_id: 'plan-1', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 1000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-rent', plan_id: 'plan-1', name: 'Rent', kind: 'fixed', category: 'housing', is_time_locked: true, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      ];
+      const repository = makeRepository({
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS_WITH_FIXED.map(p => ({ ...p }))),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      // With 7000 income (exactly equal to total monthly allocation),
+      // no capping should occur
+      const result = await service.createManualIncome({ ...BASE_DTO, amount: 7000 }, 'user-1');
+
+      const rentAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-rent');
+      const savingsAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-savings');
+      const foodAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-food');
+
+      // All pockets should get exactly their monthly_allocation
+      expect(rentAllocation?.amount).toBe(3000);
+      expect(savingsAllocation?.amount).toBe(1000);
+      expect(foodAllocation?.amount).toBe(3000);
+    });
+
+    it('handles fixed pocket capping with multiple fixed pockets', async () => {
+      const POCKETS_WITH_MULTIPLE_FIXED = [
+        { id: 'pocket-savings', plan_id: 'plan-1', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 1000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-rent', plan_id: 'plan-1', name: 'Rent', kind: 'fixed', category: 'housing', is_time_locked: true, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-internet', plan_id: 'plan-1', name: 'Internet', kind: 'fixed', category: 'utilities', is_time_locked: true, lock_until: null, monthly_allocation: 1000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      ];
+      // Set expected_income_amount high enough that surplus doesn't trigger
+      const PLAN_WITH_HIGH_EXPECTED = { 
+        ...PLAN, 
+        expected_income_amount: 20000 
+      };
+      const repository = makeRepository({
+        getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN_WITH_HIGH_EXPECTED),
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS_WITH_MULTIPLE_FIXED.map(p => ({ ...p }))),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      // Total monthly allocation is 8000 (1000 + 3000 + 1000 + 3000)
+      // With 12000 income (< 20000 expected), no surplus, but capping should apply
+      const result = await service.createManualIncome({ ...BASE_DTO, amount: 12000 }, 'user-1');
+
+      const rentAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-rent');
+      const internetAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-internet');
+      const savingsAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-savings');
+      const foodAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-food');
+
+      // Both fixed pockets should be capped at their monthly_allocation
+      expect(rentAllocation?.amount).toBe(3000);
+      expect(internetAllocation?.amount).toBe(1000);
+
+      // Total allocated should be 12000 (full income, no surplus)
+      expect(result.allocation.total_allocated).toBe(12000);
+
+      // Excess (2000) should be redistributed to savings and food
+      expect(savingsAllocation?.amount).toBeGreaterThan(1500);
+      expect(foodAllocation?.amount).toBeGreaterThan(4500);
     });
   });
 });

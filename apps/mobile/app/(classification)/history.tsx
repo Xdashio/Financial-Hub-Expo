@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScreenContainer } from '@/components/ui';
+import { ScreenContainer, LoadingState } from '@/components/ui';
 import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
@@ -78,7 +78,8 @@ export default function ClassificationHistoryScreen() {
   const handleDelete = async (classification: Classification) => {
     const confirmed = await confirm(
       'Delete Classification',
-      `Are you sure you want to delete the classification for "${classification.recipient_key}"? Future payments from this merchant will not be auto-sorted.`
+      `Are you sure you want to delete the classification for "${classification.recipient_key}"? Future payments from this merchant will not be auto-sorted.`,
+      { destructive: true }
     );
 
     if (confirmed) {
@@ -195,11 +196,7 @@ export default function ClassificationHistoryScreen() {
         {/* Classification List */}
         <ScrollView style={{ flex: 1, marginTop: spacing.lg }}>
           {isLoading ? (
-            <View style={{ padding: spacing.xl }}>
-              <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center' }}>
-                Loading classifications...
-              </Text>
-            </View>
+            <LoadingState label="Loading classifications..." variant="list" />
           ) : classifications.length === 0 ? (
             <View style={{ padding: spacing.xl, alignItems: 'center' }}>
               <Tag size={48} color={colors.sage} strokeWidth={1} />

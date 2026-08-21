@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ScreenContainer } from '@/components/ui';
+import { ScreenContainer, LoadingState } from '@/components/ui';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
@@ -235,11 +235,7 @@ export default function ReportHistoryScreen() {
         {/* Report List */}
         <ScrollView style={{ flex: 1, marginTop: spacing.lg }}>
           {isLoading ? (
-            <View style={{ padding: spacing.xl }}>
-              <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center' }}>
-                Loading reports...
-              </Text>
-            </View>
+            <LoadingState label="Loading reports..." variant="list" />
           ) : reports.length === 0 ? (
             <View style={{ padding: spacing.xl, alignItems: 'center' }}>
               <Flag size={48} color={colors.sage} strokeWidth={1} />

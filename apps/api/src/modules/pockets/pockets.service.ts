@@ -216,7 +216,7 @@ export class PocketsService {
     }
 
     const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
-    const totalAllocated = round2(pockets.reduce((sum, p) => sum + p.monthly_allocation, 0));
+    const totalAllocated = round2(pockets.filter(p => p.kind !== 'loan').reduce((sum, p) => sum + p.monthly_allocation, 0));
     const planIncome = plan.expected_income_amount;
     const unallocated = planIncome != null ? round2(planIncome - totalAllocated) : 0;
 

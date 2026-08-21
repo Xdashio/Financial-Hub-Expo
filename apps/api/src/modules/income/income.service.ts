@@ -32,6 +32,7 @@ export class IncomeService {
         amount: number;
         percentage: number;
         is_minimum?: boolean;
+        is_capped?: boolean;
       }>;
       total_allocated: number;
       unallocated: number;
@@ -75,6 +76,7 @@ export class IncomeService {
         amount: number;
         percentage: number;
         is_minimum?: boolean;
+        is_capped?: boolean;
       }>;
       total_allocated: number;
       unallocated: number;
@@ -207,7 +209,7 @@ export class IncomeService {
 
     let allocation = {
       triggered: false,
-      allocations: [] as Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number }>,
+      allocations: [] as Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean; is_capped?: boolean }>,
       total_allocated: 0,
       unallocated: dto.amount,
     };
@@ -255,6 +257,7 @@ export class IncomeService {
           amount: alloc.amount,
           percentage: alloc.percentage,
           is_minimum: alloc.is_minimum,
+          is_capped: alloc.is_capped,
         })),
         total_allocated: allocations.reduce((sum, a) => sum + a.amount, 0),
         unallocated: dto.amount - allocations.reduce((sum, a) => sum + a.amount, 0),
@@ -367,9 +370,9 @@ export class IncomeService {
    * see allocateIncome below.
    */
   private async applySubPocketSplits(
-    allocations: Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean }>,
+    allocations: Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean; is_capped?: boolean }>,
     subSplitOverrides?: Record<string, Array<{ pocketId: string; amount: number }>>,
-  ): Promise<Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean }>> {
+  ): Promise<Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean; is_capped?: boolean }>> {
     const result: typeof allocations = [];
 
     for (const allocation of allocations) {
@@ -402,6 +405,7 @@ export class IncomeService {
               amount,
               percentage: allocation.percentage,
               is_minimum: false,
+              is_capped: false,
             });
           }
         }
@@ -425,6 +429,7 @@ export class IncomeService {
             amount: subAmount,
             percentage: allocation.percentage,
             is_minimum: false,
+            is_capped: false,
           });
         }
       }
@@ -450,6 +455,7 @@ export class IncomeService {
     amount: number;
     percentage: number;
     is_minimum?: boolean;
+    is_capped?: boolean;
   }> {
     const totalMonthlyAllocation = pockets.reduce((sum, p) => sum + (p.monthly_allocation || 0), 0);
 
@@ -462,8 +468,37 @@ export class IncomeService {
     const raw = pockets.map(pocket => {
       const pocketAllocation = pocket.monthly_allocation || 0;
       const proportion = pocketAllocation / totalMonthlyAllocation;
-      return { pocket, amount: totalAmount * proportion };
+      return { pocket, amount: totalAmount * proportion, is_capped: false };
     });
+
+    // Cap fixed pockets at their monthly_allocation - they should not receive
+    // more than their allocated amount regardless of income size. Any excess
+    // is redistributed to spendable and savings pockets.
+    const fixedRows = raw.filter(r => r.pocket.kind === 'fixed');
+    let fixedExcess = 0;
+    for (const row of fixedRows) {
+      const maxAmount = row.pocket.monthly_allocation || 0;
+      if (row.amount > maxAmount) {
+        const excess = row.amount - maxAmount;
+        fixedExcess += excess;
+        row.amount = maxAmount;
+        row.is_capped = true;
+      }
+    }
+
+    // Redistribute fixed pocket excess to spendable and savings pockets
+    if (fixedExcess > 0) {
+      const nonFixedRows = raw.filter(r => r.pocket.kind !== 'fixed');
+      const nonFixedTotal = nonFixedRows.reduce((sum, r) => sum + r.amount, 0);
+
+      if (nonFixedTotal > 0) {
+        // Scale up non-fixed pockets proportionally to absorb the excess
+        const scale = (nonFixedTotal + fixedExcess) / nonFixedTotal;
+        for (const row of nonFixedRows) {
+          row.amount = row.amount * scale;
+        }
+      }
+    }
 
     // Enforce the plan's minimum savings rate (see rules-engine.ts,
     // MIN_SAVINGS_RATE) on every income event, not just at plan creation.
@@ -536,6 +571,7 @@ export class IncomeService {
           amount,
           percentage: Math.round((amount / totalAmount) * 100 * 100) / 100,
           is_minimum: row.pocket.kind === 'savings',
+          is_capped: row.is_capped,
         });
       }
     }

@@ -86,7 +86,7 @@ export default function PocketsManageModal() {
   if (loading) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading pockets…" />
+        <LoadingState label="Loading pockets…" variant="pockets" />
       </ScreenContainer>
     );
   }

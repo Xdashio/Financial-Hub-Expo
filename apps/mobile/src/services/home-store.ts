@@ -64,6 +64,8 @@ const ROLLOVER_THROTTLE_KEY = 'rollover:lastRunUtcDate';
 function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
   const spendablePockets = pockets.filter((p) => p.kind === 'spendable');
   return spendablePockets.map((pocket) => {
+    // For structured plans, dailyCap is null, so use monthlyAllocation
+    // For daily plans, use the actual dailyCap
     const cap = pocket.dailyCap ?? pocket.monthlyAllocation;
     const remaining = pocket.availableBalance;
     const progress = cap > 0 ? Math.max(0, Math.min(1, 1 - remaining / cap)) : 0;
@@ -91,7 +93,9 @@ function calculateSafeToSpend(pockets: Pocket[]): number {
 }
 
 function calculateTotalBalance(pockets: Pocket[]): number {
-  return pockets.reduce((sum, p) => sum + p.availableBalance, 0);
+  return pockets
+    .filter((p) => p.kind !== 'loan')
+    .reduce((sum, p) => sum + p.availableBalance, 0);
 }
 
 function mapPocket(raw: any): Pocket {

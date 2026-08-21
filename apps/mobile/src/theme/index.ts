@@ -34,6 +34,19 @@ export const radius = {
   tab: 4,
 };
 
+// Category-specific colors for pocket color coding
+export const categoryColors: Record<string, string> = {
+  food: '#1F5F4E',
+  transport: '#8A6FB0',
+  leisure: '#C4622D',
+  shopping: '#E8754A',
+  bills: '#4A6FA5',
+  health: '#4A9F6F',
+  education: '#6F4A9F',
+  entertainment: '#9F4A6F',
+  other: '#6B7280',
+};
+
 // Shared rhythm for the dashed "stitch" line that runs through every pocket
 // surface — icons, the progress ring, the loader, empty-state illustrations.
 // One constant so the stitch reads as the same thread everywhere instead of

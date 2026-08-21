@@ -185,7 +185,7 @@ export function buildSpendablePockets(
     is_time_locked: false,
     lock_until: null,
     monthly_allocation: entry.amount,
-    daily_cap: entry.dailyCap ?? null,
+    daily_cap: assignment.planType === 'daily' ? (entry.dailyCap ?? null) : null,
   }));
 }
 
@@ -221,7 +221,7 @@ export function previewSpendableBreakdown(
     return [
       {
         category: 'leisure',
-        name: 'Daily spend',
+        name: assignment.planType === 'structured' ? 'Spendable' : 'Daily spend',
         amount: round2(assignment.spendableAmount),
         percentage: 100,
         dailyCap,
@@ -238,6 +238,7 @@ export function previewSpendableBreakdown(
       name: CATEGORY_NAMES[category],
       amount: allocations[category],
       percentage: percentOf(allocations[category], assignment.spendableAmount),
+      dailyCap: undefined,
     }));
   }
 
