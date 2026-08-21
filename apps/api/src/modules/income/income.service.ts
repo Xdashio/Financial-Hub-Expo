@@ -8,6 +8,7 @@ import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 import { MIN_SAVINGS_RATE } from '../onboarding/rules-engine';
 import { PushDeliveryService } from '../notifications/push-delivery.service';
+import { resolveSubPocketSplit } from '../../common/sub-pocket-split';
 
 @Injectable()
 export class IncomeService {
@@ -417,29 +418,36 @@ export class IncomeService {
         continue;
       }
 
-      const totalSplitPercent = subPockets.reduce((sum, s) => sum + (s.split_percentage || 0), 0);
-      let distributed = 0;
-      for (const sub of subPockets) {
-        const subAmount = round2((allocation.amount * (sub.split_percentage || 0)) / 100);
-        distributed = round2(distributed + subAmount);
-        if (subAmount > 0) {
-          result.push({
-            pocket_id: sub.id,
-            pocket_name: sub.name,
-            amount: subAmount,
-            percentage: allocation.percentage,
-            is_minimum: false,
-            is_capped: false,
-          });
-        }
+      // Delegate to the shared helper so every allocation path (income,
+      // surplus, rollover) applies identical split-percentage semantics.
+      // Bug fix: previously the loop used `split_percentage || 0` which
+      // silently skipped sub-pockets whose percentage was legitimately set —
+      // the shared helper makes the null-coalescing intent explicit and
+      // centralises the rounding so callers can't diverge.
+      const resolved = resolveSubPocketSplit(
+        allocation.pocket_id,
+        allocation.pocket_name,
+        allocation.amount,
+        allocation.percentage,
+        subPockets,
+      );
+
+      if (resolved.length === 0) {
+        // No sub-pocket has a positive split_percentage — entire amount stays
+        // with the parent (all sub-pockets have pct 0 / null).
+        result.push(allocation);
+        continue;
       }
-      // Reserved remainder stays with the parent — real money credited to
-      // its own ledger, just not sent down to a sub-pocket. Only omitted
-      // (like any other zero-amount row) when the splits happen to add up
-      // to exactly 100%.
-      const reserved = Math.max(0, round2(allocation.amount - distributed));
-      if (reserved > 0) {
-        result.push({ ...allocation, amount: reserved });
+
+      for (const row of resolved) {
+        result.push({
+          pocket_id: row.pocket_id,
+          pocket_name: row.pocket_name,
+          amount: row.amount,
+          percentage: allocation.percentage,
+          is_minimum: row.pocket_id === allocation.pocket_id ? allocation.is_minimum : false,
+          is_capped: row.pocket_id === allocation.pocket_id ? allocation.is_capped : false,
+        });
       }
     }
 
