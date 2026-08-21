@@ -94,7 +94,7 @@ export default function PocketEditModal() {
           <Pressable onPress={() => safeGoBack(router, '/(modals)/pockets-manage')} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.heading, color: colors.ink }}>Edit Pocket</Text>
+          <Text style={{ ...typography.heading, color: colors.ink }}>Edit pocket</Text>
           <Pressable onPress={handleSave} disabled={!name.trim() || saving} hitSlop={8}>
             <Text style={{ ...typography.body, color: name.trim() && !saving ? colors.emeraldDeep : colors.lineSoft }}>
               {saving ? 'Saving...' : 'Save'}

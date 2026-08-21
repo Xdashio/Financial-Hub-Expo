@@ -721,7 +721,7 @@ export default function PocketDetailScreen() {
             opened the same realloc-pick flow (one pre-filled the
             destination, one didn't) — a distinction with no real
             difference from the user's point of view, and a source of
-            confusion. Reallocate now covers both directions from this
+            confusion. "Move money" now covers both directions from this
             pocket; the destination is preset when there's an obvious one. */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.md }}>
           <Button
@@ -731,7 +731,7 @@ export default function PocketDetailScreen() {
               router.push({ pathname: '/(modals)/realloc-pick', params: { destinationPocketId: id } })
             }
           >
-            Reallocate
+            Move money
           </Button>
         </View>
 
@@ -749,7 +749,7 @@ export default function PocketDetailScreen() {
                 })
               }
             >
-              Log a spend
+              Log spend
             </Button>
           </View>
         )}
@@ -915,10 +915,10 @@ export default function PocketDetailScreen() {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md }}>
               <CircleDollarSign size={18} color={colors.plum} strokeWidth={2} />
-              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Loan Details</Text>
+              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Loan details</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm }}>
-              <Text style={{ ...typography.caption, color: colors.sage }}>Total Amount</Text>
+              <Text style={{ ...typography.caption, color: colors.sage }}>Total amount</Text>
               <Text style={{ ...typography.body, color: colors.ink }}>
                 {formatMoney(pocket.monthly_allocation)}
               </Text>

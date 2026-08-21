@@ -426,7 +426,7 @@ export default function CreateLoanScreen() {
           >
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.title, color: colors.ink }}>Create Loan</Text>
+          <Text style={{ ...typography.title, color: colors.ink }}>Create loan</Text>
         </View>
 
         {/* Progress Steps */}

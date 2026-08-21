@@ -95,10 +95,10 @@ export default function PocketsManageModal() {
     <ScreenContainer>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md }}>
-          <Pressable onPress={() => safeGoBack(router, '/(tabs)')} hitSlop={8}>
+          <Pressable onPress={() => safeGoBack(router, '/(tabs)')} hitSlop={8} accessibilityLabel="Go back" accessibilityRole="button">
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.heading, color: colors.ink }}>Manage Pockets</Text>
+          <Text style={{ ...typography.heading, color: colors.ink }}>Manage pockets</Text>
           <View style={{ width: 24 }} />
         </View>
 

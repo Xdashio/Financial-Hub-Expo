@@ -189,7 +189,7 @@ export default function FixedExpensesScreen() {
           <Pressable onPress={() => safeGoBack(router, '/(tabs)/profile')} hitSlop={8}>
             <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
           </Pressable>
-          <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Fixed Expenses</Text>
+          <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>Fixed expenses</Text>
         </View>
 
         {/* Summary Card */}
@@ -238,7 +238,7 @@ export default function FixedExpensesScreen() {
             accessibilityRole="button"
           >
             <Plus size={20} color={colors.surface} strokeWidth={2} />
-            <Text style={{ ...typography.heading, color: colors.surface }}>Add Fixed Expense</Text>
+            <Text style={{ ...typography.heading, color: colors.surface }}>Add fixed expense</Text>
           </Pressable>
         </View>
 

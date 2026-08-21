@@ -278,7 +278,7 @@ export default function LogSpendScreen() {
               <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
             </Pressable>
             <Text style={{ ...typography.title, color: colors.ink, marginLeft: spacing.md }}>
-              Log a spend
+              Log spend
             </Text>
           </View>
 

@@ -185,7 +185,7 @@ export default function HomeScreen() {
             <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
               <PiggyBank size={32} color={colors.gold} strokeWidth={2} />
             </View>
-            <Text style={{ ...typography.title, color: colors.ink }}>Start Your Money Plan</Text>
+            <Text style={{ ...typography.title, color: colors.ink }}>Start your money plan</Text>
             <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
               Complete onboarding to create your personalized pockets for savings, fixed costs, and daily spending.
             </Text>
@@ -423,10 +423,10 @@ export default function HomeScreen() {
         <Pressable
           style={({ pressed }) => [{ marginTop: spacing.sm, alignItems: 'center' }, { opacity: pressed ? 0.7 : 1 }]}
           onPress={() => setActionsVisible(true)}
-          accessibilityLabel="More actions"
+          accessibilityLabel="Manage pockets and loans"
           accessibilityRole="button"
         >
-          <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>More actions</Text>
+          <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>Manage pockets & loans</Text>
         </Pressable>
 
         {isDaily && (
