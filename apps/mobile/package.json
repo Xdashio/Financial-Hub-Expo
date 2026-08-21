@@ -27,6 +27,7 @@
     "expo-router": "^57.0.12",
     "expo-secure-store": "^57.0.1",
     "expo-splash-screen": "^57.0.6",
+    "expo-build-properties": "^57.0.13",
     "expo-status-bar": "~57.0.1",
     "invariant": "^2.2.4",
     "lucide-react-native": "^1.30.0",
