@@ -115,6 +115,16 @@ export class InsightsService {
         // (the real cost, if any, is only known and applied once the
         // reallocation completes).
         'reallocation_completed',
+        // loans.service.ts writes these on every loan repayment / on full
+        // payoff and calls disciplineScore.applyDelta for each one — same
+        // real-score-movement category as lock_extension/reallocation_completed
+        // above, just missed when this list was written before the loans
+        // feature existed. Their payloads now carry points_added/
+        // points_deducted (see loans.service.ts), so no special-case read
+        // is needed here — the generic loop below already handles it.
+        'loan_repayment_ontime',
+        'loan_repayment_late',
+        'loan_fully_repaid',
       ],
       monthStart,
     );

@@ -119,6 +119,28 @@ export function mapBehaviorEvent(event: any, colors: any): DisplayEventOrNull {
     return { title: 'Spend override', desc, time, color: colors.clay };
   }
 
+  // Loan repayment made on/before its due date (loans.service.ts
+  // repayLoan, +5 via applyDelta). Previously had no case here *and* the
+  // event's own payload carried no points_added — see insights.service.ts
+  // for the matching backend-side fix — so this was invisible both in the
+  // period point total and in this activity list.
+  if (event.type === 'loan_repayment_ontime') {
+    const desc = payload.points_added ? `+${payload.points_added} discipline points` : 'Loan repayment made on time';
+    return { title: 'Loan repayment on time', desc, time, color: colors.emerald };
+  }
+  // Loan repayment made after its due date (loans.service.ts repayLoan,
+  // -3 via applyDelta). Same visibility gap as above.
+  if (event.type === 'loan_repayment_late') {
+    const desc = payload.points_deducted ? `−${payload.points_deducted} discipline points` : 'Loan repayment was late';
+    return { title: 'Loan repayment late', desc, time, color: colors.clay };
+  }
+  // Loan fully paid off (loans.service.ts markLoanFullyRepaid, +10 via
+  // applyDelta) — the single largest positive event in the app. Same gap.
+  if (event.type === 'loan_fully_repaid') {
+    const desc = payload.points_added ? `+${payload.points_added} discipline points` : 'Loan fully repaid';
+    return { title: 'Loan paid off', desc, time, color: colors.gold };
+  }
+
   // Generic fallback for any event type without an explicit case above.
   // Rather than silently dropping the point movement (the bug behind the
   // four cases just added — each one carried points_added/points_deducted
