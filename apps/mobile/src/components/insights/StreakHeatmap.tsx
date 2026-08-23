@@ -82,9 +82,8 @@ export function StreakHeatmap() {
   const [streakMilestone, setStreakMilestone] = React.useState<number | null>(null);
   const [showDayDetail, setShowDayDetail] = React.useState(false);
   
-  const scaleAnim = React.useRef(new Animated.Value(0));
-  const fadeAnim = React.useRef(new Animated.Value(0));
-  const pulseAnim = React.useRef(new Animated.Value(1));
+  const [scaleAnim] = React.useState(() => new Animated.Value(0));
+  const [pulseAnim] = React.useState(() => new Animated.Value(1));
 
   const { width: screenWidth } = Dimensions.get('window');
   const isSmallScreen = screenWidth < 375;
@@ -160,45 +159,52 @@ export function StreakHeatmap() {
   // Detect streak milestones for celebration
   // Only celebrate if there's actual activity (total count > 0) to avoid fake milestones for new users
   React.useEffect(() => {
-    if (currentStreak > 0 && days && days.some(d => d.count > 0)) {
-      const milestones = [7, 30, 100, 365];
-      if (milestones.includes(currentStreak) && currentStreak !== streakMilestone) {
-        setStreakMilestone(currentStreak);
-        setShowCelebration(true);
-        
-        // Subtle celebration animation
-        Animated.sequence([
-          Animated.timing(scaleAnim.current, {
-            toValue: 1.05,
-            duration: 400,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleAnim.current, {
-            toValue: 1,
-            duration: 400,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]).start();
+    if (!(currentStreak > 0 && days && days.some(d => d.count > 0))) return;
+    const milestones = [7, 30, 100, 365];
+    if (!milestones.includes(currentStreak) || currentStreak === streakMilestone) return;
 
-        // Hide celebration after 2 seconds (shorter for subtlety)
-        setTimeout(() => setShowCelebration(false), 2000);
-      }
-    }
-  }, [currentStreak, streakMilestone, days]);
+    // Deferred a tick so the sync setState doesn't run in the effect body.
+    let hideTimer: ReturnType<typeof setTimeout> | undefined;
+    const t = setTimeout(() => {
+      setStreakMilestone(currentStreak);
+      setShowCelebration(true);
+
+      // Subtle celebration animation
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1.05,
+          duration: 400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: 400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Hide celebration after 2 seconds (shorter for subtlety)
+      hideTimer = setTimeout(() => setShowCelebration(false), 2000);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
+  }, [currentStreak, streakMilestone, days, scaleAnim]);
 
   // Pulsing animation for streak counter
   React.useEffect(() => {
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim.current, {
+        Animated.timing(pulseAnim, {
           toValue: 1.1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
-        Animated.timing(pulseAnim.current, {
+        Animated.timing(pulseAnim, {
           toValue: 1,
           duration: 1000,
           easing: Easing.inOut(Easing.ease),
@@ -206,8 +212,9 @@ export function StreakHeatmap() {
           }),
       ])
     );
+    pulse.start();
     return () => pulse.stop();
-  }, []);
+  }, [pulseAnim]);
 
   // Get encouraging message based on streak - focused on financial behavior and outcomes
   const getStreakMessage = (streak: number): string => {
@@ -254,7 +261,7 @@ export function StreakHeatmap() {
       {/* Compact spending consistency header */}
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <Animated.View style={{ transform: [{ scale: pulseAnim.current }] }}>
+          <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
             <View style={{ 
               flexDirection: 'row', 
               alignItems: 'center', 
@@ -280,7 +287,7 @@ export function StreakHeatmap() {
             </View>
           </Animated.View>
           {showCelebration && (
-            <Animated.View style={{ transform: [{ scale: scaleAnim.current }] }}>
+            <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
                 <Sparkles size={14} color={colors.gold} strokeWidth={2} />
                 <Text style={{ ...typography.caption, color: colors.gold, fontSize: 12 }}>
@@ -387,7 +394,7 @@ export function StreakHeatmap() {
                   ) : (
                     <View style={{ marginTop: spacing.sm, gap: spacing.sm }}>
                       {(selectedEvents ?? [])
-                        .map((event, i) => mapBehaviorEvent(event, colors))
+                        .map((event, _i) => mapBehaviorEvent(event, colors))
                         .filter((display): display is DisplayEvent => display !== null)
                         .map((display, i) => (
                           <View key={i} style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.lineSoft }}>

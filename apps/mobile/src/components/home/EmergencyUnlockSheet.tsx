@@ -66,6 +66,13 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
   const [selectedAmount, setSelectedAmount] = useState(0);
   const [amountText, setAmountText] = useState('');
   const [showReserveWarning, setShowReserveWarning] = useState(false);
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (visible) {
+      setShowReserveWarning(false);
+    }
+  }
 
   const fetchEligibility = useCallback(async () => {
     setState({ status: 'loading' });
@@ -95,12 +102,12 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
     }
   }, []);
 
-  // Fetch (and reset local selection state) whenever the sheet opens.
+  // Fetch whenever the sheet opens. Deferred a tick so the sync
+  // setState inside fetchEligibility doesn't run in the effect body.
   useEffect(() => {
-    if (visible) {
-      setShowReserveWarning(false);
-      fetchEligibility();
-    }
+    if (!visible) return;
+    const t = setTimeout(fetchEligibility, 0);
+    return () => clearTimeout(t);
   }, [visible, fetchEligibility]);
 
   const analysis = state.status === 'eligible' ? state.analysis : null;
@@ -184,7 +191,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
       <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
           <Text style={{ ...typography.body, color: colors.ink, textAlign: 'center', marginBottom: spacing.lg }}>
-            Couldn't check emergency unlock eligibility. Check your connection and try again.
+            Couldn&apos;t check emergency unlock eligibility. Check your connection and try again.
           </Text>
           <Button variant="secondary" onPress={fetchEligibility}>
             Try again
@@ -362,7 +369,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
             <PocketGlyph kind="locked" size={16} color={colors.sage} />
             <Text style={{ ...typography.caption, color: colors.sage, flex: 1 }}>
-              You'll keep {formatCurrency(savingsReserve!.minimum_reserve)} in savings reserve
+              You&apos;ll keep {formatCurrency(savingsReserve!.minimum_reserve)} in savings reserve
             </Text>
           </View>
           <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden' }}>
@@ -422,7 +429,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
           <View style={{ backgroundColor: colors.clayTint, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <AlertTriangle size={16} color={colors.clay} strokeWidth={2} />
             <Text style={{ ...typography.caption, color: colors.clay, flex: 1 }}>
-              {formatCurrency(savingsReserve!.minimum_reserve)} will remain in savings as reserve. Tap "Confirm unlock" to proceed.
+              {formatCurrency(savingsReserve!.minimum_reserve)} will remain in savings as reserve. Tap &quot;Confirm unlock&quot; to proceed.
             </Text>
           </View>
         )}

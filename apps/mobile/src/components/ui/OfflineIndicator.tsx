@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Pressable, Animated } from 'react-native';
 import { WifiOff, X } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, radius, typography } from '@/theme';
+import { spacing, typography } from '@/theme';
 
 /**
  * Offline status indicator that shows when the app is offline.
@@ -13,14 +13,14 @@ import { spacing, radius, typography } from '@/theme';
 export function OfflineIndicator({ isOffline: isOfflineProp, onDismiss }: { isOffline?: boolean; onDismiss?: () => void }) {
   const { colors } = useTheme();
   const [isOffline, setIsOffline] = useState(isOfflineProp || false);
+  const [lastPropValue, setLastPropValue] = useState(isOfflineProp);
   const [dismissed, setDismissed] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
 
-  useEffect(() => {
-    if (isOfflineProp !== undefined) {
-      setIsOffline(isOfflineProp);
-    }
-  }, [isOfflineProp]);
+  if (isOfflineProp !== undefined && isOfflineProp !== lastPropValue) {
+    setLastPropValue(isOfflineProp);
+    setIsOffline(isOfflineProp);
+  }
 
   useEffect(() => {
     if (isOffline && !dismissed) {
@@ -36,7 +36,7 @@ export function OfflineIndicator({ isOffline: isOfflineProp, onDismiss }: { isOf
             useNativeDriver: true,
           }).start();
     }
-  }, [isOffline, dismissed]);
+  }, [isOffline, dismissed, fadeAnim]);
 
   const handleDismiss = () => {
     setDismissed(true);
@@ -67,7 +67,7 @@ export function OfflineIndicator({ isOffline: isOfflineProp, onDismiss }: { isOf
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
           <WifiOff size={16} color={colors.clay} strokeWidth={2} />
           <Text style={{ ...typography.caption, color: colors.clay }}>
-            You're offline. Some features may be limited.
+            You&apos;re offline. Some features may be limited.
           </Text>
         </View>
         <Pressable onPress={handleDismiss} style={{ padding: spacing.xs }} accessibilityLabel="Dismiss offline warning">

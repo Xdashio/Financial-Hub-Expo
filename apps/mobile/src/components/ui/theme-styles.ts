@@ -65,7 +65,7 @@ export const commonStyles = {
   }),
   
   // Buttons
-  button: (colors: any): ViewStyle => ({
+  button: (_colors: any): ViewStyle => ({
     borderRadius: radius.button,
     borderWidth: borderWidthThick,
     minHeight: touchTarget.minHeight,

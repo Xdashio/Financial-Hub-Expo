@@ -79,19 +79,25 @@ export function SubPocketRebalanceSheet({
   const [shortfall, setShortfall] = React.useState<number | null>(null);
   const [awaitingConfirm, setAwaitingConfirm] = React.useState(false);
 
-  // Seed draft from props whenever the sheet opens / siblings change
-  React.useEffect(() => {
-    if (visible) {
-      const initial: Record<string, number> = {};
-      for (const sp of subPockets) {
-        initial[sp.id] = round2(sp.split_percentage ?? 0);
-      }
-      setDraft(initial);
-      setError(null);
-      setShortfall(null);
-      setAwaitingConfirm(false);
+  // Seed draft from props whenever the sheet opens / siblings change.
+  // Done via render-time state adjustment (not an effect) so the reset
+  // lands before paint and doesn't cascade an extra render pass.
+  const subPocketsKey = React.useMemo(
+    () => subPockets.map((sp) => `${sp.id}:${sp.split_percentage ?? 0}`).join('|'),
+    [subPockets]
+  );
+  const [lastSeed, setLastSeed] = React.useState<{ visible: boolean; key: string }>({ visible: false, key: '' });
+  if (visible && (lastSeed.visible !== visible || lastSeed.key !== subPocketsKey)) {
+    setLastSeed({ visible, key: subPocketsKey });
+    const initial: Record<string, number> = {};
+    for (const sp of subPockets) {
+      initial[sp.id] = round2(sp.split_percentage ?? 0);
     }
-  }, [visible, subPockets]);
+    setDraft(initial);
+    setError(null);
+    setShortfall(null);
+    setAwaitingConfirm(false);
+  }
 
   const adjust = (id: string, delta: number) => {
     setError(null);
@@ -363,7 +369,7 @@ export function SubPocketRebalanceSheet({
                 Not enough to fully rebalance right now
               </Text>
               <Text style={{ ...typography.caption, color: colors.gold + 'CC', lineHeight: 18 }}>
-                {formatMoney(shortfall)} more is needed than is currently available. Apply what's
+                {formatMoney(shortfall)} more is needed than is currently available. Apply what&apos;s
                 possible now — the rest will catch up automatically at your next income event.
               </Text>
             </View>

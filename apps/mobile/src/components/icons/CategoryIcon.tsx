@@ -8,9 +8,8 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useTheme } from '@/theme';
-import { getCategoryIconWithColor, hasCategoryIcon, type CategoryKey } from '@/utils/categoryIcons';
+import { getCategoryIconWithColor, hasCategoryIcon } from '@/utils/categoryIcons';
 import { SavingsIcon } from './SavingsIcon';
-import type { LucideIcon } from 'lucide-react-native';
 
 interface CategoryIconProps {
   category: string;

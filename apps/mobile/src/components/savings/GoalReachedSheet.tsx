@@ -3,7 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, borderWidth } from '@/theme';
-import { ArrowLeftRight, PiggyBank, Lock, Unlock } from 'lucide-react-native';
+import { ArrowLeftRight, PiggyBank, Unlock } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
 import { BottomSheetModal } from '@/components/ui';
 
@@ -45,7 +45,6 @@ export function GoalReachedSheet({
   amount,
   isTimeLocked,
   onKeepGrowing,
-  onUnlockEarly,
   onUnlockWithGoalWaiver,
 }: GoalReachedSheetProps) {
   const router = useRouter();
@@ -134,7 +133,7 @@ export function GoalReachedSheet({
             <View style={{ flex: 1 }}>
               <Text style={{ ...typography.body, color: colors.emeraldDeep }}>Unlock early (free)</Text>
               <Text style={{ ...typography.caption, color: colors.emeraldDeep + 'CC', marginTop: 2 }}>
-                You've reached your goal! Unlocking is free as a reward for your discipline
+                You&apos;ve reached your goal! Unlocking is free as a reward for your discipline
               </Text>
             </View>
           </Pressable>

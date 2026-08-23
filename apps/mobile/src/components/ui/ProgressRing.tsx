@@ -40,7 +40,7 @@ export function ProgressRing({ progress, size = 120, strokeWidth = 8, color, tra
   const animatedProgress = useSharedValue(0);
   useEffect(() => {
     animatedProgress.value = withTiming(displayProgress, { duration: 900, easing: Easing.out(Easing.cubic) });
-  }, [displayProgress]);
+  }, [displayProgress, animatedProgress]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: circumference * (1 - animatedProgress.value),

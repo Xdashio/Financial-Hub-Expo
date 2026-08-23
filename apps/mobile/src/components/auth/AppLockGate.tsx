@@ -42,11 +42,13 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
   // Re-arm the lock whenever biometrics get turned on/off from Settings —
   // e.g. if the user just enabled it, the *next* resume should gate; if
   // they just disabled it, any pending lock should clear immediately.
-  useEffect(() => {
+  const [prevBiometricEnabled, setPrevBiometricEnabled] = useState(biometricEnabled);
+  if (biometricEnabled !== prevBiometricEnabled) {
+    setPrevBiometricEnabled(biometricEnabled);
     if (!biometricEnabled) {
       setIsLocked(false);
     }
-  }, [biometricEnabled]);
+  }
 
   useEffect(() => {
     LocalAuthentication.supportedAuthenticationTypesAsync().then((types) => {
@@ -129,11 +131,13 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
   // Prompt automatically as soon as the gate engages, so the user isn't
   // stuck reading a static screen before they can even try — the button
   // below is the retry path if this auto-attempt fails or is cancelled.
+  // Deferred by a tick so the sync setState inside attemptUnlock doesn't
+  // fire within the effect body itself (cascading-render guard).
   useEffect(() => {
     if (isLocked && isAuthenticated) {
-      void attemptUnlock();
+      const t = setTimeout(() => void attemptUnlock(), 0);
+      return () => clearTimeout(t);
     }
-     
   }, [isLocked, isAuthenticated]);
 
   const showOverlay = isLocked && isAuthenticated;
