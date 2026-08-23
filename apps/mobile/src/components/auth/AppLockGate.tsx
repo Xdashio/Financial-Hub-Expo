@@ -133,7 +133,7 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
     if (isLocked && isAuthenticated) {
       void attemptUnlock();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isLocked, isAuthenticated]);
 
   const showOverlay = isLocked && isAuthenticated;

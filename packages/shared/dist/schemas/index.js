@@ -38,14 +38,15 @@ exports.SpendingHabitSchema = zod_1.z.enum(['tracker', 'week3', 'off_guard']);
 exports.PlanNameSchema = zod_1.z.enum([
     'Salaried — Structured',
     'Salaried — Daily Budget',
-    'Freelancer — Structured',
+    // Freelancers only get daily budget plans - structured plans don't make sense
+    // for irregular income. The runway calculation requires daily caps.
     'Freelancer — Daily Budget',
     // Income-concentration split within the 'freelancer' income pattern
     // (audit_team.md item 8, Batch 4 / ONBOARDING_AND_SCORING_REDESIGN.md
     // §2.1). Display-only — the underlying `IncomePattern` stored on the plan
     // and used by runway/rollover logic is still just 'freelancer'; 'Gig' is
     // a plan-name/reasons distinction, not a new stored income pattern.
-    'Gig — Structured',
+    // Gig workers also only get daily budget plans.
     'Gig — Daily Budget',
     // Salaried-with-side-income persona (audit_team.md item 2 /
     // ONBOARDING_AND_SCORING_REDESIGN.md §2.1's other half, landed after the
