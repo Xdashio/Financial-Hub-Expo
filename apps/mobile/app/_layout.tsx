@@ -10,6 +10,7 @@ import 'react-native-url-polyfill/auto';
 
 import { useEffect, useState } from 'react';
 import { AppState, View } from 'react-native';
+import { useFonts } from 'expo-font';
 import { PocketLoader, OfflineIndicator } from '@/components/ui';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -51,19 +52,9 @@ function RootLayoutInner() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const router = useRouter();
 
-  // theme/index.ts sets `fontFamily: 'PlusJakartaSans_500Medium'` on every
-  // typography token, but nothing was ever registering that family —
-  // there's no `fonts` array on the expo-font config plugin in app.json
-  // and no useFonts/Font.loadAsync call anywhere, so every screen has been
-  // silently falling back to the OS system font (San Francisco / Roboto).
-  // That's the actual root cause behind "font inconsistencies": screens
-  // that additionally hardcode `fontFamily: 'System' or a fontWeight
-  // happen to look different from screens that don't, purely by accident,
-  // because none of them were ever getting the intended typeface. Loading
-  // it here makes `typography.*` mean what the theme file already claims
-  // it means, everywhere at once.
-  // Temporarily disable custom font loading due to corrupted font file
-  const [fontsLoaded] = useState(true);
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_500Medium: require('../assets/fonts/PlusJakartaSans-Medium.ttf'),
+  });
 
   useEffect(() => {
     initializeAuth().finally(() => setIsReady(true));
@@ -106,7 +97,7 @@ function RootLayoutInner() {
     };
   }, [router]);
 
-  if (!isReady || !fontsLoaded) {
+  if (!isReady || (!fontsLoaded && !fontError)) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: themeColors.paper }}>
         <ThemedStatusBar />
