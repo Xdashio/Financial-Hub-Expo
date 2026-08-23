@@ -13,7 +13,7 @@ async function fetchWithAuth<T>(endpoint: string, body: unknown, method: 'POST' 
   try {
     const result = await supabase.auth.getSession();
     session = result.data.session;
-  } catch (error) {
+  } catch {
     console.log('No session available, proceeding without auth');
   }
 

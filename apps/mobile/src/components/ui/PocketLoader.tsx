@@ -37,7 +37,7 @@ export function PocketLoader({ size = 40, color, trackColor = `${color}33` }: Po
       -1,
       false
     );
-  }, []);
+  }, [offset]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: offset.value,

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, Animated, Easing } from 'react-native';
+import { View, Text, Animated, Easing } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography } from '@/theme';
-import { Sparkles, Check, Target, Calendar, Award } from 'lucide-react-native';
+import { Sparkles, Target, Calendar, Award } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
 import { CategoryIcon } from '@/components/icons';
 
@@ -29,13 +29,13 @@ interface SavingsGoalTrackerProps {
  * - Non-judgmental encouragement supports long-term engagement
  * - Milestone celebrations reinforce positive behavior
  */
-export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerProps) {
+export function SavingsGoalTracker({ goals }: SavingsGoalTrackerProps) {
   const { colors } = useTheme();
   const [celebratingGoal, setCelebratingGoal] = useState<string | null>(null);
   const [showMilestone, setShowMilestone] = useState<{ goalId: string; percentage: number } | null>(null);
-  
-  const celebrateAnim = React.useRef(new Animated.Value(0));
-  const progressAnim = React.useRef(new Animated.Value(0));
+
+  const [celebrateAnim] = React.useState(() => new Animated.Value(0));
+  const [progressAnim] = React.useState(() => new Animated.Value(0));
 
   // Check for goal achievements
   useEffect(() => {
@@ -47,13 +47,13 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
         setCelebratingGoal(goal.id);
         
         Animated.sequence([
-          Animated.timing(celebrateAnim.current, {
+          Animated.timing(celebrateAnim, {
             toValue: 1,
             duration: 800,
             easing: Easing.back(1.7),
             useNativeDriver: true,
           }),
-          Animated.timing(celebrateAnim.current, {
+          Animated.timing(celebrateAnim, {
             toValue: 0,
             duration: 400,
             easing: Easing.inOut(Easing.ease),
@@ -71,20 +71,20 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
         setTimeout(() => setShowMilestone(null), 2000);
       }
     });
-  }, [goals, celebratingGoal, showMilestone]);
+  }, [goals, celebratingGoal, showMilestone, celebrateAnim]);
 
   // Animate progress bars
   useEffect(() => {
     goals.forEach(goal => {
       const percentage = Math.min(1, goal.currentAmount / goal.targetAmount);
-      Animated.timing(progressAnim.current, {
+      Animated.timing(progressAnim, {
         toValue: percentage,
         duration: 500,
         easing: Easing.out(Easing.ease),
             useNativeDriver: true,
           }).start();
     });
-  }, [goals]);
+  }, [goals, progressAnim]);
 
   const getCategoryColor = (category: string) => {
     // Use the centralized color system
@@ -135,7 +135,7 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
   return (
     <View style={{ gap: spacing.md }}>
       {showMilestone && (
-        <Animated.View style={{ opacity: celebrateAnim.current }}>
+        <Animated.View style={{ opacity: celebrateAnim }}>
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
@@ -168,7 +168,7 @@ export function SavingsGoalTracker({ goals, onGoalUpdate }: SavingsGoalTrackerPr
               borderColor: isComplete ? categoryColor : colors.line,
               borderRadius: radius.md,
               padding: spacing.lg,
-              transform: isCelebrating ? [{ scale: celebrateAnim.current }] : undefined,
+              transform: isCelebrating ? [{ scale: celebrateAnim }] : undefined,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md }}>

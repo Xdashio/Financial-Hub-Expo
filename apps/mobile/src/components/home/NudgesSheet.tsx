@@ -22,7 +22,7 @@ export function NudgesSheet({ visible, onClose, nudges }: NudgesSheetProps) {
         <View style={{ alignItems: 'center', paddingVertical: spacing.xxl }}>
           <Sparkles size={28} color={colors.sage} strokeWidth={2} />
           <Text style={{ ...typography.body, color: colors.ink, marginTop: spacing.md, textAlign: 'center' }}>
-            You're all caught up
+            You&apos;re all caught up
           </Text>
           <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs, textAlign: 'center' }}>
             No nudges right now — check back after your next spend or income.

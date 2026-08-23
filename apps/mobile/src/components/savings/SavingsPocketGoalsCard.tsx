@@ -213,7 +213,7 @@ export function SavingsPocketGoalsCard({ goals, onSetTarget, onGoalReached }: Sa
                 accessibilityLabel={`Decide what's next for ${goal.name}`}
               >
                 <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontWeight: '600' }}>
-                  What's next?
+                  What&apos;s next?
                 </Text>
               </Pressable>
             )}

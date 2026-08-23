@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react-native';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
@@ -145,12 +145,16 @@ export function DatePickerSheet({
     // Add the last week if it has remaining days
     if (currentWeek.length > 0) {
       // Fill the rest of the week with empty cells
-      while (currentWeek.length < 7) {
-        currentWeek.push(<View key={`empty-end-${currentWeek.length}`} style={{ flex: 1 }} />);
-      }
+      const remaining = 7 - currentWeek.length;
+      const padded = [
+        ...currentWeek,
+        ...Array.from({ length: remaining }, (_, i) => (
+          <View key={`empty-end-${i}`} style={{ flex: 1 }} />
+        )),
+      ];
       weeks.push(
         <View key={`week-${weeks.length}`} style={{ flexDirection: 'row', gap: spacing.xs }}>
-          {currentWeek}
+          {padded}
         </View>
       );
     }

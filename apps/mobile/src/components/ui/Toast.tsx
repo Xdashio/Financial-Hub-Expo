@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, Pressable, Animated, Easing } from 'react-native';
 import { Check, X, AlertCircle, Info, LucideIcon } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
@@ -20,19 +20,23 @@ interface ToastProps {
  */
 export function Toast({ visible, message, type = 'info', duration = 3000, onDismiss, actionLabel, onAction }: ToastProps) {
   const { colors } = useTheme();
-  const fadeAnim = useRef(new Animated.Value(0));
-  const slideAnim = useRef(new Animated.Value(50));
+  const [fadeAnim] = useState(() => new Animated.Value(0));
+  const [slideAnim] = useState(() => new Animated.Value(50));
+
+  const handleDismiss = useCallback(() => {
+    onDismiss?.();
+  }, [onDismiss]);
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.timing(fadeAnim.current, {
+        Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 300,
           easing: Easing.out(Easing.cubic),
             useNativeDriver: true,
           }),
-        Animated.timing(slideAnim.current, {
+        Animated.timing(slideAnim, {
           toValue: 0,
           duration: 300,
           easing: Easing.out(Easing.cubic),
@@ -40,30 +44,24 @@ export function Toast({ visible, message, type = 'info', duration = 3000, onDism
           }),
       ]).start();
 
-      const timer = setTimeout(() => {
-        handleDismiss();
-      }, duration);
+      const timer = setTimeout(handleDismiss, duration);
 
       return () => clearTimeout(timer);
     } else {
       Animated.parallel([
-        Animated.timing(fadeAnim.current, {
+        Animated.timing(fadeAnim, {
           toValue: 0,
           duration: 200,
             useNativeDriver: true,
           }),
-        Animated.timing(slideAnim.current, {
+        Animated.timing(slideAnim, {
           toValue: 50,
           duration: 200,
             useNativeDriver: true,
           }),
       ]).start();
     }
-  }, [visible, duration]);
-
-  const handleDismiss = () => {
-    onDismiss?.();
-  };
+  }, [visible, duration, fadeAnim, slideAnim, handleDismiss]);
 
   const icons: Record<string, LucideIcon> = {
     success: Check,
@@ -85,8 +83,8 @@ export function Toast({ visible, message, type = 'info', duration = 3000, onDism
         bottom: spacing.xxl,
         left: spacing.lg,
         right: spacing.lg,
-        opacity: fadeAnim.current,
-        transform: [{ translateY: slideAnim.current }],
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }],
       }}
     >
       <View

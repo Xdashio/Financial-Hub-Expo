@@ -15,7 +15,7 @@ import {
   Users,
   MoreHorizontal,
   Package,
-  Target,
+
   Calendar,
   TrendingUp,
   Award,

@@ -3,7 +3,7 @@ import { View, Text, Pressable } from 'react-native';
 import { RefreshCw } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, touchTarget } from '@/theme';
-import { Skeleton, CardSkeleton, ListItemSkeleton, PocketSkeleton, HomeSkeleton, PocketDetailSkeleton, LoansSkeleton, InsightsSkeleton } from './Skeleton';
+import { CardSkeleton, ListItemSkeleton, PocketSkeleton, HomeSkeleton, PocketDetailSkeleton, LoansSkeleton, InsightsSkeleton } from './Skeleton';
 import { PocketLoader } from './PocketLoader';
 import { EmptyIllustration } from './EmptyIllustration';
 
