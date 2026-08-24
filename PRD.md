@@ -59,7 +59,7 @@ Two-step, deliberately frictioned:
 1. **Pick pockets** — choose source and destination. Locked/time-locked pockets (e.g. Savings under time-lock) are visibly disabled as a source.
 2. **Review & confirm** — shows the from/to/amount, requires a stated reason (chip selection), surfaces a warning if this is an unusually frequent reallocation for that pocket, and requires secure confirmation to complete. For the MVP, this is a standard confirmation dialog; future versions will support device biometrics where available.
 
-> **Cooling-off timer (settled decision).** A cooling-off delay applies to **essential → discretionary-leisure** reallocations only (Rent/Food → Entertainment/Leisure). Duration is **1–2 hours** (configurable; default 1h). It is **skippable at a discipline-score cost** (5 points). Framing is supportive, never punitive — "This move can wait an hour", not a countdown threat. This is **not** a re-adoption of the old blanket "24-hour cooling-off on all essential pockets" rule. See `PROMPT_PACKS.md` Pack 5 for the exact implementation rules.
+> **Cooling-off timer (settled decision).** A cooling-off delay applies to **essential → discretionary-leisure** reallocations only (Rent/Food → Entertainment/Leisure). Duration is **1–2 hours** (configurable; default 1h). It is **skippable at a discipline-score cost** (5 points). Framing is supportive, never punitive — "This move can wait an hour", not a countdown threat. This is **not** a re-adoption of the old blanket "24-hour cooling-off on all essential pockets" rule. ✅ Implemented in `apps/api/src/modules/reallocations/reallocations.service.ts` (with test coverage in `reallocations.service.spec.ts`).
 
 ### 3.5 Merchant categorization & spend blocking (future capability)
 
@@ -144,51 +144,39 @@ Since the revenue model itself is unresolved (§5), the SOM revenue figure speci
 
 ## 7. MVP scope (showcase, not production)
 
-**In scope:** Individual segment only. Both allocation styles (Daily Budget, Structured) for at least one income pattern (salaried), manual income entry, the core screens already designed (Onboarding, Onboarding Result, Home ×2 variants, Pocket Detail, Reallocate pick + review + cooling-off, Merchant classify/blocked/report, Insights, Profile). Built on a clean, new tech stack (see `TECH_STACK.md`) — not on the existing Flutter/Supabase wallet codebase, which is left untouched.
+**In scope:** Individual segment only. Both allocation styles (Daily Budget, Structured) for at least one income pattern (salaried), manual income entry, the core screens already designed (Onboarding, Onboarding Result, Home ×2 variants, Pocket Detail, Reallocate pick + review + cooling-off, Merchant classify/blocked/report, Insights, Profile). Built on a clean, new tech stack — React Native (Expo) + NestJS + PostgreSQL/Supabase (see `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §3–4) — not the earlier Flutter/Supabase wallet prototype from a prior architecture direction, which is not part of this repository.
 
 **Out of scope for MVP:** MSME segment (including event planner/ticketing use cases), partner-embedding shell/SDK behavior, billing system UI, freelancer-specific onboarding tuning, live bank/statement integration (detection can be mocked/simulated for the showcase), any real wallet/PSP money movement, company registration (blocked on funding).
 
-## 8. New Features (Spec Complete, Implementation Pending)
+## 8. New Features (Implementation Status)
 
 ### 8.1 Emergency Unlock Feature
-**Status:** Detailed specification complete (see `emergency-unlock-feature-spec.md`), implementation pending.
+**Status:** ✅ Implemented — `apps/api/src/modules/pockets/emergency-unlock.service.ts`, with unit and integration test coverage.
 
 When all non-savings pockets are depleted, users can unlock funds from their savings pocket as an emergency measure. The feature analyzes their 30-day spending patterns to suggest a safe amount range, limits usage to once per month, and allocates the unlocked amount proportionally to non-savings pockets.
 
-**Key Capabilities:**
+**Key Capabilities (implemented):**
 - 30-day spending pattern analysis to calculate safe unlock amounts
 - Reserve protection (keeps minimum savings reserve)
 - Monthly limit enforcement (once per month)
 - Proportional allocation to non-savings pockets
 - Graceful handling for insufficient history (<7 days)
 
-**Implementation Phases:**
-1. Backend foundation (database, services, API endpoints)
-2. Backend integration (pockets, transactions, limits)
-3. Testing (unit, integration, edge cases)
-4. Mobile UI (bottom sheet, amount selector, allocation preview)
-5. Polish (analytics, A/B testing, user feedback)
+**Remaining work:** mobile UI polish (bottom sheet, amount selector, allocation preview) and analytics/A-B testing — the backend logic and API endpoints are complete and tested.
 
 ### 8.2 Sub-Pocket Percentage Splits
-**Status:** Detailed specification complete (see `subpocket-feature-spec.md`), implementation pending.
+**Status:** ✅ Implemented — percentage-of-parent allocation model, backed by the `010_sub_pocket_split_percentage.sql` migration.
 
-Replaces flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with an overflow/borrow mechanic from parent reserved balance.
+Replaces the earlier flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with sibling-total validation (percentages across a pocket's children cannot exceed 100%) and bulk-adjustment support.
 
-**Key Capabilities:**
-- Percentage-based sub-pocket allocation
-- Immediate rebalance when percentages change
-- Overflow borrowing from parent reserved balance
-- Reserved balance concept (unsplit remainder stays with parent)
-- Per-event override in income entry preview
-
-**Implementation Phases:**
-1. Data model + core allocation logic
-2. Overflow/borrow mechanics
-3. Mobile UI (rebalance bottom sheet, amount selector)
-4. Testing and validation
+**Key Capabilities (implemented):**
+- Percentage-based sub-pocket allocation (`splitPercentage` on the pocket record)
+- Sibling-percentage-total validation on create/update
+- Bulk adjustment of a sibling set's split percentages in one call
+- Derived allocation cache (`parent's monthly_allocation × splitPercentage / 100`)
 
 ### 8.3 Nudges System
-**Status:** Basic client-side nudges implemented in Home screen, backend module exists.
+**Status:** Client-side nudges implemented in Home screen; backend module exists.
 
 Behavioral prompts that guide users toward better financial decisions. Currently implemented as client-side nudges derived from Home screen data (runway low, daily cap warnings, time-lock alerts, discipline-score changes, streaks, rollover credits).
 
@@ -203,14 +191,23 @@ Behavioral prompts that guide users toward better financial decisions. Currently
 **Future Enhancement:** Server-side nudges with persistence and push notification delivery.
 
 ### 8.4 Loans Module
-**Status:** Basic backend structure exists, full implementation pending.
+**Status:** ✅ Core endpoints implemented — `apps/api/src/modules/loans/` (controller, service, spec).
 
-Framework for lending functionality that will allow users to borrow against their disciplined savings behavior. This is planned as a post-MVP feature that leverages the behavioral scoring system to determine creditworthiness.
+Framework for lending functionality that allows users to borrow against their disciplined savings behavior, leveraging the behavioral scoring system to inform terms. Implemented endpoints cover listing loans, creating a loan, retrieving a loan by id, creating purpose-tied sub-pockets for a loan, and funding repayment from a pocket.
 
-**Current State:**
-- Backend module structure created
-- Database schema design in progress
-- Integration with discipline-score system planned
+**Remaining work:** deeper integration with `discipline-score` for creditworthiness-driven terms, and mobile UI.
+
+### 8.5 Behavioral Recommendations
+**Status:** ✅ Implemented — `apps/api/src/modules/behavioral-recommendations/`.
+
+Turns a user's spending history into allocation recommendations with confidence levels, which the user can review and apply to update a fixed expense's allocation. Recommendation history (past suggestions and the user's decisions on them) is retained for review.
+
+### 8.6 Daily Allocation & Monthly Planning Cycle
+**Status:** ✅ Implemented — `apps/api/src/modules/daily-allocation/` and `apps/api/src/modules/planning-cycle/`.
+
+Two cron-driven engines that operationalize the Daily Budget plan types (§3.2 above, `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §11 for full detail):
+- **Daily allocation** — runs at midnight (00:00 EAT), releasing that day's variable-spending budget from the reserve pool, guarded against double-allocation per plan/day.
+- **Planning cycle** — runs on the user's configured `monthly_planning_day`, recomputing fixed-expense funding, carrying forward any shortfall, and generating the behavioral recommendations consumed by §8.5.
 
 ## 9. Open questions to resolve before build
 
@@ -227,4 +224,4 @@ Framework for lending functionality that will allow users to borrow against thei
 8. MSME segment — same core screens with different categories, or a meaningfully different flow (event planner/ticketing suggests "meaningfully different" for at least some sub-segments)? Needs its own short discovery pass before design.
 9. Billing system — usage-based (per active end-user) or flat per-partner licensing? Relevant only once Phase 4 (embeddable layer) is real; not needed for MVP.
 10. Company registration — on hold pending funding; no timeline yet.
-11. **Freelancer income pattern support** — partially implemented (gig/platform-worker vs multi-client freelancer split), remaining work on salaried-with-side-income persona and money-personality-as-modifier-layer (see `ONBOARDING_AND_SCORING_REDESIGN.md` §2.3).
+11. **Freelancer income pattern support** — partially implemented (gig/platform-worker vs multi-client freelancer split), remaining work on salaried-with-side-income persona and a money-personality-as-modifier-layer for onboarding/scoring.

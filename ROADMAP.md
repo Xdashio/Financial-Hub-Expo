@@ -2,7 +2,9 @@
 
 Phased from empty repo → MVP showcase → embeddable product with billing. Timeframes are intentionally left as relative (not calendar dates) since this is a slow, clean build with an unfunded team — sequence matters more than deadlines here.
 
-> **2026-08-09 update:** the codebase was audited against this roadmap (see `BACKEND_FRONTEND_AUDIT.md` for full findings). Short version: Phase 0/1 progress is real but the "Phase 1 in progress" checklist below undersold how much of what looked done is actually blocked by database schema drift discovered during the audit — several backend modules that read as "built" will throw errors against a real database. A new **Phase A (Stabilize)** is inserted below, before any further Phase 1 screen-wiring work, to fix that drift and close a test-coverage gap in the most consequential business logic in the app. Do this first — building new features on top of a drifted schema means re-doing them once the schema is fixed. The old `IMPLEMENTATION_PLAN.md`, `API_IMPLEMENTATION_PLAN.md`, and `FRONTEND_UI_IMPLEMENTATION_PLAN.md` are kept for historical detail (some of their task breakdowns and code sketches are still useful reference) but are **superseded by this roadmap** as the source of truth for sequencing — they were written from a docs-level read of the repo, not a code-level audit, and their "5 real / 2 stub" backend framing undercounted the actual blockers.
+> **2026-08-09 update:** the codebase was audited against this roadmap. Short version: Phase 0/1 progress is real but the "Phase 1 in progress" checklist below undersold how much of what looked done is actually blocked by database schema drift discovered during the audit — several backend modules that read as "built" would throw errors against a real database. A new **Phase A (Stabilize)** is inserted below, before any further Phase 1 screen-wiring work, to fix that drift and close a test-coverage gap in the most consequential business logic in the app. That work is done (see Phase A below). The audit and interim implementation-plan documents this note originally cited (`BACKEND_FRONTEND_AUDIT.md`, `IMPLEMENTATION_PLAN.md`, `API_IMPLEMENTATION_PLAN.md`, `FRONTEND_UI_IMPLEMENTATION_PLAN.md`) have since been removed from the repo now that their findings have been acted on; this roadmap remains the source of truth for sequencing.
+>
+> **2026-08 update:** Phase 1.5's two headline features — Emergency Unlock and Sub-Pocket Percentage Splits — are now implemented (see below), along with `behavioral-recommendations`, `daily-allocation`, and `planning-cycle`, three modules not anticipated at the time this roadmap was first written. Full detail lives in `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md`.
 
 **Strategic context:** Financial HUB is a behavior-driven financial intelligence layer that structures income before spending, automates purpose-based allocations, protects savings, and helps individuals build long-term financial resilience across the financial institutions they already use. The roadmap reflects this positioning as infrastructure, not competition to existing financial institutions.
 
@@ -68,34 +70,21 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 - User testing and feedback integration
 - Documentation updates for partner demonstrations
 
-## Phase 1.5 — Advanced Features (Spec Complete, Implementation Pending)
+## Phase 1.5 — Advanced Features
 
-These features have detailed specifications complete but implementation has not yet started. They represent the next logical enhancements to the MVP showcase.
+These features were originally scoped as "spec complete, implementation pending." Two of the three headline items are now shipped; status updated accordingly.
 
 ### 1.5.1 Emergency Unlock Feature
-**Status:** ✅ **SPEC COMPLETE** — See `emergency-unlock-feature-spec.md`
-**Implementation:** 🔄 **PENDING**
+**Status:** ✅ **IMPLEMENTED** — `apps/api/src/modules/pockets/emergency-unlock.service.ts`, with unit (`emergency-unlock.service.spec.ts`) and integration (`emergency-unlock.integration.spec.ts`) test coverage.
 
 When all non-savings pockets are depleted, users can unlock funds from their savings pocket as an emergency measure. The feature analyzes their 30-day spending patterns to suggest a safe amount range, limits usage to once per month, and allocates the unlocked amount proportionally to non-savings pockets.
 
-**Implementation Phases:**
-1. Backend foundation (database, services, API endpoints)
-2. Backend integration (pockets, transactions, limits)
-3. Testing (unit, integration, edge cases)
-4. Mobile UI (bottom sheet, amount selector, allocation preview)
-5. Polish (analytics, A/B testing, user feedback)
+**Remaining:** mobile UI polish (bottom sheet, amount selector, allocation preview) and analytics/A-B testing.
 
 ### 1.5.2 Sub-Pocket Percentage Splits
-**Status:** ✅ **SPEC COMPLETE** — See `subpocket-feature-spec.md`
-**Implementation:** 🔄 **PENDING**
+**Status:** ✅ **IMPLEMENTED** — schema landed in `010_sub_pocket_split_percentage.sql`, allocation logic in `pockets.service.ts`.
 
-Replaces flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with an overflow/borrow mechanic from parent reserved balance.
-
-**Implementation Phases:**
-1. Data model + core allocation logic
-2. Overflow/borrow mechanics
-3. Mobile UI (rebalance bottom sheet, amount selector)
-4. Testing and validation
+Replaces the earlier flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with sibling-total validation (percentages across children can't exceed 100%) and bulk-adjustment support for a sibling set.
 
 ### 1.5.3 Enhanced Nudges System
 **Status:** 🟡 **PARTIALLY IMPLEMENTED** — Client-side nudges in Home screen
@@ -122,7 +111,7 @@ All screens in the original sequencing list are now wired — kept below as a hi
 8. ~~Manual income entry screen~~ — done, `app/(income)/entry.tsx` wired to `incomeApi`
 
 ## Phase 2 — Depth on Individual segment
-- [ ] Freelancer income pattern support (irregular income handling, not just salaried) — **partially done 2026-08-13**: gig/platform-worker vs. multi-client freelancer split landed (see `audit_team.md` item 2). Remaining: salaried-with-side-income persona, money-personality-as-modifier-layer (`ONBOARDING_AND_SCORING_REDESIGN.md` §2.3).
+- [ ] Freelancer income pattern support (irregular income handling, not just salaried) — **partially done 2026-08-13**: gig/platform-worker vs. multi-client freelancer split landed. Remaining: salaried-with-side-income persona, money-personality-as-modifier-layer for onboarding/scoring.
 - [ ] Retake/adjust plan flow from Profile
 - [ ] Real fixed-expense detection (statement upload or account-link integration — pick based on Phase 0 decision)
 - [ ] Discipline score refinement — validate with real/test users whether the numeric score framing lands well or needs to change (flagged as open question in PRD)

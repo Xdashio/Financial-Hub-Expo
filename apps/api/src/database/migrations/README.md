@@ -6,11 +6,11 @@ This migration creates the core data model for Financial Hub with all entities d
 
 > **This directory (`apps/api/src/database/migrations/`) is the single canonical source for the schema.**
 > The previous `apps/api/supabase/migrations/001_initial_schema.sql` copy has been removed — it had
-> diverged from this one (see `BACKEND_FRONTEND_AUDIT.md` §C1). If you use the Supabase CLI, run
+> diverged from this one during an earlier audit. If you use the Supabase CLI, run
 > `npm run db:sync` from `apps/api/` first to regenerate `apps/api/supabase/migrations/` from this
 > file before `supabase db push`; never hand-edit the generated copy.
 
-### Tables Created
+### Tables Created (001 — Initial Schema)
 
 1. **users** - User profiles (extends Supabase Auth)
 2. **plans** - One plan per user (structured/daily, salaried/freelancer)
@@ -27,6 +27,28 @@ This migration creates the core data model for Financial Hub with all entities d
 13. **push_tokens** - Expo push device tokens (Batch 7)
 14. **notification_deliveries** - Idempotent delivery log for push/scheduler (Batch 7)
 15. **idempotency_records** - Client idempotency keys for income/spend retries
+
+### Schema evolution since 001 (migrations 002–013)
+
+The schema above reflects only the initial migration. Later migrations added, in order:
+
+| Migration | Change |
+|---|---|
+| `002_freelancer_runway.sql` | Runway columns/support for freelancer income pattern |
+| `003_pocket_categories_housing_family.sql` | Added Housing/Family pocket categories |
+| `004_merchant_classification_pocket_id.sql` | Linked merchant classifications to a specific pocket |
+| `005_push_tokens_and_deliveries.sql` | Push token + notification delivery tables (superseded by items 13–14 above once merged) |
+| `006_idempotency_records.sql` | Idempotency key table (superseded by item 15 above once merged) |
+| `007_sub_pockets.sql` | Introduced sub-pockets (parent/child pocket relationships) |
+| `008_loans.sql` | **loans** table — lending records |
+| `008_income_surplus_columns.sql` | Surplus-tracking columns on income events |
+| `009_money_personality.sql` | Money-personality fields used by onboarding/scoring |
+| `010_sub_pocket_split_percentage.sql` | Percentage-of-parent allocation model for sub-pockets (`splitPercentage`) |
+| `011_emergency_unlocks.sql` | **emergency_unlocks** table — protected-savings early-access records |
+| `012_loan_subpocket_constraint_fix.sql` | Constraint fix for loan-linked sub-pockets |
+| `013_reserve_and_daily_allocations.sql` | Reserve balance tracking + **daily_allocations** table for the Daily Budget engine |
+
+For the authoritative current schema, read the migration files directly (`001` through `013`) rather than relying on the table list above, which documents `001` only.
 
 ### Key Features
 
