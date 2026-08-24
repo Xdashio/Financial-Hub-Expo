@@ -6,9 +6,10 @@ import { SpendingAnalysisService } from '../insights/spending-analysis.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreModule } from '../discipline-score/discipline-score.module';
 import { RunwayModule } from '../runway/runway.module';
+import { DailyAllocationModule } from '../daily-allocation/daily-allocation.module';
 
 @Module({
-  imports: [DisciplineScoreModule, RunwayModule],
+  imports: [DisciplineScoreModule, RunwayModule, DailyAllocationModule],
   controllers: [PocketsController],
   providers: [
     PocketsService,
