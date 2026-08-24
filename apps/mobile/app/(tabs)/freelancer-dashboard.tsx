@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, RefreshControl, StyleSheet, Text, Pressable } from 'react-native';
+import { Redirect } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
@@ -12,6 +13,8 @@ import {
   usePlanningCycleStatus,
   useCurrentPlanningCycle,
   usePlanningCycleHistory,
+  usePlan,
+  useIsFreelancerDaily,
 } from '@/hooks/useFreelancer';
 import { Button } from '@/components/ui/Button';
 import { PocketGlyph } from '@/components/ui/PocketGlyph';
@@ -23,7 +26,14 @@ export function FreelancerDashboard() {
   const styles = createStyles(colors);
   const [refreshing, setRefreshing] = useState(false);
   const [showEmergencyUnlock, setShowEmergencyUnlock] = useState(false);
-  
+
+  // This screen only applies to freelancer/daily plans; the tab itself is
+  // hidden for everyone else (see (tabs)/_layout.tsx), but this screen is
+  // still directly reachable by URL/deep link, so it needs its own guard
+  // rather than trusting the tab bar to keep other plan types out.
+  const { data: plan, isLoading: isPlanLoading } = usePlan();
+  const isFreelancerDaily = useIsFreelancerDaily();
+
   const { 
     runway, 
     dailyAllocation, 
@@ -35,11 +45,23 @@ export function FreelancerDashboard() {
     refetch 
   } = useFreelancerDashboard();
 
-  const { data: planningCycleStatus } = usePlanningCycleStatus();
-  const { data: currentPlanningCycle } = useCurrentPlanningCycle();
-  const { data: planningCycleHistory } = usePlanningCycleHistory(6);
+  const { data: planningCycleStatus } = usePlanningCycleStatus(isFreelancerDaily);
+  const { data: currentPlanningCycle } = useCurrentPlanningCycle(isFreelancerDaily);
+  const { data: planningCycleHistory } = usePlanningCycleHistory(6, isFreelancerDaily);
 
   const executeEmergencyUnlock = useExecuteEmergencyUnlock();
+
+  if (isPlanLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <PocketLoader size={48} color={colors.emeraldDeep} />
+      </View>
+    );
+  }
+
+  if (plan && !isFreelancerDaily) {
+    return <Redirect href="/(tabs)" />;
+  }
 
   const onRefresh = async () => {
     setRefreshing(true);
