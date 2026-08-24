@@ -18,7 +18,7 @@ import {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Server-side nudge engine (FLUTTER_TO_EXPO_PORT_GUIDE.md §7 — `GET
+ * Server-side nudge engine (Server-side nudge engine — `GET
  * /insights/nudges`). audit_team.md item 4/5's "ongoing monitoring" ask
  * ("recommend building the nudge engine generically enough to carry this
  * too, rather than as a separate system") is why this lives as its own

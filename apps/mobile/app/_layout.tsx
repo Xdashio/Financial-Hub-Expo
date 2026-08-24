@@ -115,7 +115,7 @@ function RootLayoutInner() {
       {/* Gates on cold start + on resume after backgrounding — see
           AppLockGate for details. Wraps the whole navigator (not a
           per-screen check) so it blocks all navigation until
-          authenticated, per FLUTTER_TO_EXPO_PORT_GUIDE.md §10. */}
+          authenticated. */}
       <AppLockGate>
         <Stack
           screenOptions={{

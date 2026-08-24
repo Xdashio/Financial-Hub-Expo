@@ -1,5 +1,5 @@
 // ============================================================================
-// Nudge engine calculators — audit_team.md item 4/5 / FLUTTER_TO_EXPO_PORT_
+// Nudge engine calculators.
 // GUIDE.md §7's three MVP nudge types, all implemented as pure functions so
 // the projection/threshold math can be unit-tested without touching
 // Supabase, and so the nudge engine (NudgesService) stays a thin
@@ -17,7 +17,7 @@
 //
 // This is the piece the audit calls "genuinely new work, not a port of
 // anything" — it's a generalization of the "Runway low" nudge type already
-// scoped in FLUTTER_TO_EXPO_PORT_GUIDE.md §7 (which only checked the
+// scoped nudge: only checks the
 // freelancer plan's overall runway against a flat 3-day threshold) into a
 // real per-pocket projection: does *this pocket's* current spend rate mean
 // it empties before the horizon, and by how many days.

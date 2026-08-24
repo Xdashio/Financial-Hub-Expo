@@ -162,7 +162,7 @@ Financial Hub uses a two-phase methodology combining behavioral finance research
 
 ### Design and prototyping
 - Product requirements document outlining core principles: pre-allocation of income, category-first display, savings locks, and reallocation friction.
-- Cross-platform prototype built with Flutter and a Supabase backend (an earlier architecture direction — see *Codebase Note* below). Key modules included an allocation engine that split deposits into pockets, ledger and plan-management services, and a parser that monitored M-Pesa SMS messages to trigger allocations.
+- Cross-platform prototype with a Supabase backend (an earlier architecture direction — see *Codebase Note* below). Key modules included an allocation engine that split deposits into pockets, ledger and plan-management services, and a parser that monitored M-Pesa SMS messages to trigger allocations.
 - Consistent, simple UI/UX (numeric keypad, deliberate friction for reallocations, mental "pocket" icons) to reinforce behavioral goals.
 
 ### Testing and validation
@@ -173,7 +173,7 @@ Financial Hub uses a two-phase methodology combining behavioral finance research
 
 ### Codebase note
 
-This repository (`Financial-Hub-Expo`) represents the **current build direction**: a standalone MVP showcase (Individual segment, manual income entry, no wallet/PSP integration) built on a fresh stack — Expo/React Native + NestJS + Supabase — chosen specifically to demonstrate the core concept cleanly to potential SACCO and bank partners ahead of funding. The earlier Flutter + Supabase implementation referenced in the original innovation submission (regulated PSP wallet, real M-Pesa/Paystack money movement, SMS parsing) exists as an untouched historical reference and is not being built on. See `README.md`, `PRD.md`, and `ROADMAP.md` in the repository root, and `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §3–4, for the current architecture and phased plan.
+This repository (`Financial-Hub-Expo`) represents the **current build direction**: a standalone MVP showcase (Individual segment, manual income entry, no wallet/PSP integration) built on React Native (Expo) + NestJS + Supabase — chosen specifically to demonstrate the core concept cleanly to potential SACCO and bank partners ahead of funding. An earlier prototype (regulated PSP wallet, real M-Pesa/Paystack money movement, SMS parsing) was built under a prior architecture direction; it is not part of this repository. See `README.md`, `PRD.md`, and `ROADMAP.md` in the repository root, and `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §3–4, for the current architecture and phased plan.
 
 ---
 
@@ -196,7 +196,7 @@ This repository (`Financial-Hub-Expo`) represents the **current build direction*
 
 | Category | Line item | Amount (KSh) |
 |---|---|---|
-| **Product Development — KSh 86,000** | Flutter feature completion (OTP, SMS result screen, E2E flow hardening) | 30,000 |
+| **Product Development — KSh 86,000** | Mobile feature completion (OTP, SMS result screen, E2E flow hardening) | 30,000 |
 | | Allocation engine + backend hardening (edge functions prep, duplicate detection design) | 18,000 |
 | | Database optimization + RLS review | 10,000 |
 | | Testing (unit + integration + device QA) | 12,000 |
@@ -252,7 +252,7 @@ We extend our sincere gratitude to **Dr. Phillip Nyawere**, Director of Research
 ## Source Documents
 
 This markdown document consolidates and supersedes, in text form, the following source files retained in `docs/`:
-- `FINANCIAL HUB INNOVATION DOCUMENT.pdf` — the original 12-page innovation submission, including system architecture screenshots and source-code excerpts (`main.dart`, `index.ts`, `reallocation_service.dart`, `plan_templates.dart`, `allocation_service.dart`, `allocation_result_sheet.dart`, `behavior_report_sheet.dart`, `pockets_repository.dart`) from the earlier Flutter/Supabase prototype referenced above.
+- `FINANCIAL HUB INNOVATION DOCUMENT.pdf` — the original 12-page innovation submission, including system architecture screenshots and source-code excerpts from the earlier prototype referenced above.
 - `Financial HUB document.docx` — the investor/partnership narrative, including the detailed budget proposal and Kabarak University partnership rationale.
 - `9f19c5a3-c954-40a7-93e9-3c4b3d46d630.pdf` — the KECOBO Certificate of Registration of a Copyright Work (No. RZ94373).
 
