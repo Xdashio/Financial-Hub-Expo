@@ -17,6 +17,9 @@ import { SpendModule } from './modules/spend/spend.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { RolloverModule } from './modules/rollover/rollover.module';
 import { LoansModule } from './modules/loans/loans.module';
+import { DailyAllocationModule } from './modules/daily-allocation/daily-allocation.module';
+import { PlanningCycleModule } from './modules/planning-cycle/planning-cycle.module';
+import { BehavioralRecommendationsModule } from './modules/behavioral-recommendations/behavioral-recommendations.module';
 import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 
 @Module({
@@ -49,6 +52,9 @@ import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
     NotificationsModule,
     RolloverModule,
     LoansModule,
+    DailyAllocationModule,
+    PlanningCycleModule,
+    BehavioralRecommendationsModule,
   ],
   providers: [
     // Authenticated-by-default: new controllers are locked unless marked @Public().

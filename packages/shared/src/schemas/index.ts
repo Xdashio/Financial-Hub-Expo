@@ -88,6 +88,11 @@ export const TransactionTypeSchema = z.enum([
   'reallocation_in',
   'reallocation_out',
   'rollover',
+  'reserve_release',
+  'reserve_return',
+  'daily_overspend_debit',
+  'fixed_expense_earmark',
+  'fixed_expense_carry_forward',
 ]);
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 
@@ -414,6 +419,10 @@ export const RunwaySummarySchema = z.object({
   // 'estimate' = derived from the onboarding band, no income history yet.
   // 'historical' = derived from actual income_events gaps (>= 2 events).
   confidence: z.enum(['estimate', 'historical']).optional(),
+  // Reserve-based runway fields
+  discretionaryReserve: z.number().nonnegative().optional(),
+  fixedObligations: z.number().nonnegative().optional(),
+  dailyBudget: z.number().nonnegative().optional(),
 });
 export type RunwaySummary = z.infer<typeof RunwaySummarySchema>;
 
@@ -529,16 +538,25 @@ export const SubPocketRebalanceInputSchema = z.object({
 export type SubPocketRebalanceInput = z.infer<typeof SubPocketRebalanceInputSchema>;
 
 // ============================================================================
-// Emergency Unlock Schemas - once-per-month savings emergency withdrawals
+// Emergency Unlock Schemas - runway-impact model for freelancers
 // ============================================================================
 
 export const EmergencyUnlockEligibilityReasonSchema = z.enum([
+  'not_freelancer_plan',
   'insufficient_history',
   'monthly_limit_reached',
-  'savings_depleted',
-  'no_depleted_pockets',
+  'no_discretionary_runway',
+  'reserve_protected',
 ]);
 export type EmergencyUnlockEligibilityReason = z.infer<typeof EmergencyUnlockEligibilityReasonSchema>;
+
+export const RunwayImpactOptionSchema = z.object({
+  emergency_amount: z.number().positive(),
+  runway_days_before: z.number().nonnegative(),
+  runway_days_after: z.number().nonnegative(),
+  runway_reduction_days: z.number().nonnegative(),
+});
+export type RunwayImpactOption = z.infer<typeof RunwayImpactOptionSchema>;
 
 export const SpendingAnalysisSchema = z.object({
   least_daily_spend: z.number().nonnegative(),
@@ -548,21 +566,23 @@ export const SpendingAnalysisSchema = z.object({
 });
 export type SpendingAnalysis = z.infer<typeof SpendingAnalysisSchema>;
 
-export const SavingsReserveSchema = z.object({
-  total_savings: z.number().nonnegative(),
-  minimum_reserve: z.number().nonnegative(),
-  available_to_unlock: z.number().nonnegative(),
+export const DiscretionaryRunwaySchema = z.object({
+  total_reserve: z.number().nonnegative(),
+  fixed_obligations: z.number().nonnegative(),
+  discretionary_reserve: z.number().nonnegative(),
+  daily_budget: z.number().nonnegative(),
+  runway_days: z.number().nonnegative(),
 });
-export type SavingsReserve = z.infer<typeof SavingsReserveSchema>;
+export type DiscretionaryRunway = z.infer<typeof DiscretionaryRunwaySchema>;
 
 export const EmergencyUnlockEligibilityResponseSchema = z.object({
   eligible: z.boolean(),
   reason: EmergencyUnlockEligibilityReasonSchema.optional(),
   message: z.string().optional(),
   analysis: SpendingAnalysisSchema.optional(),
-  savings_reserve: SavingsReserveSchema.optional(),
-  days_of_history: z.number().int().nonnegative().optional(),
-  minimum_required_days: z.number().int().positive().optional(),
+  discretionary_runway: DiscretionaryRunwaySchema.optional(),
+  // Pre-calculated options for the UI slider
+  runway_impact_options: z.array(RunwayImpactOptionSchema).optional(),
   last_used: z.string().datetime().optional(),
   next_available: z.string().datetime().optional(),
 });
@@ -570,7 +590,7 @@ export type EmergencyUnlockEligibilityResponse = z.infer<typeof EmergencyUnlockE
 
 export const EmergencyUnlockRequestSchema = z.object({
   amount: z.number().positive(),
-  confirm_reserve: z.boolean(),
+  confirm_impact: z.boolean(),
 });
 export type EmergencyUnlockRequest = z.infer<typeof EmergencyUnlockRequestSchema>;
 
@@ -587,8 +607,9 @@ export const EmergencyUnlockResponseSchema = z.object({
   unlock: z.object({
     id: z.string().uuid(),
     amount: z.number().positive(),
-    days_lasting: z.number().positive(),
-    reserve_kept: z.number().nonnegative(),
+    runway_days_before: z.number().nonnegative(),
+    runway_days_after: z.number().nonnegative(),
+    runway_reduction_days: z.number().nonnegative(),
     allocations: z.array(EmergencyUnlockAllocationSchema),
   }).optional(),
   error: z.string().optional(),
@@ -685,8 +706,43 @@ export const TransactionSchema = z.object({
   merchant: z.string().optional(), // nullable
   category: MerchantCategorySchema.optional(),
   createdAt: z.string().datetime(),
+  // Daily allocation linkage (migration 013)
+  dailyAllocationId: z.string().uuid().nullable().optional(),
 });
 export type Transaction = z.infer<typeof TransactionSchema>;
+
+export type TransactionInsert = Omit<Transaction, 'id' | 'createdAt'> & {
+  id?: string;
+  createdAt?: string;
+  pocket_id: string;
+  amount: number;
+  type: TransactionType;
+  merchant?: string | null;
+  category?: MerchantCategory | null;
+  emergency_unlock_id?: string | null;
+  daily_allocation_id?: string | null;
+};
+
+// ============================================================================
+// Daily Allocation Schema (migration 013)
+// ============================================================================
+
+export const DailyAllocationSchema = z.object({
+  id: z.string().uuid(),
+  planId: z.string().uuid(),
+  userId: z.string().uuid(),
+  allocationDate: z.string().date(),
+  plannedAmount: z.number().nonnegative(),
+  actualSpend: z.number().nonnegative(),
+  returnedAmount: z.number().nonnegative(),
+  overspendAmount: z.number().nonnegative(),
+  runwayDaysAtOpen: z.number().nonnegative().nullable().optional(),
+  runwayDaysAtClose: z.number().nonnegative().nullable().optional(),
+  status: z.enum(['open', 'closed']),
+  createdAt: z.string().datetime(),
+  closedAt: z.string().datetime().nullable().optional(),
+});
+export type DailyAllocation = z.infer<typeof DailyAllocationSchema>;
 
 export const ReallocationSchema = z.object({
   id: z.string().uuid(),
@@ -785,6 +841,9 @@ export const schemas = {
   EmergencyUnlockEligibilityResponse: EmergencyUnlockEligibilityResponseSchema,
   EmergencyUnlockRequest: EmergencyUnlockRequestSchema,
   EmergencyUnlockResponse: EmergencyUnlockResponseSchema,
+  RunwayImpactOption: RunwayImpactOptionSchema,
+  DiscretionaryRunway: DiscretionaryRunwaySchema,
+  EmergencyUnlockEligibilityReason: EmergencyUnlockEligibilityReasonSchema,
   RepaymentCadence: RepaymentCadenceSchema,
   RepaymentSchedule: RepaymentScheduleSchema,
   LoanCreateInput: LoanCreateInputSchema,
@@ -794,6 +853,7 @@ export const schemas = {
   FixedExpense: FixedExpenseSchema,
   IncomeEvent: IncomeEventSchema,
   Transaction: TransactionSchema,
+  DailyAllocation: DailyAllocationSchema,
   Reallocation: ReallocationSchema,
   ReallocationInput: ReallocationInputSchema,
   ReallocationCompleteInput: ReallocationCompleteInputSchema,

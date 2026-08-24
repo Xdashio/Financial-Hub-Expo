@@ -3,10 +3,12 @@ import { PocketUpdateInputSchema, SubPocketCreateInputSchema, SubPocketRebalance
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { RunwayService } from '../runway/runway.service';
+import { DailyAllocationService } from '../daily-allocation/daily-allocation.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 import { Pocket, PocketUpdate, PocketInsert, Transaction, MerchantClassification } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
 import { v4 as uuidv4 } from 'uuid';
+import { toCamelCaseResponse, toCamelCaseResponseArray } from '../../common/case-transform';
 
 // A pocket's lock may be extended at most once per lock term — from when it
 // was locked (pocket.created_at, since pockets are locked at creation) up
@@ -22,6 +24,7 @@ export class PocketsService {
     private readonly repository: SupabaseRepository,
     private readonly disciplineScore: DisciplineScoreService,
     private readonly runway: RunwayService,
+    private readonly dailyAllocation: DailyAllocationService,
   ) {}
 
   async getAllForUser(userId: string): Promise<(Pocket & { available_balance: number; has_sub_pockets: boolean })[]> {
@@ -1030,6 +1033,128 @@ export class PocketsService {
         reason: `lock_extension_${additionalDays}_days_no_bonus`,
       },
     };
+  }
+
+  // ============================================================================
+  // Daily Allocation (Freelancer Runway)
+  // ============================================================================
+
+  /**
+   * Get today's daily allocation for the active plan.
+   * Returns the allocation with spend progress and runway info.
+   */
+  async getTodayDailyAllocation(userId: string): Promise<{
+    allocation: any | null;
+    runway: RunwaySummary;
+    spendablePockets: any[];
+  }> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    if (plan.income_pattern !== 'freelancer' || plan.type !== 'daily') {
+      return {
+        allocation: null,
+        runway: { applicable: false },
+        spendablePockets: [],
+      };
+    }
+
+    const today = new Date();
+    const allocation = await this.dailyAllocation.getTodayAllocation(plan.id);
+
+    // Get runway summary
+    const runway = await this.runway.getRunwayForPlan(userId, plan);
+
+    // Get spendable pockets with their current daily caps
+    const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
+    const spendablePockets = pockets.filter(p => p.kind === 'spendable');
+
+    const caps = computeSpendableDailyCaps(spendablePockets, runway);
+    const enrichedSpendable = await Promise.all(
+      spendablePockets.map(async (p) => {
+        const summary = await this.repository.getPocketSummary(p.id);
+        return {
+          ...p,
+          daily_cap: caps.get(p.id) ?? p.daily_cap,
+          available_balance: summary.available,
+        };
+      })
+    );
+
+    return toCamelCaseResponse({
+      allocation,
+      runway,
+      spendablePockets: enrichedSpendable,
+    });
+  }
+
+  /**
+   * Get daily allocation history for a date range.
+   */
+  async getDailyAllocationHistory(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<any[]> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    const allocations = await this.repository.getDailyAllocationsByPlanIdAndDateRange(plan.id, startDate, endDate);
+    return toCamelCaseResponseArray(allocations);
+  }
+
+  /**
+   * Manually trigger today's daily allocation (for testing/debugging).
+   */
+  async triggerDailyAllocation(userId: string): Promise<any> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    if (plan.income_pattern !== 'freelancer' || plan.type !== 'daily') {
+      throw new BadRequestException('Daily allocation only applies to freelancer daily plans');
+    }
+
+    const dailyBudget = await this.dailyAllocation.getDailyBudget(plan.id);
+    const today = new Date();
+    const result = await this.dailyAllocation.createDailyAllocation(userId, plan.id, dailyBudget, today);
+    return toCamelCaseResponse(result);
+  }
+
+  /**
+   * Manually close today's daily allocation (for testing/debugging).
+   */
+  async closeDailyAllocation(userId: string, actualSpend?: number): Promise<any> {
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (!plan) {
+      throw new NotFoundException('No active plan found');
+    }
+
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0];
+    const allocation = await this.repository.getDailyAllocationByPlanIdAndDate(plan.id, dateStr);
+
+    if (!allocation) {
+      throw new NotFoundException('No daily allocation found for today');
+    }
+
+    if (allocation.status === 'closed') {
+      throw new BadRequestException('Daily allocation already closed');
+    }
+
+    // If actualSpend not provided, calculate from transactions
+    let spend = actualSpend;
+    if (spend === undefined) {
+      spend = await this.repository.getActualSpendForAllocation(allocation.id);
+    }
+
+    const result = await this.dailyAllocation.closeDailyAllocation(allocation.id, spend);
+    return toCamelCaseResponse(result);
   }
 }
 

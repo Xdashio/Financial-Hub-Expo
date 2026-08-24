@@ -6,13 +6,15 @@ import {
   EmergencyUnlockRequest,
   EmergencyUnlockResponse,
   EmergencyUnlockEligibilityReason,
+  RunwayImpactOption,
+  DiscretionaryRunway,
 } from '@financial-hub/shared';
 import { SpendingAnalysisService } from '../insights/spending-analysis.service';
 import { sumMoney, toCents, fromCents } from '@financial-hub/shared';
 
 const MINIMUM_HISTORY_DAYS = 7;
-const RESERVE_PERCENTAGE = 0.2; // 20% minimum reserve
-const MINIMUM_RESERVE_AMOUNT = 1000; // KSh 1000 minimum absolute reserve
+const MAX_EMERGENCY_PERCENTAGE = 0.5; // Max 50% of discretionary runway
+const MIN_RUNWAY_DAYS = 3; // Floor from runway calculator
 
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -20,6 +22,10 @@ function generateUUID(): string {
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function round2(n: number): number {
+  return fromCents(toCents(n));
 }
 
 @Injectable()
@@ -31,60 +37,35 @@ export class EmergencyUnlockService {
 
   /**
    * Check if user is eligible for emergency unlock and return analysis data.
+   * Uses runway-impact model: shows how emergency allocation affects spending runway.
+   * Only available for freelancer + daily plans.
    */
   async checkEligibility(userId: string, planId: string): Promise<EmergencyUnlockEligibilityResponse> {
-    // Check if user has any pockets with allocations (not a new user)
+    // Get the plan to verify it's a freelancer + daily plan
+    const plan = await this.repository.getPlanById(planId);
+    if (!plan) {
+      return {
+        eligible: false,
+        reason: 'not_freelancer_plan',
+        message: 'Plan not found.',
+      };
+    }
+
+    if (plan.income_pattern !== 'freelancer' || plan.type !== 'daily') {
+      return {
+        eligible: false,
+        reason: 'not_freelancer_plan',
+        message: 'Emergency unlock is only available for Freelancer Daily Budget plans.',
+      };
+    }
+
+    // Check if user has any pockets with allocations
     const pockets = await this.repository.getTopLevelPocketsByPlanId(planId);
     if (pockets.length === 0) {
       return {
         eligible: false,
-        reason: 'no_depleted_pockets',
+        reason: 'no_discretionary_runway',
         message: 'No pockets found. Please set up your budget first.',
-      };
-    }
-
-    // Check if all non-savings pockets are depleted
-    const nonSavingsPockets = pockets.filter((p) => p.kind !== 'savings');
-    const savingsPocket = pockets.find((p) => p.kind === 'savings');
-
-    if (nonSavingsPockets.length === 0) {
-      return {
-        eligible: false,
-        reason: 'no_depleted_pockets',
-        message: 'No non-savings pockets found.',
-      };
-    }
-
-    // Check if all non-savings pockets are depleted
-    const nonSavingsPocketIds = nonSavingsPockets.map((p) => p.id);
-    const pocketSummaries = await Promise.all(
-      nonSavingsPocketIds.map((id) => this.repository.getPocketSummary(id)),
-    );
-
-    const allDepleted = pocketSummaries.every((summary) => summary.available <= 0);
-    if (!allDepleted) {
-      return {
-        eligible: false,
-        reason: 'no_depleted_pockets',
-        message: 'Not all pockets are depleted yet.',
-      };
-    }
-
-    // Check if savings pocket has balance
-    if (!savingsPocket) {
-      return {
-        eligible: false,
-        reason: 'savings_depleted',
-        message: 'No savings pocket found.',
-      };
-    }
-
-    const savingsSummary = await this.repository.getPocketSummary(savingsPocket.id);
-    if (savingsSummary.available <= 0) {
-      return {
-        eligible: false,
-        reason: 'savings_depleted',
-        message: 'Your savings pocket is currently empty. Emergency unlock requires available savings.',
       };
     }
 
@@ -114,15 +95,52 @@ export class EmergencyUnlockService {
         eligible: false,
         reason: 'insufficient_history',
         message: 'Not enough spending data yet to calculate safe amounts. Continue logging spends for a few more days to unlock this feature.',
-        days_of_history: analysis.days_of_history,
-        minimum_required_days: MINIMUM_HISTORY_DAYS,
       };
     }
 
-    // Calculate reserve
-    const totalSavings = savingsSummary.available;
-    const minimumReserve = this.calculateReserve(totalSavings);
-    const availableToUnlock = totalSavings - minimumReserve;
+    // Calculate discretionary runway (reserve - fixed obligations)
+    const fixedExpenses = await this.repository.getFixedExpensesByUserId(userId);
+    const activeFixedExpenses = fixedExpenses.filter(f => f.status === 'active');
+    const totalFixedObligations = activeFixedExpenses.reduce(
+      (sum, f) => sum + Number(f.amount), 
+      0
+    );
+
+    const reserveBalance = plan.reserve_balance || 0;
+    const discretionaryReserve = Math.max(0, reserveBalance - totalFixedObligations);
+    
+    // Get daily budget from plan or compute from reserve
+    const dailyBudget = Math.max(1, Math.round(reserveBalance / 30 * 100) / 100);
+    const runwayDays = dailyBudget > 0 ? Math.floor(discretionaryReserve / dailyBudget) : MIN_RUNWAY_DAYS;
+
+    if (runwayDays <= MIN_RUNWAY_DAYS) {
+      return {
+        eligible: false,
+        reason: 'no_discretionary_runway',
+        message: 'Your discretionary runway is too low for an emergency allocation.',
+        analysis: {
+          least_daily_spend: analysis.least_daily_spend,
+          most_daily_spend: analysis.most_daily_spend,
+          average_daily_spend: analysis.average_daily_spend,
+          days_of_history: analysis.days_of_history,
+        },
+        discretionary_runway: {
+          total_reserve: reserveBalance,
+          fixed_obligations: totalFixedObligations,
+          discretionary_reserve: discretionaryReserve,
+          daily_budget: dailyBudget,
+          runway_days: runwayDays,
+        },
+      };
+    }
+
+    // Generate runway impact options for the UI slider
+    const runwayImpactOptions = this.generateRunwayImpactOptions(
+      discretionaryReserve,
+      dailyBudget,
+      runwayDays,
+      analysis.average_daily_spend,
+    );
 
     return {
       eligible: true,
@@ -132,16 +150,20 @@ export class EmergencyUnlockService {
         average_daily_spend: analysis.average_daily_spend,
         days_of_history: analysis.days_of_history,
       },
-      savings_reserve: {
-        total_savings: totalSavings,
-        minimum_reserve: minimumReserve,
-        available_to_unlock: availableToUnlock,
+      discretionary_runway: {
+        total_reserve: reserveBalance,
+        fixed_obligations: totalFixedObligations,
+        discretionary_reserve: discretionaryReserve,
+        daily_budget: dailyBudget,
+        runway_days: runwayDays,
       },
+      runway_impact_options: runwayImpactOptions,
     };
   }
 
   /**
    * Execute emergency unlock with selected amount.
+   * Uses runway-impact model: reduces discretionary runway, records impact.
    */
   async executeUnlock(
     userId: string,
@@ -159,52 +181,55 @@ export class EmergencyUnlockService {
       };
     }
 
-    const { analysis, savings_reserve } = eligibility;
-    if (!analysis || !savings_reserve) {
+    const { discretionary_runway, runway_impact_options } = eligibility;
+    if (!discretionary_runway || !runway_impact_options) {
       return {
         applied: false,
         error: 'insufficient_data',
-        message: 'Could not retrieve analysis or reserve data.',
+        message: 'Could not retrieve runway data.',
       };
     }
 
-    // Validate amount is within range
-    if (request.amount < analysis.least_daily_spend) {
+    // Validate amount is within allowed range (max 50% of discretionary runway)
+    const maxEmergency = discretionary_runway.discretionary_reserve * MAX_EMERGENCY_PERCENTAGE;
+    if (request.amount > maxEmergency) {
       return {
         applied: false,
-        error: 'amount_below_minimum',
-        message: `Amount must be at least KSh ${analysis.least_daily_spend} (your least daily spend)`,
+        error: 'amount_exceeds_max_percentage',
+        message: `Emergency amount cannot exceed 50% of your discretionary runway (KSh ${maxEmergency.toFixed(0)}).`,
       };
     }
 
-    if (request.amount > analysis.average_daily_spend) {
+    // Check user confirmed the runway impact
+    if (!request.confirm_impact) {
       return {
         applied: false,
-        error: 'amount_above_maximum',
-        message: `Amount must not exceed KSh ${analysis.average_daily_spend} (your average daily spend)`,
+        error: 'impact_not_confirmed',
+        message: 'You must confirm you understand the impact on your spending runway.',
       };
     }
 
-    if (request.amount > savings_reserve.available_to_unlock) {
+    // Find the selected option to get runway impact values
+    const selectedOption = runway_impact_options.find(
+      o => o.emergency_amount === request.amount
+    ) || this.calculateRunwayImpact(
+      request.amount,
+      discretionary_runway.discretionary_reserve,
+      discretionary_runway.daily_budget,
+      discretionary_runway.runway_days,
+    );
+
+    // Get plan and savings pocket
+    const plan = await this.repository.getPlanById(planId);
+    if (!plan) {
       return {
         applied: false,
-        error: 'amount_exceeds_available',
-        message: `Amount must not exceed KSh ${savings_reserve.available_to_unlock} (available after reserve)`,
+        error: 'plan_not_found',
+        message: 'Plan not found.',
       };
     }
 
-    // Check user confirmed reserve
-    if (!request.confirm_reserve) {
-      return {
-        applied: false,
-        error: 'reserve_not_confirmed',
-        message: 'You must confirm you understand the reserve will be kept in savings.',
-      };
-    }
-
-    // Get pockets for allocation
     const pockets = await this.repository.getTopLevelPocketsByPlanId(planId);
-    const nonSavingsPockets = pockets.filter((p) => p.kind !== 'savings');
     const savingsPocket = pockets.find((p) => p.kind === 'savings');
 
     if (!savingsPocket) {
@@ -215,23 +240,21 @@ export class EmergencyUnlockService {
       };
     }
 
-    // Calculate proportional allocation
-    const allocations = this.calculateProportionalAllocation(
-      request.amount,
-      nonSavingsPockets,
-    );
-
-    // Calculate days lasting
-    const daysLasting = this.spendingAnalysis.calculateDaysLasting(
-      request.amount,
-      analysis.least_daily_spend,
-    );
+    // Verify savings has enough balance (emergency comes from savings)
+    const savingsSummary = await this.repository.getPocketSummary(savingsPocket.id);
+    if (savingsSummary.available < request.amount) {
+      return {
+        applied: false,
+        error: 'savings_insufficient',
+        message: 'Insufficient balance in savings pocket.',
+      };
+    }
 
     // Create ledger transactions
     const transactions = [];
     const unlockId = generateUUID();
 
-    // Create debit from savings
+    // Debit from savings
     transactions.push({
       pocket_id: savingsPocket.id,
       amount: -request.amount,
@@ -239,29 +262,25 @@ export class EmergencyUnlockService {
       emergency_unlock_id: unlockId,
     });
 
-    // Create credits to non-savings pockets
-    for (const allocation of allocations) {
-      transactions.push({
-        pocket_id: allocation.pocket_id,
-        amount: allocation.amount,
-        type: 'reallocation_in' as const,
-        emergency_unlock_id: unlockId,
-      });
-    }
-
-    // Execute transactions
-    await this.repository.createTransactions(transactions);
-
-    // Record unlock event
+    // Record unlock event with runway impact
     await this.repository.createEmergencyUnlock({
       user_id: userId,
       plan_id: planId,
       amount: request.amount,
-      days_calculated: daysLasting,
-      least_daily_spend: analysis.least_daily_spend,
-      average_daily_spend: analysis.average_daily_spend,
-      reserve_kept: savings_reserve.minimum_reserve,
+      days_calculated: selectedOption.runway_reduction_days,
+      least_daily_spend: eligibility.analysis?.least_daily_spend ?? 0,
+      average_daily_spend: eligibility.analysis?.average_daily_spend ?? 0,
+      reserve_kept: savingsSummary.available - request.amount,
+      // New runway impact fields
+      runway_days_before: selectedOption.runway_days_before,
+      runway_days_after: selectedOption.runway_days_after,
+      runway_reduction_days: selectedOption.runway_reduction_days,
     });
+
+    // Update plan reserve_balance (reduce by emergency amount)
+    // The reserve is reduced because we're taking from discretionary reserve
+    const newReserveBalance = Math.max(0, (plan.reserve_balance || 0) - request.amount);
+    await this.repository.updatePlan(planId, { reserve_balance: newReserveBalance });
 
     // Calculate next available date
     const nextAvailable = new Date();
@@ -274,74 +293,73 @@ export class EmergencyUnlockService {
       unlock: {
         id: unlockId,
         amount: request.amount,
-        days_lasting: daysLasting,
-        reserve_kept: savings_reserve.minimum_reserve,
-        allocations: allocations.map((alloc) => ({
-          pocket_id: alloc.pocket_id,
-          pocket_name: alloc.pocket_name,
-          amount: alloc.amount,
-          percentage: alloc.percentage,
-        })),
+        runway_days_before: selectedOption.runway_days_before,
+        runway_days_after: selectedOption.runway_days_after,
+        runway_reduction_days: selectedOption.runway_reduction_days,
+        allocations: [{
+          pocket_id: savingsPocket.id,
+          pocket_name: savingsPocket.name,
+          amount: request.amount,
+          percentage: 100,
+        }],
       },
       next_available: nextAvailable.toISOString(),
     };
   }
 
   /**
-   * Calculate minimum reserve to keep in savings.
-   * Uses the greater of 20% or KSh 1000 minimum.
+   * Generate runway impact options for the UI slider.
+   * Shows user the trade-off between emergency amount and runway days.
    */
-  private calculateReserve(totalSavings: number): number {
-    const percentageReserve = totalSavings * RESERVE_PERCENTAGE;
-    return Math.max(percentageReserve, MINIMUM_RESERVE_AMOUNT);
+  private generateRunwayImpactOptions(
+    discretionaryReserve: number,
+    dailyBudget: number,
+    currentRunwayDays: number,
+    avgDailySpend: number,
+  ): RunwayImpactOption[] {
+    const options: RunwayImpactOption[] = [];
+    
+    // Generate options at different percentages of discretionary reserve
+    const percentages = [0.1, 0.2, 0.3, 0.4, 0.5]; // 10% to 50%
+    
+    for (const pct of percentages) {
+      const emergencyAmount = round2(discretionaryReserve * pct);
+      if (emergencyAmount <= 0) continue;
+      
+      const impact = this.calculateRunwayImpact(
+        emergencyAmount,
+        discretionaryReserve,
+        dailyBudget,
+        currentRunwayDays,
+      );
+      
+      options.push(impact);
+    }
+
+    return options;
   }
 
   /**
-   * Calculate proportional allocation to non-savings pockets.
-   * Uses monthly_allocation as the basis for proportional distribution.
+   * Calculate the runway impact of an emergency allocation.
    */
-  private calculateProportionalAllocation(
-    amount: number,
-    pockets: Pocket[],
-  ): Array<{
-    pocket_id: string;
-    pocket_name: string;
-    amount: number;
-    percentage: number;
-  }> {
-    // Summed in integer cents (see @financial-hub/shared) for the same
-    // reason as getPocketSummary — this total feeds the emergency-unlock
-    // payout split below, so float drift here would misallocate real money
-    // across pockets.
-    const totalAllocation = sumMoney(pockets.map((p) => p.monthly_allocation || 0));
+  private calculateRunwayImpact(
+    emergencyAmount: number,
+    discretionaryReserve: number,
+    dailyBudget: number,
+    currentRunwayDays: number,
+  ): RunwayImpactOption {
+    const newDiscretionaryReserve = Math.max(0, discretionaryReserve - emergencyAmount);
+    const newRunwayDays = dailyBudget > 0 
+      ? Math.floor(newDiscretionaryReserve / dailyBudget)
+      : MIN_RUNWAY_DAYS;
+    
+    const runwayReduction = currentRunwayDays - newRunwayDays;
 
-    if (totalAllocation === 0) {
-      // Equal distribution if no allocations set
-      const equalAmount = round2(amount / pockets.length);
-      return pockets.map((p) => ({
-        pocket_id: p.id,
-        pocket_name: p.name,
-        amount: equalAmount,
-        percentage: 100 / pockets.length,
-      }));
-    }
-
-    // Proportional distribution based on monthly_allocation
-    return pockets.map((p) => {
-      const pocketAllocation = p.monthly_allocation || 0;
-      const percentage = (pocketAllocation / totalAllocation) * 100;
-      const pocketAmount = round2((amount * percentage) / 100);
-
-      return {
-        pocket_id: p.id,
-        pocket_name: p.name,
-        amount: pocketAmount,
-        percentage,
-      };
-    });
+    return {
+      emergency_amount: emergencyAmount,
+      runway_days_before: currentRunwayDays,
+      runway_days_after: Math.max(MIN_RUNWAY_DAYS, newRunwayDays),
+      runway_reduction_days: Math.max(0, runwayReduction),
+    };
   }
-}
-
-function round2(n: number): number {
-  return fromCents(toCents(n));
 }

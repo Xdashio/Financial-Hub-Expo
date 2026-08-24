@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.SavingsReserveSchema = exports.SpendingAnalysisSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = void 0;
+exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -73,6 +73,11 @@ exports.TransactionTypeSchema = zod_1.z.enum([
     'reallocation_in',
     'reallocation_out',
     'rollover',
+    'reserve_release',
+    'reserve_return',
+    'daily_overspend_debit',
+    'fixed_expense_earmark',
+    'fixed_expense_carry_forward',
 ]);
 exports.ReallocationStatusSchema = zod_1.z.enum([
     'pending',
@@ -341,6 +346,10 @@ exports.RunwaySummarySchema = zod_1.z.object({
     // 'estimate' = derived from the onboarding band, no income history yet.
     // 'historical' = derived from actual income_events gaps (>= 2 events).
     confidence: zod_1.z.enum(['estimate', 'historical']).optional(),
+    // Reserve-based runway fields
+    discretionaryReserve: zod_1.z.number().nonnegative().optional(),
+    fixedObligations: zod_1.z.number().nonnegative().optional(),
+    dailyBudget: zod_1.z.number().nonnegative().optional(),
 });
 // ============================================================================
 // Core Domain Schemas - Pack 1 Specification
@@ -439,39 +448,48 @@ exports.SubPocketRebalanceInputSchema = zod_1.z.object({
     confirmPartial: zod_1.z.boolean().optional().default(false),
 });
 // ============================================================================
-// Emergency Unlock Schemas - once-per-month savings emergency withdrawals
+// Emergency Unlock Schemas - runway-impact model for freelancers
 // ============================================================================
 exports.EmergencyUnlockEligibilityReasonSchema = zod_1.z.enum([
+    'not_freelancer_plan',
     'insufficient_history',
     'monthly_limit_reached',
-    'savings_depleted',
-    'no_depleted_pockets',
+    'no_discretionary_runway',
+    'reserve_protected',
 ]);
+exports.RunwayImpactOptionSchema = zod_1.z.object({
+    emergency_amount: zod_1.z.number().positive(),
+    runway_days_before: zod_1.z.number().nonnegative(),
+    runway_days_after: zod_1.z.number().nonnegative(),
+    runway_reduction_days: zod_1.z.number().nonnegative(),
+});
 exports.SpendingAnalysisSchema = zod_1.z.object({
     least_daily_spend: zod_1.z.number().nonnegative(),
     most_daily_spend: zod_1.z.number().nonnegative(),
     average_daily_spend: zod_1.z.number().nonnegative(),
     days_of_history: zod_1.z.number().int().nonnegative(),
 });
-exports.SavingsReserveSchema = zod_1.z.object({
-    total_savings: zod_1.z.number().nonnegative(),
-    minimum_reserve: zod_1.z.number().nonnegative(),
-    available_to_unlock: zod_1.z.number().nonnegative(),
+exports.DiscretionaryRunwaySchema = zod_1.z.object({
+    total_reserve: zod_1.z.number().nonnegative(),
+    fixed_obligations: zod_1.z.number().nonnegative(),
+    discretionary_reserve: zod_1.z.number().nonnegative(),
+    daily_budget: zod_1.z.number().nonnegative(),
+    runway_days: zod_1.z.number().nonnegative(),
 });
 exports.EmergencyUnlockEligibilityResponseSchema = zod_1.z.object({
     eligible: zod_1.z.boolean(),
     reason: exports.EmergencyUnlockEligibilityReasonSchema.optional(),
     message: zod_1.z.string().optional(),
     analysis: exports.SpendingAnalysisSchema.optional(),
-    savings_reserve: exports.SavingsReserveSchema.optional(),
-    days_of_history: zod_1.z.number().int().nonnegative().optional(),
-    minimum_required_days: zod_1.z.number().int().positive().optional(),
+    discretionary_runway: exports.DiscretionaryRunwaySchema.optional(),
+    // Pre-calculated options for the UI slider
+    runway_impact_options: zod_1.z.array(exports.RunwayImpactOptionSchema).optional(),
     last_used: zod_1.z.string().datetime().optional(),
     next_available: zod_1.z.string().datetime().optional(),
 });
 exports.EmergencyUnlockRequestSchema = zod_1.z.object({
     amount: zod_1.z.number().positive(),
-    confirm_reserve: zod_1.z.boolean(),
+    confirm_impact: zod_1.z.boolean(),
 });
 exports.EmergencyUnlockAllocationSchema = zod_1.z.object({
     pocket_id: zod_1.z.string().uuid(),
@@ -484,8 +502,9 @@ exports.EmergencyUnlockResponseSchema = zod_1.z.object({
     unlock: zod_1.z.object({
         id: zod_1.z.string().uuid(),
         amount: zod_1.z.number().positive(),
-        days_lasting: zod_1.z.number().positive(),
-        reserve_kept: zod_1.z.number().nonnegative(),
+        runway_days_before: zod_1.z.number().nonnegative(),
+        runway_days_after: zod_1.z.number().nonnegative(),
+        runway_reduction_days: zod_1.z.number().nonnegative(),
         allocations: zod_1.z.array(exports.EmergencyUnlockAllocationSchema),
     }).optional(),
     error: zod_1.z.string().optional(),
@@ -563,6 +582,26 @@ exports.TransactionSchema = zod_1.z.object({
     merchant: zod_1.z.string().optional(), // nullable
     category: exports.MerchantCategorySchema.optional(),
     createdAt: zod_1.z.string().datetime(),
+    // Daily allocation linkage (migration 013)
+    dailyAllocationId: zod_1.z.string().uuid().nullable().optional(),
+});
+// ============================================================================
+// Daily Allocation Schema (migration 013)
+// ============================================================================
+exports.DailyAllocationSchema = zod_1.z.object({
+    id: zod_1.z.string().uuid(),
+    planId: zod_1.z.string().uuid(),
+    userId: zod_1.z.string().uuid(),
+    allocationDate: zod_1.z.string().date(),
+    plannedAmount: zod_1.z.number().nonnegative(),
+    actualSpend: zod_1.z.number().nonnegative(),
+    returnedAmount: zod_1.z.number().nonnegative(),
+    overspendAmount: zod_1.z.number().nonnegative(),
+    runwayDaysAtOpen: zod_1.z.number().nonnegative().nullable().optional(),
+    runwayDaysAtClose: zod_1.z.number().nonnegative().nullable().optional(),
+    status: zod_1.z.enum(['open', 'closed']),
+    createdAt: zod_1.z.string().datetime(),
+    closedAt: zod_1.z.string().datetime().nullable().optional(),
 });
 exports.ReallocationSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
@@ -648,6 +687,9 @@ exports.schemas = {
     EmergencyUnlockEligibilityResponse: exports.EmergencyUnlockEligibilityResponseSchema,
     EmergencyUnlockRequest: exports.EmergencyUnlockRequestSchema,
     EmergencyUnlockResponse: exports.EmergencyUnlockResponseSchema,
+    RunwayImpactOption: exports.RunwayImpactOptionSchema,
+    DiscretionaryRunway: exports.DiscretionaryRunwaySchema,
+    EmergencyUnlockEligibilityReason: exports.EmergencyUnlockEligibilityReasonSchema,
     RepaymentCadence: exports.RepaymentCadenceSchema,
     RepaymentSchedule: exports.RepaymentScheduleSchema,
     LoanCreateInput: exports.LoanCreateInputSchema,
@@ -657,6 +699,7 @@ exports.schemas = {
     FixedExpense: exports.FixedExpenseSchema,
     IncomeEvent: exports.IncomeEventSchema,
     Transaction: exports.TransactionSchema,
+    DailyAllocation: exports.DailyAllocationSchema,
     Reallocation: exports.ReallocationSchema,
     ReallocationInput: exports.ReallocationInputSchema,
     ReallocationCompleteInput: exports.ReallocationCompleteInputSchema,

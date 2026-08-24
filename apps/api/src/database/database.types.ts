@@ -49,6 +49,10 @@ export interface Database {
           expected_income_amount: number | null
           status: 'active' | 'inactive' | 'reassigned'
           money_personality: 'spender' | 'saver' | 'avoider'
+          // Reserve logical layer (migration 013)
+          reserve_balance: number
+          monthly_planning_day: number
+          last_planning_cycle_at: string | null
           created_at: string
           reassigned_at: string | null
         }
@@ -61,6 +65,9 @@ export interface Database {
           expected_income_amount?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
           money_personality?: 'spender' | 'saver' | 'avoider'
+          reserve_balance?: number
+          monthly_planning_day?: number
+          last_planning_cycle_at?: string | null
           created_at?: string
           reassigned_at?: string | null
         }
@@ -73,6 +80,9 @@ export interface Database {
           expected_income_amount?: number | null
           status?: 'active' | 'inactive' | 'reassigned'
           money_personality?: 'spender' | 'saver' | 'avoider'
+          reserve_balance?: number
+          monthly_planning_day?: number
+          last_planning_cycle_at?: string | null
           created_at?: string
           reassigned_at?: string | null
         }
@@ -156,6 +166,11 @@ export interface Database {
           due_day: number
           category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
           status: 'active' | 'inactive'
+          // Reserve obligation tracking (migration 013)
+          funded_amount: number
+          carry_forward: boolean
+          funded_at: string | null
+          notification_day_offset: number
           created_at: string
           updated_at: string
         }
@@ -167,6 +182,10 @@ export interface Database {
           due_day: number
           category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
           status?: 'active' | 'inactive'
+          funded_amount?: number
+          carry_forward?: boolean
+          funded_at?: string | null
+          notification_day_offset?: number
           created_at?: string
           updated_at?: string
         }
@@ -178,6 +197,10 @@ export interface Database {
           due_day?: number
           category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
           status?: 'active' | 'inactive'
+          funded_amount?: number
+          carry_forward?: boolean
+          funded_at?: string | null
+          notification_day_offset?: number
           created_at?: string
           updated_at?: string
         }
@@ -227,30 +250,33 @@ export interface Database {
           id: string
           pocket_id: string
           amount: number
-          type: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
+          type: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover' | 'reserve_release' | 'reserve_return' | 'daily_overspend_debit' | 'fixed_expense_earmark' | 'fixed_expense_carry_forward'
           merchant: string | null
           category: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
           emergency_unlock_id: string | null
+          daily_allocation_id: string | null
           created_at: string
         }
         Insert: {
           id?: string
           pocket_id: string
           amount: number
-          type: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
+          type: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover' | 'reserve_release' | 'reserve_return' | 'daily_overspend_debit' | 'fixed_expense_earmark' | 'fixed_expense_carry_forward'
           merchant?: string | null
           category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
           emergency_unlock_id?: string | null
+          daily_allocation_id?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           pocket_id?: string
           amount?: number
-          type?: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
+          type?: 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover' | 'reserve_release' | 'reserve_return' | 'daily_overspend_debit' | 'fixed_expense_earmark' | 'fixed_expense_carry_forward'
           merchant?: string | null
           category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
           emergency_unlock_id?: string | null
+          daily_allocation_id?: string | null
           created_at?: string
         }
         Relationships: []

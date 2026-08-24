@@ -178,6 +178,7 @@ describe('MerchantService.classify', () => {
       ...SPEND_TX,
       pocket_id: FOOD_POCKET.id,
       emergency_unlock_id: null,
+          daily_allocation_id: null,
     });
 
     await service.classify(
@@ -200,6 +201,7 @@ describe('MerchantService.classify', () => {
       ...SPEND_TX,
       type: 'allocation',
       emergency_unlock_id: null,
+          daily_allocation_id: null,
     });
 
     await expect(

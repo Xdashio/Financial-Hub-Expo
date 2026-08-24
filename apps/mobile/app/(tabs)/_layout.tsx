@@ -1,12 +1,22 @@
 import { Tabs } from 'expo-router';
-import { Home, LineChart, User } from 'lucide-react-native';
+import { Home, LineChart, User, Zap } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { typography, spacing } from '../../src/theme';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../src/services/api';
 
 export default function TabsLayout() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+
+  // Check if user has freelancer daily plan
+  const { data: pockets, isLoading: pocketsLoading } = useQuery({
+    queryKey: ['pockets'],
+    queryFn: () => api.get<any[]>('/pockets'),
+  });
+
+  const isFreelancerDaily = pockets?.[0]?.plan?.income_pattern === 'freelancer' && pockets?.[0]?.plan?.type === 'daily';
 
   // Explicit height/inset tuning tied to the same `spacing` primitive used
   // everywhere else, instead of leaving the bar to React Navigation's
@@ -31,13 +41,9 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontFamily: typography.caption.fontFamily,
           fontSize: typography.caption.fontSize,
-          // Prevent label clipping on narrow screens — without an explicit
-          // lineHeight the OS default can be taller than the allocated
-          // label slot on some Android densities, clipping the descenders.
           lineHeight: typography.caption.lineHeight,
-          color: colors.sage, // Ensure inactive labels have the right color
+          color: colors.sage,
         },
-        // Ensure label always sits below icon and has room to render fully
         tabBarItemStyle: {
           paddingVertical: spacing.xs,
         },
@@ -51,6 +57,16 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
         }}
       />
+      {isFreelancerDaily && (
+        <Tabs.Screen
+          name="freelancer-dashboard"
+          options={{
+            title: 'Runway',
+            tabBarLabel: 'Runway',
+            tabBarIcon: ({ color, size }) => <Zap color={color} size={size} />,
+          }}
+        />
+      )}
       <Tabs.Screen
         name="insights"
         options={{

@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { PocketsService } from './pockets.service';
 import { EmergencyUnlockService } from './emergency-unlock.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { RunwaySummary } from '@financial-hub/shared';
 
 @ApiTags('Pockets')
 @Controller('pockets')
@@ -23,9 +24,56 @@ export class PocketsController {
 
   @Get('runway')
   @ApiOperation({ summary: "Get the current user's freelancer runway summary (days until next expected payment)" })
-  @ApiResponse({ status: 200, description: 'Runway summary; { applicable: false } for salaried/mix or structured plans' })
+  @ApiResponse({ status: 200, description: 'Runway summary with discretionary reserve, fixed obligations, daily budget; { applicable: false } for salaried/mix or structured plans' })
   getRunway(@Request() req: any) {
     return this.pocketsService.getRunwaySummaryForUser(req.user.id);
+  }
+
+  // ============================================================================
+  // Daily Allocation Endpoints (Freelancer Runway)
+  // ============================================================================
+
+  @Get('daily-allocation/today')
+  @ApiOperation({ summary: "Get today's daily allocation with spend progress and runway" })
+  @ApiResponse({ status: 200, description: 'Today\'s allocation, runway, and spendable pockets with daily caps' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  getTodayDailyAllocation(@Request() req: any) {
+    return this.pocketsService.getTodayDailyAllocation(req.user.id);
+  }
+
+  @Get('daily-allocation/history')
+  @ApiOperation({ summary: "Get daily allocation history for a date range" })
+  @ApiResponse({ status: 200, description: 'Array of daily allocations' })
+  @ApiQuery({ name: 'startDate', required: true, type: String, description: 'Start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'endDate', required: true, type: String, description: 'End date (YYYY-MM-DD)' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  getDailyAllocationHistory(
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Request() req: any
+  ) {
+    return this.pocketsService.getDailyAllocationHistory(req.user.id, startDate, endDate);
+  }
+
+  @Post('daily-allocation/trigger')
+  @ApiOperation({ summary: 'Manually trigger today\'s daily allocation (testing/debugging)' })
+  @ApiResponse({ status: 200, description: 'Created daily allocation' })
+  @ApiResponse({ status: 400, description: 'Not a freelancer daily plan' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  triggerDailyAllocation(@Request() req: any) {
+    return this.pocketsService.triggerDailyAllocation(req.user.id);
+  }
+
+  @Post('daily-allocation/close')
+  @ApiOperation({ summary: 'Manually close today\'s daily allocation with actual spend (testing/debugging)' })
+  @ApiResponse({ status: 200, description: 'Closed daily allocation with runway delta' })
+  @ApiResponse({ status: 400, description: 'Already closed or no allocation found' })
+  @ApiResponse({ status: 404, description: 'No active plan found' })
+  closeDailyAllocation(
+    @Body() body: { actualSpend?: number },
+    @Request() req: any
+  ) {
+    return this.pocketsService.closeDailyAllocation(req.user.id, body.actualSpend);
   }
 
   @Get('allocation-summary')
@@ -187,11 +235,11 @@ export class PocketsController {
   }
 
   @Post('emergency-unlock')
-  @ApiOperation({ summary: 'Execute emergency unlock from savings' })
+  @ApiOperation({ summary: 'Execute emergency unlock from savings (runway-impact model)' })
   @ApiResponse({ status: 200, description: 'Unlock executed with allocation breakdown' })
-  @ApiResponse({ status: 400, description: 'Invalid amount, not eligible, or reserve not confirmed' })
+  @ApiResponse({ status: 400, description: 'Invalid amount, not eligible, or impact not confirmed' })
   @ApiResponse({ status: 404, description: 'No active plan found' })
-  async executeEmergencyUnlock(@Body() body: { amount: number; confirm_reserve: boolean }, @Request() req: any) {
+  async executeEmergencyUnlock(@Body() body: { amount: number; confirm_impact: boolean }, @Request() req: any) {
     const plan = await this.repository.getActivePlanByUserId(req.user.id);
     if (!plan) {
       throw new Error('No active plan found');

@@ -3,6 +3,7 @@ import { PocketsService } from './pockets.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import type { RunwayService } from '../runway/runway.service';
+import type { DailyAllocationService } from '../daily-allocation/daily-allocation.service';
 
 const POCKET = {
   id: 'pocket-1',
@@ -22,6 +23,7 @@ describe('PocketsService.updateForUser', () => {
   let repository: jest.Mocked<Pick<SupabaseRepository, 'getPocketById' | 'getPlanById' | 'updatePocket'>>;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
   let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
+  let dailyAllocation: any;
   let service: PocketsService;
 
   beforeEach(() => {
@@ -37,7 +39,8 @@ describe('PocketsService.updateForUser', () => {
     runway = {
       getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }),
     } as any;
-    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
+    dailyAllocation = {} as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService, dailyAllocation as unknown as DailyAllocationService);
   });
 
   it('applies whitelisted fields', async () => {
@@ -84,6 +87,7 @@ describe('PocketsService discipline-score unification', () => {
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
   let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
+  let dailyAllocation: any;
   let service: PocketsService;
 
   beforeEach(() => {
@@ -103,7 +107,8 @@ describe('PocketsService discipline-score unification', () => {
     runway = {
       getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }),
     } as any;
-    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
+    dailyAllocation = {} as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService, dailyAllocation as unknown as DailyAllocationService);
   });
 
   it('unlockPocket applies the cost through the shared DisciplineScoreService, not a local calculation', async () => {
@@ -204,6 +209,7 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
   let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
+  let dailyAllocation: any;
   let service: PocketsService;
 
   beforeEach(() => {
@@ -222,7 +228,8 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
     } as any;
     disciplineScore = { getCurrentScore: jest.fn(), applyDelta: jest.fn() } as any;
     runway = { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any;
-    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
+    dailyAllocation = {} as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService, dailyAllocation as unknown as DailyAllocationService);
   });
 
   it('creates a sub-pocket with split_percentage and derives monthly_allocation', async () => {
@@ -389,6 +396,7 @@ describe('PocketsService allocation integrity (audit_team.md item 4/5, part 1)',
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
   let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
+  let dailyAllocation: any;
   let service: PocketsService;
 
   beforeEach(() => {
@@ -399,7 +407,8 @@ describe('PocketsService allocation integrity (audit_team.md item 4/5, part 1)',
     } as any;
     disciplineScore = { getCurrentScore: jest.fn(), applyDelta: jest.fn() } as any;
     runway = { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any;
-    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService);
+    dailyAllocation = {} as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService, dailyAllocation as unknown as DailyAllocationService);
   });
 
   it('allows a new pocket that fits within the remaining unallocated income', async () => {
