@@ -160,7 +160,7 @@ export class PlanningCycleService {
       fixedExpenseAllocations,
     );
 
-    return toCamelCaseResponse({
+    return {
       reserveBalanceAtStart,
       totalFixedObligations,
       discretionaryReserve,
@@ -169,7 +169,7 @@ export class PlanningCycleService {
       fixedExpenseAllocations,
       recommendations,
       cycleMonth: this.getCycleMonth(today),
-    });
+    };
   }
 
   /**

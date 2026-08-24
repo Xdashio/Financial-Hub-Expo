@@ -133,11 +133,12 @@ export class ProfileService {
       throw new BadRequestException(`Invalid categories: ${invalidCategories.join(', ')}`);
     }
     
-    const total = Object.values(newPercentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
+const percentages = newPercentages as Record<string, number>;
+    const total = Object.values(percentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
     if (Math.abs(total - 100) > 0.5) {
       throw new BadRequestException('Percentages must sum to 100%');
     }
-
+    
     const allPockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(currentPlan.id);
     const spendablePockets = allPockets.filter((p: Pocket) => p.kind === 'spendable');
     if (spendablePockets.length === 0) {
@@ -189,7 +190,8 @@ export class ProfileService {
     }
 
     // Validate percentages sum to 100
-    const total = Object.values(newPercentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
+    const percentages = newPercentages as Record<string, number>;
+    const total = Object.values(percentages).reduce((sum: number, val: number) => sum + (val || 0), 0);
     if (Math.abs(total - 100) > 0.5) {
       throw new BadRequestException('Percentages must sum to 100%');
     }

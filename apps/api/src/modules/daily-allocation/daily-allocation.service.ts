@@ -6,6 +6,8 @@ import { sumMoney, toCents, fromCents } from '@financial-hub/shared';
 
 const DAILY_ALLOCATION_BUFFER = 1; // minimum 1 unit to trigger allocation
 
+const RESERVE_POOL_POCKET_ID = '_reserve_pool';
+
 function round2(n: number): number {
   return fromCents(toCents(n));
 }
@@ -58,7 +60,7 @@ export class DailyAllocationService {
     // Reserve debit: release daily budget from Reserve
     const transactions: TransactionInsert[] = [
       {
-        pocket_id: '', // Reserve is logical, tracked via reserve_balance on plans
+        pocket_id: RESERVE_POOL_POCKET_ID, // Reserve is logical, tracked via reserve_balance on plans
         amount: -dailyBudget,
         type: 'reserve_release',
         merchant: 'Daily Allocation',
@@ -159,7 +161,7 @@ export class DailyAllocationService {
     if (newReturnedAmount > 0) {
       txPromises.push(
         this.repository.createTransaction({
-          pocket_id: '',
+          pocket_id: RESERVE_POOL_POCKET_ID,
           amount: newReturnedAmount,
           type: 'reserve_return',
           merchant: 'Daily Allocation Sweep',
@@ -172,7 +174,7 @@ export class DailyAllocationService {
     if (newOverspendAmount > 0) {
       txPromises.push(
         this.repository.createTransaction({
-          pocket_id: '',
+          pocket_id: RESERVE_POOL_POCKET_ID,
           amount: -newOverspendAmount,
           type: 'daily_overspend_debit',
           merchant: 'Daily Overspend',

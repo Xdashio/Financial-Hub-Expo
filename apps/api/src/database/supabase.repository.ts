@@ -1247,7 +1247,10 @@ export class SupabaseRepository {
       .from('push_tokens')
       .select('user_id');
     if (error) throw error;
-    return [...new Set((data || []).map((row: { user_id: string }) => row.user_id))];
+    const userIds = (data || [])
+      .map((row: { user_id: string }) => row.user_id)
+      .filter((id): id is string => typeof id === 'string');
+    return [...new Set(userIds)];
   }
 
   async deletePushToken(userId: string, token: string): Promise<boolean> {
