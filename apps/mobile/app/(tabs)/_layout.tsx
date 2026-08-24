@@ -24,6 +24,51 @@ export default function TabsLayout() {
   // and spacing scale, especially on devices with a large bottom inset.
   const tabBarHeight = spacing.xxxl + spacing.lg + insets.bottom;
 
+  const screens = [
+    <Tabs.Screen
+      key="index"
+      name="index"
+      options={{
+        title: 'Home',
+        tabBarLabel: 'Home',
+        tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
+      }}
+    />,
+  ];
+  if (isFreelancerDaily) {
+    screens.push(
+      <Tabs.Screen
+        key="freelancer-dashboard"
+        name="freelancer-dashboard"
+        options={{
+          title: 'Runway',
+          tabBarLabel: 'Runway',
+          tabBarIcon: ({ color, size }) => <Zap color={color} size={size} />,
+        }}
+      />
+    );
+  }
+  screens.push(
+    <Tabs.Screen
+      key="insights"
+      name="insights"
+      options={{
+        title: 'Insights',
+        tabBarLabel: 'Insights',
+        tabBarIcon: ({ color, size }) => <LineChart color={color} size={size} />,
+      }}
+    />,
+    <Tabs.Screen
+      key="profile"
+      name="profile"
+      options={{
+        title: 'Profile',
+        tabBarLabel: 'Profile',
+        tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
+      }}
+    />
+  );
+
   return (
     <Tabs
       screenOptions={{
@@ -49,40 +94,7 @@ export default function TabsLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarLabel: 'Home',
-          tabBarIcon: ({ color, size }) => <Home color={color} size={size} />,
-        }}
-      />
-      {isFreelancerDaily && (
-        <Tabs.Screen
-          name="freelancer-dashboard"
-          options={{
-            title: 'Runway',
-            tabBarLabel: 'Runway',
-            tabBarIcon: ({ color, size }) => <Zap color={color} size={size} />,
-          }}
-        />
-      )}
-      <Tabs.Screen
-        name="insights"
-        options={{
-          title: 'Insights',
-          tabBarLabel: 'Insights',
-          tabBarIcon: ({ color, size }) => <LineChart color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
-        }}
-      />
+      {screens}
     </Tabs>
   );
 }
