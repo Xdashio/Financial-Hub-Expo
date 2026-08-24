@@ -6,7 +6,7 @@ It is currently being built as a **standalone MVP showcase** — Individual segm
 
 The long-term destination, **once funded**, is an **embeddable layer** (SDK/API) that partner institutions integrate into their own apps — bank apps, SACCO apps, telco super-apps (mini-app style, similar to how Zidii lives inside M-Pesa) — with its own billing system for those partner institutions. That work has not started. This repo is building the demo-ready standalone product first; see `ROADMAP.md` for the phased plan.
 
-> **Note on the existing codebase**: an earlier Flutter + Supabase implementation (regulated PSP wallet, real M-Pesa/Paystack money movement) exists from a prior architecture direction. It is **not being deleted and not being built on** — it stays untouched as reference. This repo starts fresh on a clean tech stack chosen specifically for the MVP showcase. See `TECH_STACK.md`.
+> **Note on prior architecture**: an earlier Flutter + Supabase prototype (regulated PSP wallet, real M-Pesa/Paystack money movement) was built under a prior architecture direction — it is **not part of this repository**; only screenshots and source excerpts of it survive, in the original innovation submission (`docs/FINANCIAL HUB INNOVATION DOCUMENT.pdf`). This repo starts fresh on a clean tech stack chosen specifically for the MVP showcase: **NestJS (API) + PostgreSQL/Supabase + React Native (Expo)**. See `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §3–4 for the full architecture and rationale.
 
 ## Core idea
 
@@ -72,18 +72,16 @@ This repo is building the **MVP showcase**: a clean, functional demonstration of
 - An **embeddable layer** (SDK/API) partner institutions integrate into their own apps.
 - A **billing system** for those partner institutions (pricing model not yet agreed — see `PRD.md`).
 
-See `PRD.md` for detailed requirements and open items, `TECH_STACK.md` for the recommended stack and why, and `ROADMAP.md` for phased delivery.
+See `PRD.md` for detailed requirements and open items, and `ROADMAP.md` for phased delivery.
 
 ## Docs in this folder
 
 - `PRD.md` — product requirements: user flows, screens, rules, open questions
-- `TECH_STACK.md` — recommended stack for MVP → embeddable product, with rationale
 - `ROADMAP.md` — phased plan from MVP showcase to embeddable + billing
-- `emergency-unlock-feature-spec.md` — detailed spec for emergency savings unlock feature
-- `subpocket-feature-spec.md` — detailed spec for sub-pocket percentage splits feature
-- `ONBOARDING_AND_SCORING_REDESIGN.md` — updated onboarding and scoring system design
-- `FLUTTER_TO_EXPO_PORT_GUIDE.md` — guide for migrating from Flutter to Expo/React Native
-- `audit_team.md` — team audit findings and responses
+- `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` — full university-format system documentation (architecture, database schema, module reference, implementation detail)
+- `docs/FINANCIAL_HUB_INNOVATION_DOCUMENT.md` — innovation/IP documentation: problem statement, behavioral-finance rationale, copyright registration (RZ94373), budget and methodology
+- `docs/Financial HUB document.docx`, `docs/FINANCIAL HUB INNOVATION DOCUMENT.pdf` — original source submissions the two docs above were built from
+- `docs/9f19c5a3-c954-40a7-93e9-3c4b3d46d630.pdf` — Kenya Copyright Board certificate of registration
 
 ## Current Implementation Status
 
@@ -105,16 +103,19 @@ See `PRD.md` for detailed requirements and open items, `TECH_STACK.md` for the r
 - ✅ Notifications settings
 - ✅ Time-lock with biometric confirmation
 - ✅ Home screen nudges (behavioral prompts)
-- 🔄 Emergency unlock (spec complete, implementation pending)
-- 🔄 Sub-pocket percentage splits (spec complete, implementation pending)
-- 🔄 Loans module (basic structure exists)
+- ✅ Emergency unlock (implemented — `pockets/emergency-unlock.service.ts`, with unit + integration test coverage)
+- ✅ Sub-pocket percentage splits (implemented — parent/child pockets with `splitPercentage`, sibling-total validation, bulk adjustment)
+- ✅ Loans module (income/repayment endpoints, purpose sub-pockets, fund-repayment flow)
+- ✅ Behavioral recommendations (allocation suggestions from spending history, with accept/apply flow)
+- ✅ Daily allocation engine (midnight cron; releases the day's variable-spending budget from the reserve pool)
+- ✅ Monthly planning cycle (recurring re-plan of fixed obligations, carry-forward of shortfalls, and recommendation generation)
 
 ### Backend Architecture
-The backend is built with **NestJS** and **PostgreSQL** (via Supabase), with modular architecture:
+The backend is built with **NestJS** and **PostgreSQL** (via Supabase), organized into 19 feature modules:
 
 **Core Modules:**
 - `onboarding` — Plan assignment and user onboarding
-- `pockets` — Pocket management and allocations
+- `pockets` — Pocket management, allocations, emergency unlock, and sub-pockets
 - `income` — Income event processing
 - `reallocations` — Money movement between pockets
 - `spend` — Transaction logging and spend control
@@ -129,6 +130,11 @@ The backend is built with **NestJS** and **PostgreSQL** (via Supabase), with mod
 - `loans` — Loans and lending functionality
 - `merchant-report` — Merchant reporting system
 - `rollover` — Daily rollover processing
+- `behavioral-recommendations` — Turns spending history into allocation suggestions the user can review and apply
+- `daily-allocation` — Generates each day's spending packet for Daily Budget plans (cron-driven)
+- `planning-cycle` — Recurring monthly re-plan of fixed obligations, reserve, and daily budget
+
+See `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` for the full module-by-module reference, including endpoints and responsibilities for each.
 
 ### Mobile App
 Built with **React Native (Expo)**, featuring:
