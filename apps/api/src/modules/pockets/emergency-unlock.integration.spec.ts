@@ -40,6 +40,10 @@ class InMemoryRepository {
   private pockets = new Map<string, Pocket>();
   public transactions: Transaction[] = [];
   private txCounter = 0;
+  // checkEligibility gates on plan.reserve_balance (the runway-impact
+  // model), not on individual pocket depletion — tests set this directly
+  // to control eligibility.
+  public reserveBalance = 0;
 
   seedPocket(pocket: Pocket) {
     this.pockets.set(pocket.id, pocket);
@@ -54,7 +58,7 @@ class InMemoryRepository {
   }
 
   async getPlanById(): Promise<any> {
-    return { id: 'plan-1', user_id: 'user-1' };
+    return { id: 'plan-1', user_id: 'user-1', income_pattern: 'freelancer', type: 'daily', reserve_balance: this.reserveBalance };
   }
 
   async getTopLevelPocketsByPlanId(): Promise<Pocket[]> {
@@ -107,6 +111,10 @@ class InMemoryRepository {
 
   async getEmergencyUnlockThisMonth(): Promise<any> {
     return null;
+  }
+
+  async getFixedExpensesByUserId(): Promise<any[]> {
+    return [];
   }
 
   // Copied verbatim from supabase.repository.ts's getPocketSummary — same
@@ -228,10 +236,11 @@ describe('Emergency unlock reachability (integration, real getPocketSummary)', (
     } as unknown as Transaction);
   });
 
-  it('cannot reach emergency-unlock eligibility while the override is rejected (pre-fix behavior)', async () => {
+  it('cannot reach emergency-unlock eligibility with no reserve balance recorded (pre-fix behavior)', async () => {
     // Without override: true, a spend that exceeds the balance is blocked
     // and no transaction is written — the pocket is stuck at 2165.72
-    // forever, never reaching the <= 0 that eligibility requires.
+    // forever. Eligibility here is gated on the plan's reserve balance
+    // (the runway-impact model), which starts at 0 until it's funded.
     const blocked = await spendService.commitSpend(
       { pocket_id: PERSONAL_LEISURE.id, amount: 2166 },
       'user-1',
@@ -244,10 +253,10 @@ describe('Emergency unlock reachability (integration, real getPocketSummary)', (
 
     const eligibility = await emergencyUnlockService.checkEligibility('user-1', 'plan-1');
     expect(eligibility.eligible).toBe(false);
-    expect(eligibility.reason).toBe('no_depleted_pockets');
+    expect(eligibility.reason).toBe('no_discretionary_runway');
   });
 
-  it('reaches emergency-unlock eligibility once the override commits the overspend (post-fix behavior)', async () => {
+  it('reaches emergency-unlock eligibility once the plan reserve is funded (post-fix behavior)', async () => {
     // With override: true (the mobile "Spend anyway" flow we wired up),
     // the same spend commits and the pocket's REAL computed balance —
     // via getPocketSummary's integer-cents sumMoney/netMoney, not a mock —
@@ -263,6 +272,10 @@ describe('Emergency unlock reachability (integration, real getPocketSummary)', (
     // not float subtraction that could drift off of exactly -0.28.
     expect(summary.available).toBeCloseTo(-0.28, 2);
     expect(summary.available).toBeLessThanOrEqual(0);
+
+    // Fund the plan's discretionary reserve (mirrors the savings balance)
+    // so the runway-impact eligibility check can pass.
+    repo.reserveBalance = 8000;
 
     const eligibility = await emergencyUnlockService.checkEligibility('user-1', 'plan-1');
     expect(eligibility.eligible).toBe(true);

@@ -277,6 +277,11 @@ export class EmergencyUnlockService {
       runway_reduction_days: selectedOption.runway_reduction_days,
     });
 
+    // Persist the ledger debit from savings — without this, the emergency
+    // unlock record and reserve_balance update above would drift from the
+    // savings pocket's actual transaction history.
+    await this.repository.createTransactions(transactions);
+
     // Update plan reserve_balance (reduce by emergency amount)
     // The reserve is reduced because we're taking from discretionary reserve
     const newReserveBalance = Math.max(0, (plan.reserve_balance || 0) - request.amount);
