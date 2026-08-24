@@ -142,7 +142,7 @@ export function FreelancerDashboard() {
       {/* Hero: Runway Visualization */}
       <View style={styles.heroSection}>
         <RunwayVisualization 
-          runway={runwayData} 
+          runway={runwayData ?? { applicable: false }} 
           showDetails={true}
         />
       </View>
@@ -157,13 +157,13 @@ export function FreelancerDashboard() {
                 <View style={styles.miniStat}>
                   <Text style={[typography.caption, { color: colors.sage }]}>Spent</Text>
                   <Text style={[typography.body, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>
-                    {formatMoney(allocation.actual_spend ?? 0)}
+                    {formatMoney(allocation.actualSpend ?? 0)}
                   </Text>
                 </View>
                 <View style={styles.miniStat}>
                   <Text style={[typography.caption, { color: colors.sage }]}>Remaining</Text>
                   <Text style={[typography.body, { color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }]}>
-                    {formatMoney(Math.max(0, (allocation.planned_amount ?? 0) - (allocation.actual_spend ?? 0)))}
+                    {formatMoney(Math.max(0, (allocation.plannedAmount ?? 0) - (allocation.actualSpend ?? 0)))}
                   </Text>
                 </View>
               </View>
@@ -173,7 +173,7 @@ export function FreelancerDashboard() {
 
         <DailyAllocationToday
           allocation={allocation}
-          runway={runwayData}
+          runway={runwayData ?? { applicable: false }}
           spendablePockets={spendablePockets}
         />
       </View>
@@ -198,8 +198,8 @@ export function FreelancerDashboard() {
             </View>
             <Text style={[typography.body, { color: colors.ink }]}>Planning Cycle</Text>
             <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
-              {planningCycleStatus?.days_until_next > 0 
-                ? `In ${planningCycleStatus.days_until_next} days` 
+              {(planningCycleStatus?.days_until_next ?? 0) > 0 
+                ? `In ${planningCycleStatus?.days_until_next} days` 
                 : 'Due today'}
             </Text>
           </Pressable>
@@ -210,8 +210,8 @@ export function FreelancerDashboard() {
             </View>
             <Text style={[typography.body, { color: colors.ink }]}>Behavioral Insights</Text>
             <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
-              {recommendations.data?.length > 0 
-                ? `${recommendations.data.length} recommendation${recommendations.data.length !== 1 ? 's' : ''}` 
+              {(recommendations.data?.length ?? 0) > 0 
+                ? `${recommendations.data?.length} recommendation${recommendations.data?.length !== 1 ? 's' : ''}` 
                 : 'Building history'}
             </Text>
           </Pressable>

@@ -46,8 +46,8 @@ export function RunwayVisualization({ runway, showDetails = true }: RunwayVisual
           size={120}
           strokeWidth={8}
           trackColor={colors.lineSoft}
-          progressColor={runwayDays <= 3 ? colors.clay : runwayDays <= 7 ? colors.gold : colors.emeraldDeep}
-          centerContent={
+          color={runwayDays <= 3 ? colors.clay : runwayDays <= 7 ? colors.gold : colors.emeraldDeep}
+          children={
             <View style={styles.centerContent}>
               <Text style={[typography.display, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>
                 {runwayDays}
