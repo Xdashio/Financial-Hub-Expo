@@ -10,6 +10,7 @@ import { PocketGlyph } from '@/components/ui/PocketGlyph';
 import { PocketLoader } from '@/components/ui/PocketLoader';
 import { CategoryIcon } from '@/components/icons';
 import { emergencyUnlockApi } from '@/services/api';
+import type { DiscretionaryRunway } from '@financial-hub/shared';
 
 interface EmergencyUnlockSheetProps {
   visible: boolean;
@@ -27,11 +28,7 @@ interface SpendingAnalysis {
   days_of_history: number;
 }
 
-interface SavingsReserve {
-  total_savings: number;
-  minimum_reserve: number;
-  available_to_unlock: number;
-}
+type SavingsReserve = DiscretionaryRunway;
 
 interface AllocationPreview {
   pocket_id: string;
@@ -78,11 +75,11 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
     setState({ status: 'loading' });
     try {
       const response = await emergencyUnlockApi.checkEligibility();
-      if (response.eligible && response.analysis && response.savings_reserve) {
+      if (response.eligible && response.analysis && response.discretionary_runway) {
         setState({
           status: 'eligible',
           analysis: response.analysis,
-          savingsReserve: response.savings_reserve,
+          savingsReserve: response.discretionary_runway,
         });
         setSelectedAmount(response.analysis.least_daily_spend);
         setAmountText(String(Math.round(response.analysis.least_daily_spend)));
@@ -91,8 +88,8 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
           status: 'ineligible',
           reason: response.reason,
           message: response.message,
-          daysOfHistory: response.days_of_history,
-          minRequiredDays: response.minimum_required_days,
+          daysOfHistory: response.analysis?.days_of_history,
+          minRequiredDays: undefined,
           nextAvailable: response.next_available,
         });
       }
@@ -369,7 +366,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm }}>
             <PocketGlyph kind="locked" size={16} color={colors.sage} />
             <Text style={{ ...typography.caption, color: colors.sage, flex: 1 }}>
-              You&apos;ll keep {formatCurrency(savingsReserve!.minimum_reserve)} in savings reserve
+              You&apos;ll keep {formatCurrency(savingsReserve!.fixed_obligations)} in savings reserve
             </Text>
           </View>
           <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden' }}>
@@ -377,7 +374,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
               style={{
                 height: '100%',
                 backgroundColor: colors.emeraldDeep,
-                width: `${Math.min(100, (selectedAmount / Math.max(1, savingsReserve!.total_savings)) * 100)}%`,
+                width: `${Math.min(100, (selectedAmount / Math.max(1, savingsReserve!.total_reserve)) * 100)}%`,
               }}
             />
           </View>
@@ -386,7 +383,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
               Unlocking: {formatCurrency(selectedAmount)}
             </Text>
             <Text style={{ ...typography.caption, color: colors.sage }}>
-              Reserve: {formatCurrency(savingsReserve!.minimum_reserve)}
+              Reserve: {formatCurrency(savingsReserve!.fixed_obligations)}
             </Text>
           </View>
         </View>
@@ -429,7 +426,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
           <View style={{ backgroundColor: colors.clayTint, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
             <AlertTriangle size={16} color={colors.clay} strokeWidth={2} />
             <Text style={{ ...typography.caption, color: colors.clay, flex: 1 }}>
-              {formatCurrency(savingsReserve!.minimum_reserve)} will remain in savings as reserve. Tap &quot;Confirm unlock&quot; to proceed.
+              {formatCurrency(savingsReserve!.fixed_obligations)} will remain in savings as reserve. Tap &quot;Confirm unlock&quot; to proceed.
             </Text>
           </View>
         )}

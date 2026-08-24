@@ -38,12 +38,12 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
   }
 
   const isClosed = allocation.status === 'closed';
-  const spent = allocation.actual_spend ?? 0;
-  const planned = allocation.planned_amount ?? 0;
+  const spent = allocation.actualSpend ?? 0;
+  const planned = allocation.plannedAmount ?? 0;
   const remaining = Math.max(0, planned - spent);
   const overspend = Math.max(0, spent - planned);
-  const returned = allocation.returned_amount ?? 0;
-  const overspendAmount = allocation.overspend_amount ?? 0;
+  const returned = allocation.returnedAmount ?? 0;
+  const overspendAmount = allocation.overspendAmount ?? 0;
   const progress = planned > 0 ? Math.min(1, spent / planned) : 0;
 
   // Calculate pocket-level progress
@@ -67,8 +67,8 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
     });
   }, [spendablePockets]);
 
-  const runwayDaysAtOpen = allocation.runway_days_at_open ?? 0;
-  const runwayDaysAtClose = allocation.runway_days_at_close ?? null;
+  const runwayDaysAtOpen = allocation.runwayDaysAtOpen ?? 0;
+  const runwayDaysAtClose = allocation.runwayDaysAtClose ?? null;
   const runwayDelta = runwayDaysAtClose !== null ? runwayDaysAtClose - runwayDaysAtOpen : 0;
 
   return (

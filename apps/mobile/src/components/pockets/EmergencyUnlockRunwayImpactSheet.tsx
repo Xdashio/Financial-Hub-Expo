@@ -95,8 +95,8 @@ export function EmergencyUnlockRunwayImpactSheet({
           status: 'ineligible',
           reason: response.reason,
           message: response.message,
-          daysOfHistory: response.days_of_history,
-          minRequiredDays: response.minimum_required_days,
+          daysOfHistory: response.analysis?.days_of_history,
+          minRequiredDays: undefined,
           nextAvailable: response.next_available,
         });
       }

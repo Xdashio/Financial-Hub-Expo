@@ -193,18 +193,9 @@ export function PlanningCycleScreen() {
             <View style={styles.section}>
               <View style={styles.recommendationsHeader}>
                 <Text style={[typography.heading, { color: colors.ink }]}>Allocation Recommendations</Text>
-                <Text style={{ ...typography.caption, color: colors.sage }}>
-                  Based on {recommendations[0]?.basedOnCycles || 0} months of history
-                </Text>
               </View>
               <View style={styles.recommendationsList}>
                 {recommendations.map((rec) => {
-                  const badgeBg = rec.confidence === 'high' ? colors.emeraldTint :
-                                 rec.confidence === 'medium' ? colors.goldTint :
-                                 colors.clayTint;
-                  const badgeColor = rec.confidence === 'high' ? colors.emeraldDeep :
-                                   rec.confidence === 'medium' ? colors.gold :
-                                   colors.clay;
                   return (
                     <Pressable
                       key={rec.expenseId}
@@ -216,17 +207,6 @@ export function PlanningCycleScreen() {
                       <View style={styles.recInfo}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
                           <Text style={[typography.body, { color: colors.ink }]}>{rec.name}</Text>
-                          <View style={[
-                            styles.confidenceBadge,
-                            { backgroundColor: badgeBg }
-                          ]}>
-                            <Text style={[
-                              typography.caption, 
-                              { color: badgeColor }
-                            ]}>
-                              {rec.confidence}
-                            </Text>
-                          </View>
                         </View>
                         <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
                           {rec.reason}
@@ -248,6 +228,7 @@ export function PlanningCycleScreen() {
                             {formatMoney(rec.recommendedAllocation)}
                           </Text>
                         </View>
+
                       </View>
                     </Pressable>
                   );
