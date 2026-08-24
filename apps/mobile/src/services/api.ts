@@ -44,7 +44,13 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     // Handle different error response formats from NestJS/Express
     const raw = error.message ?? error.error ?? error.error?.message ?? error.statusCode ?? responseText ?? `HTTP ${response.status}`;
     const message = Array.isArray(raw) ? raw.join(', ') : String(raw);
-    throw new Error(message || `HTTP ${response.status}`);
+    const apiError = new Error(message || `HTTP ${response.status}`) as Error & { status?: number };
+    // Attach the HTTP status so callers (e.g. the query client's retry
+    // predicate) can tell "not applicable to this plan" (404) apart from a
+    // transient server/network failure — without this, every error looked
+    // identical and got retried the same way.
+    apiError.status = response.status;
+    throw apiError;
   }
 
   // DELETE /profile/fixed-expenses/:id returns 204 No Content. Calling
