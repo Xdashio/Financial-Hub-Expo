@@ -16,7 +16,7 @@ export declare const PlanNameSchema: z.ZodEnum<["Salaried — Structured", "Sala
 export type PlanName = z.infer<typeof PlanNameSchema>;
 export declare const IncomeConcentrationSchema: z.ZodEnum<["concentrated", "diversified"]>;
 export type IncomeConcentration = z.infer<typeof IncomeConcentrationSchema>;
-export declare const TransactionTypeSchema: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
+export declare const TransactionTypeSchema: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover", "reserve_release", "reserve_return", "daily_overspend_debit", "fixed_expense_earmark", "fixed_expense_carry_forward"]>;
 export type TransactionType = z.infer<typeof TransactionTypeSchema>;
 export declare const ReallocationStatusSchema: z.ZodEnum<["pending", "cooling_off", "completed", "skipped"]>;
 export type ReallocationStatus = z.infer<typeof ReallocationStatusSchema>;
@@ -668,18 +668,27 @@ export declare const RunwaySummarySchema: z.ZodObject<{
     expectedIntervalDays: z.ZodOptional<z.ZodNumber>;
     daysSinceLastIncome: z.ZodOptional<z.ZodNumber>;
     confidence: z.ZodOptional<z.ZodEnum<["estimate", "historical"]>>;
+    discretionaryReserve: z.ZodOptional<z.ZodNumber>;
+    fixedObligations: z.ZodOptional<z.ZodNumber>;
+    dailyBudget: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
     applicable: boolean;
     runwayDays?: number | undefined;
     expectedIntervalDays?: number | undefined;
     daysSinceLastIncome?: number | undefined;
     confidence?: "estimate" | "historical" | undefined;
+    discretionaryReserve?: number | undefined;
+    fixedObligations?: number | undefined;
+    dailyBudget?: number | undefined;
 }, {
     applicable: boolean;
     runwayDays?: number | undefined;
     expectedIntervalDays?: number | undefined;
     daysSinceLastIncome?: number | undefined;
     confidence?: "estimate" | "historical" | undefined;
+    discretionaryReserve?: number | undefined;
+    fixedObligations?: number | undefined;
+    dailyBudget?: number | undefined;
 }>;
 export type RunwaySummary = z.infer<typeof RunwaySummarySchema>;
 export declare const UserSchema: z.ZodObject<{
@@ -853,8 +862,25 @@ export declare const SubPocketRebalanceInputSchema: z.ZodObject<{
     confirmPartial?: boolean | undefined;
 }>;
 export type SubPocketRebalanceInput = z.infer<typeof SubPocketRebalanceInputSchema>;
-export declare const EmergencyUnlockEligibilityReasonSchema: z.ZodEnum<["insufficient_history", "monthly_limit_reached", "savings_depleted", "no_depleted_pockets"]>;
+export declare const EmergencyUnlockEligibilityReasonSchema: z.ZodEnum<["not_freelancer_plan", "insufficient_history", "monthly_limit_reached", "no_discretionary_runway", "reserve_protected"]>;
 export type EmergencyUnlockEligibilityReason = z.infer<typeof EmergencyUnlockEligibilityReasonSchema>;
+export declare const RunwayImpactOptionSchema: z.ZodObject<{
+    emergency_amount: z.ZodNumber;
+    runway_days_before: z.ZodNumber;
+    runway_days_after: z.ZodNumber;
+    runway_reduction_days: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    emergency_amount: number;
+    runway_days_before: number;
+    runway_days_after: number;
+    runway_reduction_days: number;
+}, {
+    emergency_amount: number;
+    runway_days_before: number;
+    runway_days_after: number;
+    runway_reduction_days: number;
+}>;
+export type RunwayImpactOption = z.infer<typeof RunwayImpactOptionSchema>;
 export declare const SpendingAnalysisSchema: z.ZodObject<{
     least_daily_spend: z.ZodNumber;
     most_daily_spend: z.ZodNumber;
@@ -872,23 +898,29 @@ export declare const SpendingAnalysisSchema: z.ZodObject<{
     days_of_history: number;
 }>;
 export type SpendingAnalysis = z.infer<typeof SpendingAnalysisSchema>;
-export declare const SavingsReserveSchema: z.ZodObject<{
-    total_savings: z.ZodNumber;
-    minimum_reserve: z.ZodNumber;
-    available_to_unlock: z.ZodNumber;
+export declare const DiscretionaryRunwaySchema: z.ZodObject<{
+    total_reserve: z.ZodNumber;
+    fixed_obligations: z.ZodNumber;
+    discretionary_reserve: z.ZodNumber;
+    daily_budget: z.ZodNumber;
+    runway_days: z.ZodNumber;
 }, "strip", z.ZodTypeAny, {
-    total_savings: number;
-    minimum_reserve: number;
-    available_to_unlock: number;
+    total_reserve: number;
+    fixed_obligations: number;
+    discretionary_reserve: number;
+    daily_budget: number;
+    runway_days: number;
 }, {
-    total_savings: number;
-    minimum_reserve: number;
-    available_to_unlock: number;
+    total_reserve: number;
+    fixed_obligations: number;
+    discretionary_reserve: number;
+    daily_budget: number;
+    runway_days: number;
 }>;
-export type SavingsReserve = z.infer<typeof SavingsReserveSchema>;
+export type DiscretionaryRunway = z.infer<typeof DiscretionaryRunwaySchema>;
 export declare const EmergencyUnlockEligibilityResponseSchema: z.ZodObject<{
     eligible: z.ZodBoolean;
-    reason: z.ZodOptional<z.ZodEnum<["insufficient_history", "monthly_limit_reached", "savings_depleted", "no_depleted_pockets"]>>;
+    reason: z.ZodOptional<z.ZodEnum<["not_freelancer_plan", "insufficient_history", "monthly_limit_reached", "no_discretionary_runway", "reserve_protected"]>>;
     message: z.ZodOptional<z.ZodString>;
     analysis: z.ZodOptional<z.ZodObject<{
         least_daily_spend: z.ZodNumber;
@@ -906,72 +938,104 @@ export declare const EmergencyUnlockEligibilityResponseSchema: z.ZodObject<{
         average_daily_spend: number;
         days_of_history: number;
     }>>;
-    savings_reserve: z.ZodOptional<z.ZodObject<{
-        total_savings: z.ZodNumber;
-        minimum_reserve: z.ZodNumber;
-        available_to_unlock: z.ZodNumber;
+    discretionary_runway: z.ZodOptional<z.ZodObject<{
+        total_reserve: z.ZodNumber;
+        fixed_obligations: z.ZodNumber;
+        discretionary_reserve: z.ZodNumber;
+        daily_budget: z.ZodNumber;
+        runway_days: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        total_savings: number;
-        minimum_reserve: number;
-        available_to_unlock: number;
+        total_reserve: number;
+        fixed_obligations: number;
+        discretionary_reserve: number;
+        daily_budget: number;
+        runway_days: number;
     }, {
-        total_savings: number;
-        minimum_reserve: number;
-        available_to_unlock: number;
+        total_reserve: number;
+        fixed_obligations: number;
+        discretionary_reserve: number;
+        daily_budget: number;
+        runway_days: number;
     }>>;
-    days_of_history: z.ZodOptional<z.ZodNumber>;
-    minimum_required_days: z.ZodOptional<z.ZodNumber>;
+    runway_impact_options: z.ZodOptional<z.ZodArray<z.ZodObject<{
+        emergency_amount: z.ZodNumber;
+        runway_days_before: z.ZodNumber;
+        runway_days_after: z.ZodNumber;
+        runway_reduction_days: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        emergency_amount: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
+    }, {
+        emergency_amount: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
+    }>, "many">>;
     last_used: z.ZodOptional<z.ZodString>;
     next_available: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     eligible: boolean;
     message?: string | undefined;
-    reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
-    days_of_history?: number | undefined;
+    reason?: "not_freelancer_plan" | "insufficient_history" | "monthly_limit_reached" | "no_discretionary_runway" | "reserve_protected" | undefined;
     analysis?: {
         least_daily_spend: number;
         most_daily_spend: number;
         average_daily_spend: number;
         days_of_history: number;
     } | undefined;
-    savings_reserve?: {
-        total_savings: number;
-        minimum_reserve: number;
-        available_to_unlock: number;
+    discretionary_runway?: {
+        total_reserve: number;
+        fixed_obligations: number;
+        discretionary_reserve: number;
+        daily_budget: number;
+        runway_days: number;
     } | undefined;
-    minimum_required_days?: number | undefined;
+    runway_impact_options?: {
+        emergency_amount: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
+    }[] | undefined;
     last_used?: string | undefined;
     next_available?: string | undefined;
 }, {
     eligible: boolean;
     message?: string | undefined;
-    reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
-    days_of_history?: number | undefined;
+    reason?: "not_freelancer_plan" | "insufficient_history" | "monthly_limit_reached" | "no_discretionary_runway" | "reserve_protected" | undefined;
     analysis?: {
         least_daily_spend: number;
         most_daily_spend: number;
         average_daily_spend: number;
         days_of_history: number;
     } | undefined;
-    savings_reserve?: {
-        total_savings: number;
-        minimum_reserve: number;
-        available_to_unlock: number;
+    discretionary_runway?: {
+        total_reserve: number;
+        fixed_obligations: number;
+        discretionary_reserve: number;
+        daily_budget: number;
+        runway_days: number;
     } | undefined;
-    minimum_required_days?: number | undefined;
+    runway_impact_options?: {
+        emergency_amount: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
+    }[] | undefined;
     last_used?: string | undefined;
     next_available?: string | undefined;
 }>;
 export type EmergencyUnlockEligibilityResponse = z.infer<typeof EmergencyUnlockEligibilityResponseSchema>;
 export declare const EmergencyUnlockRequestSchema: z.ZodObject<{
     amount: z.ZodNumber;
-    confirm_reserve: z.ZodBoolean;
+    confirm_impact: z.ZodBoolean;
 }, "strip", z.ZodTypeAny, {
     amount: number;
-    confirm_reserve: boolean;
+    confirm_impact: boolean;
 }, {
     amount: number;
-    confirm_reserve: boolean;
+    confirm_impact: boolean;
 }>;
 export type EmergencyUnlockRequest = z.infer<typeof EmergencyUnlockRequestSchema>;
 export declare const EmergencyUnlockAllocationSchema: z.ZodObject<{
@@ -996,8 +1060,9 @@ export declare const EmergencyUnlockResponseSchema: z.ZodObject<{
     unlock: z.ZodOptional<z.ZodObject<{
         id: z.ZodString;
         amount: z.ZodNumber;
-        days_lasting: z.ZodNumber;
-        reserve_kept: z.ZodNumber;
+        runway_days_before: z.ZodNumber;
+        runway_days_after: z.ZodNumber;
+        runway_reduction_days: z.ZodNumber;
         allocations: z.ZodArray<z.ZodObject<{
             pocket_id: z.ZodString;
             pocket_name: z.ZodString;
@@ -1017,8 +1082,9 @@ export declare const EmergencyUnlockResponseSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         amount: number;
         id: string;
-        days_lasting: number;
-        reserve_kept: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
         allocations: {
             amount: number;
             percentage: number;
@@ -1028,8 +1094,9 @@ export declare const EmergencyUnlockResponseSchema: z.ZodObject<{
     }, {
         amount: number;
         id: string;
-        days_lasting: number;
-        reserve_kept: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
         allocations: {
             amount: number;
             percentage: number;
@@ -1047,8 +1114,9 @@ export declare const EmergencyUnlockResponseSchema: z.ZodObject<{
     unlock?: {
         amount: number;
         id: string;
-        days_lasting: number;
-        reserve_kept: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
         allocations: {
             amount: number;
             percentage: number;
@@ -1064,8 +1132,9 @@ export declare const EmergencyUnlockResponseSchema: z.ZodObject<{
     unlock?: {
         amount: number;
         id: string;
-        days_lasting: number;
-        reserve_kept: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
         allocations: {
             amount: number;
             percentage: number;
@@ -1449,28 +1518,86 @@ export declare const TransactionSchema: z.ZodObject<{
     id: z.ZodString;
     pocketId: z.ZodString;
     amount: z.ZodNumber;
-    type: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
+    type: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover", "reserve_release", "reserve_return", "daily_overspend_debit", "fixed_expense_earmark", "fixed_expense_carry_forward"]>;
     merchant: z.ZodOptional<z.ZodString>;
     category: z.ZodOptional<z.ZodEnum<["grocery", "landlord_rent", "utility", "transport", "healthcare", "education", "entertainment", "gambling_betting", "personal_care", "other", "unclassified"]>>;
     createdAt: z.ZodString;
+    dailyAllocationId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, "strip", z.ZodTypeAny, {
-    type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover";
+    type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover" | "reserve_release" | "reserve_return" | "daily_overspend_debit" | "fixed_expense_earmark" | "fixed_expense_carry_forward";
     amount: number;
     id: string;
     createdAt: string;
     pocketId: string;
     category?: "transport" | "healthcare" | "education" | "other" | "grocery" | "landlord_rent" | "utility" | "entertainment" | "gambling_betting" | "personal_care" | "unclassified" | undefined;
     merchant?: string | undefined;
+    dailyAllocationId?: string | null | undefined;
 }, {
-    type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover";
+    type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover" | "reserve_release" | "reserve_return" | "daily_overspend_debit" | "fixed_expense_earmark" | "fixed_expense_carry_forward";
     amount: number;
     id: string;
     createdAt: string;
     pocketId: string;
     category?: "transport" | "healthcare" | "education" | "other" | "grocery" | "landlord_rent" | "utility" | "entertainment" | "gambling_betting" | "personal_care" | "unclassified" | undefined;
     merchant?: string | undefined;
+    dailyAllocationId?: string | null | undefined;
 }>;
 export type Transaction = z.infer<typeof TransactionSchema>;
+export type TransactionInsert = Omit<Transaction, 'id' | 'createdAt'> & {
+    id?: string;
+    createdAt?: string;
+    pocket_id: string;
+    amount: number;
+    type: TransactionType;
+    merchant?: string | null;
+    category?: MerchantCategory | null;
+    emergency_unlock_id?: string | null;
+    daily_allocation_id?: string | null;
+};
+export declare const DailyAllocationSchema: z.ZodObject<{
+    id: z.ZodString;
+    planId: z.ZodString;
+    userId: z.ZodString;
+    allocationDate: z.ZodString;
+    plannedAmount: z.ZodNumber;
+    actualSpend: z.ZodNumber;
+    returnedAmount: z.ZodNumber;
+    overspendAmount: z.ZodNumber;
+    runwayDaysAtOpen: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    runwayDaysAtClose: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    status: z.ZodEnum<["open", "closed"]>;
+    createdAt: z.ZodString;
+    closedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    status: "open" | "closed";
+    planId: string;
+    id: string;
+    createdAt: string;
+    userId: string;
+    allocationDate: string;
+    plannedAmount: number;
+    actualSpend: number;
+    returnedAmount: number;
+    overspendAmount: number;
+    runwayDaysAtOpen?: number | null | undefined;
+    runwayDaysAtClose?: number | null | undefined;
+    closedAt?: string | null | undefined;
+}, {
+    status: "open" | "closed";
+    planId: string;
+    id: string;
+    createdAt: string;
+    userId: string;
+    allocationDate: string;
+    plannedAmount: number;
+    actualSpend: number;
+    returnedAmount: number;
+    overspendAmount: number;
+    runwayDaysAtOpen?: number | null | undefined;
+    runwayDaysAtClose?: number | null | undefined;
+    closedAt?: string | null | undefined;
+}>;
+export type DailyAllocation = z.infer<typeof DailyAllocationSchema>;
 export declare const ReallocationSchema: z.ZodObject<{
     id: z.ZodString;
     fromPocketId: z.ZodString;
@@ -1617,7 +1744,7 @@ export declare const schemas: {
         goalAmount?: number | undefined;
     }>;
     PlanName: z.ZodEnum<["Salaried — Structured", "Salaried — Daily Budget", "Freelancer — Daily Budget", "Gig — Daily Budget", "Salaried + Side Income — Structured", "Salaried + Side Income — Daily Budget"]>;
-    TransactionType: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
+    TransactionType: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover", "reserve_release", "reserve_return", "daily_overspend_debit", "fixed_expense_earmark", "fixed_expense_carry_forward"]>;
     ReallocationStatus: z.ZodEnum<["pending", "cooling_off", "completed", "skipped"]>;
     ReallocationReason: z.ZodEnum<["emergency", "unexpected_expense", "income_change", "priority_shift", "other"]>;
     MerchantCategory: z.ZodEnum<["grocery", "landlord_rent", "utility", "transport", "healthcare", "education", "entertainment", "gambling_betting", "personal_care", "other", "unclassified"]>;
@@ -2267,7 +2394,7 @@ export declare const schemas: {
     }>;
     EmergencyUnlockEligibilityResponse: z.ZodObject<{
         eligible: z.ZodBoolean;
-        reason: z.ZodOptional<z.ZodEnum<["insufficient_history", "monthly_limit_reached", "savings_depleted", "no_depleted_pockets"]>>;
+        reason: z.ZodOptional<z.ZodEnum<["not_freelancer_plan", "insufficient_history", "monthly_limit_reached", "no_discretionary_runway", "reserve_protected"]>>;
         message: z.ZodOptional<z.ZodString>;
         analysis: z.ZodOptional<z.ZodObject<{
             least_daily_spend: z.ZodNumber;
@@ -2285,79 +2412,112 @@ export declare const schemas: {
             average_daily_spend: number;
             days_of_history: number;
         }>>;
-        savings_reserve: z.ZodOptional<z.ZodObject<{
-            total_savings: z.ZodNumber;
-            minimum_reserve: z.ZodNumber;
-            available_to_unlock: z.ZodNumber;
+        discretionary_runway: z.ZodOptional<z.ZodObject<{
+            total_reserve: z.ZodNumber;
+            fixed_obligations: z.ZodNumber;
+            discretionary_reserve: z.ZodNumber;
+            daily_budget: z.ZodNumber;
+            runway_days: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
-            total_savings: number;
-            minimum_reserve: number;
-            available_to_unlock: number;
+            total_reserve: number;
+            fixed_obligations: number;
+            discretionary_reserve: number;
+            daily_budget: number;
+            runway_days: number;
         }, {
-            total_savings: number;
-            minimum_reserve: number;
-            available_to_unlock: number;
+            total_reserve: number;
+            fixed_obligations: number;
+            discretionary_reserve: number;
+            daily_budget: number;
+            runway_days: number;
         }>>;
-        days_of_history: z.ZodOptional<z.ZodNumber>;
-        minimum_required_days: z.ZodOptional<z.ZodNumber>;
+        runway_impact_options: z.ZodOptional<z.ZodArray<z.ZodObject<{
+            emergency_amount: z.ZodNumber;
+            runway_days_before: z.ZodNumber;
+            runway_days_after: z.ZodNumber;
+            runway_reduction_days: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            emergency_amount: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
+        }, {
+            emergency_amount: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
+        }>, "many">>;
         last_used: z.ZodOptional<z.ZodString>;
         next_available: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         eligible: boolean;
         message?: string | undefined;
-        reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
-        days_of_history?: number | undefined;
+        reason?: "not_freelancer_plan" | "insufficient_history" | "monthly_limit_reached" | "no_discretionary_runway" | "reserve_protected" | undefined;
         analysis?: {
             least_daily_spend: number;
             most_daily_spend: number;
             average_daily_spend: number;
             days_of_history: number;
         } | undefined;
-        savings_reserve?: {
-            total_savings: number;
-            minimum_reserve: number;
-            available_to_unlock: number;
+        discretionary_runway?: {
+            total_reserve: number;
+            fixed_obligations: number;
+            discretionary_reserve: number;
+            daily_budget: number;
+            runway_days: number;
         } | undefined;
-        minimum_required_days?: number | undefined;
+        runway_impact_options?: {
+            emergency_amount: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
+        }[] | undefined;
         last_used?: string | undefined;
         next_available?: string | undefined;
     }, {
         eligible: boolean;
         message?: string | undefined;
-        reason?: "insufficient_history" | "monthly_limit_reached" | "savings_depleted" | "no_depleted_pockets" | undefined;
-        days_of_history?: number | undefined;
+        reason?: "not_freelancer_plan" | "insufficient_history" | "monthly_limit_reached" | "no_discretionary_runway" | "reserve_protected" | undefined;
         analysis?: {
             least_daily_spend: number;
             most_daily_spend: number;
             average_daily_spend: number;
             days_of_history: number;
         } | undefined;
-        savings_reserve?: {
-            total_savings: number;
-            minimum_reserve: number;
-            available_to_unlock: number;
+        discretionary_runway?: {
+            total_reserve: number;
+            fixed_obligations: number;
+            discretionary_reserve: number;
+            daily_budget: number;
+            runway_days: number;
         } | undefined;
-        minimum_required_days?: number | undefined;
+        runway_impact_options?: {
+            emergency_amount: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
+        }[] | undefined;
         last_used?: string | undefined;
         next_available?: string | undefined;
     }>;
     EmergencyUnlockRequest: z.ZodObject<{
         amount: z.ZodNumber;
-        confirm_reserve: z.ZodBoolean;
+        confirm_impact: z.ZodBoolean;
     }, "strip", z.ZodTypeAny, {
         amount: number;
-        confirm_reserve: boolean;
+        confirm_impact: boolean;
     }, {
         amount: number;
-        confirm_reserve: boolean;
+        confirm_impact: boolean;
     }>;
     EmergencyUnlockResponse: z.ZodObject<{
         applied: z.ZodBoolean;
         unlock: z.ZodOptional<z.ZodObject<{
             id: z.ZodString;
             amount: z.ZodNumber;
-            days_lasting: z.ZodNumber;
-            reserve_kept: z.ZodNumber;
+            runway_days_before: z.ZodNumber;
+            runway_days_after: z.ZodNumber;
+            runway_reduction_days: z.ZodNumber;
             allocations: z.ZodArray<z.ZodObject<{
                 pocket_id: z.ZodString;
                 pocket_name: z.ZodString;
@@ -2377,8 +2537,9 @@ export declare const schemas: {
         }, "strip", z.ZodTypeAny, {
             amount: number;
             id: string;
-            days_lasting: number;
-            reserve_kept: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
             allocations: {
                 amount: number;
                 percentage: number;
@@ -2388,8 +2549,9 @@ export declare const schemas: {
         }, {
             amount: number;
             id: string;
-            days_lasting: number;
-            reserve_kept: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
             allocations: {
                 amount: number;
                 percentage: number;
@@ -2407,8 +2569,9 @@ export declare const schemas: {
         unlock?: {
             amount: number;
             id: string;
-            days_lasting: number;
-            reserve_kept: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
             allocations: {
                 amount: number;
                 percentage: number;
@@ -2424,8 +2587,9 @@ export declare const schemas: {
         unlock?: {
             amount: number;
             id: string;
-            days_lasting: number;
-            reserve_kept: number;
+            runway_days_before: number;
+            runway_days_after: number;
+            runway_reduction_days: number;
             allocations: {
                 amount: number;
                 percentage: number;
@@ -2435,6 +2599,42 @@ export declare const schemas: {
         } | undefined;
         error?: string | undefined;
     }>;
+    RunwayImpactOption: z.ZodObject<{
+        emergency_amount: z.ZodNumber;
+        runway_days_before: z.ZodNumber;
+        runway_days_after: z.ZodNumber;
+        runway_reduction_days: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        emergency_amount: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
+    }, {
+        emergency_amount: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
+    }>;
+    DiscretionaryRunway: z.ZodObject<{
+        total_reserve: z.ZodNumber;
+        fixed_obligations: z.ZodNumber;
+        discretionary_reserve: z.ZodNumber;
+        daily_budget: z.ZodNumber;
+        runway_days: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        total_reserve: number;
+        fixed_obligations: number;
+        discretionary_reserve: number;
+        daily_budget: number;
+        runway_days: number;
+    }, {
+        total_reserve: number;
+        fixed_obligations: number;
+        discretionary_reserve: number;
+        daily_budget: number;
+        runway_days: number;
+    }>;
+    EmergencyUnlockEligibilityReason: z.ZodEnum<["not_freelancer_plan", "insufficient_history", "monthly_limit_reached", "no_discretionary_runway", "reserve_protected"]>;
     RepaymentCadence: z.ZodEnum<["weekly", "biweekly", "monthly"]>;
     RepaymentSchedule: z.ZodObject<{
         totalAmount: z.ZodNumber;
@@ -2800,26 +3000,72 @@ export declare const schemas: {
         id: z.ZodString;
         pocketId: z.ZodString;
         amount: z.ZodNumber;
-        type: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover"]>;
+        type: z.ZodEnum<["allocation", "spend", "reallocation_in", "reallocation_out", "rollover", "reserve_release", "reserve_return", "daily_overspend_debit", "fixed_expense_earmark", "fixed_expense_carry_forward"]>;
         merchant: z.ZodOptional<z.ZodString>;
         category: z.ZodOptional<z.ZodEnum<["grocery", "landlord_rent", "utility", "transport", "healthcare", "education", "entertainment", "gambling_betting", "personal_care", "other", "unclassified"]>>;
         createdAt: z.ZodString;
+        dailyAllocationId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, "strip", z.ZodTypeAny, {
-        type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover";
+        type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover" | "reserve_release" | "reserve_return" | "daily_overspend_debit" | "fixed_expense_earmark" | "fixed_expense_carry_forward";
         amount: number;
         id: string;
         createdAt: string;
         pocketId: string;
         category?: "transport" | "healthcare" | "education" | "other" | "grocery" | "landlord_rent" | "utility" | "entertainment" | "gambling_betting" | "personal_care" | "unclassified" | undefined;
         merchant?: string | undefined;
+        dailyAllocationId?: string | null | undefined;
     }, {
-        type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover";
+        type: "allocation" | "spend" | "reallocation_in" | "reallocation_out" | "rollover" | "reserve_release" | "reserve_return" | "daily_overspend_debit" | "fixed_expense_earmark" | "fixed_expense_carry_forward";
         amount: number;
         id: string;
         createdAt: string;
         pocketId: string;
         category?: "transport" | "healthcare" | "education" | "other" | "grocery" | "landlord_rent" | "utility" | "entertainment" | "gambling_betting" | "personal_care" | "unclassified" | undefined;
         merchant?: string | undefined;
+        dailyAllocationId?: string | null | undefined;
+    }>;
+    DailyAllocation: z.ZodObject<{
+        id: z.ZodString;
+        planId: z.ZodString;
+        userId: z.ZodString;
+        allocationDate: z.ZodString;
+        plannedAmount: z.ZodNumber;
+        actualSpend: z.ZodNumber;
+        returnedAmount: z.ZodNumber;
+        overspendAmount: z.ZodNumber;
+        runwayDaysAtOpen: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        runwayDaysAtClose: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        status: z.ZodEnum<["open", "closed"]>;
+        createdAt: z.ZodString;
+        closedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        status: "open" | "closed";
+        planId: string;
+        id: string;
+        createdAt: string;
+        userId: string;
+        allocationDate: string;
+        plannedAmount: number;
+        actualSpend: number;
+        returnedAmount: number;
+        overspendAmount: number;
+        runwayDaysAtOpen?: number | null | undefined;
+        runwayDaysAtClose?: number | null | undefined;
+        closedAt?: string | null | undefined;
+    }, {
+        status: "open" | "closed";
+        planId: string;
+        id: string;
+        createdAt: string;
+        userId: string;
+        allocationDate: string;
+        plannedAmount: number;
+        actualSpend: number;
+        returnedAmount: number;
+        overspendAmount: number;
+        runwayDaysAtOpen?: number | null | undefined;
+        runwayDaysAtClose?: number | null | undefined;
+        closedAt?: string | null | undefined;
     }>;
     Reallocation: z.ZodObject<{
         id: z.ZodString;

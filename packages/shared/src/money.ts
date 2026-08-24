@@ -58,3 +58,8 @@ export function formatWholeKsh(amount: number): string {
   const abs = Math.abs(rounded).toLocaleString('en-KE');
   return rounded < 0 ? `-KSh ${abs}` : `KSh ${abs}`;
 }
+
+/** Round to 2 decimal places (cents) using exact integer arithmetic. */
+export function round2(amount: number): number {
+  return fromCents(toCents(amount));
+}

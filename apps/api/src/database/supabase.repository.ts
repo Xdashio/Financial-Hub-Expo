@@ -114,6 +114,49 @@ export class SupabaseRepository {
     return data;
   }
 
+  async getPlansByMonthlyPlanningDay(day: number): Promise<Plan[]> {
+    const { data, error } = await this.supabase
+      .from('plans')
+      .select('*')
+      .eq('status', 'active')
+      .eq('income_pattern', 'freelancer')
+      .eq('type', 'daily')
+      .eq('monthly_planning_day', day);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getActiveFreelancerDailyPlans(): Promise<Plan[]> {
+    const { data, error } = await this.supabase
+      .from('plans')
+      .select('*')
+      .eq('status', 'active')
+      .eq('income_pattern', 'freelancer')
+      .eq('type', 'daily');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getOpenDailyAllocationsByDate(date: string): Promise<any[]> {
+    const { data, error } = await this.supabase
+      .from('daily_allocations')
+      .select('*')
+      .eq('allocation_date', date)
+      .eq('status', 'open');
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getActualSpendForAllocation(allocationId: string): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .select('amount')
+      .eq('daily_allocation_id', allocationId)
+      .eq('type', 'spend');
+    if (error) throw error;
+    return (data || []).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+  }
+
   async deactivateUserPlans(userId: string): Promise<void> {
     const { error } = await this.supabase
       .from('plans')
@@ -426,6 +469,10 @@ export class SupabaseRepository {
     least_daily_spend: number;
     average_daily_spend: number;
     reserve_kept: number;
+    // New runway impact fields (migration 013)
+    runway_days_before?: number;
+    runway_days_after?: number;
+    runway_reduction_days?: number;
   }): Promise<EmergencyUnlockRow> {
     const { data, error } = await this.supabase
       .from('emergency_unlocks')
@@ -616,6 +663,141 @@ export class SupabaseRepository {
     // Reserved = parent total - distributable to children
     const reserved = Math.max(0, netMoney(parentSummary.available, -distributable));
     return reserved;
+  }
+
+  async getDailyAllocationByPlanIdAndDate(planId: string, allocationDate: string): Promise<any> {
+    const { data, error } = await this.supabase
+      .from('daily_allocations')
+      .select('*')
+      .eq('plan_id', planId)
+      .eq('allocation_date', allocationDate)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  async getDailyAllocationById(id: string): Promise<any> {
+    const { data, error } = await this.supabase
+      .from('daily_allocations')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  async createDailyAllocation(allocation: {
+    id: string;
+    plan_id: string;
+    user_id: string;
+    allocation_date: string;
+    planned_amount: number;
+    actual_spend: number;
+    returned_amount: number;
+    overspend_amount: number;
+    runway_days_at_open: number;
+    runway_days_at_close: number | null;
+    status: string;
+    created_at: Date;
+    closed_at: Date | null;
+  }): Promise<any> {
+    const { data, error } = await this.supabase
+      .from('daily_allocations')
+      .insert(allocation)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateDailyAllocation(id: string, updates: {
+    actual_spend?: number;
+    returned_amount?: number;
+    overspend_amount?: number;
+    status?: string;
+    closed_at?: Date | null;
+    runway_days_at_close?: number | null;
+  }): Promise<any> {
+    const { data, error } = await this.supabase
+      .from('daily_allocations')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getDailyAllocationsByPlanIdAndMonth(
+    planId: string,
+    cycleMonth: string,
+  ): Promise<any[]> {
+    const startOfMonth = cycleMonth;
+    const endOfMonth = new Date(cycleMonth);
+    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+    const endOfMonthStr = endOfMonth.toISOString().split('T')[0];
+
+    const { data, error } = await this.supabase
+      .from('daily_allocations')
+      .select('*')
+      .eq('plan_id', planId)
+      .gte('allocation_date', startOfMonth)
+      .lt('allocation_date', endOfMonthStr)
+      .order('allocation_date', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getDailyAllocationsByPlanIdAndDateRange(
+    planId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<any[]> {
+    const { data, error } = await this.supabase
+      .from('daily_allocations')
+      .select('*')
+      .eq('plan_id', planId)
+      .gte('allocation_date', startDate)
+      .lte('allocation_date', endDate)
+      .order('allocation_date', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async createPlanningCycleEvent(event: {
+    plan_id: string;
+    user_id: string;
+    cycle_month: string;
+    reserve_balance_at_start: number;
+    total_fixed_obligations: number;
+    discretionary_reserve: number;
+    daily_budget: number;
+    runway_days: number;
+    allocation_snapshot: any;
+    recommendations_snapshot: any;
+  }): Promise<any> {
+    const { data, error } = await this.supabase
+      .from('planning_cycle_events')
+      .insert(event)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getPlanningCycleEventsByUserId(userId: string, months: number): Promise<any[]> {
+    const startDate = new Date();
+    startDate.setMonth(startDate.getMonth() - months);
+    const startDateStr = startDate.toISOString().split('T')[0];
+
+    const { data, error } = await this.supabase
+      .from('planning_cycle_events')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('cycle_month', startDateStr)
+      .order('cycle_month', { ascending: false });
+    if (error) throw error;
+    return data || [];
   }
 
   // Reallocations

@@ -41,6 +41,12 @@ export interface ComputeRunwayInput {
   /** Sorted most-recent-first, as returned by getIncomeEventsByUserId. */
   incomeEvents: RunwayIncomeEvent[];
   today: Date;
+  /** Reserve balance available for spending (after savings allocation) */
+  reserveBalance: number;
+  /** Total fixed obligations that must be protected this cycle */
+  fixedObligations: number;
+  /** Daily budget for variable spending (set by Monthly Planning Cycle) */
+  dailyBudget: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -52,17 +58,6 @@ function daysBetween(later: Date, earlier: Date): number {
   return Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
 }
 
-/**
- * Computes the freelancer's current runway: how many days until they'd
- * "expect" their next payment, based on either their real income history
- * (once there's enough of it) or their onboarding pay-cadence estimate.
- *
- * This is the "medium" tier: a rolling average of real gaps once available,
- * a clamped floor so the derived daily cap never punishes a late payment,
- * and no forecasting beyond that. See docs/FREELANCER_RUNWAY.md for what
- * "full adaptive" adds on top of this later (seasonality, per-source
- * cadence tracking, confidence intervals feeding UI copy).
- */
 export interface RunwayCappablePocket {
   id: string;
   kind: string;
@@ -100,10 +95,23 @@ export function computeSpendableDailyCaps(
 }
 
 /**
- * Computes the freelancer's current runway.
+ * Computes the freelancer's current runway based on:
+ * - Reserve balance (after savings)
+ * - Fixed obligations that must be protected
+ * - Daily budget for variable spending
+ * 
+ * Formula: Runway Days = (Reserve Balance - Fixed Obligations) / Daily Budget
+ * With floor of MIN_RUNWAY_DAYS
  */
 export function computeRunway(input: ComputeRunwayInput): RunwaySummary {
-  const { incomeIntervalDaysEstimate, incomeEvents, today } = input;
+  const { 
+    incomeIntervalDaysEstimate, 
+    incomeEvents, 
+    today,
+    reserveBalance,
+    fixedObligations,
+    dailyBudget,
+  } = input;
 
   const sortedDesc = [...incomeEvents].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -134,10 +142,20 @@ export function computeRunway(input: ComputeRunwayInput): RunwaySummary {
     confidence = 'estimate';
   }
 
-  const daysSinceLastIncome = sortedDesc.length > 0 ? daysBetween(today, new Date(sortedDesc[0].date)) : 0;
+  const daysSinceLastIncome = sortedDesc.length > 0 
+    ? daysBetween(today, new Date(sortedDesc[0].date)) 
+    : 0;
+
+  // Calculate discretionary reserve (reserve after fixed obligations)
+  const discretionaryReserve = Math.max(0, reserveBalance - fixedObligations);
+  
+  // Runway = discretionary reserve / daily budget
+  const calculatedRunwayDays = dailyBudget > 0 
+    ? Math.floor(discretionaryReserve / dailyBudget)
+    : MIN_RUNWAY_DAYS;
 
   const runwayDays = clamp(
-    expectedIntervalDays - daysSinceLastIncome,
+    calculatedRunwayDays,
     MIN_RUNWAY_DAYS,
     expectedIntervalDays
   );
@@ -148,5 +166,8 @@ export function computeRunway(input: ComputeRunwayInput): RunwaySummary {
     expectedIntervalDays,
     daysSinceLastIncome,
     confidence,
+    discretionaryReserve,
+    fixedObligations,
+    dailyBudget,
   };
 }

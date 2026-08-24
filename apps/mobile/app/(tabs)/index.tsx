@@ -64,20 +64,20 @@ export default function HomeScreen() {
   const handleEmergencyUnlock = async (amount: number) => {
     setIsUnlocking(true);
     try {
-      const response = await emergencyUnlockApi.executeUnlock({ amount, confirm_reserve: true });
+      const response = await emergencyUnlockApi.executeUnlock({ amount, confirm_impact: true });
       if (response.applied && response.unlock) {
         setEmergencyUnlockVisible(false);
         await refreshData();
         await alert(
-          'Emergency unlock complete',
-          `${formatMoney(response.unlock.amount)} was moved from savings and split across your pockets. That'll cover roughly ${response.unlock.days_lasting} day${response.unlock.days_lasting !== 1 ? 's' : ''}. ${formatMoney(response.unlock.reserve_kept)} stays in savings as reserve.`
+          'Emergency allocation complete',
+          `${formatMoney(response.unlock.amount)} was allocated. Your runway changed from ${response.unlock.runway_days_before} to ${response.unlock.runway_days_after} days (${response.unlock.runway_reduction_days} day${response.unlock.runway_reduction_days !== 1 ? 's' : ''} reduction).`
         );
       } else {
-        await alert('Emergency unlock failed', response.message ?? "Couldn't complete the unlock. Please try again.");
+        await alert('Emergency allocation failed', response.message ?? "Couldn't complete the allocation. Please try again.");
       }
     } catch (error: any) {
-      console.error('Emergency unlock failed:', error);
-      await alert('Emergency unlock failed', error?.message ?? "Couldn't complete the unlock. Please try again.");
+      console.error('Emergency allocation failed:', error);
+      await alert('Emergency allocation failed', error?.message ?? "Couldn't complete the allocation. Please try again.");
     } finally {
       setIsUnlocking(false);
     }

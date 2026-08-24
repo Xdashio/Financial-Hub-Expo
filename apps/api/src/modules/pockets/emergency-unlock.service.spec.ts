@@ -2,7 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { EmergencyUnlockService } from './emergency-unlock.service';
 import { SpendingAnalysisService } from '../insights/spending-analysis.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
-import type { Pocket } from '../../database/database.types';
+import type { Pocket, Plan, FixedExpense } from '../../database/database.types';
 
 const SAVINGS_POCKET: Pocket = {
   id: 'pocket-savings',
@@ -64,15 +64,67 @@ const TRANSPORT_POCKET: Pocket = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
-describe('EmergencyUnlockService', () => {
+const FREELANCER_DAILY_PLAN: Plan = {
+  id: 'plan-1',
+  user_id: 'user-1',
+  type: 'daily',
+  income_pattern: 'freelancer',
+  income_interval_days: 30,
+  expected_income_amount: null,
+  status: 'active',
+  money_personality: 'spender',
+  reserve_balance: 20000,
+  monthly_planning_day: 1,
+  last_planning_cycle_at: null,
+  created_at: '2026-01-01T00:00:00.000Z',
+  reassigned_at: null,
+};
+
+const FIXED_EXPENSES: FixedExpense[] = [
+  {
+    id: 'fe-rent',
+    user_id: 'user-1',
+    name: 'Rent',
+    amount: 15000,
+    due_day: 5,
+    category: 'housing',
+    status: 'active',
+    funded_amount: 0,
+    carry_forward: false,
+    funded_at: null,
+    notification_day_offset: 1,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+  {
+    id: 'fe-wifi',
+    user_id: 'user-1',
+    name: 'WiFi',
+    amount: 2000,
+    due_day: 10,
+    category: 'utilities',
+    status: 'active',
+    funded_amount: 0,
+    carry_forward: false,
+    funded_at: null,
+    notification_day_offset: 1,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+  },
+];
+
+describe('EmergencyUnlockService (runway-impact model)', () => {
   let repository: jest.Mocked<
     Pick<
       SupabaseRepository,
+      | 'getPlanById'
       | 'getTopLevelPocketsByPlanId'
       | 'getPocketSummary'
       | 'getEmergencyUnlockThisMonth'
+      | 'getFixedExpensesByUserId'
       | 'createTransactions'
       | 'createEmergencyUnlock'
+      | 'updatePlan'
     >
   >;
   let spendingAnalysis: jest.Mocked<SpendingAnalysisService>;
@@ -80,9 +132,11 @@ describe('EmergencyUnlockService', () => {
 
   beforeEach(() => {
     repository = {
+      getPlanById: jest.fn(),
       getTopLevelPocketsByPlanId: jest.fn(),
       getPocketSummary: jest.fn(),
       getEmergencyUnlockThisMonth: jest.fn(),
+      getFixedExpensesByUserId: jest.fn(),
       createTransactions: jest.fn().mockResolvedValue([]),
       createEmergencyUnlock: jest.fn().mockResolvedValue({
         id: 'unlock-1',
@@ -93,8 +147,12 @@ describe('EmergencyUnlockService', () => {
         least_daily_spend: 500,
         average_daily_spend: 800,
         reserve_kept: 1000,
+        runway_days_before: 10,
+        runway_days_after: 8,
+        runway_reduction_days: 2,
         created_at: '2026-08-15T00:00:00.000Z',
       }),
+      updatePlan: jest.fn().mockResolvedValue({}),
     } as any;
 
     spendingAnalysis = {
@@ -107,13 +165,18 @@ describe('EmergencyUnlockService', () => {
   });
 
   describe('checkEligibility', () => {
-    it('returns eligible when all conditions are met', async () => {
+    it('returns eligible for freelancer daily plan with sufficient runway', async () => {
+      repository.getPlanById.mockResolvedValue(FREELANCER_DAILY_PLAN);
       repository.getTopLevelPocketsByPlanId.mockResolvedValue([SAVINGS_POCKET, FOOD_POCKET, TRANSPORT_POCKET]);
-      repository.getPocketSummary
-        .mockResolvedValueOnce({ available: 0, allocated: 3000, spent: 3000, transactionCount: 10, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 0, allocated: 1000, spent: 1000, transactionCount: 5, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 10000, allocated: 5000, spent: 0, transactionCount: 0, reallocationCount: 0 });
+      repository.getPocketSummary.mockResolvedValue({ 
+        available: 10000, 
+        allocated: 5000, 
+        spent: 0, 
+        transactionCount: 0, 
+        reallocationCount: 0 
+      });
       repository.getEmergencyUnlockThisMonth.mockResolvedValue(null);
+      repository.getFixedExpensesByUserId.mockResolvedValue(FIXED_EXPENSES);
       spendingAnalysis.analyze30DaySpending.mockResolvedValue({
         least_daily_spend: 500,
         most_daily_spend: 2000,
@@ -126,45 +189,44 @@ describe('EmergencyUnlockService', () => {
       const result = await service.checkEligibility('user-1', 'plan-1');
 
       expect(result.eligible).toBe(true);
-      expect(result.analysis).toEqual({
-        least_daily_spend: 500,
-        most_daily_spend: 2000,
-        average_daily_spend: 800,
-        days_of_history: 30,
-      });
-      expect(result.savings_reserve).toEqual({
-        total_savings: 10000,
-        minimum_reserve: 2000, // 20% of 10000
-        available_to_unlock: 8000,
-      });
+      expect(result.discretionary_runway).toBeDefined();
+      expect(result.discretionary_runway?.total_reserve).toBe(20000);
+      expect(result.discretionary_runway?.fixed_obligations).toBe(17000);
+      expect(result.discretionary_runway?.discretionary_reserve).toBe(3000);
+      expect(result.runway_impact_options).toBeDefined();
+      expect(result.runway_impact_options?.length).toBeGreaterThan(0);
     });
 
-    it('returns not eligible when no pockets exist', async () => {
-      repository.getTopLevelPocketsByPlanId.mockResolvedValue([]);
+    it('returns not eligible for salaried plan', async () => {
+      const salariedPlan = { ...FREELANCER_DAILY_PLAN, income_pattern: 'salaried' as const };
+      repository.getPlanById.mockResolvedValue(salariedPlan);
 
       const result = await service.checkEligibility('user-1', 'plan-1');
 
       expect(result.eligible).toBe(false);
-      expect(result.reason).toBe('no_depleted_pockets');
+      expect(result.reason).toBe('not_freelancer_plan');
     });
 
-    it('returns not eligible when savings is depleted', async () => {
-      repository.getTopLevelPocketsByPlanId.mockResolvedValue([SAVINGS_POCKET, FOOD_POCKET]);
-      repository.getPocketSummary
-        .mockResolvedValueOnce({ available: 0, allocated: 3000, spent: 3000, transactionCount: 10, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 0, allocated: 5000, spent: 5000, transactionCount: 0, reallocationCount: 0 });
+    it('returns not eligible for structured plan', async () => {
+      const structuredPlan = { ...FREELANCER_DAILY_PLAN, type: 'structured' as const };
+      repository.getPlanById.mockResolvedValue(structuredPlan);
 
       const result = await service.checkEligibility('user-1', 'plan-1');
 
       expect(result.eligible).toBe(false);
-      expect(result.reason).toBe('savings_depleted');
+      expect(result.reason).toBe('not_freelancer_plan');
     });
 
     it('returns not eligible when monthly limit reached', async () => {
+      repository.getPlanById.mockResolvedValue(FREELANCER_DAILY_PLAN);
       repository.getTopLevelPocketsByPlanId.mockResolvedValue([SAVINGS_POCKET, FOOD_POCKET]);
-      repository.getPocketSummary
-        .mockResolvedValueOnce({ available: 0, allocated: 3000, spent: 3000, transactionCount: 10, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 10000, allocated: 5000, spent: 0, transactionCount: 0, reallocationCount: 0 });
+      repository.getPocketSummary.mockResolvedValue({ 
+        available: 10000, 
+        allocated: 5000, 
+        spent: 0, 
+        transactionCount: 0, 
+        reallocationCount: 0 
+      });
       repository.getEmergencyUnlockThisMonth.mockResolvedValue({
         id: 'unlock-1',
         user_id: 'user-1',
@@ -181,15 +243,20 @@ describe('EmergencyUnlockService', () => {
 
       expect(result.eligible).toBe(false);
       expect(result.reason).toBe('monthly_limit_reached');
-      expect(result.last_used).toBe('2026-08-15T00:00:00.000Z');
     });
 
     it('returns not eligible when insufficient history', async () => {
+      repository.getPlanById.mockResolvedValue(FREELANCER_DAILY_PLAN);
       repository.getTopLevelPocketsByPlanId.mockResolvedValue([SAVINGS_POCKET, FOOD_POCKET]);
-      repository.getPocketSummary
-        .mockResolvedValueOnce({ available: 0, allocated: 3000, spent: 3000, transactionCount: 10, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 10000, allocated: 5000, spent: 0, transactionCount: 0, reallocationCount: 0 });
+      repository.getPocketSummary.mockResolvedValue({ 
+        available: 10000, 
+        allocated: 5000, 
+        spent: 0, 
+        transactionCount: 0, 
+        reallocationCount: 0 
+      });
       repository.getEmergencyUnlockThisMonth.mockResolvedValue(null);
+      repository.getFixedExpensesByUserId.mockResolvedValue(FIXED_EXPENSES);
       spendingAnalysis.analyze30DaySpending.mockResolvedValue({
         least_daily_spend: 0,
         most_daily_spend: 0,
@@ -203,31 +270,21 @@ describe('EmergencyUnlockService', () => {
 
       expect(result.eligible).toBe(false);
       expect(result.reason).toBe('insufficient_history');
-      expect(result.days_of_history).toBe(3);
-      expect(result.minimum_required_days).toBe(7);
     });
 
-    it('returns not eligible when not all pockets are depleted', async () => {
+    it('returns not eligible when discretionary runway too low', async () => {
+      const lowReservePlan = { ...FREELANCER_DAILY_PLAN, reserve_balance: 1000 };
+      repository.getPlanById.mockResolvedValue(lowReservePlan);
       repository.getTopLevelPocketsByPlanId.mockResolvedValue([SAVINGS_POCKET, FOOD_POCKET]);
-      repository.getPocketSummary
-        .mockResolvedValueOnce({ available: 500, allocated: 3000, spent: 2500, transactionCount: 10, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 10000, allocated: 5000, spent: 0, transactionCount: 0, reallocationCount: 0 });
-
-      const result = await service.checkEligibility('user-1', 'plan-1');
-
-      expect(result.eligible).toBe(false);
-      expect(result.reason).toBe('no_depleted_pockets');
-    });
-  });
-
-  describe('executeUnlock', () => {
-    beforeEach(() => {
-      repository.getTopLevelPocketsByPlanId.mockResolvedValue([SAVINGS_POCKET, FOOD_POCKET, TRANSPORT_POCKET]);
-      repository.getPocketSummary
-        .mockResolvedValueOnce({ available: 0, allocated: 3000, spent: 3000, transactionCount: 10, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 0, allocated: 1000, spent: 1000, transactionCount: 5, reallocationCount: 0 })
-        .mockResolvedValueOnce({ available: 10000, allocated: 5000, spent: 0, transactionCount: 0, reallocationCount: 0 });
+      repository.getPocketSummary.mockResolvedValue({ 
+        available: 500, 
+        allocated: 5000, 
+        spent: 0, 
+        transactionCount: 0, 
+        reallocationCount: 0 
+      });
       repository.getEmergencyUnlockThisMonth.mockResolvedValue(null);
+      repository.getFixedExpensesByUserId.mockResolvedValue(FIXED_EXPENSES);
       spendingAnalysis.analyze30DaySpending.mockResolvedValue({
         least_daily_spend: 500,
         most_daily_spend: 2000,
@@ -236,64 +293,102 @@ describe('EmergencyUnlockService', () => {
         daily_spend_by_date: new Map(),
       });
       spendingAnalysis.hasSufficientHistory.mockReturnValue(true);
-      spendingAnalysis.calculateDaysLasting.mockReturnValue(2);
+
+      const result = await service.checkEligibility('user-1', 'plan-1');
+
+      expect(result.eligible).toBe(false);
+      expect(result.reason).toBe('no_discretionary_runway');
+    });
+  });
+
+  describe('executeUnlock', () => {
+    beforeEach(() => {
+      repository.getPlanById.mockResolvedValue(FREELANCER_DAILY_PLAN);
+      repository.getTopLevelPocketsByPlanId.mockResolvedValue([SAVINGS_POCKET, FOOD_POCKET, TRANSPORT_POCKET]);
+      repository.getPocketSummary.mockResolvedValue({ 
+        available: 10000, 
+        allocated: 5000, 
+        spent: 0, 
+        transactionCount: 0, 
+        reallocationCount: 0 
+      });
+      repository.getEmergencyUnlockThisMonth.mockResolvedValue(null);
+      repository.getFixedExpensesByUserId.mockResolvedValue(FIXED_EXPENSES);
+      spendingAnalysis.analyze30DaySpending.mockResolvedValue({
+        least_daily_spend: 500,
+        most_daily_spend: 2000,
+        average_daily_spend: 800,
+        days_of_history: 30,
+        daily_spend_by_date: new Map(),
+      });
+      spendingAnalysis.hasSufficientHistory.mockReturnValue(true);
     });
 
     it('executes unlock successfully with valid amount', async () => {
       const result = await service.executeUnlock('user-1', 'plan-1', {
-        amount: 600,
-        confirm_reserve: true,
+        amount: 1500,
+        confirm_impact: true,
       });
 
       expect(result.applied).toBe(true);
       expect(result.unlock).toBeDefined();
-      expect(result.unlock?.amount).toBe(600);
-      expect(result.unlock?.days_lasting).toBe(2);
+      expect(result.unlock?.amount).toBe(1500);
+      expect(result.unlock?.runway_days_before).toBeDefined();
+      expect(result.unlock?.runway_days_after).toBeDefined();
+      expect(result.unlock?.runway_reduction_days).toBeDefined();
       expect(repository.createTransactions).toHaveBeenCalled();
       expect(repository.createEmergencyUnlock).toHaveBeenCalled();
+      expect(repository.updatePlan).toHaveBeenCalled();
     });
 
-    it('rejects amount below minimum', async () => {
+    it('rejects amount exceeding 50% of discretionary reserve', async () => {
       const result = await service.executeUnlock('user-1', 'plan-1', {
-        amount: 400,
-        confirm_reserve: true,
+        amount: 2000, // More than 50% of 3000 discretionary reserve
+        confirm_impact: true,
       });
 
       expect(result.applied).toBe(false);
-      expect(result.error).toBe('amount_below_minimum');
+      expect(result.error).toBe('amount_exceeds_max_percentage');
     });
 
-    it('rejects amount above maximum', async () => {
+    it('rejects when impact not confirmed', async () => {
       const result = await service.executeUnlock('user-1', 'plan-1', {
         amount: 1000,
-        confirm_reserve: true,
+        confirm_impact: false,
       });
 
       expect(result.applied).toBe(false);
-      expect(result.error).toBe('amount_above_maximum');
+      expect(result.error).toBe('impact_not_confirmed');
     });
 
-    it('rejects when reserve not confirmed', async () => {
+    it('rejects when savings insufficient', async () => {
+      repository.getPocketSummary.mockResolvedValue({ 
+        available: 500, // Less than requested
+        allocated: 5000, 
+        spent: 0, 
+        transactionCount: 0, 
+        reallocationCount: 0 
+      });
+
       const result = await service.executeUnlock('user-1', 'plan-1', {
-        amount: 600,
-        confirm_reserve: false,
+        amount: 1000,
+        confirm_impact: true,
       });
 
       expect(result.applied).toBe(false);
-      expect(result.error).toBe('reserve_not_confirmed');
+      expect(result.error).toBe('savings_insufficient');
     });
 
-    it('allocates proportionally to non-savings pockets', async () => {
-      const result = await service.executeUnlock('user-1', 'plan-1', {
-        amount: 600,
-        confirm_reserve: true,
+    it('records runway impact in emergency unlock record', async () => {
+      await service.executeUnlock('user-1', 'plan-1', {
+        amount: 1000,
+        confirm_impact: true,
       });
 
-      expect(result.applied).toBe(true);
-      expect(result.unlock?.allocations).toHaveLength(2);
-      // Food gets 75% (3000/4000), Transport gets 25% (1000/4000)
-      expect(result.unlock?.allocations[0].amount).toBeCloseTo(450, 0); // 600 * 0.75
-      expect(result.unlock?.allocations[1].amount).toBeCloseTo(150, 0); // 600 * 0.25
+      const createCall = repository.createEmergencyUnlock.mock.calls[0][0];
+      expect(createCall.runway_days_before).toBeDefined();
+      expect(createCall.runway_days_after).toBeDefined();
+      expect(createCall.runway_reduction_days).toBeDefined();
     });
   });
 });

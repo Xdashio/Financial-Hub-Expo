@@ -72,6 +72,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Naivas',
           category: 'grocery',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T10:00:00.000Z',
         },
         {
@@ -82,6 +83,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Matatu',
           category: 'transport',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T15:00:00.000Z',
         },
         {
@@ -92,6 +94,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Naivas',
           category: 'grocery',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-02T10:00:00.000Z',
         },
       ];
@@ -117,6 +120,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Naivas',
           category: 'grocery',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T10:00:00.000Z',
         },
         {
@@ -127,6 +131,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Bank',
           category: 'other',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T15:00:00.000Z',
         },
       ];
@@ -151,6 +156,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Naivas',
           category: 'grocery',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T10:00:00.000Z',
         },
         {
@@ -161,6 +167,7 @@ describe('SpendingAnalysisService', () => {
           merchant: null,
           category: null,
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T15:00:00.000Z',
         },
       ];
@@ -185,6 +192,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Naivas',
           category: 'grocery',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T10:00:00.000Z',
         },
         {
@@ -195,6 +203,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Refund',
           category: 'other',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T15:00:00.000Z',
         },
       ];
@@ -231,6 +240,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Naivas',
           category: 'grocery',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-01T10:00:00.000Z',
         },
         {
@@ -241,6 +251,7 @@ describe('SpendingAnalysisService', () => {
           merchant: 'Naivas',
           category: 'grocery',
           emergency_unlock_id: null,
+          daily_allocation_id: null,
           created_at: '2026-08-02T10:00:00.000Z',
         },
       ];

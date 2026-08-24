@@ -84,6 +84,10 @@ import {
   OnboardingAssignResult,
   OnboardingCommitResult,
   RunwaySummary,
+  DailyAllocation,
+  RunwayImpactOption,
+  DiscretionaryRunway,
+  EmergencyUnlockEligibilityReason,
 } from '@financial-hub/shared';
 
 export const onboardingApi = {
@@ -136,6 +140,89 @@ export const pocketsApi = {
   // Returns { total_allocated, plan_income, unallocated, over_allocated }
   // so pocket-create can show % of income feedback without a second fetch.
   getAllocationSummary: () => api.get<any>('/pockets/allocation-summary'),
+  // Daily Allocation (Freelancer Runway)
+  getTodayDailyAllocation: () =>
+    api.get<{
+      allocation: DailyAllocation | null;
+      runway: RunwaySummary;
+      spendablePockets: any[];
+    }>('/pockets/daily-allocation/today'),
+  getDailyAllocationHistory: (startDate: string, endDate: string) =>
+    api.get<DailyAllocation[]>(`/pockets/daily-allocation/history?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+  triggerDailyAllocation: () => api.post<any>('/pockets/daily-allocation/trigger', {}),
+  closeDailyAllocation: (actualSpend?: number) =>
+    api.post<any>('/pockets/daily-allocation/close', { actualSpend }),
+};
+
+export const dailyAllocationApi = {
+  getToday: () =>
+    api.get<{
+      allocation: DailyAllocation | null;
+      runway: RunwaySummary;
+      spendablePockets: any[];
+    }>('/pockets/daily-allocation/today'),
+  getHistory: (startDate: string, endDate: string) =>
+    api.get<DailyAllocation[]>(`/pockets/daily-allocation/history?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`),
+  trigger: () => api.post<any>('/pockets/daily-allocation/trigger', {}),
+  close: (actualSpend?: number) =>
+    api.post<any>('/pockets/daily-allocation/close', { actualSpend }),
+};
+
+export const planningCycleApi = {
+  getStatus: () =>
+    api.get<{
+      monthly_planning_day: number;
+      last_planning_cycle_at: string | null;
+      next_planning_date: string;
+      days_until_next: number;
+    }>('/planning-cycle/status'),
+  getHistory: (months = 6) =>
+    api.get<any[]>(`/planning-cycle/history?months=${months}`),
+  getCurrent: () =>
+    api.get<{
+      cycle_month: string;
+      reserve_balance_at_start: number;
+      total_fixed_obligations: number;
+      discretionary_reserve: number;
+      daily_budget: number;
+      runway_days: number;
+      allocations: Array<{
+        expenseId: string;
+        name: string;
+        amount: number;
+        fundedAmount: number;
+        carryForwardAmount: number;
+        previousCarryForward: number;
+      }>;
+      recommendations: Array<{
+        expenseId: string;
+        name: string;
+        currentAllocation: number;
+        recommendedAllocation: number;
+        reason: string;
+      }>;
+      message?: string;
+    }>('/planning-cycle/current'),
+  trigger: () => api.post<any>('/planning-cycle/trigger', {}),
+  applyRecommendation: (expenseId: string, newAllocation: number) =>
+    api.post<any>(`/planning-cycle/fixed-expenses/${expenseId}/apply-recommendation`, { newAllocation }),
+};
+
+export const behavioralRecommendationsApi = {
+  getRecommendations: () =>
+    api.get<Array<{
+      expenseId: string;
+      name: string;
+      currentAllocation: number;
+      recommendedAllocation: number;
+      confidence: 'low' | 'medium' | 'high';
+      reason: string;
+      basedOnCycles: number;
+    }>>('/behavioral-recommendations'),
+  getHistory: () =>
+    api.get<any[]>('/behavioral-recommendations/history'),
+  applyRecommendation: (expenseId: string, newAllocation: number) =>
+    api.post<any>(`/behavioral-recommendations/${expenseId}/apply`, { newAllocation }),
 };
 
 export const loansApi = {
@@ -326,7 +413,7 @@ export const emergencyUnlockApi = {
   checkEligibility: () =>
     api.get<{
       eligible: boolean;
-      reason?: string;
+      reason?: EmergencyUnlockEligibilityReason;
       message?: string;
       analysis?: {
         least_daily_spend: number;
@@ -334,24 +421,20 @@ export const emergencyUnlockApi = {
         average_daily_spend: number;
         days_of_history: number;
       };
-      savings_reserve?: {
-        total_savings: number;
-        minimum_reserve: number;
-        available_to_unlock: number;
-      };
-      days_of_history?: number;
-      minimum_required_days?: number;
+      discretionary_runway?: DiscretionaryRunway;
+      runway_impact_options?: RunwayImpactOption[];
       last_used?: string;
       next_available?: string;
     }>('/pockets/emergency-unlock/eligibility'),
-  executeUnlock: (data: { amount: number; confirm_reserve: boolean }) =>
+  executeUnlock: (data: { amount: number; confirm_impact: boolean }) =>
     api.post<{
       applied: boolean;
       unlock?: {
         id: string;
         amount: number;
-        days_lasting: number;
-        reserve_kept: number;
+        runway_days_before: number;
+        runway_days_after: number;
+        runway_reduction_days: number;
         allocations: Array<{
           pocket_id: string;
           pocket_name: string;
