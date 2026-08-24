@@ -6,7 +6,15 @@ It is currently being built as a **standalone MVP showcase** — Individual segm
 
 The long-term destination, **once funded**, is an **embeddable layer** (SDK/API) that partner institutions integrate into their own apps — bank apps, SACCO apps, telco super-apps (mini-app style, similar to how Zidii lives inside M-Pesa) — with its own billing system for those partner institutions. That work has not started. This repo is building the demo-ready standalone product first; see `ROADMAP.md` for the phased plan.
 
-> **Note on prior architecture**: an earlier Flutter + Supabase prototype (regulated PSP wallet, real M-Pesa/Paystack money movement) was built under a prior architecture direction — it is **not part of this repository**; only screenshots and source excerpts of it survive, in the original innovation submission (`docs/FINANCIAL HUB INNOVATION DOCUMENT.pdf`). This repo starts fresh on a clean tech stack chosen specifically for the MVP showcase: **NestJS (API) + PostgreSQL/Supabase + React Native (Expo)**. See `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §3–4 for the full architecture and rationale.
+## Tech stack
+
+**Mobile:** React Native (Expo ~57) · TypeScript · Expo Router · Zustand · TanStack Query · Supabase JS  
+**API:** NestJS · TypeScript · PostgreSQL via Supabase · `@nestjs/schedule` for cron jobs  
+**Shared:** `packages/shared` — Zod schemas, domain types, and money utilities shared between mobile and API  
+**Monorepo:** pnpm workspaces · Node 20 · pnpm 9  
+**Hosting:** Railway (API, Docker build from monorepo root) · EAS/Expo (mobile builds — iOS + Android + web)  
+**Observability:** Sentry (API + mobile)  
+**CI:** GitHub Actions — lint, typecheck, test, build (all four packages checked per push/PR)
 
 ## Core idea
 
@@ -17,7 +25,7 @@ Most budgeting tools ask users to configure their own categories and percentages
 - **Income allocation** — income is split into pockets by percentage rules, or (for Daily Budget plans) divided across the days of the month after fixed costs are removed. For the MVP, income is entered manually — there is no wallet and no PSP/bank integration. **Future versions will detect incoming funds from connected financial institutions and suggest or execute pre-authorized allocations into the user's financial pockets.**
 - **Protected savings** — minimum 10% of income, with an optional time-lock and deliberate friction on early access. Savings is never divided away silently.
 - **Pocket-scoped spending** — money can only be spent from spendable pockets; fixed-cost pockets settle automatically.
-- **Deliberate reallocation** — moving money between pockets requires review, a stated reason, a warning if reallocations are unusually frequent, secure confirmation mechanisms (including device biometrics where supported), and (pending refined design — see `PRD.md` §7) a cooling-off timer for essential-to-non-essential moves.
+- **Deliberate reallocation** — moving money between pockets requires review, a stated reason, a warning if reallocations are unusually frequent, secure confirmation mechanisms (including device biometrics where supported), and a cooling-off timer for essential-to-non-essential moves.
 - **Merchant-aware spend control** — future partner-integrated versions may support merchant-category-aware spending controls where permitted by the underlying payment infrastructure. For the MVP, this is conceptually demonstrated but not technically enforced.
 - **Behavioral scoring** — spending and reallocation events feed a discipline score and plain-language insight reporting, surfaced back to the user (not just logged silently).
 
@@ -74,6 +82,54 @@ This repo is building the **MVP showcase**: a clean, functional demonstration of
 
 See `PRD.md` for detailed requirements and open items, and `ROADMAP.md` for phased delivery.
 
+## Repo structure
+
+```
+Financial-Hub-Expo/
+├── apps/
+│   ├── api/                  NestJS backend
+│   │   ├── src/
+│   │   │   ├── auth/         Supabase JWT guard + @Public() decorator
+│   │   │   ├── common/       Shared utilities (case-transform, pocket-rules, personality modifiers)
+│   │   │   ├── config/       Supabase client config
+│   │   │   ├── database/
+│   │   │   │   ├── migrations/   Canonical SQL migrations (000–013)
+│   │   │   │   └── supabase/     Generated copy (do not edit — run `pnpm db:sync`)
+│   │   │   └── modules/      Feature modules (see Backend Architecture below)
+│   │   └── supabase/         Supabase CLI config
+│   └── mobile/               Expo / React Native app
+│       ├── app/              Expo Router file-based routes
+│       │   ├── (auth)/       Sign-in, sign-up, OTP, biometric enable
+│       │   ├── (blocked)/    Blocked-spend screen
+│       │   ├── (classification)/  Merchant classify + history
+│       │   ├── (income)/     Manual income entry + success
+│       │   ├── (loans)/      Loans list, create, detail
+│       │   ├── (merchant)/   Merchant history + report
+│       │   ├── (modals)/     All bottom-sheet modal screens
+│       │   ├── (onboarding)/ Onboarding flow screens
+│       │   ├── (pockets)/    Pocket detail + log-spend
+│       │   ├── (profile)/    Plan, fixed expenses, personal info, retake check-in
+│       │   ├── (security)/   Time-lock screen
+│       │   ├── (settings)/   Notification settings
+│       │   └── (tabs)/       Home, Runway (freelancer), Insights, Profile tabs
+│       └── src/
+│           ├── components/   Shared UI + domain components
+│           ├── config/       API base URL + Supabase client
+│           ├── hooks/        useAlertModal, useFreelancer
+│           ├── services/     API client, Zustand stores, auth, offline queue
+│           ├── theme/        Design tokens, palettes, ThemeContext
+│           └── utils/        Money formatting, date helpers, navigation, etc.
+├── packages/
+│   └── shared/               Zod schemas, domain types, money utils (used by both api and mobile)
+├── marketing/                Vite landing page (English/Kiswahili toggle)
+├── docs/                     System documentation, innovation document, KECOBO certificate
+├── assets/                   App logo
+├── pnpm-workspace.yaml
+├── package.json              Root scripts: dev, build, lint, typecheck, test
+├── railway.toml              Railway deployment config (Dockerfile build, monorepo root context)
+└── .github/workflows/ci.yml  CI: lint + typecheck + test + build (all packages)
+```
+
 ## Docs in this folder
 
 - `PRD.md` — product requirements: user flows, screens, rules, open questions
@@ -83,13 +139,14 @@ See `PRD.md` for detailed requirements and open items, and `ROADMAP.md` for phas
 - `docs/Financial HUB document.docx`, `docs/FINANCIAL HUB INNOVATION DOCUMENT.pdf` — original source submissions the two docs above were built from
 - `docs/9f19c5a3-c954-40a7-93e9-3c4b3d46d630.pdf` — Kenya Copyright Board certificate of registration
 
-## Current Implementation Status
+## Current implementation status
 
-**Phase A (Stabilize)**: ✅ Complete — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed.
+**Phase A (Stabilize):** ✅ Complete — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed.
 
-**Phase 1 (MVP Showcase)**: 🟡 Nearly Complete — Core screens wired to real backend API, with advanced features implemented:
+**Phase 1 (MVP Showcase):** 🟡 Nearly Complete — Core screens wired to real backend API, with advanced features implemented.
 
-### Implemented Features
+### Implemented features
+
 - ✅ Auth (Supabase phone-OTP)
 - ✅ Onboarding flow with rules-engine plan assignment
 - ✅ Daily Budget & Structured plan variants
@@ -102,50 +159,93 @@ See `PRD.md` for detailed requirements and open items, and `ROADMAP.md` for phas
 - ✅ Profile management and fixed expenses
 - ✅ Notifications settings
 - ✅ Time-lock with biometric confirmation
-- ✅ Home screen nudges (behavioral prompts)
-- ✅ Emergency unlock (implemented — `pockets/emergency-unlock.service.ts`, with unit + integration test coverage)
-- ✅ Sub-pocket percentage splits (implemented — parent/child pockets with `splitPercentage`, sibling-total validation, bulk adjustment)
+- ✅ Home screen nudges (behavioral prompts, client-derived from Home data)
+- ✅ Emergency unlock (`pockets/emergency-unlock.service.ts`, unit + integration test coverage)
+- ✅ Sub-pocket percentage splits (parent/child pockets with `splitPercentage`, sibling-total validation, bulk adjustment)
 - ✅ Loans module (income/repayment endpoints, purpose sub-pockets, fund-repayment flow)
 - ✅ Behavioral recommendations (allocation suggestions from spending history, with accept/apply flow)
 - ✅ Daily allocation engine (midnight cron; releases the day's variable-spending budget from the reserve pool)
 - ✅ Monthly planning cycle (recurring re-plan of fixed obligations, carry-forward of shortfalls, and recommendation generation)
+- ✅ Freelancer runway dashboard (tab shown only for Freelancer/Gig Daily Budget plans)
+- ✅ Offline queue (queues mutations when network is unavailable, replays on reconnect)
 
-### Backend Architecture
-The backend is built with **NestJS** and **PostgreSQL** (via Supabase), organized into 19 feature modules:
+### Backend architecture
 
-**Core Modules:**
-- `onboarding` — Plan assignment and user onboarding
-- `pockets` — Pocket management, allocations, emergency unlock, and sub-pockets
-- `income` — Income event processing
-- `reallocations` — Money movement between pockets
-- `spend` — Transaction logging and spend control
-- `merchant` — Merchant categorization and blocking
-- `insights` — Behavioral scoring and analytics
-- `discipline-score` — Unified discipline scoring system
-- `notifications` — Push notification management
-- `profile` — User profile and fixed expenses
-- `runway` — Financial runway calculations
-- `health` — System health monitoring
-- `nudges` — Behavioral nudges system
-- `loans` — Loans and lending functionality
-- `merchant-report` — Merchant reporting system
-- `rollover` — Daily rollover processing
-- `behavioral-recommendations` — Turns spending history into allocation suggestions the user can review and apply
-- `daily-allocation` — Generates each day's spending packet for Daily Budget plans (cron-driven)
-- `planning-cycle` — Recurring monthly re-plan of fixed obligations, reserve, and daily budget
+The backend is a **NestJS** monolith backed by **PostgreSQL** (via Supabase), organized into 19 feature modules. All controllers are authenticated by default via `SupabaseAuthGuard`; routes opt out with `@Public()`. Rate limiting: 100 req/min per IP (global default via `ThrottlerModule`).
 
-See `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` for the full module-by-module reference, including endpoints and responsibilities for each.
+**Core modules:**
+- `onboarding` — rules-engine plan assignment, pocket provisioning, income and fixed-expense ingestion
+- `pockets` — pocket CRUD, allocations, emergency unlock, sub-pocket split management
+- `income` — income event processing and manual entry
+- `reallocations` — money movement between pockets with cooling-off enforcement
+- `spend` — transaction logging and spend control (including gambling block + behavior event)
+- `merchant` — merchant categorization and MCC-style block enforcement
+- `insights` — behavioral event feed and discipline score surfacing
+- `discipline-score` — unified scoring system shared by pockets, reallocations, and insights
+- `notifications` — push token registration, preference management, scheduled delivery
+- `profile` — user profile and fixed expenses CRUD
+- `runway` — financial runway calculation for Daily Budget plans
+- `health` — `/api/health` endpoint (used by Railway healthcheck)
+- `nudges` — nudge calculation service (client-side nudges currently drive the Home UI)
+- `loans` — loan creation, purpose sub-pockets, repayment tracking
+- `merchant-report` — merchant misclassification report flow
+- `rollover` — daily rollover processing (unspent daily budgets roll to savings)
+- `behavioral-recommendations` — turns spending history into allocation suggestions the user can review and apply
+- `daily-allocation` — midnight cron releasing each day's spending packet for Daily Budget plans
+- `planning-cycle` — monthly re-plan of fixed obligations, shortfall carry-forward, recommendation generation
 
-### Mobile App
-Built with **React Native (Expo)**, featuring:
-- Cross-platform iOS/Android support
-- Supabase integration for auth and data
-- Theme system with design tokens
-- Offline queue for data synchronization
-- Biometric authentication support
-- Bottom sheet components for complex interactions
+See `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` for the full module-by-module reference, including endpoints and responsibilities.
 
-### Tech Stack Reality
-**Implemented:** React Native (Expo) + NestJS + PostgreSQL (Supabase) + TypeScript
-**Hosting:** Vercel (web) + EAS/Expo (mobile builds)
-**State Management:** Zustand for client state, Supabase for server state
+### Mobile app
+
+Built with **React Native (Expo ~57)** using **Expo Router** (file-based routing):
+
+- iOS + Android + web support (portrait-locked; web via Metro bundler)
+- Supabase integration for auth and realtime data
+- Design token system via `ThemeContext` (light/dark palette support via `userInterfaceStyle: automatic`)
+- Offline queue (`src/services/offline-queue.ts`) — mutations queued when offline, replayed on reconnect
+- Biometric authentication (`expo-local-authentication`) for sensitive operations
+- Bottom sheet modal system (`@gorhom/bottom-sheet` via `BottomSheetModal` wrapper)
+- Zustand stores for client state; TanStack Query for server state
+- `packages/shared` consumed directly for Zod schemas, types, and money utilities
+
+### Database schema
+
+Canonical migrations live in `apps/api/src/database/migrations/` (numbered 001–013). `apps/api/supabase/migrations/` is a generated copy — run `pnpm --filter api db:sync` to update it; do not edit it directly.
+
+Key tables: `users`, `plans`, `pockets`, `income_events`, `fixed_expenses`, `transactions`, `reallocations`, `merchant_classifications`, `behavior_events`, `discipline_scores`, `merchant_reports`, `notification_preferences`, `push_tokens`, `notification_deliveries`, `idempotency_records`, `emergency_unlocks`, `loans`, `daily_allocations`.
+
+## Getting started
+
+**Prerequisites:** Node 20, pnpm 9, a Supabase project (URL + service role key).
+
+```bash
+# Install dependencies
+pnpm install
+
+# Build shared package first (mobile and API depend on it)
+pnpm --filter shared build
+
+# API — set env vars in apps/api/.env.local:
+#   SUPABASE_URL=...
+#   SUPABASE_SERVICE_ROLE_KEY=...
+pnpm dev:api
+
+# Mobile — set EXPO_PUBLIC_API_URL in apps/mobile/.env.local
+pnpm dev:mobile
+```
+
+**Run all checks:**
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+```
+
+**EAS mobile builds** — see `apps/mobile/eas.json` for build profiles (`development`, `preview`, `preview-arm64`, `preview-universal`, `production`). API URL for all profiles is `https://api-production-8db1.up.railway.app/api`.
+
+**Railway deployment** — configured in `railway.toml`. Dockerfile at `apps/api/Dockerfile`; build context is the monorepo root so `packages/shared` is available. Healthcheck: `GET /api/health`.
+
+## Swagger / API docs
+
+Available at `/docs` in development (and in production if `ENABLE_SWAGGER=true`). All controllers are documented via `@nestjs/swagger` decorators.

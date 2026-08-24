@@ -7,11 +7,9 @@ import { useAuthStore } from '@/services/auth';
 import { Fingerprint, ScanFace } from 'lucide-react-native';
 import { PocketLoader } from '@/components/ui';
 
-// App-lock / biometric gate (audit_team.md item 7 —
-// FLUTTER_TO_EXPO_PORT_GUIDE.md §10). Mirrors Flutter's `AppLockGate`:
-// biometric auth is required both on cold start and on resume, not just
-// once at sign-in. Implemented once here as a root layout wrapper rather
-// than per-screen, per §10's explicit recommendation.
+// App-lock / biometric gate: biometric auth is required both on cold start
+// and on resume, not just once at sign-in. Implemented once here as a root
+// layout wrapper so every screen is covered without per-screen wiring.
 //
 // Only engages when the signed-in user has biometrics enabled
 // (`user.biometricEnabled`, toggled from `(auth)/biometric-enable.tsx`) —

@@ -79,7 +79,7 @@ export class InsightsController {
   }
 
   @Get('nudges')
-  @ApiOperation({ summary: "Get the current user's proactive nudges (FLUTTER_TO_EXPO_PORT_GUIDE.md §7)" })
+  @ApiOperation({ summary: "Get the current user's proactive nudges" })
   @ApiResponse({ status: 200, description: 'Nudges computed server-side: runway_low, sweep_surplus, and streak_at_risk items' })
   getNudges(@Request() req: any): Promise<NudgeItem[]> {
     return this.insightsService.getNudges(req.user.id);

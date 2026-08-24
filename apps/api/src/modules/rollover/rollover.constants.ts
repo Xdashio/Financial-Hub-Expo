@@ -19,8 +19,7 @@ export const EVENT_GOAL_ACHIEVED = 'goal_achieved';
 // attempt against a known-blocked recipient is a meaningful behavioral data
 // point worth surfacing, even though the block itself never lifts.
 export const EVENT_GAMBLING_BLOCKED_ATTEMPT = 'gambling_blocked_attempt';
-// FLUTTER_TO_EXPO_PORT_GUIDE.md §3: ported from the Flutter discipline-score
-// rule set. Fires when a user proceeds with a spend that exceeds a pocket's
+// Fires when a user proceeds with a spend that exceeds a pocket's
 // available balance via the explicit override path in SpendService.checkSpend
 // / commitSpend (audit_team.md item 4/5) — never fired for the passive
 // insufficient-funds block itself, only when the user chose to push through
@@ -43,8 +42,7 @@ export const CAP_DAILY_OVERSPEND = -15; // most negative allowed from this event
 export const POINTS_GAMBLING_BLOCKED_ATTEMPT = -5;
 export const CAP_GAMBLING_BLOCKED_ATTEMPT = -25; // most negative allowed from this event type / month
 
-// Ported from Flutter's rule set (FLUTTER_TO_EXPO_PORT_GUIDE.md §3): the
-// steepest single-event penalty in either implementation, reflecting that
+// The steepest single-event penalty in the discipline-score rule set, reflecting that
 // this is a deliberate, logged choice to spend past what the plan allows —
 // not a passive slip like daily_overspend.
 export const POINTS_ESSENTIAL_OVERRIDE = -10;

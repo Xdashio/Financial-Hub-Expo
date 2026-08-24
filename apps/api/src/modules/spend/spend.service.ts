@@ -692,8 +692,7 @@ export class SpendService {
   }
 
   /**
-   * Ported from Flutter's discipline-score rule set (FLUTTER_TO_EXPO_PORT_GUIDE.md
-   * §3, audit_team.md item 4/5): fires when a user explicitly chooses to
+   * Fires when a user explicitly chooses to
    * spend past a pocket's available balance instead of adjusting allocation
    * or cancelling. Capped per calendar month using the same "sum this
    * event's deductions since month start" pattern as

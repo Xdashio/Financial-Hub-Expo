@@ -155,7 +155,7 @@ export class InsightsService {
   }
 
   /**
-   * FLUTTER_TO_EXPO_PORT_GUIDE.md §7 / audit_team.md item 4/5 (part 3):
+   * Nudge generation (part 3):
    * proactive nudges computed server-side. All three §7 MVP nudge types
    * (runway/velocity, surplus-sweep, streak-at-risk) are included — see
    * NudgesService for the per-type logic and NudgeItem for the

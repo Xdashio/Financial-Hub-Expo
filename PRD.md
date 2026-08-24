@@ -144,7 +144,7 @@ Since the revenue model itself is unresolved (§5), the SOM revenue figure speci
 
 ## 7. MVP scope (showcase, not production)
 
-**In scope:** Individual segment only. Both allocation styles (Daily Budget, Structured) for at least one income pattern (salaried), manual income entry, the core screens already designed (Onboarding, Onboarding Result, Home ×2 variants, Pocket Detail, Reallocate pick + review + cooling-off, Merchant classify/blocked/report, Insights, Profile). Built on a clean, new tech stack — React Native (Expo) + NestJS + PostgreSQL/Supabase (see `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §3–4) — not the earlier Flutter/Supabase wallet prototype from a prior architecture direction, which is not part of this repository.
+**In scope:** Individual segment only. Both allocation styles (Daily Budget, Structured) for at least one income pattern (salaried), manual income entry, the core screens already designed (Onboarding, Onboarding Result, Home ×2 variants, Pocket Detail, Reallocate pick + review + cooling-off, Merchant classify/blocked/report, Insights, Profile). Built on React Native (Expo) + NestJS + PostgreSQL/Supabase — see `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §3–4 for the full architecture and rationale.
 
 **Out of scope for MVP:** MSME segment (including event planner/ticketing use cases), partner-embedding shell/SDK behavior, billing system UI, freelancer-specific onboarding tuning, live bank/statement integration (detection can be mocked/simulated for the showcase), any real wallet/PSP money movement, company registration (blocked on funding).
 
