@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, Pressable, TextInput, ScrollView } from 'react-native';
+import { View, Text, Pressable, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, radius, typography, touchTarget } from '@/theme';
+import { spacing, radius, typography, touchTarget, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { Button } from '@/components/ui/Button';
@@ -55,6 +55,7 @@ export function EmergencyUnlockRunwayImpactSheet({
   pockets = [] 
 }: EmergencyUnlockRunwayImpactSheetProps) {
   const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   const [state, setState] = useState<EligibilityState>({ status: 'loading' });
   const [selectedAmount, setSelectedAmount] = useState(0);
@@ -503,7 +504,8 @@ export function EmergencyUnlockRunwayImpactSheet({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
   section: {
     marginBottom: spacing.lg,
   },
@@ -620,4 +622,5 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.lg,
   },
-});
+  });
+}
