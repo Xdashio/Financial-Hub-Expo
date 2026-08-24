@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, RefreshControl, StyleSheet, Text, Pressable } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, radius, typography } from '@/theme';
+import { spacing, radius, typography, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { RunwayVisualization } from '@/components/pockets/RunwayVisualization';
 import { DailyAllocationToday } from '@/components/pockets/DailyAllocationToday';
@@ -20,6 +20,7 @@ import { AlertTriangle, Zap, Target, Shield } from 'lucide-react-native';
 
 export function FreelancerDashboard() {
   const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [refreshing, setRefreshing] = useState(false);
   const [showEmergencyUnlock, setShowEmergencyUnlock] = useState(false);
   
@@ -281,7 +282,8 @@ export function FreelancerDashboard() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -387,12 +389,7 @@ const styles = StyleSheet.create({
     height: 32,
     backgroundColor: colors.lineSoft,
   },
-});
-
-const { colors } = StyleSheet.create({
-  container: {
-    backgroundColor: '#F8F9FA',
-  },
-});
+  });
+}
 
 export default FreelancerDashboard;

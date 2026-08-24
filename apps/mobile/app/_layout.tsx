@@ -10,6 +10,7 @@ import 'react-native-url-polyfill/auto';
 
 import { useEffect, useState } from 'react';
 import { AppState, View } from 'react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import { PocketLoader, OfflineIndicator } from '@/components/ui';
 import { Stack, useRouter } from 'expo-router';
@@ -136,11 +137,15 @@ function RootLayoutInner() {
   );
 }
 
+const queryClient = new QueryClient();
+
 function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <RootLayoutInner />
+        <QueryClientProvider client={queryClient}>
+          <RootLayoutInner />
+        </QueryClientProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, Pressable, StyleSheet, RefreshControl } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, radius, typography, touchTarget } from '@/theme';
+import { spacing, radius, typography, touchTarget, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { RunwayVisualization } from './RunwayVisualization';
 import { usePlanningCycleStatus, useCurrentPlanningCycle, useTriggerPlanningCycle, usePlanningCycleHistory } from '@/hooks/useFreelancer';
@@ -13,6 +13,7 @@ import { AlertTriangle, Calendar } from 'lucide-react-native';
 
 export function PlanningCycleScreen() {
   const { colors } = useTheme();
+  const styles = createStyles(colors);
   const [refreshing, setRefreshing] = useState(false);
   const [showTriggerConfirm, setShowTriggerConfirm] = useState(false);
 
@@ -362,7 +363,8 @@ export function PlanningCycleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     padding: spacing.md,
@@ -540,4 +542,5 @@ const styles = StyleSheet.create({
   confirmModal: {
     paddingVertical: spacing.md,
   },
-});
+  });
+}

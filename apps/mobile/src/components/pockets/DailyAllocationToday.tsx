@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, radius, typography, touchTarget } from '@/theme';
+import { spacing, radius, typography, touchTarget, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { RunwayVisualization } from './RunwayVisualization';
 import { DailyAllocation } from '@financial-hub/shared';
@@ -22,6 +22,7 @@ interface DailyAllocationTodayProps {
 
 export function DailyAllocationToday({ allocation, runway, spendablePockets }: DailyAllocationTodayProps) {
   const { colors } = useTheme();
+  const styles = createStyles(colors);
 
   if (!allocation) {
     return (
@@ -224,7 +225,8 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
   container: {
     flex: 1,
     padding: spacing.md,
@@ -342,4 +344,5 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gold,
   },
-});
+  });
+}
