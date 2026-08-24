@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '@/theme/ThemeContext';
-import { spacing, radius, typography } from '@/theme';
+import { spacing, radius, typography, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { ProgressRing } from '@/components/ui/ProgressRing';
 import { RunwaySummary } from '@financial-hub/shared';
@@ -13,6 +13,7 @@ interface RunwayVisualizationProps {
 
 export function RunwayVisualization({ runway, showDetails = true }: RunwayVisualizationProps) {
   const { colors } = useTheme();
+  const styles = createStyles(colors);
   const applicable = 'applicable' in runway ? runway.applicable : false;
   const runwayDays = applicable ? (runway as RunwaySummary).runwayDays ?? 0 : 0;
   const discretionaryReserve = applicable ? (runway as RunwaySummary).discretionaryReserve ?? 0 : 0;
@@ -140,7 +141,8 @@ export function RunwayVisualization({ runway, showDetails = true }: RunwayVisual
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: ColorPalette) {
+  return StyleSheet.create({
   container: {
     width: '100%',
   },
@@ -207,4 +209,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-});
+  });
+}
