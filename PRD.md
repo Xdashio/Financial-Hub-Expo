@@ -29,7 +29,7 @@ Financial HUB is a **behavior-driven financial intelligence layer** that:
 1. **Income** — how income arrives (amount, regularity, source count). Future versions will detect incoming funds from connected financial institutions and classify them as salary, business income, transfer, or irregular income to trigger automatic allocation options.
 2. **Spending habits** — behavioral questions (e.g. "when money runs low near month-end, what usually happens?") — short, non-judgmental, multiple choice.
 3. **Fixed expenses** — system attempts detection (from linked account/statement where available) and always lets the user confirm or edit.
-4. **Plan assignment** — system determines income pattern (salaried vs freelancer) and allocation style (daily vs structured) from the above, and assigns exactly one of the four fixed plan types.
+4. **Plan assignment** — system determines income pattern (`salaried`, `freelancer`, or `mix`) and allocation style (daily vs structured) from the above, and assigns exactly one of six plan names. Users never pick from a menu — the plan is inferred, shown with its reasoning, and can be revisited from Profile.
 5. **Onboarding result** — shows the assigned plan name, a plain-language "why this plan" explanation (2–3 reasons max), and a preview of the actual split (fixed costs / savings / spendable) before the user commits. User can proceed or request adjustment.
 
 **Rule:** the user never picks a plan type from a menu. It's inferred, shown transparently, and can be revisited (not casually changed) from Profile.
@@ -39,10 +39,10 @@ Financial HUB is a **behavior-driven financial intelligence layer** that:
 Single shared shell (brand header, Safe to Spend hero, total balance secondary, savings-protected strip), body adapts by plan style:
 
 - **Structured plans** — pocket cards (progress bar, amount, status) for each pocket including a locked Savings pocket.
-- **Daily Budget plans** — **behavior-aware daily spending packets** (settled decision). Daily Budget plans do not simply divide money evenly across days. They create behavior-aware spending packets that vary based on real-life patterns:
-  - **Student**: KES 300/day for consistent, low-variable spending patterns
-  - **Salaried**: structured daily packets for fuel, breakfast, lunch, dinner, and weekend family pocket
-  - **Freelancer**: adaptive daily budget based on available runway and income timing
+- **Daily Budget plans** — **behavior-aware daily spending packets** (settled decision). Daily Budget plans do not simply divide money evenly across days. They create behavior-aware daily caps derived from the user's persona:
+  - **Student** (`lifeStage: student`): a single "Daily spend" pocket covering all discretionary spend — simplified single-pocket layout, no category split.
+  - **Working adult / self-employed**: daily caps across category pockets — Food & Groceries, Transport, Personal & Leisure, and Family & obligations (added when dependents are indicated). Split defaults to persona-shaped weights; user can adjust on the onboarding result screen.
+  - **Freelancer / Gig**: same category pocket set as working adults, but daily caps are derived from the discretionary reserve divided by the income interval (e.g. 14 days for biweekly payers) — adapting to the actual income rhythm rather than a fixed 30-day month.
 
 Each spendable pocket shows its own daily cap and remaining amount (e.g. Groceries & food 180 left / cap 250, Transport 120 left / cap 200, Personal & leisure 160 left / cap 200). These roll up into a single "Safe to spend today" hero (the hero is literally the sum of the daily caps — 460 = 180 + 120 + 160). Savings is shown separately under "Protected", fed by the daily rollover (unspent daily amounts roll to Savings). Fixed costs sit under "Fixed, already handled". This per-pocket design avoids the "mental accounting confusion" of a single global figure — spending Food money can't secretly eat into Transport.
 

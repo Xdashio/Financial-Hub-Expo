@@ -9,7 +9,7 @@ Phased from empty repo → MVP showcase → embeddable product with billing. Tim
 **Strategic context:** Financial HUB is a behavior-driven financial intelligence layer that structures income before spending, automates purpose-based allocations, protects savings, and helps individuals build long-term financial resilience across the financial institutions they already use. The roadmap reflects this positioning as infrastructure, not competition to existing financial institutions.
 
 ## Phase 0 — Foundation (current)
-- [x] Core concept defined (pockets, protected savings, 4 plan types, reallocation friction)
+- [x] Core concept defined (pockets, protected savings, 6 plan names across 3 income patterns, reallocation friction)
 - [x] Core screens designed (Onboarding → Result → Home ×2 → Detail → Reallocate → Insights → Profile)
 - [x] Product docs written (this doc set)
 - [x] Confirmed: standalone MVP showcase first, Individual segment only, no wallet/PSP (manual income entry), clean new tech stack — React Native (Expo) + NestJS + PostgreSQL/Supabase
