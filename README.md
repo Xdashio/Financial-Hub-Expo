@@ -31,24 +31,34 @@ Most budgeting tools ask users to configure their own categories and percentages
 
 ## Daily spending engine
 
-Daily Budget plans do not simply divide money evenly across days. They create behavior-aware spending packets that can vary between workdays, weekends, family periods, and irregular-income cycles:
+Daily Budget plans do not simply divide money evenly across days. They create behavior-aware daily caps derived from the user's persona and income pattern:
 
-- **Student**: KES 300/day for consistent, low-variable spending
-- **Salaried**: structured daily packets for fuel, breakfast, lunch, dinner, and weekend family pocket
-- **Freelancer**: adaptive daily budget based on available runway and income timing
+- **Student** (`lifeStage: student`): a single "Daily spend" pocket (category: `leisure`) — one flat daily cap covering all discretionary spending. Students get a simplified single-pocket layout rather than a split layout.
+- **Working adult / self-employed**: daily caps across up to four category pockets — Food & Groceries, Transport, Personal & Leisure, and Family & obligations (added when dependents are indicated). The split percentages default to a persona-shaped weighting (remote workers get a reduced transport share; households with dependents get family weighted on par with food) and can be adjusted on the onboarding result screen.
+- **Freelancer / Gig**: the same category pocket set as working adults, but daily caps are derived from the discretionary reserve divided by the user's expected income interval (e.g. 14 days for biweekly payers) rather than a fixed 30-day month — adapting to the actual income rhythm.
 
-This adaptive approach aligns spending behavior with real-life income patterns rather than applying rigid arithmetic rules.
+Daily caps are calculated amounts (not hardcoded values) — they depend on income, fixed expenses, savings target, and persona.
 
-## Money plans (four fixed types)
+## Money plans (six plan names, three income patterns)
 
-| Plan | Income pattern | Allocation style |
-|---|---|---|
-| Salaried — Structured | Regular, predictable | Divided into pockets |
-| Salaried — Daily Budget | Regular, predictable | Behavior-aware daily packets |
-| Freelancer — Daily Budget | Irregular, lumpy | Adaptive daily packets with runway calculation |
-| Gig — Daily Budget | Concentrated gig/platform income | Adaptive daily packets with runway calculation |
+Plans are inferred by the rules engine — users never pick from a menu. The stored `incomePattern` on the plan record is one of three values (`salaried`, `freelancer`, `mix`), but the display name shown to users is one of six:
 
-An initial plan is assigned during onboarding and can be refined over time as behavior and income patterns change through continuous learning and optional reassessment.
+| Plan name (display) | Stored income pattern | Allocation style | Notes |
+|---|---|---|---|
+| Salaried — Structured | `salaried` | Divided into category pockets | Low-to-mid needs ratio + disciplined spending habit |
+| Salaried — Daily Budget | `salaried` | Behavior-aware daily caps | High needs ratio, or spending habit signals overspend risk |
+| Salaried + Side Income — Structured | `salaried` (`mix` onboarding answer) | Divided into category pockets | Stable base + irregular side income; display-only distinction |
+| Salaried + Side Income — Daily Budget | `salaried` (`mix` onboarding answer) | Behavior-aware daily caps | Same as above but high needs or weak spending habit |
+| Freelancer — Daily Budget | `freelancer` | Adaptive daily caps with runway | Multi-client, diversified income sources (3+ sources) |
+| Gig — Daily Budget | `freelancer` | Adaptive daily caps with runway | Platform/gig-style concentrated income (1–2 sources) |
+
+**Key invariants from the code:**
+- Freelancer income pattern always gets a Daily Budget plan — structured plans are blocked at the rules engine level (runway calculation requires daily caps).
+- `mix` onboarding answer resolves to stored `incomePattern = 'salaried'` — the distinction is display and copy only; runway/rollover/nudge logic all key off the stored pattern.
+- `Gig` vs `Freelancer` naming is determined by `sourceCount`: ≤2 sources → Gig (concentrated), 3+ → Freelancer (diversified). Stored `incomePattern` stays `'freelancer'` either way.
+- Savings rate is a flat 10% of gross income floor for all plans. Goal-driven savings can raise the rate; the cap is 50% of remaining-after-fixed before a shortfall warning is surfaced instead of silently forcing it.
+
+An initial plan is assigned during onboarding and can be revisited from Profile (once per calendar month) via the plan retake flow.
 
 ## Financial outcomes
 
