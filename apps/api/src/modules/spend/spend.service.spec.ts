@@ -113,6 +113,7 @@ describe('SpendService.commitSpend', () => {
       getActivePlanByUserId: jest.fn().mockResolvedValue(null),
       updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
       getIncomeEventsByUserId: jest.fn().mockResolvedValue([]),
+      getFixedExpensesByUserId: jest.fn().mockResolvedValue([]),
     } as any;
     disciplineScore = { applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 100 }) };
     runway = new RunwayService(repository as unknown as SupabaseRepository);
