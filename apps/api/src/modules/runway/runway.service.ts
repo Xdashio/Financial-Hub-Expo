@@ -36,11 +36,12 @@ export class RunwayService {
       0
     );
 
-    // Get the daily budget from the last planning cycle or use a default
-    // The daily budget is set during the Monthly Planning Cycle
-    // For now, we'll use a heuristic: reserve / 30 days as default
+    // Compute daily budget using the same logic as the Monthly Planning Cycle:
+    // dailyBudget = max(1, round(discretionaryReserve / 30 * 100) / 100)
+    // where discretionaryReserve = reserveBalance - totalFixedObligations
     const reserveBalance = plan.reserve_balance || 0;
-    const dailyBudget = Math.max(1, Math.round(reserveBalance / 30 * 100) / 100);
+    const discretionaryReserve = Math.max(0, reserveBalance - totalFixedObligations);
+    const dailyBudget = Math.max(1, Math.round(discretionaryReserve / 30 * 100) / 100);
 
     return computeRunway({
       incomeIntervalDaysEstimate: plan.income_interval_days,

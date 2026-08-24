@@ -148,11 +148,50 @@ export class BehavioralRecommendationsService {
   }
 
   /**
-   * Get the user's recommendation history (accepted/rejected).
+   * Get the user's recommendation history (accepted/rejected recommendations).
+   * Queries behavior events related to recommendation decisions.
    */
-  async getRecommendationHistory(userId: string): Promise<any[]> {
-    // This would track user decisions on recommendations
-    // For now, return empty array
-    return [];
+  async getRecommendationHistory(userId: string): Promise<AllocationRecommendation[]> {
+    // Get behavior events related to recommendations
+    const behaviorEvents = await this.repository.getBehaviorEventsByUserId(userId);
+    
+    // Filter events that are related to recommendation decisions
+    const recommendationEvents = behaviorEvents.filter(
+      (event) => event.type === 'recommendation_accepted' || event.type === 'recommendation_rejected'
+    );
+    
+    // Build recommendation history from events
+    const history: AllocationRecommendation[] = recommendationEvents.map((event) => {
+      const payload = event.payload as {
+        expenseId: string;
+        name: string;
+        newAllocation: number;
+        decision: 'accepted' | 'rejected';
+      };
+      
+      if (payload.decision === 'accepted') {
+        return {
+          expenseId: payload.expenseId,
+          name: payload.name,
+          currentAllocation: 0,
+          recommendedAllocation: payload.newAllocation,
+          confidence: 'medium',
+          reason: 'Accepted user recommendation',
+          basedOnCycles: 0,
+        };
+      } else {
+        return {
+          expenseId: payload.expenseId,
+          name: payload.name,
+          currentAllocation: 0,
+          recommendedAllocation: 0,
+          confidence: 'low',
+          reason: 'Rejected user recommendation',
+          basedOnCycles: 0,
+        };
+      }
+    });
+    
+    return history;
   }
 }
