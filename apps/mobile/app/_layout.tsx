@@ -137,7 +137,22 @@ function RootLayoutInner() {
   );
 }
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Don't retry 4xx responses — a 404 (e.g. a freelancer-only endpoint
+      // hit by a salaried account) or 401/403 will never succeed on retry,
+      // and retrying it anyway is what turned a single "not applicable"
+      // response into a growing storm of repeated requests on every
+      // screen focus. Only retry on network errors / 5xx, up to twice.
+      retry: (failureCount, error: any) => {
+        const status = error?.status;
+        if (status && status >= 400 && status < 500) return false;
+        return failureCount < 2;
+      },
+    },
+  },
+});
 
 function RootLayout() {
   return (
