@@ -24,6 +24,28 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
   const { colors } = useTheme();
   const styles = createStyles(colors);
 
+  // Must be called unconditionally before any early returns (Rules of Hooks)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const pocketProgress = useMemo(() => {
+    return spendablePockets.map((pocket) => {
+      const cap = pocket.daily_cap ?? 0;
+      const available = pocket.available_balance ?? 0;
+      // For daily cap pockets, show progress against daily cap
+      // For others, show monthly progress
+      const isDailyCap = pocket.daily_cap !== null && pocket.daily_cap > 0;
+      const current = isDailyCap ? Math.max(0, cap - available) : 0;
+      const total = isDailyCap ? cap : pocket.monthly_allocation;
+      const pct = total > 0 ? Math.min(1, current / total) : 0;
+      return {
+        ...pocket,
+        progress: pct,
+        isDailyCap,
+        cap,
+        available,
+      };
+    });
+  }, [spendablePockets]);
+
   if (!allocation) {
     return (
       <View style={styles.emptyContainer}>
@@ -46,27 +68,6 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
   const overspendAmount = allocation.overspendAmount ?? 0;
   const progress = planned > 0 ? Math.min(1, spent / planned) : 0;
 
-  // Calculate pocket-level progress
-  const pocketProgress = useMemo(() => {
-    return spendablePockets.map((pocket) => {
-      const cap = pocket.daily_cap ?? 0;
-      const available = pocket.available_balance ?? 0;
-      // For daily cap pockets, show progress against daily cap
-      // For others, show monthly progress
-      const isDailyCap = pocket.daily_cap !== null && pocket.daily_cap > 0;
-      const current = isDailyCap ? Math.max(0, cap - available) : 0;
-      const total = isDailyCap ? cap : pocket.monthly_allocation;
-      const pct = total > 0 ? Math.min(1, current / total) : 0;
-      return {
-        ...pocket,
-        progress: pct,
-        isDailyCap,
-        cap,
-        available,
-      };
-    });
-  }, [spendablePockets]);
-
   const runwayDaysAtOpen = allocation.runwayDaysAtOpen ?? 0;
   const runwayDaysAtClose = allocation.runwayDaysAtClose ?? null;
   const runwayDelta = runwayDaysAtClose !== null ? runwayDaysAtClose - runwayDaysAtOpen : 0;
@@ -81,7 +82,7 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
       {/* Today's Allocation Card */}
       <View style={styles.section}>
         <Text style={[typography.heading, { color: colors.ink, marginBottom: spacing.md }]}>
-          Today's Allocation
+          Today&apos;s Allocation
         </Text>
 
         <View style={[
@@ -164,7 +165,7 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
       {spendablePockets.length > 0 && (
         <View style={styles.section}>
           <Text style={[typography.heading, { color: colors.ink, marginBottom: spacing.md }]}>
-            Today's Pocket Budgets
+            Today&apos;s Pocket Budgets
           </Text>
           <View style={styles.pocketsList}>
             {spendablePockets.map((pocket) => {

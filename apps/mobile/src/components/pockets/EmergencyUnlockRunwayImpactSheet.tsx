@@ -8,7 +8,6 @@ import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { Button } from '@/components/ui/Button';
 import { PocketGlyph } from '@/components/ui/PocketGlyph';
 import { PocketLoader } from '@/components/ui/PocketLoader';
-import { CategoryIcon } from '@/components/icons';
 import { emergencyUnlockApi } from '@/services/api';
 import { DiscretionaryRunway, RunwayImpactOption, EmergencyUnlockEligibilityReason } from '@financial-hub/shared';
 
@@ -54,6 +53,7 @@ export function EmergencyUnlockRunwayImpactSheet({
   isLoading, 
   pockets = [] 
 }: EmergencyUnlockRunwayImpactSheetProps) {
+  'use no memo';
   const { colors } = useTheme();
   const styles = createStyles(colors);
 
@@ -62,17 +62,14 @@ export function EmergencyUnlockRunwayImpactSheet({
   const [amountText, setAmountText] = useState('');
   const [selectedOption, setSelectedOption] = useState<RunwayImpactOption | null>(null);
   const [showImpactWarning, setShowImpactWarning] = useState(false);
-  const [prevVisible, setPrevVisible] = useState(visible);
-  
-  if (visible !== prevVisible) {
-    setPrevVisible(visible);
-    if (visible) {
-      setShowImpactWarning(false);
-      setSelectedOption(null);
-    }
-  }
 
-  const fetchEligibility = useCallback(async () => {
+  const handleClose = () => {
+    setShowImpactWarning(false);
+    setSelectedOption(null);
+    onClose();
+  };
+
+  const fetchEligibility = async () => {
     setState({ status: 'loading' });
     try {
       const response = await emergencyUnlockApi.checkEligibility();
@@ -104,7 +101,7 @@ export function EmergencyUnlockRunwayImpactSheet({
       console.error('Failed to fetch emergency unlock eligibility:', error);
       setState({ status: 'error' });
     }
-  }, []);
+  };
 
   useEffect(() => {
     if (!visible) return;
@@ -139,7 +136,7 @@ export function EmergencyUnlockRunwayImpactSheet({
   // --- Loading ---
   if (state.status === 'loading') {
     return (
-      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
+      <BottomSheetModal visible={visible} onClose={handleClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.xxl, alignItems: 'center', gap: spacing.md }}>
           <PocketLoader size={36} color={colors.emeraldDeep} />
           <Text style={{ ...typography.body, color: colors.sage }}>Calculating runway impact…</Text>
@@ -151,7 +148,7 @@ export function EmergencyUnlockRunwayImpactSheet({
   // --- Error ---
   if (state.status === 'error') {
     return (
-      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
+      <BottomSheetModal visible={visible} onClose={handleClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.lg, alignItems: 'center' }}>
           <Text style={{ ...typography.body, color: colors.ink, textAlign: 'center', marginBottom: spacing.lg }}>
             Couldn&apos;t check emergency allocation eligibility. Check your connection and try again.
@@ -170,7 +167,7 @@ export function EmergencyUnlockRunwayImpactSheet({
     const isNoDiscretionary = state.reason === 'no_discretionary_runway';
 
     return (
-      <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
+      <BottomSheetModal visible={visible} onClose={handleClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.md, alignItems: 'center' }}>
           <View style={{ width: 56, height: 56, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
             <PocketGlyph kind={isWaitingOnHistory ? 'spendable' : isMonthlyLimit ? 'locked' : isNotFreelancer ? 'locked' : 'savings'} size={28} color={colors.gold} />
@@ -198,7 +195,7 @@ export function EmergencyUnlockRunwayImpactSheet({
               Your discretionary runway is too low for an emergency allocation
             </Text>
           )}
-          <Button variant="secondary" onPress={onClose} style={{ marginTop: spacing.xl, minWidth: 140 }}>
+          <Button variant="secondary" onPress={handleClose} style={{ marginTop: spacing.xl, minWidth: 140 }}>
             Got it
           </Button>
         </View>
@@ -208,7 +205,7 @@ export function EmergencyUnlockRunwayImpactSheet({
 
   // --- Eligible: Full Runway Impact Flow ---
   return (
-    <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
+    <BottomSheetModal visible={visible} onClose={handleClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
       <ScrollView style={{ paddingBottom: spacing.xl }} showsVerticalScrollIndicator={false}>
         {/* Analysis Summary */}
         <View style={styles.analysisCard}>
@@ -480,7 +477,7 @@ export function EmergencyUnlockRunwayImpactSheet({
 
         {/* Actions */}
         <View style={styles.actions}>
-          <Button variant="secondary" onPress={onClose} disabled={isLoading} style={{ flex: 1 }}>
+          <Button variant="secondary" onPress={handleClose} disabled={isLoading} style={{ flex: 1 }}>
             Cancel
           </Button>
           <Button 
