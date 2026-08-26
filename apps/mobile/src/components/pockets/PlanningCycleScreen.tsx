@@ -328,7 +328,7 @@ export function PlanningCycleScreen() {
             Run Monthly Planning Cycle
           </Text>
           <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center', marginBottom: spacing.lg }}>
-            This will audit last month's spending, allocate fixed expenses for the new cycle, recalculate your daily budget, and generate new behavioral recommendations. This normally runs automatically on day {status?.monthly_planning_day}.
+            This will audit last month&apos;s spending, allocate fixed expenses for the new cycle, recalculate your daily budget, and generate new behavioral recommendations. This normally runs automatically on day {status?.monthly_planning_day}.
           </Text>
           <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
             <Button variant="secondary" onPress={() => setShowTriggerConfirm(false)} style={{ flex: 1 }}>

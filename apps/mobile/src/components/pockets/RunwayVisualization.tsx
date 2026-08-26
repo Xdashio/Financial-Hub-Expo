@@ -47,15 +47,14 @@ export function RunwayVisualization({ runway, showDetails = true }: RunwayVisual
           strokeWidth={8}
           trackColor={colors.lineSoft}
           color={runwayDays <= 3 ? colors.clay : runwayDays <= 7 ? colors.gold : colors.emeraldDeep}
-          children={
-            <View style={styles.centerContent}>
-              <Text style={[typography.display, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>
-                {runwayDays}
-              </Text>
-              <Text style={[typography.caption, { color: colors.sage, marginTop: 2 }]}>days</Text>
-            </View>
-          }
-        />
+        >
+          <View style={styles.centerContent}>
+            <Text style={[typography.display, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>
+              {runwayDays}
+            </Text>
+            <Text style={[typography.caption, { color: colors.sage, marginTop: 2 }]}>days</Text>
+          </View>
+        </ProgressRing>
       </View>
 
       {/* Key Metrics Row */}
