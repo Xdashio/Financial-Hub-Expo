@@ -457,3 +457,106 @@ describe('PocketsService allocation integrity (audit_team.md item 4/5, part 1)',
     expect(summary.is_over_allocated).toBe(false);
   });
 });
+
+describe('PocketsService today_remaining (daily-cap home UX fix)', () => {
+  // Regression coverage for the bug this fixes: available_balance is a
+  // whole-cycle ledger figure (income lands as one lump sum, then only
+  // drains toward "today's slice" as nightly rollover sweeps run), so it
+  // must never be surfaced as "left today" on its own for a daily-cap
+  // pocket. today_remaining is the authoritative "left today" figure.
+  const DAILY_PLAN = { id: 'plan-1', user_id: 'user-1', type: 'daily', income_pattern: 'salaried' };
+  const STRUCTURED_PLAN = { id: 'plan-1', user_id: 'user-1', type: 'structured', income_pattern: 'salaried' };
+  // A pocket funded with a whole month's lump sum (14,500) but capped at
+  // 500/day — the exact scenario that produced a misleading home card.
+  const CAPPED_POCKET = { ...POCKET, id: 'p-food', kind: 'spendable', daily_cap: 500, monthly_allocation: 15000 };
+  const UNCAPPED_SAVINGS = { ...POCKET, id: 'p-savings', kind: 'savings', daily_cap: null, monthly_allocation: 5000 };
+
+  let repository: jest.Mocked<
+    Pick<
+      SupabaseRepository,
+      | 'getActivePlanByUserId'
+      | 'getTopLevelPocketsByPlanId'
+      | 'getPocketSummary'
+      | 'getSubPocketsByParentId'
+      | 'getSpendTotalsByPocketBetween'
+      | 'getPocketById'
+      | 'getTransactionsByPocketId'
+      | 'getPlanById'
+    >
+  >;
+  let disciplineScore: jest.Mocked<DisciplineScoreService>;
+  let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
+  let dailyAllocation: any;
+  let service: PocketsService;
+
+  beforeEach(() => {
+    repository = {
+      getActivePlanByUserId: jest.fn().mockResolvedValue(DAILY_PLAN),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([CAPPED_POCKET, UNCAPPED_SAVINGS]),
+      // Whole-cycle balance still holding the full lump-sum allocation —
+      // far above the 500 daily cap.
+      getPocketSummary: jest.fn().mockResolvedValue({ available: 14500, spent: 500 }),
+      getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
+      getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([['p-food', 200]])),
+      getPocketById: jest.fn().mockResolvedValue(CAPPED_POCKET),
+      getTransactionsByPocketId: jest.fn().mockResolvedValue([]),
+      getPlanById: jest.fn().mockResolvedValue(DAILY_PLAN),
+    } as any;
+    disciplineScore = { getCurrentScore: jest.fn(), applyDelta: jest.fn() } as any;
+    runway = { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any;
+    dailyAllocation = {} as any;
+    service = new PocketsService(
+      repository as unknown as SupabaseRepository,
+      disciplineScore,
+      runway as unknown as RunwayService,
+      dailyAllocation as unknown as DailyAllocationService,
+    );
+  });
+
+  it('getAllForUser derives today_remaining from cap minus spent-today, not the whole-cycle balance', async () => {
+    const pockets = await service.getAllForUser('user-1');
+    const food = pockets.find((p) => p.id === 'p-food') as any;
+    // cap 500 - spentToday 200 = 300 left today, well under the 14,500
+    // whole-cycle balance that a naive "show available_balance" read
+    // would have surfaced instead.
+    expect(food.today_remaining).toBe(300);
+    expect(food.available_balance).toBe(14500);
+  });
+
+  it('getAllForUser clamps today_remaining to the ledger balance when the pocket is nearly empty', async () => {
+    // Cap says 500 is allowed today, but the pocket itself only has 50
+    // left this cycle — today_remaining must not promise money that
+    // isn't there.
+    repository.getPocketSummary.mockResolvedValue({ available: 50, spent: 14450 } as any);
+    repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map([['p-food', 0]]));
+    const pockets = await service.getAllForUser('user-1');
+    const food = pockets.find((p) => p.id === 'p-food') as any;
+    expect(food.today_remaining).toBe(50);
+  });
+
+  it('getAllForUser does not set today_remaining for pockets without a daily cap', async () => {
+    const pockets = await service.getAllForUser('user-1');
+    const savings = pockets.find((p) => p.id === 'p-savings') as any;
+    expect(savings.today_remaining).toBeUndefined();
+  });
+
+  it('getAllForUser skips the today_remaining computation entirely for structured plans', async () => {
+    repository.getActivePlanByUserId.mockResolvedValue(STRUCTURED_PLAN as any);
+    await service.getAllForUser('user-1');
+    expect(repository.getSpendTotalsByPocketBetween).not.toHaveBeenCalled();
+  });
+
+  it('getPocketSummary exposes today_remaining and uses it (not the whole-cycle balance) for percentage_remaining', async () => {
+    const result = await service.getPocketSummary('p-food', 'user-1');
+    expect(result.summary.today_remaining).toBe(300);
+    expect(result.summary.spent_today).toBe(200);
+    // 300 / 500 cap = 60%, not 14500 / 500 (which would be nonsensical).
+    expect(result.summary.percentage_remaining).toBe(60);
+  });
+
+  it('getPocketSummary leaves today_remaining unset for a pocket with no daily cap', async () => {
+    repository.getPocketById.mockResolvedValue(UNCAPPED_SAVINGS as any);
+    const result = await service.getPocketSummary('p-savings', 'user-1');
+    expect(result.summary.today_remaining).toBeUndefined();
+  });
+});
