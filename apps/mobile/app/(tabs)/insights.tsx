@@ -116,7 +116,15 @@ export default function InsightsScreen() {
         .map(pocket => {
           const monthlyAllocation = pocket.monthly_allocation ?? 0;
           const availableBalance = pocket.available_balance ?? 0;
-          const spent = monthlyAllocation - availableBalance;
+          // Use the ledger's real spend total directly rather than
+          // monthlyAllocation - availableBalance: for a daily-cap pocket,
+          // that subtraction also folds in the nightly rollover sweep
+          // (unspent daily amounts leaving for Savings), which drains
+          // availableBalance without any real spending happening — a
+          // disciplined saver banking rollover credits every night would
+          // otherwise read as having spent that money, and could even
+          // wrongly show isOverBudget once enough nights had rolled over.
+          const spent = pocket.spent ?? Math.max(0, monthlyAllocation - availableBalance);
           const percentage = monthlyAllocation > 0 ? (spent / monthlyAllocation) * 100 : 0;
           const isOverBudget = spent > monthlyAllocation;
           

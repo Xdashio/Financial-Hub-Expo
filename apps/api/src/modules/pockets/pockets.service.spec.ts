@@ -523,6 +523,20 @@ describe('PocketsService today_remaining (daily-cap home UX fix)', () => {
     expect(food.available_balance).toBe(14500);
   });
 
+  it('getAllForUser exposes the ledger\'s real spend total, not monthlyAllocation minus availableBalance', async () => {
+    // getPocketSummary mock returns spent: 500 alongside available: 14500 —
+    // if a caller (e.g. insights.tsx before this fix) back-computed spent
+    // as monthlyAllocation - availableBalance instead of reading this
+    // field, it would get 15000 - 14500 = 500 too *in this case*, but only
+    // by coincidence of there being no rollover activity in the mock. The
+    // real bug was that subtraction silently including rollover-driven
+    // balance drops as if they were spend — this field exists so callers
+    // never need to do that subtraction at all.
+    const pockets = await service.getAllForUser('user-1');
+    const food = pockets.find((p) => p.id === 'p-food') as any;
+    expect(food.spent).toBe(500);
+  });
+
   it('getAllForUser clamps today_remaining to the ledger balance when the pocket is nearly empty', async () => {
     // Cap says 500 is allowed today, but the pocket itself only has 50
     // left this cycle — today_remaining must not promise money that

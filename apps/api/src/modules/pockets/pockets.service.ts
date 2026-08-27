@@ -30,7 +30,7 @@ export class PocketsService {
 
   async getAllForUser(
     userId: string,
-  ): Promise<(Pocket & { available_balance: number; has_sub_pockets: boolean; today_remaining?: number })[]> {
+  ): Promise<(Pocket & { available_balance: number; has_sub_pockets: boolean; today_remaining?: number; spent: number })[]> {
     const plan = await this.repository.getActivePlanByUserId(userId);
     if (!plan) {
       return [];
@@ -45,6 +45,14 @@ export class PocketsService {
     // Enrich each pocket with its ledger-derived available balance so the
     // home screen doesn't need to call /summary per pocket. monthly_allocation
     // is the planning ceiling; available_balance is the spendable ledger balance.
+    // spent is exposed directly from the ledger (sum of type: 'spend' rows
+    // only) rather than left for callers to back-compute as
+    // monthly_allocation - available_balance — that subtraction silently
+    // folds in the nightly rollover sweep too (which drains available_balance
+    // without any real spend happening), so a disciplined daily-cap saver
+    // whose rollover credits have been quietly banking to Savings would
+    // read as having "spent" money they never touched. See insights.tsx's
+    // budget-comparison chart, which was doing exactly that subtraction.
     const enriched = await Promise.all(
       pockets.map(async (pocket) => {
         const summary = await this.repository.getPocketSummary(pocket.id);
@@ -52,6 +60,7 @@ export class PocketsService {
         return { 
           ...pocket, 
           available_balance: summary.available,
+          spent: summary.spent,
           has_sub_pockets: subPockets.length > 0
         };
       })

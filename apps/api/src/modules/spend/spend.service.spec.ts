@@ -540,4 +540,66 @@ describe('SpendService.commitSpend', () => {
       expect((updates as any).daily_cap).toBeCloseTo(23000 / 3, 2);
     });
   });
+
+  describe('commitSpend response pocket.today_remaining (daily-cap home UX fix, extended to log-spend)', () => {
+    // Regression coverage for the fourth spot the same bug turned up in:
+    // the "Spend logged" confirmation message in log-spend.tsx reads
+    // result.pocket.available_balance directly, which — like the home
+    // screen before the fix — is the whole-cycle ledger balance, not what's
+    // left of today's cap. today_remaining on the commit response is the
+    // number that confirmation message should actually use.
+    const DAILY_POCKET = { ...SPENDABLE_POCKET, daily_cap: 500 };
+
+    it('includes today_remaining (cap minus spent-today, clamped to the ledger balance) on a successful spend', async () => {
+      repository.getPocketById.mockResolvedValue(DAILY_POCKET as any);
+      repository.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1', type: 'daily' } as any);
+      // Whole-cycle balance still holding most of the lump-sum allocation.
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 14300 }));
+      // 200 spent today before this commit call's own transaction write —
+      // getSpendTotalsByPocketBetween is queried again after the write, so
+      // this mock stands in for "including the spend that was just made".
+      repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map([['pocket-1', 200]]));
+
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 200 }, 'user-1');
+
+      expect(result.allowed).toBe(true);
+      expect((result as any).pocket.available_balance).toBe(14300);
+      // 500 cap - 200 spent today = 300, nowhere near the 14,300 whole-cycle
+      // balance a naive "show available_balance" read would have surfaced.
+      expect((result as any).pocket.today_remaining).toBe(300);
+      expect((result as any).pocket.daily_cap).toBe(500);
+    });
+
+    it('omits today_remaining for a pocket with no daily cap', async () => {
+      repository.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1', type: 'structured' } as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 4500 }));
+
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
+
+      expect((result as any).pocket.today_remaining).toBeUndefined();
+    });
+
+    it('uses the freshly-adjusted cap (not the stale pre-override one) for today_remaining after an emergency override_daily_cap spend', async () => {
+      repository.getPocketById.mockResolvedValue({ ...SPENDABLE_POCKET, daily_cap: 833 } as any);
+      repository.getActivePlanByUserId.mockResolvedValue({ id: 'plan-1', type: 'daily' } as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 23000 }));
+      // Nothing else spent today besides this 2,000 override spend itself.
+      repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map([['pocket-1', 2000]]));
+
+      const result = await service.commitSpend(
+        { pocket_id: 'pocket-1', amount: 2000, override_daily_cap: true },
+        'user-1',
+      );
+
+      expect(result.allowed).toBe(true);
+      const adjustedCap = (result as any).adjusted_daily_cap;
+      expect(typeof adjustedCap).toBe('number');
+      // today_remaining must be computed against the *new* shrunk cap, not
+      // the 833 the pocket had before this override — otherwise it could
+      // read as still having headroom today when the cap was deliberately
+      // reduced to absorb this exact spend.
+      expect((result as any).pocket.daily_cap).toBeCloseTo(adjustedCap, 2);
+      expect((result as any).pocket.today_remaining).toBeCloseTo(Math.max(0, adjustedCap - 2000), 2);
+    });
+  });
 });
