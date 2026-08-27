@@ -149,7 +149,13 @@ function txLabel(tx: Transaction) {
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function TxRow({ tx, colors }: { tx: Transaction; colors: any }) {
-  const isDebit = tx.type === 'spend' || tx.type === 'reallocation_out';
+  // 'spend' and 'reallocation_out' are always debits. A 'rollover' row's
+  // direction is carried by its amount sign: the source pocket gets a
+  // negative amount (money swept out to Savings) and Savings gets a positive
+  // one. Treating every rollover as a credit (the old behaviour) made a
+  // spendable pocket show "+KSh 1,484 rollover" for money that actually left
+  // it — the wrong sign and the wrong colour.
+  const isDebit = tx.type === 'spend' || tx.type === 'reallocation_out' || (tx.type === 'rollover' && tx.amount < 0);
 
   const Icon =
     tx.type === 'spend'
@@ -528,18 +534,28 @@ export default function PocketDetailScreen() {
   // optimize against.
   const hourOfDay = new Date().getHours();
   const dayFractionElapsed = Math.min(1, Math.max(0, hourOfDay / 24));
-  const expectedRemainingFraction = 1 - dayFractionElapsed;
-  const actualRemainingFraction = dailyCap > 0 ? availableToday / dailyCap : 1;
-  const paceState: 'ahead' | 'onTrack' | 'behind' =
-    actualRemainingFraction >= expectedRemainingFraction + 0.1
+  // Pace is a *spend* comparison, not a remaining-balance one. The old logic
+  // compared "fraction of the cap still left" against "fraction of the day
+  // gone" — but a freshly funded day (0 spent) has 100% remaining at every
+  // hour, which trivially beat any time-based expectation and pinned the card
+  // on "Ahead of pace" for the entire day even if the user never opened the
+  // app. Compare how much of the cap was actually *spent* to how much of the
+  // day has elapsed instead, and never call a zero-spend day "ahead".
+  const spentTodayVal = isDailyCapped && dailyCap > 0 ? Math.max(0, dailyCap - availableToday) : 0;
+  const spentFraction = dailyCap > 0 ? spentTodayVal / dailyCap : 0;
+  const paceState: 'ahead' | 'onTrack' | 'behind' | 'none' =
+    spentTodayVal === 0
+      ? 'none'
+      : spentFraction <= dayFractionElapsed - 0.1
       ? 'ahead'
-      : actualRemainingFraction >= expectedRemainingFraction - 0.15
+      : spentFraction <= dayFractionElapsed + 0.15
       ? 'onTrack'
       : 'behind';
   const paceCopy: Record<typeof paceState, string> = {
     ahead: 'Ahead of pace — nice cushion for later today',
     onTrack: 'Right on pace for today',
     behind: 'Spending a bit faster than usual today',
+    none: 'No spend yet — your full daily budget is available',
   };
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -780,7 +796,7 @@ export default function PocketDetailScreen() {
                 </Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Avg/day</Text>
+                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Avg/day spend</Text>
                 <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>
                   {fmt(stat?.daily_average_spend ?? 0)}
                 </Text>

@@ -52,6 +52,7 @@ describe('RolloverService.runForUser', () => {
       createTransactions: jest.fn().mockResolvedValue([]),
       createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'evt-1' }),
       getRolloverCreditsForPocketBetween: jest.fn().mockResolvedValue(0),
+      hasRolloverLedgerRowsForDate: jest.fn().mockResolvedValue(false),
     };
     disciplineScore = {
       applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 103 }),
@@ -164,5 +165,31 @@ describe('RolloverService.runForUser', () => {
     expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
     expect(result.days).toEqual([]);
     expect(result.milestoneAwarded).toBeNull();
+  });
+
+  it('does not re-insert rollover ledger rows when they already exist for the day', async () => {
+    // Simulate the crash-between-writes case: a prior run committed the
+    // ledger rows but never emitted EVENT_DAILY_ROLLOVER_SUCCESS. The behavior
+    // event dedup alone would see this day as unhandled and re-insert the
+    // rows (duplicate "+KSh X rollover" entries). The new ledger guard must
+    // treat an already-swept day as done.
+    repository.hasRolloverLedgerRowsForDate.mockResolvedValue(true);
+
+    const result = await service.runForUser('user-1', new Date('2026-08-10T18:00:00.000Z'));
+
+    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(result.latestAmount).toBe(0);
+    expect(
+      result.days.every((d) => d.skipped || d.amount === 0),
+    ).toBe(true);
+  });
+
+  it('still inserts rollover rows on a fresh day (guard does not over-skip)', async () => {
+    repository.hasRolloverLedgerRowsForDate.mockResolvedValue(false);
+
+    const result = await service.runForUser('user-1', new Date('2026-08-10T18:00:00.000Z'));
+
+    expect(repository.createTransactions).toHaveBeenCalled();
+    expect(result.latestAmount).toBeGreaterThan(0);
   });
 });

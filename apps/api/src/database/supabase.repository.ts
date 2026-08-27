@@ -1110,6 +1110,36 @@ export class SupabaseRepository {
     return sumMoney((data || []).map((row) => Number(row.amount)));
   }
 
+  /**
+   * Idempotency guard for the nightly rollover sweep (see rollover.service.ts
+   * processDay). The sweep is a two-step write — ledger rows first, then the
+   * EVENT_DAILY_ROLLOVER_SUCCESS behavior event. The behavior event is the
+   * canonical "already processed" marker, but if the process dies between the
+   * two writes (or the event write is lost), the next rollover run still sees
+   * that day as unhandled and re-inserts the ledger rows, producing duplicate
+   * "+KSh X rollover" entries on the source pocket. Checking the ledger itself
+   * — for any 'rollover' row already written for one of the spendable pockets
+   * on that UTC day — closes that gap: a day whose rows were committed but
+   * whose event was missed is treated as done, not re-run.
+   */
+  async hasRolloverLedgerRowsForDate(
+    pocketIds: string[],
+    startIso: string,
+    endIsoExclusive: string,
+  ): Promise<boolean> {
+    if (pocketIds.length === 0) return false;
+    const { data, error } = await this.supabase
+      .from('transactions')
+      .select('id')
+      .in('pocket_id', pocketIds)
+      .eq('type', 'rollover')
+      .gte('created_at', startIso)
+      .lt('created_at', endIsoExclusive)
+      .limit(1);
+    if (error) throw error;
+    return (data || []).length > 0;
+  }
+
   // Discipline Scores
   async upsertDisciplineScore(score: DisciplineScoreInsert): Promise<DisciplineScore | null> {
     const { data, error } = await this.supabase
