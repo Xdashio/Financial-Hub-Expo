@@ -102,6 +102,48 @@ describe('RolloverService.runForUser', () => {
     expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', 3);
   });
 
+  it('BUG REGRESSION (2026-08-27): stamps each catch-up day\'s rollover rows with that day\'s own date, not the moment the sweep ran', async () => {
+    // Nothing pre-processed -> two full catch-up days get swept in one
+    // pass (2026-08-08 and 2026-08-09), simulating a user who hasn't
+    // opened the app in a couple of days. Before the fix, createTransactions
+    // never set created_at, so every row from every day defaulted to
+    // whatever the DB clock was at insert time — collapsing two distinct
+    // days' rollovers into what looked like duplicate transactions fired
+    // at the same instant in transaction history.
+    const now = new Date('2026-08-10T12:00:00.000Z');
+    repository.getBehaviorEventsByTypesSince.mockImplementation(async (_u: string, types: string[]) => {
+      if (types.includes(EVENT_DAILY_ROLLOVER_SUCCESS)) {
+        return [
+          { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-03' }, created_at: '2026-08-03T01:00:00.000Z' },
+          { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-04' }, created_at: '2026-08-04T01:00:00.000Z' },
+          { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-05' }, created_at: '2026-08-05T01:00:00.000Z' },
+          { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-06' }, created_at: '2026-08-06T01:00:00.000Z' },
+          { type: EVENT_DAILY_ROLLOVER_SUCCESS, payload: { date: '2026-08-07' }, created_at: '2026-08-07T01:00:00.000Z' },
+        ];
+      }
+      return [];
+    });
+
+    await service.runForUser('user-1', now);
+
+    // Two separate createTransactions calls, one per catch-up day.
+    expect(repository.createTransactions).toHaveBeenCalledTimes(2);
+    const [firstDayRows] = repository.createTransactions.mock.calls[0];
+    const [secondDayRows] = repository.createTransactions.mock.calls[1];
+
+    // Every row must carry an explicit created_at matching the calendar
+    // day it represents — not be left unset (which would default to "now"
+    // and make every catch-up day indistinguishable in transaction history).
+    for (const row of firstDayRows) {
+      expect(row.created_at).toBe('2026-08-08T00:00:00.000Z');
+    }
+    for (const row of secondDayRows) {
+      expect(row.created_at).toBe('2026-08-09T00:00:00.000Z');
+    }
+    // And the two days must not share a timestamp.
+    expect(firstDayRows[0].created_at).not.toBe(secondDayRows[0].created_at);
+  });
+
   it('is idempotent when yesterday was already processed', async () => {
     repository.getBehaviorEventsByTypesSince.mockResolvedValue([
       {
