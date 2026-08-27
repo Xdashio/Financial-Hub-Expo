@@ -5,6 +5,7 @@ import { DisciplineScoreService } from '../discipline-score/discipline-score.ser
 import { RunwayService } from '../runway/runway.service';
 import { DailyAllocationService } from '../daily-allocation/daily-allocation.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
+import { utcDayBounds } from '../rollover/rollover-planner';
 import { Pocket, PocketUpdate, PocketInsert, Transaction, MerchantClassification } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,7 +28,9 @@ export class PocketsService {
     private readonly dailyAllocation: DailyAllocationService,
   ) {}
 
-  async getAllForUser(userId: string): Promise<(Pocket & { available_balance: number; has_sub_pockets: boolean })[]> {
+  async getAllForUser(
+    userId: string,
+  ): Promise<(Pocket & { available_balance: number; has_sub_pockets: boolean; today_remaining?: number })[]> {
     const plan = await this.repository.getActivePlanByUserId(userId);
     if (!plan) {
       return [];
@@ -68,6 +71,42 @@ export class PocketsService {
         const cap = caps.get(pocket.id);
         if (cap !== undefined) {
           pocket.daily_cap = cap;
+        }
+      }
+    }
+
+    // Daily-budget plans (including freelancer): available_balance is a
+    // whole-cycle ledger figure — allocation lands as one lump sum and
+    // only drains toward "today's slice" as nightly rollover sweeps run
+    // (see rollover.service.ts), so right after income lands, or mid-cycle
+    // before rollover has caught up, available_balance can sit far above
+    // daily_cap. Home and any other "today" surface must not present that
+    // whole-cycle number as if it were today's spendable amount — they
+    // need spend actually made *today* to work out what's left of today's
+    // cap specifically. Computed here (not on the client) so every surface
+    // agrees with the same number spend.service.ts's cap-check already
+    // uses (see getDailyCapPreview).
+    if (plan.type === 'daily') {
+      const cappedPocketIds = enriched
+        .filter((p) => p.kind === 'spendable' && (p.daily_cap ?? 0) > 0)
+        .map((p) => p.id);
+      if (cappedPocketIds.length > 0) {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
+        const spentTodayByPocket = await this.repository.getSpendTotalsByPocketBetween(
+          cappedPocketIds,
+          startIso,
+          endIsoExclusive,
+        );
+        for (const pocket of enriched) {
+          if (pocket.kind !== 'spendable' || !((pocket.daily_cap ?? 0) > 0)) continue;
+          const spentToday = spentTodayByPocket.get(pocket.id) ?? 0;
+          const capLeft = Math.max(0, (pocket.daily_cap ?? 0) - spentToday);
+          // Never show "today" money the pocket doesn't actually have —
+          // if the ledger balance has already run dry this cycle, today's
+          // remaining can't exceed it even though the cap math alone
+          // would allow more.
+          (pocket as any).today_remaining = Math.round(Math.min(capLeft, pocket.available_balance) * 100) / 100;
         }
       }
     }
@@ -623,6 +662,8 @@ export class PocketsService {
       monthly_allocation: number;
       days_remaining: number;
       daily_average_spend: number;
+      today_remaining?: number;
+      spent_today?: number;
     };
     recent_activity: {
       last_transaction: string | null;
@@ -641,17 +682,39 @@ export class PocketsService {
     // debits (and reallocation flows). monthly_allocation is the planning
     // ceiling — used here only for the percentage display, not for the balance.
     const remaining = summary.available;
+
     // Daily-budget spendable pockets (pocket.daily_cap set) roll unspent
-    // balance to Savings every midnight, so `remaining` here is really
-    // "left today", not "left this month". Dividing that by the monthly
-    // ceiling produced a near-empty-looking bar even on a day the user is
-    // comfortably on pace (e.g. $45 left of a $60 daily cap showed as
-    // ~2.5% instead of 75%) — the opposite signal a daily-cap UX needs to
-    // reinforce good pacing. Use daily_cap as the denominator whenever it's
-    // set; monthly_allocation remains correct for structured pockets.
+    // balance to Savings every midnight, so `remaining` *trends toward*
+    // "left today" over the course of a cycle — but right after income
+    // lands, or on any day before that night's rollover has run, it can
+    // still hold the whole cycle's money. It is never a reliable stand-in
+    // for "left today" on its own. today_remaining computes that
+    // explicitly from what's actually been spent today (same math
+    // pockets.service.ts getAllForUser and spend.service.ts's cap-check
+    // already use), clamped to what's actually left in the ledger.
+    let todayRemaining: number | undefined;
+    let spentToday: number | undefined;
+    const hasDailyCap = (pocket.daily_cap ?? 0) > 0;
+    if (hasDailyCap && pocket.kind === 'spendable') {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
+      const totals = await this.repository.getSpendTotalsByPocketBetween([pocketId], startIso, endIsoExclusive);
+      spentToday = totals.get(pocketId) ?? 0;
+      const capLeft = Math.max(0, (pocket.daily_cap ?? 0) - spentToday);
+      todayRemaining = Math.round(Math.min(capLeft, remaining) * 100) / 100;
+    }
+
+    // Use today_remaining as the percentage-bar numerator whenever this
+    // pocket has a daily cap — dividing the whole-cycle `remaining` by the
+    // monthly ceiling produced a near-empty-looking bar even on a day the
+    // user is comfortably on pace (e.g. $45 left of a $60 daily cap showed
+    // as ~2.5% instead of 75%) — the opposite signal a daily-cap UX needs
+    // to reinforce good pacing. monthly_allocation remains correct for
+    // structured pockets (no cap, no today_remaining).
     const percentageBase = pocket.daily_cap ?? pocket.monthly_allocation;
+    const percentageNumerator = hasDailyCap ? (todayRemaining ?? remaining) : remaining;
     const percentage_remaining = percentageBase > 0
-      ? Math.round((remaining / percentageBase) * 100)
+      ? Math.round((percentageNumerator / percentageBase) * 100)
       : 0;
 
     const now = new Date();
@@ -672,7 +735,9 @@ export class PocketsService {
         percentage_remaining,
         monthly_allocation: pocket.monthly_allocation || 0,
         days_remaining: daysRemaining,
-        daily_average_spend: Math.round(dailyAverageSpend * 100) / 100
+        daily_average_spend: Math.round(dailyAverageSpend * 100) / 100,
+        today_remaining: todayRemaining,
+        spent_today: spentToday,
       },
       recent_activity: {
         last_transaction: lastTransaction,
@@ -1072,13 +1137,27 @@ export class PocketsService {
     const spendablePockets = pockets.filter(p => p.kind === 'spendable');
 
     const caps = computeSpendableDailyCaps(spendablePockets, runway);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
+    const spentTodayByPocket = await this.repository.getSpendTotalsByPocketBetween(
+      spendablePockets.map((p) => p.id),
+      startIso,
+      endIsoExclusive,
+    );
     const enrichedSpendable = await Promise.all(
       spendablePockets.map(async (p) => {
         const summary = await this.repository.getPocketSummary(p.id);
+        const daily_cap = caps.get(p.id) ?? p.daily_cap;
+        // Same today_remaining logic as getAllForUser: available_balance is
+        // a whole-cycle ledger figure, not "left today" — don't let this
+        // screen's per-pocket progress bars treat it that way either.
+        const spentToday = spentTodayByPocket.get(p.id) ?? 0;
+        const capLeft = Math.max(0, (daily_cap ?? 0) - spentToday);
         return {
           ...p,
-          daily_cap: caps.get(p.id) ?? p.daily_cap,
+          daily_cap,
           available_balance: summary.available,
+          today_remaining: daily_cap ? Math.round(Math.min(capLeft, summary.available) * 100) / 100 : undefined,
         };
       })
     );
