@@ -270,6 +270,29 @@ export class RolloverService {
   ): Promise<RolloverDayResult> {
     const { startIso, endIsoExclusive } = utcDayBounds(dateIso);
     const pocketIds = spendable.map((p) => p.id);
+
+    // Idempotency guard (audit: duplicate rollover rows). The behavior-event
+    // check in runForUser only proves the EVENT was emitted, not that the
+    // ledger rows survived — a crash between the two writes would otherwise
+    // let this day be re-processed and double-insert every pocket's rollover
+    // row. If any rollover ledger row for this day already exists, the sweep
+    // already happened (rows are all-or-nothing per day), so skip it.
+    const ledgerAlreadySwept = await this.repository.hasRolloverLedgerRowsForDate(
+      pocketIds,
+      startIso,
+      endIsoExclusive,
+    );
+    if (ledgerAlreadySwept) {
+      return {
+        date: dateIso,
+        skipped: true,
+        skipReason: 'already_processed_ledger',
+        amount: 0,
+        allUnderCap: true,
+        movements: [],
+      };
+    }
+
     const spendTotals = await this.repository.getSpendTotalsByPocketBetween(
       pocketIds,
       startIso,

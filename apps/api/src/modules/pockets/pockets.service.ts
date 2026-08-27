@@ -686,6 +686,24 @@ export class PocketsService {
     }
     await this.assertOwnership(pocket, userId);
 
+    // Freelancer + daily plans recompute the spendable daily_cap LIVE against
+    // the current runway (see docs/FREELANCER_RUNWAY.md and getAllForUser).
+    // The home screen already does this, so a detail screen that reads the
+    // raw stored pocket.daily_cap would show a *different* cap for the very
+    // same pocket — e.g. home says "KSh 6,429 daily cap" while this screen
+    // says "KSh 1,484 daily budget" on the identical pocket. Apply the exact
+    // same adaptive cap here so every surface agrees on the one number that
+    // drives today's pacing (and the today_remaining math below inherits it).
+    const plan = await this.repository.getActivePlanByUserId(userId);
+    if (plan && plan.income_pattern === 'freelancer' && plan.type === 'daily' && pocket.kind === 'spendable') {
+      const runwaySummary = await this.runway.getRunwayForPlan(userId, plan);
+      const caps = computeSpendableDailyCaps([pocket], runwaySummary);
+      const adaptiveCap = caps.get(pocket.id);
+      if (adaptiveCap !== undefined) {
+        pocket.daily_cap = adaptiveCap;
+      }
+    }
+
     const summary = await this.repository.getPocketSummary(pocketId);
     // Balance is purely ledger-derived: sum of allocation credits minus spend
     // debits (and reallocation flows). monthly_allocation is the planning

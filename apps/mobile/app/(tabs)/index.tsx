@@ -341,7 +341,7 @@ export default function HomeScreen() {
           <Text style={{ ...typography.caption, color: colors.sage, letterSpacing: 0.36, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>{isDaily ? 'Safe to spend today' : 'Safe to spend'}</Text>
           <Text style={{ ...typography.display, color: colors.emeraldDeep, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>{formatCurrency(safeToSpendToday)}</Text>
           <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }} numberOfLines={2}>
-            {isDaily ? 'Sum of daily caps' : 'Total across spendable pockets'}
+            {isDaily ? 'Sum of what’s left of today’s daily caps' : 'Total across spendable pockets'}
             {' · Rolling last 30 days'}
           </Text>
         </View>
