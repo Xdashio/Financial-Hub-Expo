@@ -7,6 +7,7 @@ import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssenti
 import { getMerchantCategoryLabel, toCents, fromCents, formatWholeKsh } from '@financial-hub/shared';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { RunwayService } from '../runway/runway.service';
+import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 import {
   CAP_DAILY_OVERSPEND,
   CAP_ESSENTIAL_OVERRIDE,
@@ -561,30 +562,12 @@ export class SpendService {
     if (!plan || plan.type !== 'daily') return null;
 
     const todayIso = new Date().toISOString().slice(0, 10);
-    const cap = effectiveDailyCap(pocket, todayIso, plan.type);
+    const { cap, daysRemaining } = await this.resolveLiveDailyCap(pocket, plan, userId, todayIso);
     if (cap <= 0) return null;
 
     const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
     const totals = await this.repository.getSpendTotalsByPocketBetween([pocket.id], startIso, endIsoExclusive);
     const spentToday = totals.get(pocket.id) || 0;
-
-    // Freelancers don't have a fixed monthly cycle — their pacing is
-    // "days until the next expected payment" (runwayDays), which the
-    // pockets-read path already uses to derive their live daily_cap (see
-    // computeSpendableDailyCaps / docs/FREELANCER_RUNWAY.md). Reusing
-    // remainingDaysAfterToday's calendar-month math for them would be
-    // wrong — e.g. someone 3 days into a 9-day runway isn't "day 15 of
-    // 30", spreading an emergency spend over the wrong number of days
-    // entirely. runwayDays is already "days from today until next
-    // expected payment", recomputed fresh each call, so it drops in
-    // directly as daysRemaining with no extra subtraction needed.
-    let daysRemaining: number | undefined;
-    if (plan.income_pattern === 'freelancer') {
-      const runwaySummary = await this.runway.getRunwayForPlan(userId, plan);
-      if (runwaySummary.applicable && typeof runwaySummary.runwayDays === 'number') {
-        daysRemaining = runwaySummary.runwayDays;
-      }
-    }
 
     return previewDailyCapAfterSpend({
       dailyCap: cap,
@@ -596,17 +579,80 @@ export class SpendService {
     });
   }
 
+  /**
+   * BUG FIX (2026-08-27): "today's cap" for a spendable pocket on a
+   * freelancer/daily plan. This must match the exact same live, runway-
+   * based recompute PocketsService already applies on every display
+   * surface (home list + pocket detail — see getAllForUser /
+   * getPocketSummary, both of which call computeSpendableDailyCaps against
+   * the *current* runway on every read and never persist the result).
+   *
+   * This method used to just read `pocket.daily_cap` via effectiveDailyCap
+   * — the column as last persisted, which only gets rewritten when an
+   * income event lands (IncomeService) or when an emergency-overspend
+   * override shrinks it (commitSpend, below). Between those events, a
+   * freelancer's runway keeps shrinking day by day, which *should* raise
+   * their live daily cap (same money, fewer days left) — but the persisted
+   * column doesn't move, so it drifts further out of sync with reality
+   * every day that passes without new income.
+   *
+   * Net effect of the bug: the "safe to spend" cap shown in this
+   * confirmation flow could be wildly lower than the cap the user was just
+   * looking at on the pocket/home screen for the same pocket at the same
+   * moment (e.g. a stale 989 here vs a live 4,286 on screen), making a
+   * perfectly normal spend look like a dangerous overspend and offering a
+   * nonsensical "adjusted cap" built on the wrong starting number.
+   *
+   * Also used by maybeRecordDailyOverspend so the discipline-score penalty
+   * for "went over today's cap" is judged against the same live number,
+   * not the stale one.
+   */
+  private async resolveLiveDailyCap(
+    pocket: Pocket,
+    plan: { type: string; income_pattern?: string | null },
+    userId: string,
+    todayIso: string,
+  ): Promise<{ cap: number; daysRemaining?: number }> {
+    // Freelancers don't have a fixed monthly cycle — their pacing is
+    // "days until the next expected payment" (runwayDays), which is also
+    // what drives their live daily_cap (see computeSpendableDailyCaps /
+    // docs/FREELANCER_RUNWAY.md). Reusing effectiveDailyCap's persisted-
+    // column-or-calendar-month math for them is wrong on both counts: the
+    // cap itself is stale, and spreading an emergency spend over calendar
+    // days remaining (e.g. "day 15 of 30") instead of runway days (e.g.
+    // "3 days until next expected payment") divides by the wrong number.
+    if (plan.income_pattern === 'freelancer') {
+      const runwaySummary = await this.runway.getRunwayForPlan(userId, plan as any);
+      if (runwaySummary.applicable && typeof runwaySummary.runwayDays === 'number') {
+        const caps = computeSpendableDailyCaps([pocket], runwaySummary);
+        const liveCap = caps.get(pocket.id);
+        if (liveCap !== undefined) {
+          return { cap: liveCap, daysRemaining: runwaySummary.runwayDays };
+        }
+      }
+    }
+    return { cap: effectiveDailyCap(pocket, todayIso, plan.type) };
+  }
+
   private async maybeRecordDailyOverspend(pocket: Pocket, userId: string): Promise<void> {
     try {
       if (pocket.kind !== 'spendable') return;
-      const cap = pocket.daily_cap;
-      if (cap == null || cap <= 0) return;
 
       // Only enforce daily cap logic for daily budget plans
       const plan = await this.repository.getActivePlanByUserId(userId);
       if (!plan || plan.type !== 'daily') return;
 
       const todayIso = new Date().toISOString().slice(0, 10);
+
+      // BUG FIX (2026-08-27): this used to read pocket.daily_cap directly —
+      // the stale persisted column for freelancer plans (see
+      // resolveLiveDailyCap above for the full explanation). That let this
+      // scoring check judge "did they go over today's cap" against a
+      // different number than the cap the user actually saw on screen,
+      // either penalizing spends that were fine against the live cap, or
+      // missing genuine overspends against it.
+      const { cap } = await this.resolveLiveDailyCap(pocket, plan, userId, todayIso);
+      if (cap <= 0) return;
       const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
       const existing = await this.repository.getBehaviorEventsByTypesSince(
         userId,
