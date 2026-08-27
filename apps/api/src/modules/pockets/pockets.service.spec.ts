@@ -573,4 +573,20 @@ describe('PocketsService today_remaining (daily-cap home UX fix)', () => {
     const result = await service.getPocketSummary('p-savings', 'user-1');
     expect(result.summary.today_remaining).toBeUndefined();
   });
+
+  it('BUG REGRESSION (2026-08-27): getPocketSummary reports runway days_remaining for freelancers, not calendar days left in the month', async () => {
+    // Before the fix, days_remaining on this exact response was always
+    // "calendar days left in the month" even though daily_cap on the very
+    // same response (and the spend-check emergency-overspend preview) had
+    // already switched to runway-based pacing for freelancers — producing
+    // two different day-counts on one screen for what reads as the same
+    // question ("how long does this have to last?").
+    const FREELANCER_PLAN = { id: 'plan-1', user_id: 'user-1', type: 'daily', income_pattern: 'freelancer' };
+    repository.getActivePlanByUserId.mockResolvedValue(FREELANCER_PLAN as any);
+    runway.getRunwayForPlan.mockResolvedValue({ applicable: true, runwayDays: 3 } as any);
+
+    const result = await service.getPocketSummary('p-food', 'user-1');
+
+    expect(result.summary.days_remaining).toBe(3);
+  });
 });

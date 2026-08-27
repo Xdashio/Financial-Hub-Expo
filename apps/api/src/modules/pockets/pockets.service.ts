@@ -695,8 +695,9 @@ export class PocketsService {
     // same adaptive cap here so every surface agrees on the one number that
     // drives today's pacing (and the today_remaining math below inherits it).
     const plan = await this.repository.getActivePlanByUserId(userId);
+    let runwaySummary: RunwaySummary | undefined;
     if (plan && plan.income_pattern === 'freelancer' && plan.type === 'daily' && pocket.kind === 'spendable') {
-      const runwaySummary = await this.runway.getRunwayForPlan(userId, plan);
+      runwaySummary = await this.runway.getRunwayForPlan(userId, plan);
       const caps = computeSpendableDailyCaps([pocket], runwaySummary);
       const adaptiveCap = caps.get(pocket.id);
       if (adaptiveCap !== undefined) {
@@ -747,7 +748,22 @@ export class PocketsService {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const daysRemaining = daysInMonth - now.getDate() + 1;
+    const calendarDaysRemaining = daysInMonth - now.getDate() + 1;
+    // BUG FIX (2026-08-27): freelancer/daily plans don't pace against the
+    // calendar month at all — every other cap-related number on this exact
+    // screen (daily_cap above, and the spend-check "your cap drops to X for
+    // the remaining N days" preview in spend.service.ts) already paces
+    // against runwayDays (days until the next expected payment) instead.
+    // Leaving this one field on calendar-month math meant this same screen
+    // could show e.g. "3 days" of runway pacing the daily cap right next to
+    // "5 days left" for days_remaining — two different day-counts for what
+    // reads as the same "how long does this have to last" question. Use the
+    // runway figure here too whenever it applies, so the whole screen is
+    // internally consistent.
+    const daysRemaining =
+      runwaySummary?.applicable && typeof runwaySummary.runwayDays === 'number'
+        ? runwaySummary.runwayDays
+        : calendarDaysRemaining;
     const dailyAverageSpend = daysInMonth > 0 ? summary.spent / now.getDate() : 0;
 
     const transactions = await this.repository.getTransactionsByPocketId(pocketId);
