@@ -73,6 +73,9 @@ interface PocketSummary {
     monthly_allocation: number;
     days_remaining: number;
     daily_average_spend: number;
+    /** Left of today's cap, already clamped to the ledger balance. Only set for daily-cap spendable pockets. */
+    today_remaining?: number;
+    spent_today?: number;
   };
   recent_activity: {
     last_transaction: string | null;
@@ -503,15 +506,21 @@ export default function PocketDetailScreen() {
   const pctRemaining = Math.max(0, Math.min(100, stat?.percentage_remaining ?? 0));
 
   // Daily-budget spendable pockets carry a daily_cap. `stat.available` is
-  // the ledger-derived balance, which for these pockets is really "left
-  // today" — it rolls unspent to Savings at midnight (see the home hero /
-  // rollover copy). Leading with the monthly total here trains the wrong
-  // habit: it makes today's number look tiny/irrelevant next to a much
-  // bigger figure, and invites "I've barely touched the month" thinking on
-  // a day the user should really be pacing against ~$cap/day.
+  // the whole-cycle ledger balance — it only trends toward "left today" as
+  // nightly rollover sweeps run, and can sit far above the cap right after
+  // income lands or mid-cycle before rollover has caught up. today_remaining
+  // (from GET /pockets/:id/summary) is the actual "left today" figure —
+  // computed from what's been spent today, clamped to the ledger balance —
+  // so lead with that instead. Leading with the whole-cycle total here
+  // trains the wrong habit: it makes today's number look huge/irrelevant
+  // next to a much bigger figure, and invites "I've got plenty left"
+  // thinking on a day the user should really be pacing against ~$cap/day.
   const isDailyCapped = pocket?.kind === 'spendable' && (pocket?.daily_cap ?? 0) > 0;
   const dailyCap = pocket?.daily_cap ?? 0;
-  const availableToday = stat?.available ?? 0;
+  const availableToday = isDailyCapped ? (stat?.today_remaining ?? stat?.available ?? 0) : (stat?.available ?? 0);
+  // Full whole-cycle pocket balance — shown as secondary context alongside
+  // today's figure, never as the primary number for a daily-cap pocket.
+  const fullPocketBalance = stat?.available ?? 0;
   // Simple, non-shaming pace signal: are they at/above the fraction of the
   // cap you'd expect to still have left, given time already spent today.
   // Deliberately coarse (three states) rather than a precise percentage —
@@ -704,6 +713,11 @@ export default function PocketDetailScreen() {
                 ? `of ${fmt(dailyCap)} daily budget · ${Math.round(pctRemaining)}% left today`
                 : `of ${fmt(stat?.monthly_allocation ?? 0)} monthly allocation · ${Math.round(pctRemaining)}% remaining`}
             </Text>
+            {isDailyCapped && (
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.surface + '66', marginTop: 2 }}>
+                {fmt(fullPocketBalance)} total in pocket
+              </Text>
+            )}
 
             {/* Progress bar — for daily-cap pockets this now tracks against
                 the daily_cap (via the corrected percentage_remaining), so a

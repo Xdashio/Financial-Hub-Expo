@@ -455,7 +455,7 @@ export default function HomeScreen() {
                   style={({ pressed }) => [{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }, { opacity: pressed ? 0.8 : 1 }]}
                   onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
                   accessibilityRole="button"
-                  accessibilityLabel={`${pocket.name} pocket, ${formatCurrency(pocket.remaining)} left of ${formatCurrency(pocket.cap)} cap`}
+                  accessibilityLabel={`${pocket.name} pocket, ${formatCurrency(pocket.remaining)} left of today's ${formatCurrency(pocket.cap)} cap, ${formatCurrency(pocket.fullBalance)} total in pocket`}
                 >
                   <View style={{ borderTopWidth: 1.5, borderTopColor: pocket.color, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                   <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: pocket.color }} />
@@ -469,8 +469,13 @@ export default function HomeScreen() {
                       <Text style={{ ...typography.heading, color: colors.ink }}>{pocket.name}</Text>
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatCurrency(pocket.remaining)} left</Text>
-                      <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, fontVariant: ['tabular-nums'] }}>/ {formatCurrency(pocket.cap)} cap</Text>
+                      {/* Today's cap is the primary, largest figure — the
+                          number the daily-budget plan is actually paced
+                          against. Full pocket balance is secondary, shown
+                          smaller and muted below it, so it reads as
+                          context rather than competing with today's number. */}
+                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatCurrency(pocket.remaining)} left today</Text>
+                      <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, fontVariant: ['tabular-nums'] }}>/ {formatCurrency(pocket.cap)} daily cap</Text>
                     </View>
                   </View>
                   <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
@@ -483,6 +488,9 @@ export default function HomeScreen() {
                       }}
                     />
                   </View>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.sm, fontVariant: ['tabular-nums'] }}>
+                    {formatCurrency(pocket.fullBalance)} total in pocket
+                  </Text>
                 </Pressable>
               );
             })}
