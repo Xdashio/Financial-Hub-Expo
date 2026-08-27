@@ -336,6 +336,13 @@ export class SpendService {
       overridden?: boolean;
       overridden_daily_cap?: boolean;
       borrowed_from_parent?: boolean;
+      pocket: {
+        id: string;
+        name: string;
+        available_balance: number;
+        daily_cap?: number;
+        today_remaining?: number;
+      };
     }
   > {
     if (dto.idempotency_key) {
@@ -439,6 +446,24 @@ export class SpendService {
       await this.maybeRecordDailyOverspend(pocket, userId);
     }
 
+    // The "Spend logged" confirmation (log-spend.tsx) reads pocket.available_balance
+    // straight off this response — which is the whole-cycle ledger balance, not
+    // "left today". For a daily-cap pocket that's the exact same conflation the
+    // home screen had (a KSh 200 spend against a KSh 500 cap showing "now has
+    // 14,300 left" instead of "now has 300 left today"). effectiveDailyCap
+    // covers the override case, where the cap was just shrunk for the rest of
+    // the cycle and pocket.daily_cap (read before the update above) is stale.
+    let today_remaining: number | undefined;
+    const effectiveDailyCapValue = isOverrideDailyCap ? adjustedDailyCap : pocket?.daily_cap ?? undefined;
+    if (pocket && pocket.kind === 'spendable' && effectiveDailyCapValue && effectiveDailyCapValue > 0) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      const { startIso, endIsoExclusive } = utcDayBounds(todayIso);
+      const totals = await this.repository.getSpendTotalsByPocketBetween([pocket.id], startIso, endIsoExclusive);
+      const spentToday = totals.get(pocket.id) ?? 0;
+      const capLeft = Math.max(0, effectiveDailyCapValue - spentToday);
+      today_remaining = Math.round(Math.min(capLeft, postSpendSummary.available) * 100) / 100;
+    }
+
     const response = {
       ...result,
       allowed: true,
@@ -449,6 +474,8 @@ export class SpendService {
       pocket: {
         ...result.pocket,
         available_balance: postSpendSummary.available,
+        daily_cap: effectiveDailyCapValue,
+        today_remaining,
       },
       transaction_id: transaction?.id,
     };

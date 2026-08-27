@@ -27,6 +27,17 @@ const CATEGORIES: { id: string; name: string }[] = [
   { id: 'other', name: 'Other' },
 ];
 
+// The commit response's pocket.available_balance is the whole-cycle ledger
+// balance, not "left today" — same conflation the home screen had. For a
+// daily-cap pocket, lead with today_remaining (falling back to
+// available_balance only when the pocket has no cap, e.g. fixed/savings).
+function pocketLeftMessage(pocket: { name: string; available_balance: number; daily_cap?: number; today_remaining?: number }): string {
+  if (pocket.daily_cap && pocket.today_remaining != null) {
+    return `${pocket.name} now has ${formatMoney(pocket.today_remaining)} left today.`;
+  }
+  return `${pocket.name} now has ${formatMoney(pocket.available_balance)} left.`;
+}
+
 export default function LogSpendScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -96,7 +107,7 @@ export default function LogSpendScreen() {
 
         if (result.allowed) {
           useDataSync.getState().bump();
-          await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
+          await alert('Spend logged', pocketLeftMessage(result.pocket));
           safeGoBack(router, '/(tabs)');
           return;
         }
@@ -125,7 +136,7 @@ export default function LogSpendScreen() {
 
           if (result.allowed) {
             useDataSync.getState().bump();
-            await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
+            await alert('Spend logged', pocketLeftMessage(result.pocket));
             safeGoBack(router, '/(tabs)');
             return;
           }
@@ -168,7 +179,7 @@ export default function LogSpendScreen() {
 
           if (result.allowed) {
             useDataSync.getState().bump();
-            await alert('Spend logged', `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.`);
+            await alert('Spend logged', pocketLeftMessage(result.pocket));
             safeGoBack(router, '/(tabs)');
           }
         }
@@ -205,7 +216,7 @@ export default function LogSpendScreen() {
             const newCap = result.adjusted_daily_cap;
             await alert(
               'Spend logged',
-              `${result.pocket.name} now has ${formatMoney(result.pocket.available_balance)} left.` +
+              pocketLeftMessage(result.pocket) +
                 (typeof newCap === 'number'
                   ? ` Your daily cap for the rest of the cycle is now ${formatMoney(newCap)}.`
                   : ''),
@@ -293,6 +304,12 @@ export default function LogSpendScreen() {
                 <View style={{ gap: spacing.sm }}>
                   {spendablePockets.map((pocket) => {
                     const selected = pocketId === pocket.id;
+                    // Same fix as the home screen: for a daily-cap pocket,
+                    // availableBalance is the whole-cycle ledger balance, not
+                    // what's safe to spend right now — show todayRemaining
+                    // here so this list doesn't imply more headroom than the
+                    // daily_cap_exceeded check below will actually allow.
+                    const displayAmount = pocket.dailyCap != null ? (pocket.todayRemaining ?? pocket.availableBalance) : pocket.availableBalance;
                     return (
                       <Pressable
                         key={pocket.id}
@@ -309,12 +326,12 @@ export default function LogSpendScreen() {
                         }}
                         accessibilityRole="button"
                         accessibilityState={{ selected }}
-                        accessibilityLabel={`${pocket.name}, ${formatMoney(pocket.availableBalance)} available`}
+                        accessibilityLabel={`${pocket.name}, ${formatMoney(displayAmount)} available${pocket.dailyCap != null ? ' today' : ''}`}
                       >
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Text style={{ ...typography.body, color: colors.ink }}>{pocket.name}</Text>
                           <Text style={{ ...typography.caption, color: colors.sage, fontVariant: ['tabular-nums'] }}>
-                            {formatMoney(pocket.availableBalance)}
+                            {formatMoney(displayAmount)}{pocket.dailyCap != null ? ' today' : ''}
                           </Text>
                         </View>
                       </Pressable>
