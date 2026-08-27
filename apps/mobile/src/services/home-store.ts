@@ -12,6 +12,15 @@ export interface Pocket {
   monthlyAllocation: number;
   availableBalance: number;
   dailyCap?: number;
+  /**
+   * How much of today's dailyCap is still spendable right now, already
+   * clamped to what's actually left in the ledger. Only present for
+   * spendable pockets on a 'daily' plan with a cap — see pockets.service.ts
+   * getAllForUser. availableBalance is a whole-cycle ledger figure (it only
+   * drains toward "today's slice" as nightly rollover sweeps run), so it
+   * must never be shown as if it were today's spendable amount.
+   */
+  todayRemaining?: number;
   isTimeLocked?: boolean;
   lockUntil?: string;
   parentPocketId?: string | null;
@@ -23,9 +32,12 @@ export interface DailyPocket {
   name: string;
   color: string;
   category?: string;
+  /** Left of today's cap — the figure that should read first/largest. */
   remaining: number;
   cap: number;
   progress: number;
+  /** Full whole-cycle pocket balance — shown as secondary context only. */
+  fullBalance: number;
 }
 
 export interface HomeState {
@@ -67,7 +79,12 @@ function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
     // For structured plans, dailyCap is null, so use monthlyAllocation
     // For daily plans, use the actual dailyCap
     const cap = pocket.dailyCap ?? pocket.monthlyAllocation;
-    const remaining = pocket.availableBalance;
+    // todayRemaining (server-computed, clamped to both the cap and the
+    // ledger balance) is the correct "left today" figure for daily-cap
+    // pockets. availableBalance is a whole-cycle ledger balance and is
+    // only a safe stand-in when there's no cap at all (structured plans),
+    // where "remaining" genuinely does mean the whole month.
+    const remaining = pocket.dailyCap != null ? (pocket.todayRemaining ?? pocket.availableBalance) : pocket.availableBalance;
     const progress = cap > 0 ? Math.max(0, Math.min(1, 1 - remaining / cap)) : 0;
     return {
       id: pocket.id,
@@ -77,6 +94,7 @@ function calculateDailyPockets(pockets: Pocket[]): DailyPocket[] {
       remaining: Math.round(remaining),
       cap: Math.round(cap),
       progress,
+      fullBalance: Math.round(pocket.availableBalance),
     };
   });
 }
@@ -98,6 +116,13 @@ function calculateSafeToSpend(pockets: Pocket[], planType: 'daily' | 'structured
     return pockets
       .filter((p) => p.kind === 'spendable')
       .reduce((sum, p) => {
+        // Prefer the server-computed todayRemaining (accounts for what's
+        // actually been spent today, not just the cap vs. whole-cycle
+        // balance) when it's available; fall back to the old clamp for
+        // pockets without a cap yet.
+        if (p.dailyCap != null && p.todayRemaining != null) {
+          return sum + p.todayRemaining;
+        }
         const cap = p.dailyCap ?? p.monthlyAllocation;
         return sum + Math.max(0, Math.min(cap, p.availableBalance));
       }, 0);
@@ -125,6 +150,7 @@ function mapPocket(raw: any): Pocket {
     monthlyAllocation: raw.monthly_allocation,
     availableBalance: raw.available_balance ?? 0,
     dailyCap: raw.daily_cap ?? undefined,
+    todayRemaining: raw.today_remaining ?? undefined,
     isTimeLocked: raw.is_time_locked,
     lockUntil: raw.lock_until ?? undefined,
     parentPocketId: raw.parent_pocket_id ?? null,
@@ -266,7 +292,15 @@ export const useHomeStore = create<HomeState>()((set, get) => ({
     const previous = get().pockets;
     const pockets = previous.map((p) =>
       deltas[p.id] !== undefined
-        ? { ...p, availableBalance: Math.max(0, p.availableBalance + deltas[p.id]) }
+        ? {
+            ...p,
+            availableBalance: Math.max(0, p.availableBalance + deltas[p.id]),
+            // Keep the "left today" figure moving in lockstep with the
+            // optimistic spend so the primary home number doesn't sit
+            // stale until the next refetch.
+            todayRemaining:
+              p.todayRemaining !== undefined ? Math.max(0, p.todayRemaining + deltas[p.id]) : p.todayRemaining,
+          }
         : p,
     );
     const dailyPockets = calculateDailyPockets(pockets);

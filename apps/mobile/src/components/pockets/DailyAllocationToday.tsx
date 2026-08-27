@@ -17,6 +17,8 @@ interface DailyAllocationTodayProps {
     daily_cap: number | null;
     available_balance: number;
     monthly_allocation: number;
+    /** Left of today's cap, already clamped to the ledger balance. */
+    today_remaining?: number;
   }>;
 }
 
@@ -29,11 +31,13 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
   const pocketProgress = useMemo(() => {
     return spendablePockets.map((pocket) => {
       const cap = pocket.daily_cap ?? 0;
-      const available = pocket.available_balance ?? 0;
-      // For daily cap pockets, show progress against daily cap
-      // For others, show monthly progress
       const isDailyCap = pocket.daily_cap !== null && pocket.daily_cap > 0;
-      const current = isDailyCap ? Math.max(0, cap - available) : 0;
+      // today_remaining (server-computed, clamped to both the cap and the
+      // ledger) is the correct "left today" figure. available_balance is a
+      // whole-cycle ledger balance and only stands in when there's no cap
+      // at all (monthly progress for non-capped pockets).
+      const remainingToday = isDailyCap ? (pocket.today_remaining ?? pocket.available_balance ?? 0) : 0;
+      const current = isDailyCap ? Math.max(0, cap - remainingToday) : 0;
       const total = isDailyCap ? cap : pocket.monthly_allocation;
       const pct = total > 0 ? Math.min(1, current / total) : 0;
       return {
@@ -41,7 +45,8 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
         progress: pct,
         isDailyCap,
         cap,
-        available,
+        available: pocket.available_balance ?? 0,
+        remainingToday,
       };
     });
   }, [spendablePockets]);
@@ -170,9 +175,9 @@ export function DailyAllocationToday({ allocation, runway, spendablePockets }: D
           <View style={styles.pocketsList}>
             {spendablePockets.map((pocket) => {
               const cap = pocket.daily_cap ?? 0;
-              const available = pocket.available_balance ?? 0;
               const isDailyCap = pocket.daily_cap !== null && pocket.daily_cap > 0;
-              const used = isDailyCap ? Math.max(0, cap - available) : 0;
+              const remainingToday = isDailyCap ? (pocket.today_remaining ?? pocket.available_balance ?? 0) : 0;
+              const used = isDailyCap ? Math.max(0, cap - remainingToday) : 0;
               const pocketProgress = isDailyCap && cap > 0 ? Math.min(1, used / cap) : 0;
 
               return (
