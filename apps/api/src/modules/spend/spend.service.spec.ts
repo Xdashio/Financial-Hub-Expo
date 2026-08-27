@@ -539,6 +539,79 @@ describe('SpendService.commitSpend', () => {
       // calendar days -> a much higher (and correct) adjusted cap.
       expect((updates as any).daily_cap).toBeCloseTo(23000 / 3, 2);
     });
+
+    it('BUG REGRESSION (2026-08-27): uses the live runway-recomputed cap, not the stale persisted daily_cap, for freelancers', async () => {
+      // Reproduces the reported bug: a freelancer's persisted pocket.daily_cap
+      // (989) was set when the runway was longer; PocketsService already
+      // shows a live-recomputed, much higher cap (4,286) on the home/detail
+      // screens for the exact same pocket. Before the fix, this check read
+      // the stale 989 straight off the pocket row and wrongly soft-blocked a
+      // spend that was well within the *actual* live cap the user was
+      // looking at on screen.
+      const STALE_CAP_POCKET = {
+        ...SPENDABLE_POCKET,
+        daily_cap: 989, // stale — persisted the last time an income event fired
+        monthly_allocation: 5000, // live cap should be 5000 / runwayDays
+      };
+      repository.getPocketById.mockResolvedValue(STALE_CAP_POCKET as any);
+      repository.getActivePlanByUserId.mockResolvedValue({
+        id: 'plan-1',
+        type: 'daily',
+        income_pattern: 'freelancer',
+        income_interval_days: 9,
+      } as any);
+      // Same 9-day cadence fixture as the test above -> runwayDays clamps to 3.
+      const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      repository.getIncomeEventsByUserId.mockResolvedValue([
+        { date: sixDaysAgo },
+        { date: fifteenDaysAgo },
+      ] as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 5000 }));
+      repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map());
+
+      // Live cap = 5000 / 3 ≈ 1666.67. This amount is well within the live
+      // cap but above the stale persisted 989 — the buggy code blocked it,
+      // the fixed code should allow it straight through.
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 1200 }, 'user-1');
+
+      expect(result.allowed).toBe(true);
+      expect(result.block_reason).toBeNull();
+      expect(repository.createTransaction).toHaveBeenCalled();
+    });
+
+    it('BUG REGRESSION (2026-08-27): reports the live cap (not the stale one) when a freelancer genuinely does exceed it', async () => {
+      const STALE_CAP_POCKET = {
+        ...SPENDABLE_POCKET,
+        daily_cap: 989,
+        monthly_allocation: 5000,
+      };
+      repository.getPocketById.mockResolvedValue(STALE_CAP_POCKET as any);
+      repository.getActivePlanByUserId.mockResolvedValue({
+        id: 'plan-1',
+        type: 'daily',
+        income_pattern: 'freelancer',
+        income_interval_days: 9,
+      } as any);
+      const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      repository.getIncomeEventsByUserId.mockResolvedValue([
+        { date: sixDaysAgo },
+        { date: fifteenDaysAgo },
+      ] as any);
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 5000 }));
+      repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map());
+
+      // 2000 exceeds the live cap (~1666.67), so this should still block —
+      // but the disclosed current_daily_cap must be the live number, not
+      // the stale 989 the old code would have shown.
+      const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 2000 }, 'user-1');
+
+      expect(result.allowed).toBe(false);
+      expect(result.block_reason).toBe('daily_cap_exceeded');
+      expect((result as any).current_daily_cap).toBeCloseTo(5000 / 3, 2);
+      expect((result as any).current_daily_cap).not.toBe(989);
+    });
   });
 
   describe('commitSpend response pocket.today_remaining (daily-cap home UX fix, extended to log-spend)', () => {

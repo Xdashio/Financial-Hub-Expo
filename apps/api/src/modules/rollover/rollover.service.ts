@@ -360,8 +360,21 @@ export class RolloverService {
       type: 'rollover';
       merchant: null;
       category: null;
+      created_at: string;
     }> = [];
 
+    // BUG FIX (2026-08-27): stamp each catch-up day's rollover rows with
+    // that day's own timestamp instead of leaving created_at unset (which
+    // defaults to "now" in the database). runForUser processes up to
+    // ROLLOVER_CATCHUP_DAYS worth of missed days in one pass — e.g. after
+    // a user hasn't opened the app in a few days — and every one of those
+    // days' rows was landing with the exact same "now" timestamp. In
+    // transaction history that reads as several identical duplicate
+    // rollovers fired at the same instant, when they actually represent
+    // distinct days. Using the start of the UTC day being processed keeps
+    // each row's displayed date matching the day it's actually for, and
+    // matches how every other date-bucketed query in this file (spend
+    // totals, idempotency checks) already keys off utcDayBounds(dateIso).
     for (const pocket of dayPlan.pockets) {
       if (pocket.rollAmount <= 0) continue;
       movements.push({
@@ -375,6 +388,7 @@ export class RolloverService {
         type: 'rollover',
         merchant: null,
         category: null,
+        created_at: startIso,
       });
       ledgerRows.push({
         pocket_id: savings!.id,
@@ -382,6 +396,7 @@ export class RolloverService {
         type: 'rollover',
         merchant: null,
         category: null,
+        created_at: startIso,
       });
     }
 
