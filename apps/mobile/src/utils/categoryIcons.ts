@@ -15,6 +15,15 @@ import {
   Users,
   MoreHorizontal,
   Package,
+  Truck,
+  FileText,
+  Landmark,
+  Wallet,
+  Wrench,
+  Coins,
+  Sprout,
+  Megaphone,
+  Cog,
 
   Calendar,
   TrendingUp,
@@ -30,7 +39,10 @@ export type CategoryKey =
   | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
   | 'grocery' | 'landlord_rent' | 'utility' | 'entertainment' 
   | 'personal_care' | 'gambling_betting'
-  | 'emergency' | 'goal' | 'investment' | 'debt';
+  | 'emergency' | 'goal' | 'investment' | 'debt'
+  // MSME business categories (ADR-001 §5.2)
+  | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent'
+  | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment';
 
 /**
  * Icon mapping for all category types (Pocket, Spendable, Merchant, and Savings categories)
@@ -55,6 +67,20 @@ const CATEGORY_ICONS: Record<CategoryKey, LucideIcon> = {
   entertainment: Film,
   personal_care: Scissors,
   gambling_betting: Package, // Blocked category
+
+  // MSME Business Categories (ADR-001 §5.2)
+  stock: Package, // Stock & Inventory
+  supplier: Truck,
+  licence: FileText,
+  tax: Landmark,
+  salary: Wallet,
+  rent: Home,
+  operations: Wrench,
+  profit: TrendingUp,
+  owner_draw: Coins,
+  growth: Sprout,
+  marketing: Megaphone,
+  equipment: Cog,
 
   // Savings Categories
   emergency: PiggyBank, // Mapped to PiggyBank, but CategoryIcon uses custom SavingsIcon SVG

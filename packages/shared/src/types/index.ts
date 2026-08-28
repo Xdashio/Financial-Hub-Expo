@@ -1,8 +1,13 @@
 // Type exports for the shared package
 export type {
   PlanType,
+  Segment,
   PocketKind,
   PocketCategory,
+  BusinessPocketCategory,
+  BusinessStage,
+  MsmePocketInput,
+  MsmeOnboardingInput,
   IncomePattern,
   SpendingHabit,
   PlanName,

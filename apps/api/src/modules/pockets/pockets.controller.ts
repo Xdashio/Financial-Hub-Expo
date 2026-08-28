@@ -1,4 +1,4 @@
-import { Controller, Get, Put, Patch, Post, Delete, Param, Body, Request, Query } from '@nestjs/common';
+import { Controller, Get, Put, Patch, Post, Delete, Param, Body, Request, Query, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PocketsService } from './pockets.service';
 import { EmergencyUnlockService } from './emergency-unlock.service';
@@ -16,10 +16,11 @@ export class PocketsController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: "List the current user's pockets for their active plan" })
+  @ApiOperation({ summary: "List the current user's pockets for their active plan (optionally per segment)" })
+  @ApiQuery({ name: 'segment', required: false, enum: ['individual', 'msme'], description: 'Defaults to individual. Use msme for the business segment.' })
   @ApiResponse({ status: 200, description: 'List of pockets' })
-  getAll(@Request() req: any) {
-    return this.pocketsService.getAllForUser(req.user.id);
+  getAll(@Request() req: any, @Query('segment') segment?: string) {
+    return this.pocketsService.getAllForUser(req.user.id, parseSegmentQuery(segment));
   }
 
   @Get('runway')
@@ -102,12 +103,13 @@ export class PocketsController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a new pocket for the active plan (max 6 pockets)' })
+  @ApiOperation({ summary: 'Create a new pocket for the active plan (max 6 pockets per segment)' })
+  @ApiQuery({ name: 'segment', required: false, enum: ['individual', 'msme'], description: 'Defaults to individual. Use msme for the business segment.' })
   @ApiResponse({ status: 201, description: 'The created pocket' })
   @ApiResponse({ status: 400, description: 'Invalid input or max pockets reached' })
   @ApiResponse({ status: 404, description: 'No active plan found' })
-  create(@Body() input: unknown, @Request() req: any) {
-    return this.pocketsService.createForUser(req.user.id, input);
+  create(@Body() input: unknown, @Request() req: any, @Query('segment') segment?: string) {
+    return this.pocketsService.createForUser(req.user.id, input, parseSegmentQuery(segment));
   }
 
   @Delete(':id')
@@ -246,4 +248,10 @@ export class PocketsController {
     }
     return this.emergencyUnlockService.executeUnlock(req.user.id, plan.id, body);
   }
+}
+
+function parseSegmentQuery(segment?: string): 'individual' | 'msme' {
+  if (segment === undefined || segment === '') return 'individual';
+  if (segment === 'individual' || segment === 'msme') return segment;
+  throw new BadRequestException("segment must be 'individual' or 'msme'");
 }

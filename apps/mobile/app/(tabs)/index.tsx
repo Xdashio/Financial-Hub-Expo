@@ -337,6 +337,25 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        <View style={{ marginTop: spacing.md, flexDirection: 'row', gap: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, padding: 3, alignSelf: 'flex-start' }}>
+          <Pressable
+            style={({ pressed }) => [{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep }, { opacity: pressed ? 0.7 : 1 }]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: true }}
+            accessibilityLabel="You are viewing your personal plan"
+          >
+            <Text style={{ ...typography.caption, color: colors.surface }}>Personal</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/(msme)' as any)}
+            style={({ pressed }) => [{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }, { opacity: pressed ? 0.7 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Switch to business plan"
+          >
+            <Text style={{ ...typography.caption, color: colors.sage }}>Business</Text>
+          </Pressable>
+        </View>
+
         <View style={{ marginTop: spacing.xl }}>
           <Text style={{ ...typography.caption, color: colors.sage, letterSpacing: 0.36, flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>{isDaily ? 'Safe to spend today' : 'Safe to spend'}</Text>
           <Text style={{ ...typography.display, color: colors.emeraldDeep, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>{formatCurrency(safeToSpendToday)}</Text>

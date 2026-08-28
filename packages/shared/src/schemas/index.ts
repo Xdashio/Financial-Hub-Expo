@@ -7,10 +7,36 @@ import { z } from 'zod';
 export const PlanTypeSchema = z.enum(['structured', 'daily']);
 export type PlanType = z.infer<typeof PlanTypeSchema>;
 
+// Individual vs MSME account segment (ADR-001 / MSME_PHASED_BUILD_PLAN §5.1).
+// A user can hold *two* active plans simultaneously — one per segment — so
+// segment discriminates plan ownership, not the user.
+export const SegmentSchema = z.enum(['individual', 'msme']);
+export type Segment = z.infer<typeof SegmentSchema>;
+
 export const PocketKindSchema = z.enum(['savings', 'fixed', 'spendable', 'loan']);
 export type PocketKind = z.infer<typeof PocketKindSchema>;
 
+// MSME business pocket categories (ADR-001 D2 / MSME_PHASED_BUILD_PLAN §5.2).
+// Kept separate from PocketCategorySchema so the Individual set stays
+// untouched; they're merged at the union/PocketCategorySchema level.
+export const BusinessPocketCategorySchema = z.enum([
+  'stock',
+  'supplier',
+  'licence',
+  'tax',
+  'salary',
+  'rent',
+  'operations',
+  'profit',
+  'owner_draw',
+  'growth',
+  'marketing',
+  'equipment',
+]);
+export type BusinessPocketCategory = z.infer<typeof BusinessPocketCategorySchema>;
+
 export const PocketCategorySchema = z.enum([
+  // individual (existing, unchanged)
   'food',
   'transport',
   'leisure',
@@ -20,6 +46,20 @@ export const PocketCategorySchema = z.enum([
   'education',
   'housing',
   'family',
+  // msme additions (business semantics, spec §2–§10)
+  'stock',
+  'supplier',
+  'licence',
+  'tax',
+  'salary',
+  'rent',
+  'operations',
+  'profit',
+  'owner_draw',
+  'growth',
+  'marketing',
+  'equipment',
+  // fallback
   'other',
 ]);
 export type PocketCategory = z.infer<typeof PocketCategorySchema>;
@@ -68,6 +108,9 @@ export const PlanNameSchema = z.enum([
   // shown identical plan naming to a single-employer salaried user.
   'Salaried + Side Income — Structured',
   'Salaried + Side Income — Daily Budget',
+  // MSME / business segment plan (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2).
+  // Always structured — business cash flow is monthly, no daily caps.
+  'Business — Structured',
 ]);
 export type PlanName = z.infer<typeof PlanNameSchema>;
 
@@ -165,12 +208,30 @@ export type SpendableCategory = z.infer<typeof SpendableCategorySchema>;
  * (see pocket-provisioning.ts). Other categories like 'grocery', 'healthcare',
  * etc. are merchant classification categories, not spendable pocket categories.
  */
+export const MSME_SPENDABLE_LABELS = {
+  stock: 'Stock & Inventory',
+  supplier: 'Suppliers',
+  licence: 'Licences',
+  tax: 'Taxes',
+  salary: 'Salaries & Wages',
+  rent: 'Rent',
+  operations: 'Operations',
+  profit: 'Profit',
+  owner_draw: 'Owner Draw',
+  growth: 'Growth',
+  marketing: 'Marketing',
+  equipment: 'Equipment',
+} as const satisfies Record<BusinessPocketCategory, string>;
+
 export const SPENDABLE_CATEGORY_LABELS = {
   food: 'Food & Groceries',
   transport: 'Transport',
   leisure: 'Personal & Leisure',
   family: 'Family & Dependents',
-} as const satisfies Record<SpendableCategory, string>;
+  // MSME business labels (MSME_PHASED_BUILD_PLAN §5.2) — spread from the
+  // single source of truth so the two label maps stay in lockstep.
+  ...MSME_SPENDABLE_LABELS,
+} as const satisfies Partial<Record<PocketCategory, string>>;
 
 // Partial map of category -> percentage (0-100) of the spendable amount.
 // Partial because which categories exist depends on persona (student gets
@@ -293,6 +354,38 @@ export const OnboardingInputSchema = z.object({
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 
+// ============================================================================
+// MSME onboarding (§6.2) — the business-segment sibling of OnboardingInput.
+// Deliberately separate: monthly revenue replaces incomeAmount (mapped to
+// plans.expected_income_amount server-side) and customPockets (max 6, §2.2)
+// lets a business name its own pockets instead of the individual persona set.
+// ============================================================================
+
+export const BusinessStageSchema = z.enum(['starting', 'stable', 'growing']);
+export type BusinessStage = z.infer<typeof BusinessStageSchema>;
+
+export const MsmePocketInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  category: PocketCategorySchema,
+});
+export type MsmePocketInput = z.infer<typeof MsmePocketInputSchema>;
+
+export const MsmeOnboardingInputSchema = z.object({
+  segment: z.literal('msme'),
+  businessName: z.string().min(1).max(100),
+  // maps to plans.expected_income_amount (see commitMsme)
+  monthlyRevenue: z.number().positive(),
+  // sum of recurring business obligations (rent, salaries, licences, taxes…)
+  fixedTotal: z.number().nonnegative(),
+  fixedExpenses: z.array(FixedExpenseInputSchema).optional(),
+  hasEmployees: z.boolean().optional(),
+  businessStage: BusinessStageSchema.optional(),
+  savingsGoal: SavingsGoalInputSchema.optional(),
+  // custom pocket names — max 6, validated server-side (§2.2)
+  customPockets: z.array(MsmePocketInputSchema).max(6).optional(),
+});
+export type MsmeOnboardingInput = z.infer<typeof MsmeOnboardingInputSchema>;
+
 export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
   reason: z.string(),
@@ -310,6 +403,9 @@ export const PlanAssignReasonSchema = z.object({
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 
 export const OnboardingAssignResultSchema = z.object({
+  // Which segment this assignment targets (individual assign flows omit it;
+  // MSME always sets 'msme' — see assignMsmePlan).
+  segment: SegmentSchema.optional(),
   plan: PlanNameSchema,
   planType: PlanTypeSchema,
   incomePattern: IncomePatternSchema,
@@ -445,6 +541,8 @@ export const PlanSchema = z.object({
   userId: z.string().uuid(),
   type: PlanTypeSchema, // 'structured' | 'daily'
   incomePattern: IncomePatternSchema, // 'salaried' | 'freelancer'
+  // 'individual' (default, keeps existing behavior) | 'msme' (ADR-001 §5.1)
+  segment: SegmentSchema.optional(),
   // Freelancer-only. The onboarding band's day-count estimate, persisted so
   // RunwayService has a fallback before enough income_events history exists.
   // Null for salaried/mix plans.
@@ -458,6 +556,9 @@ export type Plan = z.infer<typeof PlanSchema>;
 export const PocketSchema = z.object({
   id: z.string().uuid(),
   planId: z.string().uuid(), // per plan
+  // Which segment owns this pocket ('individual' default | 'msme'), derived
+  // from the plan — not stored on the pocket — for client filtering (§6.1).
+  segment: SegmentSchema.optional(),
   name: z.string(),
   kind: PocketKindSchema, // 'savings' | 'fixed' | 'spendable'
   category: PocketCategorySchema.optional(), // for spendable: 'food' | 'transport' | 'leisure' | …
@@ -804,8 +905,11 @@ export type DisciplineScore = z.infer<typeof DisciplineScoreSchema>;
 
 export const schemas = {
   PlanType: PlanTypeSchema,
+  Segment: SegmentSchema,
   PocketKind: PocketKindSchema,
   PocketCategory: PocketCategorySchema,
+  BusinessPocketCategory: BusinessPocketCategorySchema,
+  MSME_SPENDABLE_LABELS,
   IncomePattern: IncomePatternSchema,
   SpendingHabit: SpendingHabitSchema,
   LifeStage: LifeStageSchema,
@@ -826,6 +930,9 @@ export const schemas = {
   CategoryPercentages: CategoryPercentagesSchema,
   IncomeConcentration: IncomeConcentrationSchema,
   OnboardingInput: OnboardingInputSchema,
+  MsmeOnboardingInput: MsmeOnboardingInputSchema,
+  BusinessStage: BusinessStageSchema,
+  MsmePocketInput: MsmePocketInputSchema,
   PlanAssignReason: PlanAssignReasonSchema,
   OnboardingAssignResult: OnboardingAssignResultSchema,
   CategoryAllocationPreview: CategoryAllocationPreviewSchema,

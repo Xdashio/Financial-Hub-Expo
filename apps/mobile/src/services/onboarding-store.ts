@@ -9,12 +9,15 @@ import {
   PlanRetakeResult,
   PlanPreviewResult,
   CategoryPercentages,
+  MsmeOnboardingInput,
+  BusinessPocketCategory,
 } from '@financial-hub/shared';
 import { onboardingApi } from '@/services/onboarding';
 import { profileApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 
 export type OnboardingStep = 'income' | 'habits' | 'about-you' | 'goal' | 'fixed' | 'result';
+export type Segment = 'individual' | 'msme';
 
 export interface FixedExpenseItem {
   id: string;
@@ -25,8 +28,52 @@ export interface FixedExpenseItem {
   icon?: string;
 }
 
+/** A user-named spendable business pocket (ADR-001 §5.2), max 6 per MSME plan. */
+export interface MsmeCustomPocketItem {
+  id: string;
+  name: string;
+  category: BusinessPocketCategory;
+}
+
+export const BUSINESS_CATEGORIES: { id: BusinessPocketCategory; label: string }[] = [
+  { id: 'stock', label: 'Stock & Inventory' },
+  { id: 'supplier', label: 'Suppliers' },
+  { id: 'licence', label: 'Licences' },
+  { id: 'tax', label: 'Taxes' },
+  { id: 'salary', label: 'Salaries & Wages' },
+  { id: 'rent', label: 'Rent' },
+  { id: 'operations', label: 'Operations' },
+  { id: 'profit', label: 'Profit' },
+  { id: 'owner_draw', label: 'Owner Draw' },
+  { id: 'growth', label: 'Growth' },
+  { id: 'marketing', label: 'Marketing' },
+  { id: 'equipment', label: 'Equipment' },
+];
+
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/** Assembles the MSME onboarding payload (ADR-001 §6.2) from the store's
+ *  shared fixedExpenses list plus the business-specific input/pockets. */
+function buildMsmeInput(
+  msmeInput: Partial<MsmeOnboardingInput>,
+  fixedExpenses: FixedExpenseItem[],
+  msmeCustomPockets: MsmeCustomPocketItem[],
+): MsmeOnboardingInput {
+  return {
+    segment: 'msme',
+    businessName: (msmeInput.businessName ?? '').trim(),
+    monthlyRevenue: msmeInput.monthlyRevenue ?? 0,
+    hasEmployees: msmeInput.hasEmployees ?? false,
+    businessStage: msmeInput.businessStage,
+    savingsGoal: msmeInput.savingsGoal,
+    fixedTotal: fixedExpenses.reduce((sum, e) => sum + e.amount, 0),
+    fixedExpenses: fixedExpenses.length > 0
+      ? fixedExpenses.map((e) => ({ name: e.name, amount: e.amount, dueDay: e.dueDay, category: e.category as any }))
+      : undefined,
+    customPockets: msmeCustomPockets.map((p) => ({ name: p.name, category: p.category })),
+  };
 }
 
 // Platform-aware storage adapter (mirrors the pattern in auth.ts)
@@ -70,7 +117,14 @@ interface OnboardingState {
   isPreviewLoading: boolean;
   isLoading: boolean;
   error: string | null;
-  
+
+  // MSME segment (ADR-001 §5.1): Business onboarding runs on its own input
+  // shape (businessName + monthlyRevenue + up to 6 business-category
+  // pockets) but shares the store's fixedExpenses list and assignResult.
+  segment: Segment;
+  msmeInput: Partial<MsmeOnboardingInput>;
+  msmeCustomPockets: MsmeCustomPocketItem[];
+
   // Actions
   setStep: (step: OnboardingStep) => void;
   setIncomeData: (data: Pick<OnboardingInput, 'incomePattern' | 'incomeAmount' | 'sourceCount' | 'incomeIntervalBand'>) => void;
@@ -106,6 +160,14 @@ interface OnboardingState {
   goBack: () => void;
   goNext: () => void;
   recoverState: () => Promise<void>;
+
+  // MSME actions
+  setSegment: (segment: Segment) => void;
+  setMsmeData: (data: Partial<MsmeOnboardingInput>) => void;
+  addCustomPocket: (pocket: { name: string; category: BusinessPocketCategory }) => void;
+  removeCustomPocket: (id: string) => void;
+  previewMsmePlan: () => Promise<void>;
+  commitMsmePlan: () => Promise<void>;
 }
 
 const STEP_ORDER: OnboardingStep[] = ['income', 'habits', 'about-you', 'goal', 'fixed', 'result'];
@@ -140,6 +202,9 @@ export const useOnboardingStore = create<OnboardingState>()(
       isLoading: false,
       error: null,
       isRetake: false,
+      segment: 'individual',
+      msmeInput: {},
+      msmeCustomPockets: [],
 
       setStep: (step) => set({ currentStep: step, error: null }),
 
@@ -300,6 +365,58 @@ export const useOnboardingStore = create<OnboardingState>()(
         }
       },
 
+      setSegment: (segment) => set({ segment, error: null }),
+
+      setMsmeData: (data) =>
+        set((state) => ({
+          msmeInput: { ...state.msmeInput, ...data },
+          error: null,
+        })),
+
+      addCustomPocket: (pocket) =>
+        set((state) => {
+          if (state.msmeCustomPockets.length >= 6) {
+            return { error: 'You can have up to 6 business pockets.' };
+          }
+          return {
+            msmeCustomPockets: [...state.msmeCustomPockets, { ...pocket, id: generateId() }],
+            error: null,
+          };
+        }),
+
+      removeCustomPocket: (id) =>
+        set((state) => ({
+          msmeCustomPockets: state.msmeCustomPockets.filter((p) => p.id !== id),
+          error: null,
+        })),
+
+      previewMsmePlan: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { msmeInput, fixedExpenses, msmeCustomPockets } = get();
+          const fullInput = buildMsmeInput(msmeInput, fixedExpenses, msmeCustomPockets);
+          const result = await onboardingApi.msmeAssign(fullInput);
+          set({ assignResult: result, isLoading: false });
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to preview plan', isLoading: false });
+          throw error;
+        }
+      },
+
+      commitMsmePlan: async () => {
+        set({ isLoading: true, error: null });
+        try {
+          const { msmeInput, fixedExpenses, msmeCustomPockets } = get();
+          const fullInput = buildMsmeInput(msmeInput, fixedExpenses, msmeCustomPockets);
+          const result = await onboardingApi.msmeCommit(fullInput);
+          useDataSync.getState().bump();
+          set({ commitResult: result, isLoading: false });
+        } catch (error) {
+          set({ error: error instanceof Error ? error.message : 'Failed to create your business plan', isLoading: false });
+          throw error;
+        }
+      },
+
       reset: () =>
         set({
           currentStep: 'income',
@@ -312,6 +429,9 @@ export const useOnboardingStore = create<OnboardingState>()(
           isLoading: false,
           error: null,
           isRetake: false,
+          segment: 'individual',
+          msmeInput: {},
+          msmeCustomPockets: [],
         }),
 
       startRetake: () =>
@@ -381,6 +501,9 @@ export const useOnboardingStore = create<OnboardingState>()(
         assignResult: state.assignResult,
         commitResult: state.commitResult,
         isRetake: state.isRetake,
+        segment: state.segment,
+        msmeInput: state.msmeInput,
+        msmeCustomPockets: state.msmeCustomPockets,
       }),
     }
   )

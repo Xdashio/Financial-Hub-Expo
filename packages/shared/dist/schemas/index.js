@@ -1,14 +1,36 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.PocketKindSchema = exports.PlanTypeSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = void 0;
+exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.MsmeOnboardingInputSchema = exports.MsmePocketInputSchema = exports.BusinessStageSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.MSME_SPENDABLE_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.BusinessPocketCategorySchema = exports.PocketKindSchema = exports.SegmentSchema = exports.PlanTypeSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
 // ============================================================================
 exports.PlanTypeSchema = zod_1.z.enum(['structured', 'daily']);
+// Individual vs MSME account segment (ADR-001 / MSME_PHASED_BUILD_PLAN §5.1).
+// A user can hold *two* active plans simultaneously — one per segment — so
+// segment discriminates plan ownership, not the user.
+exports.SegmentSchema = zod_1.z.enum(['individual', 'msme']);
 exports.PocketKindSchema = zod_1.z.enum(['savings', 'fixed', 'spendable', 'loan']);
+// MSME business pocket categories (ADR-001 D2 / MSME_PHASED_BUILD_PLAN §5.2).
+// Kept separate from PocketCategorySchema so the Individual set stays
+// untouched; they're merged at the union/PocketCategorySchema level.
+exports.BusinessPocketCategorySchema = zod_1.z.enum([
+    'stock',
+    'supplier',
+    'licence',
+    'tax',
+    'salary',
+    'rent',
+    'operations',
+    'profit',
+    'owner_draw',
+    'growth',
+    'marketing',
+    'equipment',
+]);
 exports.PocketCategorySchema = zod_1.z.enum([
+    // individual (existing, unchanged)
     'food',
     'transport',
     'leisure',
@@ -18,6 +40,20 @@ exports.PocketCategorySchema = zod_1.z.enum([
     'education',
     'housing',
     'family',
+    // msme additions (business semantics, spec §2–§10)
+    'stock',
+    'supplier',
+    'licence',
+    'tax',
+    'salary',
+    'rent',
+    'operations',
+    'profit',
+    'owner_draw',
+    'growth',
+    'marketing',
+    'equipment',
+    // fallback
     'other',
 ]);
 exports.IncomePatternSchema = zod_1.z.enum(['salaried', 'freelancer', 'mix']);
@@ -57,6 +93,9 @@ exports.PlanNameSchema = zod_1.z.enum([
     // shown identical plan naming to a single-employer salaried user.
     'Salaried + Side Income — Structured',
     'Salaried + Side Income — Daily Budget',
+    // MSME / business segment plan (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2).
+    // Always structured — business cash flow is monthly, no daily caps.
+    'Business — Structured',
 ]);
 // Income-concentration signal within the 'freelancer' income pattern
 // (audit_team.md item 8, Batch 4). Derived from `sourceCount`, already
@@ -129,11 +168,28 @@ exports.SpendableCategorySchema = zod_1.z.enum(['food', 'transport', 'leisure', 
  * (see pocket-provisioning.ts). Other categories like 'grocery', 'healthcare',
  * etc. are merchant classification categories, not spendable pocket categories.
  */
+exports.MSME_SPENDABLE_LABELS = {
+    stock: 'Stock & Inventory',
+    supplier: 'Suppliers',
+    licence: 'Licences',
+    tax: 'Taxes',
+    salary: 'Salaries & Wages',
+    rent: 'Rent',
+    operations: 'Operations',
+    profit: 'Profit',
+    owner_draw: 'Owner Draw',
+    growth: 'Growth',
+    marketing: 'Marketing',
+    equipment: 'Equipment',
+};
 exports.SPENDABLE_CATEGORY_LABELS = {
     food: 'Food & Groceries',
     transport: 'Transport',
     leisure: 'Personal & Leisure',
     family: 'Family & Dependents',
+    // MSME business labels (MSME_PHASED_BUILD_PLAN §5.2) — spread from the
+    // single source of truth so the two label maps stay in lockstep.
+    ...exports.MSME_SPENDABLE_LABELS,
 };
 // Partial map of category -> percentage (0-100) of the spendable amount.
 // Partial because which categories exist depends on persona (student gets
@@ -241,6 +297,31 @@ exports.OnboardingInputSchema = zod_1.z.object({
     // expected key set depends on lifeStage/hasDependents).
     categoryPercentages: zod_1.z.record(zod_1.z.string(), zod_1.z.number().min(0).max(100)).optional(),
 });
+// ============================================================================
+// MSME onboarding (§6.2) — the business-segment sibling of OnboardingInput.
+// Deliberately separate: monthly revenue replaces incomeAmount (mapped to
+// plans.expected_income_amount server-side) and customPockets (max 6, §2.2)
+// lets a business name its own pockets instead of the individual persona set.
+// ============================================================================
+exports.BusinessStageSchema = zod_1.z.enum(['starting', 'stable', 'growing']);
+exports.MsmePocketInputSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(100),
+    category: exports.PocketCategorySchema,
+});
+exports.MsmeOnboardingInputSchema = zod_1.z.object({
+    segment: zod_1.z.literal('msme'),
+    businessName: zod_1.z.string().min(1).max(100),
+    // maps to plans.expected_income_amount (see commitMsme)
+    monthlyRevenue: zod_1.z.number().positive(),
+    // sum of recurring business obligations (rent, salaries, licences, taxes…)
+    fixedTotal: zod_1.z.number().nonnegative(),
+    fixedExpenses: zod_1.z.array(exports.FixedExpenseInputSchema).optional(),
+    hasEmployees: zod_1.z.boolean().optional(),
+    businessStage: exports.BusinessStageSchema.optional(),
+    savingsGoal: exports.SavingsGoalInputSchema.optional(),
+    // custom pocket names — max 6, validated server-side (§2.2)
+    customPockets: zod_1.z.array(exports.MsmePocketInputSchema).max(6).optional(),
+});
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
     reason: zod_1.z.string(),
@@ -256,6 +337,9 @@ exports.PlanAssignReasonSchema = zod_1.z.object({
     goalRequiredSharePercent: zod_1.z.number().nonnegative().optional(),
 });
 exports.OnboardingAssignResultSchema = zod_1.z.object({
+    // Which segment this assignment targets (individual assign flows omit it;
+    // MSME always sets 'msme' — see assignMsmePlan).
+    segment: exports.SegmentSchema.optional(),
     plan: exports.PlanNameSchema,
     planType: exports.PlanTypeSchema,
     incomePattern: exports.IncomePatternSchema,
@@ -367,6 +451,8 @@ exports.PlanSchema = zod_1.z.object({
     userId: zod_1.z.string().uuid(),
     type: exports.PlanTypeSchema, // 'structured' | 'daily'
     incomePattern: exports.IncomePatternSchema, // 'salaried' | 'freelancer'
+    // 'individual' (default, keeps existing behavior) | 'msme' (ADR-001 §5.1)
+    segment: exports.SegmentSchema.optional(),
     // Freelancer-only. The onboarding band's day-count estimate, persisted so
     // RunwayService has a fallback before enough income_events history exists.
     // Null for salaried/mix plans.
@@ -378,6 +464,9 @@ exports.PlanSchema = zod_1.z.object({
 exports.PocketSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     planId: zod_1.z.string().uuid(), // per plan
+    // Which segment owns this pocket ('individual' default | 'msme'), derived
+    // from the plan — not stored on the pocket — for client filtering (§6.1).
+    segment: exports.SegmentSchema.optional(),
     name: zod_1.z.string(),
     kind: exports.PocketKindSchema, // 'savings' | 'fixed' | 'spendable'
     category: exports.PocketCategorySchema.optional(), // for spendable: 'food' | 'transport' | 'leisure' | …
@@ -650,8 +739,11 @@ exports.DisciplineScoreSchema = zod_1.z.object({
 // ======================================================================================
 exports.schemas = {
     PlanType: exports.PlanTypeSchema,
+    Segment: exports.SegmentSchema,
     PocketKind: exports.PocketKindSchema,
     PocketCategory: exports.PocketCategorySchema,
+    BusinessPocketCategory: exports.BusinessPocketCategorySchema,
+    MSME_SPENDABLE_LABELS: exports.MSME_SPENDABLE_LABELS,
     IncomePattern: exports.IncomePatternSchema,
     SpendingHabit: exports.SpendingHabitSchema,
     LifeStage: exports.LifeStageSchema,
@@ -672,6 +764,9 @@ exports.schemas = {
     CategoryPercentages: exports.CategoryPercentagesSchema,
     IncomeConcentration: exports.IncomeConcentrationSchema,
     OnboardingInput: exports.OnboardingInputSchema,
+    MsmeOnboardingInput: exports.MsmeOnboardingInputSchema,
+    BusinessStage: exports.BusinessStageSchema,
+    MsmePocketInput: exports.MsmePocketInputSchema,
     PlanAssignReason: exports.PlanAssignReasonSchema,
     OnboardingAssignResult: exports.OnboardingAssignResultSchema,
     CategoryAllocationPreview: exports.CategoryAllocationPreviewSchema,

@@ -67,6 +67,7 @@ const TRANSPORT_POCKET: Pocket = {
 const FREELANCER_DAILY_PLAN: Plan = {
   id: 'plan-1',
   user_id: 'user-1',
+  segment: 'individual',
   type: 'daily',
   income_pattern: 'freelancer',
   income_interval_days: 30,

@@ -1,0 +1,271 @@
+import React from 'react';
+import { View, Text, ScrollView, RefreshControl, Pressable, Image } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { radius, spacing, typography, touchTarget } from '@/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
+import { useAlertModal } from '@/hooks/useAlertModal';
+import { pocketsApi, incomeApi } from '@/services/api';
+import { useAuthStore } from '@/services/auth';
+import { Plus, Store } from 'lucide-react-native';
+import { formatMoney } from '@/utils/money';
+import { getCategoryIcon } from '@/utils/categoryIcons';
+import { BUSINESS_CATEGORIES } from '@/services/onboarding-store';
+
+interface MsmePocket {
+  id: string;
+  name: string;
+  kind: string;
+  category?: string | null;
+  monthly_allocation: number;
+  available_balance: number;
+  is_time_locked: boolean;
+}
+
+type ViewState =
+  | { status: 'loading' }
+  | { status: 'error'; message: string }
+  | { status: 'empty-msme' }
+  | { status: 'empty-neither' }
+  | { status: 'ready'; pockets: MsmePocket[] };
+
+function categoryLabel(category?: string | null): string {
+  if (!category) return '';
+  const key = (['stock', 'supplier', 'licence', 'tax', 'salary', 'rent', 'operations', 'profit', 'owner_draw', 'growth', 'marketing', 'equipment'] as const).find((c) => c === category);
+  const entry = key ? BUSINESS_CATEGORIES.find((c) => c.id === key) : undefined;
+  return entry?.label ?? '';
+}
+
+export default function MsmeHomeScreen() {
+  const router = useRouter();
+  const { colors } = useTheme();
+  const { alert, modal } = useAlertModal();
+
+  const [view, setView] = React.useState<ViewState>({ status: 'loading' });
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    try {
+      const [msme, individual] = await Promise.all([
+        pocketsApi.getAll('msme').catch(() => []),
+        pocketsApi.getAll('individual').catch(() => []),
+      ]);
+      if (msme.length > 0) {
+        setView({ status: 'ready', pockets: msme });
+      } else if (individual.length > 0) {
+        setView({ status: 'empty-msme' });
+      } else {
+        setView({ status: 'empty-neither' });
+      }
+    } catch (error) {
+      setView({ status: 'error', message: error instanceof Error ? error.message : 'Failed to load' });
+    }
+  }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
+
+  const isFirstFocus = React.useRef(true);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isFirstFocus.current) { isFirstFocus.current = false; return; }
+      load();
+    }, [load]),
+  );
+
+  const refresh = async () => {
+    setIsRefreshing(true);
+    await load();
+    setIsRefreshing(false);
+  };
+
+  const switchPersonal = async () => {
+    router.replace('/(tabs)');
+  };
+
+  const renderHeader = () => (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+        <Image
+          source={require('../../assets/icon.png')}
+          style={{ width: 26, height: 26 }}
+          resizeMode="contain"
+        />
+        <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }} numberOfLines={1}>Financial Hub</Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, padding: 3 }}>
+        <Pressable
+          onPress={() => router.replace('/(tabs)')}
+          style={({ pressed }) => [{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }, { opacity: pressed ? 0.7 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Switch to personal plan"
+        >
+          <Text style={{ ...typography.caption, color: colors.sage }}>Personal</Text>
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.emeraldDeep }, { opacity: pressed ? 0.7 : 1 }]}
+          accessibilityRole="button"
+          accessibilityState={{ selected: true }}
+          accessibilityLabel="You are viewing your business plan"
+        >
+          <Text style={{ ...typography.caption, color: colors.surface }}>Business</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const renderEmpty = () => {
+    const isMsmeOnly = view.status === 'empty-msme';
+    return (
+      <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl, paddingHorizontal: spacing.lg }}>
+        <View style={{ width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.lg }}>
+          <Store size={32} color={colors.gold} strokeWidth={2} />
+        </View>
+        <Text style={{ ...typography.title, color: colors.ink, textAlign: 'center' }}>
+          {isMsmeOnly ? 'No business plan yet' : 'Start a money plan'}
+        </Text>
+        <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
+          {isMsmeOnly
+            ? 'Your personal plan is safe. Add a business plan to split revenue into stock, suppliers, and profit pockets.'
+            : 'Complete onboarding to create your personalized pockets for savings, fixed costs, and daily spending.'}
+        </Text>
+        <Pressable
+          style={({ pressed }) => [{ marginTop: spacing.lg, backgroundColor: colors.emeraldDeep, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.xl }, { opacity: pressed ? 0.7 : 1 }]}
+          onPress={() => router.push(/(onboarding)\/income/ as any)}
+          accessibilityLabel={isMsmeOnly ? 'Start business onboarding' : 'Start onboarding'}
+          accessibilityRole="button"
+        >
+          <Text style={{ ...typography.heading, color: colors.surface, textAlign: 'center' }}>
+            {isMsmeOnly ? 'Add business plan' : 'Start Onboarding'}
+          </Text>
+        </Pressable>
+        {isMsmeOnly && (
+          <Pressable
+            style={({ pressed }) => [{ marginTop: spacing.md, alignItems: 'center' }, { opacity: pressed ? 0.7 : 1 }]}
+            onPress={switchPersonal}
+            accessibilityRole="button"
+            accessibilityLabel="Go to personal plan"
+          >
+            <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>Back to personal plan</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  };
+
+  const renderPocketCard = (pocket: MsmePocket) => {
+    const color = pocket.kind === 'fixed'
+      ? colors.gold
+      : pocket.kind === 'savings'
+        ? colors.emeraldDeep
+        : colors.plum;
+    const Icon = getCategoryIcon((pocket.category as any) || 'operations');
+    const progress = pocket.monthly_allocation > 0
+      ? Math.max(0, Math.min(1, pocket.available_balance / pocket.monthly_allocation))
+      : 0;
+    const label = categoryLabel(pocket.category);
+    return (
+      <Pressable
+        key={pocket.id}
+        style={({ pressed }) => [{ flex: 1, minWidth: '46%', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
+        onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+        accessibilityRole="button"
+        accessibilityLabel={`${pocket.name} pocket, ${formatMoney(pocket.available_balance)} available`}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
+            <Icon size={16} color={colors.ink} strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ ...typography.heading, fontSize: 14, color: colors.ink }} numberOfLines={1}>{pocket.name}</Text>
+            {label ? (
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }} numberOfLines={1}>{label}</Text>
+            ) : null}
+          </View>
+        </View>
+        <View style={{ height: 1, borderTopWidth: 1.5, borderTopColor: color, borderStyle: 'dashed', marginTop: spacing.md }} />
+        <View style={{ marginTop: spacing.md }}>
+          <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatMoney(pocket.available_balance)}</Text>
+          <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>of {formatMoney(pocket.monthly_allocation)} monthly</Text>
+        </View>
+        <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
+          <View style={{ height: '100%', borderRadius: radius.pill, backgroundColor: color, width: `${progress * 100}%` }} />
+        </View>
+      </Pressable>
+    );
+  };
+
+  if (view.status === 'loading') {
+    return (
+      <ScreenContainer>
+        {renderHeader()}
+        <LoadingState label="Loading your business hub…" variant="home" />
+      </ScreenContainer>
+    );
+  }
+
+  if (view.status === 'error') {
+    return (
+      <ScreenContainer>
+        {renderHeader()}
+        <ErrorState message={view.message} onRetry={refresh} />
+      </ScreenContainer>
+    );
+  }
+
+  if (view.status === 'empty-msme' || view.status === 'empty-neither') {
+    return (
+      <ScreenContainer>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
+          {renderHeader()}
+          {renderEmpty()}
+        </ScrollView>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer>
+      <View style={{ flex: 1, position: 'relative' }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={colors.emeraldDeep} colors={[colors.emeraldDeep]} />
+          }
+        >
+          {renderHeader()}
+
+          <View style={{ marginTop: spacing.xl, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Store size={20} color={colors.gold} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.eyebrow, color: colors.sage, letterSpacing: 0.36 }}>Business pockets</Text>
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>Split from your monthly revenue</Text>
+            </View>
+            <Text style={{ ...typography.caption, color: colors.sage }}>{view.pockets.length} pockets</Text>
+          </View>
+
+          <View style={{ marginTop: spacing.xl }}>
+            <Pressable
+              style={({ pressed }) => [{ width: '100%', minHeight: touchTarget.minHeight, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
+              onPress={() => router.push('/(income)/entry?segment=msme' as any)}
+              accessibilityLabel="Add business income"
+              accessibilityRole="button"
+            >
+              <Plus size={18} color={colors.emerald} strokeWidth={2} />
+              <Text style={{ ...typography.caption, color: colors.ink }}>Add income</Text>
+            </Pressable>
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}>
+            {view.pockets.map(renderPocketCard)}
+          </View>
+        </ScrollView>
+      </View>
+      {modal}
+    </ScreenContainer>
+  );
+}

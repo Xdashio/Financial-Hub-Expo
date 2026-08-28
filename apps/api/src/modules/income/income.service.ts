@@ -40,7 +40,7 @@ export class IncomeService {
       unallocated_handling: string;
     };
   }> {
-    const plan: Plan | null = await this.repository.getActivePlanByUserId(userId);
+    const plan: Plan | null = await this.repository.getActivePlanByUserId(userId, dto.segment ?? 'individual');
     if (!plan) {
       throw new BadRequestException('No active plan found. Please complete onboarding first.');
     }
@@ -117,7 +117,7 @@ export class IncomeService {
       }
     }
 
-    const plan = await this.repository.getActivePlanByUserId(userId);
+    const plan = await this.repository.getActivePlanByUserId(userId, dto.segment ?? 'individual');
     if (!plan) {
       throw new BadRequestException('No active plan found. Please complete onboarding first.');
     }

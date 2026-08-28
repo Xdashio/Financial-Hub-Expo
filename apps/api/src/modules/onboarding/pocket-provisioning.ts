@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type {
   CategoryPercentages,
+  MsmeOnboardingInput,
   OnboardingInput,
   PocketCategory,
   PocketKind,
@@ -113,6 +114,73 @@ export function buildPocketInputs(
   return pockets;
 }
 
+/**
+ * MSME pocket set (MSME_PHASED_BUILD_PLAN §5.2) — freeform business names
+ * and business categories, no student single-pocket special case.
+ *
+ * - Fixed: one pocket per submitted fixed expense (rent/salary/licence/tax…),
+ *   falling back to a single lump pocket when only `fixedTotal` is known.
+ * - Savings: same locked pocket as Individual (10% floor via the assignment).
+ * - Spendable: the user's `customPockets` (names + business categories, max
+ *   6 — validated server-side), splitting `assignment.spendableAmount`
+ *   evenly; the last pocket absorbs the rounding remainder. Falls back to a
+ *   single 'Business Spending' pocket when no custom pockets are given.
+ */
+export function buildMsmePocketInputs(
+  planId: string,
+  assignment: PlanAssignment,
+  input: MsmeOnboardingInput,
+): PocketInsertInput[] {
+  const pockets: PocketInsertInput[] = [];
+
+  pockets.push(...buildFixedPockets(planId, input));
+  pockets.push(buildSavingsPocket(planId, assignment.savingsTarget, assignment.savingsLockDays));
+
+  const custom = input.customPockets ?? [];
+  if (custom.length === 0) {
+    pockets.push({
+      id: uuidv4(),
+      plan_id: planId,
+      name: 'Business Spending',
+      kind: 'spendable',
+      category: 'operations',
+      is_time_locked: false,
+      lock_until: null,
+      monthly_allocation: round2(assignment.spendableAmount),
+      daily_cap: null,
+    });
+    return pockets;
+  }
+
+  const perPocket = round2(assignment.spendableAmount / custom.length);
+  let assigned = 0;
+  custom.forEach((pocket, i) => {
+    const amount = i === custom.length - 1 ? round2(assignment.spendableAmount - assigned) : perPocket;
+    assigned += amount;
+    pockets.push({
+      id: uuidv4(),
+      plan_id: planId,
+      name: pocket.name,
+      kind: 'spendable' as PocketKind,
+      category: pocket.category,
+      is_time_locked: false,
+      lock_until: null,
+      monthly_allocation: amount,
+      daily_cap: null,
+    });
+  });
+
+  return pockets;
+}
+
+/** Structural subset of the onboarding inputs that fixed-expense pocket
+ *  building actually needs — both the Individual `OnboardingInput` and the
+ *  MSME `MsmeOnboardingInput` satisfy it. */
+export interface FixedPocketSource {
+  fixedExpenses?: OnboardingInput['fixedExpenses'];
+  fixedTotal: number;
+}
+
 export function isDailyOrRegularExpense(expense: { category?: PocketCategory | null; name?: string; frequency?: string }): boolean {
   if (expense.frequency === 'daily' || expense.frequency === 'weekly') {
     return true;
@@ -138,7 +206,7 @@ export function isDailyOrRegularExpense(expense: { category?: PocketCategory | n
   return false;
 }
 
-export function buildFixedPockets(planId: string, input: OnboardingInput): PocketInsertInput[] {
+export function buildFixedPockets(planId: string, input: FixedPocketSource): PocketInsertInput[] {
   const expenses = input.fixedExpenses ?? [];
 
   if (expenses.length > 0) {
