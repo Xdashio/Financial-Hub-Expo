@@ -121,20 +121,16 @@ export class OnboardingService {
     // Map income pattern: 'mix' -> 'salaried' for database
     const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
 
-    // Create the new plan
+    // Create the new plan — explicit segment so DB default is not relied upon
     const plan = await this.supabaseRepo.createPlan({
       id: planId,
       user_id: userId,
+      segment: 'individual',
       type: assignment.planType,
       income_pattern: dbIncomePattern,
       income_interval_days: assignment.incomeIntervalDays ?? null,
       expected_income_amount: input.incomeAmount ?? null,
       status: 'active',
-      // Money-personality modifier layer (audit_team.md item 2 batch 2 /
-      // ONBOARDING_AND_SCORING_REDESIGN.md §2.3) — persisted so it survives
-      // past onboarding for reallocations/notifications/insights to read.
-      // Falls back to 'saver', matching rules-engine.ts's own fallback for
-      // a skipped answer.
       money_personality: input.moneyPersonality ?? 'saver',
     });
 
@@ -325,14 +321,12 @@ export class OnboardingService {
       const plan = await this.supabaseRepo.createPlan({
         id: planId,
         user_id: userId,
+        segment: 'individual',
         type: assignment.planType,
         income_pattern: dbIncomePattern,
         income_interval_days: assignment.incomeIntervalDays ?? null,
         expected_income_amount: input.incomeAmount ?? null,
         status: 'active',
-        // See the money_personality comment on the commit() createPlan call
-        // above — same modifier-layer persistence, applies on retake too
-        // since a retake can change the stated personality.
         money_personality: input.moneyPersonality ?? 'saver',
       });
 

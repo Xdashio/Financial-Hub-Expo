@@ -301,6 +301,31 @@ export class SupabaseRepository {
     return data;
   }
 
+  // ------------------------------------------------------------------------
+  // Pre-016 segment fallback helpers (see 016_msme_phase2_segment_isolation.sql)
+  // ------------------------------------------------------------------------
+
+  /**
+   * True only when the error is PostgREST/Postgres telling us the segment
+   * column doesn't exist yet (DB hasn't run 016):
+   * - 42703  = Postgres `undefined_column` (column filter on .eq())
+   * - PGRST204 = PostgREST schema-cache miss on INSERT payload key
+   * Require the message to mention "segment" too so we never swallow an
+   * unrelated 42703/PGRST204 (e.g. a different column drifting).
+   */
+  private isMissingSegmentColumn(error: unknown): boolean {
+    const err = error as { code?: string; message?: unknown };
+    const codeOk = err?.code === '42703' || err?.code === 'PGRST204';
+    const msg = typeof err?.message === 'string' ? err.message : '';
+    return codeOk && /segment/i.test(msg);
+  }
+
+  /** Drop the segment key from an insert payload (016 pre-migration retry). */
+  private stripSegment<T extends object>(payload: T): Omit<T, 'segment'> {
+    const { segment: _seg, ...rest } = payload as T & { segment?: unknown };
+    return rest;
+  }
+
   // Fixed Expenses
   async createFixedExpense(expense: FixedExpenseInsert): Promise<FixedExpense | null> {
     const { data, error } = await this.supabase
@@ -309,13 +334,10 @@ export class SupabaseRepository {
       .select()
       .single();
     if (error) {
-      const msg = typeof error.message === 'string' ? error.message : '';
-      if (/segment/i.test(msg) || (error as any).code === '42703') {
-        // Pre-016 DB fallback — strip segment and retry
-        const { segment: _seg, ...withoutSegment } = expense as any;
+      if (this.isMissingSegmentColumn(error)) {
         const { data: fallback, error: fallbackErr } = await this.supabase
           .from('fixed_expenses')
-          .insert(withoutSegment)
+          .insert(this.stripSegment(expense))
           .select()
           .single();
         if (fallbackErr) throw fallbackErr;
@@ -339,9 +361,7 @@ export class SupabaseRepository {
     }
     const { data, error } = await query.order('due_day', { ascending: true });
     if (error) {
-      // Column not yet migrated (pre-016) — fall back to unfiltered
-      const msg = typeof error.message === 'string' ? error.message : '';
-      if (/segment/i.test(msg) || (error as any).code === '42703') {
+      if (this.isMissingSegmentColumn(error)) {
         const { data: fallback, error: fallbackErr } = await this.supabase
           .from('fixed_expenses')
           .select('*')
@@ -424,8 +444,7 @@ export class SupabaseRepository {
     }
     const { error } = await query;
     if (error) {
-      const msg = typeof error.message === 'string' ? error.message : '';
-      if (segment && (/segment/i.test(msg) || (error as any).code === '42703')) {
+      if (segment && this.isMissingSegmentColumn(error)) {
         // Pre-migration fallback — delete unfiltered (old behaviour)
         const { error: fallbackErr } = await this.supabase
           .from('fixed_expenses')
@@ -446,12 +465,10 @@ export class SupabaseRepository {
       .select()
       .single();
     if (error) {
-      const msg = typeof error.message === 'string' ? error.message : '';
-      if (/segment/i.test(msg) || (error as any).code === '42703') {
-        const { segment: _seg, ...withoutSegment } = event as any;
+      if (this.isMissingSegmentColumn(error)) {
         const { data: fallback, error: fallbackErr } = await this.supabase
           .from('income_events')
-          .insert(withoutSegment)
+          .insert(this.stripSegment(event))
           .select()
           .single();
         if (fallbackErr) throw fallbackErr;
@@ -475,8 +492,7 @@ export class SupabaseRepository {
     }
     const { data, error } = await query.order('date', { ascending: false });
     if (error) {
-      const msg = typeof error.message === 'string' ? error.message : '';
-      if (/segment/i.test(msg) || (error as any).code === '42703') {
+      if (this.isMissingSegmentColumn(error)) {
         const { data: fallback, error: fallbackErr } = await this.supabase
           .from('income_events')
           .select('*')

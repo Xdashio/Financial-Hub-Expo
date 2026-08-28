@@ -88,6 +88,17 @@ function setBiometricEnabled(enabled: boolean): Promise<void> {
   return storageAdapter.setItem('biometricEnabled', enabled.toString());
 }
 
+export function getLastHomeSegment(): Promise<'individual' | 'msme' | null> {
+  return storageAdapter.getItem('last_home_segment').then((v) => {
+    if (v === 'individual' || v === 'msme') return v;
+    return null;
+  });
+}
+
+export function setLastHomeSegment(segment: 'individual' | 'msme'): Promise<void> {
+  return storageAdapter.setItem('last_home_segment', segment);
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -133,6 +144,9 @@ export const useAuthStore = create<AuthState>()(
                 const plans = await resPlans.json();
                 hasActivePlan = Array.isArray(plans) && plans.length > 0;
                 if (hasActivePlan) {
+                  // Persist the segment of the first plan (used for cold-start routing)
+                  const firstPlanSegment = (plans[0]?.segment === 'msme' ? 'msme' : 'individual');
+                  await setLastHomeSegment(firstPlanSegment);
                   set({ hasPlan: true, isCheckingPlan: false });
                   return;
                 }

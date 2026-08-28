@@ -712,3 +712,127 @@ describe('IncomeService segment awareness (ADR-001 §5.1)', () => {
     expect(result.allocation.total_allocated).toBe(27000);
   });
 });
+
+describe('IncomeService allocateSurplus segment-aware (Phase 2)', () => {
+  const MSME_PLAN = {
+    id: 'plan-msme',
+    user_id: 'user-1',
+    type: 'structured',
+    income_pattern: 'salaried',
+    status: 'active',
+    segment: 'msme',
+    expected_income_amount: 30000,
+  };
+  const MSME_POCKETS_ONE_SAVINGS = [
+    { id: 'pocket-savings', plan_id: 'plan-msme', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    { id: 'pocket-rent', plan_id: 'plan-msme', name: 'Rent', kind: 'fixed', category: 'rent', is_time_locked: true, lock_until: null, monthly_allocation: 8000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    { id: 'pocket-stock', plan_id: 'plan-msme', name: 'Stock', kind: 'spendable', category: 'stock', is_time_locked: false, lock_until: null, monthly_allocation: 12000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+  ];
+  const MSME_POCKETS_TWO_SAVINGS = [
+    { id: 'pocket-savings-a', plan_id: 'plan-msme', name: 'Emergency Fund', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 2000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    { id: 'pocket-savings-b', plan_id: 'plan-msme', name: 'Goal Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 1000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    { id: 'pocket-rent', plan_id: 'plan-msme', name: 'Rent', kind: 'fixed', category: 'rent', is_time_locked: true, lock_until: null, monthly_allocation: 8000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    { id: 'pocket-stock', plan_id: 'plan-msme', name: 'Stock', kind: 'spendable', category: 'stock', is_time_locked: false, lock_until: null, monthly_allocation: 11000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+  ];
+
+  it('allocates surplus to savings pocket for msme segment', async () => {
+    const repository = makeRepository({
+      getIncomeEventById: jest.fn().mockResolvedValue({
+        id: 'evt-1',
+        user_id: 'user-1',
+        unallocated_surplus: 5000,
+        surplus_allocation_status: 'pending',
+        segment: 'msme',
+      } as any),
+      getActivePlanByUserId: jest.fn().mockResolvedValue(MSME_PLAN as any),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(MSME_POCKETS_ONE_SAVINGS.map(p => ({ ...p }))),
+      createTransactions: jest.fn().mockResolvedValue([]),
+      updateIncomeEvent: jest.fn().mockResolvedValue({}),
+    } as any);
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    const result = await service.allocateSurplus('evt-1', { target: 'savings', segment: 'msme' }, 'user-1');
+
+    expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'msme');
+    expect(repository.createTransactions).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ pocket_id: 'pocket-savings', amount: 5000, type: 'allocation' }),
+      ]),
+    );
+    expect(result.allocation).not.toBeNull();
+    expect(result.allocation!.pocket_id).toBe('pocket-savings');
+    expect(result.allocation!.amount).toBe(5000);
+  });
+
+  it('splits surplus proportionally across multiple savings pockets for msme', async () => {
+    const repository = makeRepository({
+      getIncomeEventById: jest.fn().mockResolvedValue({
+        id: 'evt-1',
+        user_id: 'user-1',
+        unallocated_surplus: 6000,
+        surplus_allocation_status: 'pending',
+        segment: 'msme',
+      } as any),
+      getActivePlanByUserId: jest.fn().mockResolvedValue(MSME_PLAN as any),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(MSME_POCKETS_TWO_SAVINGS.map(p => ({ ...p }))),
+      createTransactions: jest.fn().mockResolvedValue([]),
+      updateIncomeEvent: jest.fn().mockResolvedValue({}),
+    } as any);
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    const result = await service.allocateSurplus('evt-1', { target: 'savings', segment: 'msme' }, 'user-1');
+
+    const transactions = repository.createTransactions.mock.calls[0][0];
+    const savingsA = transactions.find((t: any) => t.pocket_id === 'pocket-savings-a');
+    const savingsB = transactions.find((t: any) => t.pocket_id === 'pocket-savings-b');
+    expect(savingsA).toBeDefined();
+    expect(savingsB).toBeDefined();
+    expect(savingsA!.amount).toBe(4000); // 2000/(2000+1000) * 6000 = 4000
+    expect(savingsB!.amount).toBe(2000); // 1000/(2000+1000) * 6000 = 2000
+    expect(savingsA!.amount + savingsB!.amount).toBe(6000); // rounding reconciliation
+  });
+
+  it('main_pocket surplus stays within the segment — msme surplus does not touch individual plan', async () => {
+    const MSME_PLAN_2 = { ...MSME_PLAN, id: 'plan-msme-2' };
+    const INDIVIDUAL_PLAN = { ...PLAN, id: 'plan-individual', segment: 'individual' };
+    const MSME_POCKETS = [
+      { id: 'pocket-msme-savings', plan_id: 'plan-msme-2', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      { id: 'pocket-msme-stock', plan_id: 'plan-msme-2', name: 'Stock', kind: 'spendable', category: 'stock', is_time_locked: false, lock_until: null, monthly_allocation: 10000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    ];
+    const INDIVIDUAL_POCKETS = [
+      { id: 'pocket-ind-savings', plan_id: 'plan-individual', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 2000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      { id: 'pocket-ind-food', plan_id: 'plan-individual', name: 'Food', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 8000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    ];
+
+    const repository = makeRepository({
+      getIncomeEventById: jest.fn().mockResolvedValue({
+        id: 'evt-1',
+        user_id: 'user-1',
+        unallocated_surplus: 5000,
+        surplus_allocation_status: 'pending',
+        segment: 'msme',
+      } as any),
+      getActivePlanByUserId: jest.fn()
+        .mockResolvedValueOnce(MSME_PLAN_2 as any) // for segment 'msme'
+        .mockResolvedValueOnce(INDIVIDUAL_PLAN as any), // fallback
+      getTopLevelPocketsByPlanId: jest.fn()
+        .mockResolvedValueOnce(MSME_POCKETS.map(p => ({ ...p }))) // for msme plan
+        .mockResolvedValueOnce(INDIVIDUAL_POCKETS.map(p => ({ ...p }))), // for individual plan
+      createTransactions: jest.fn().mockResolvedValue([]),
+      updateIncomeEvent: jest.fn().mockResolvedValue({}),
+    } as any);
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    const result = await service.allocateSurplus('evt-1', { target: 'main_pocket', segment: 'msme' }, 'user-1');
+
+    // Should only call getTopLevelPocketsByPlanId with MSME plan id
+    expect(repository.getTopLevelPocketsByPlanId).toHaveBeenCalledWith('plan-msme-2');
+    // Should NOT have been called with individual plan
+    expect(repository.getTopLevelPocketsByPlanId).not.toHaveBeenCalledWith('plan-individual');
+    // Allocations should only go to MSME pockets
+    const transactions = repository.createTransactions.mock.calls[0][0];
+    const pocketIds = transactions.map((t: any) => t.pocket_id);
+    expect(pocketIds).toEqual(expect.arrayContaining(['pocket-msme-savings', 'pocket-msme-stock']));
+    expect(pocketIds).not.toEqual(expect.arrayContaining(['pocket-ind-savings', 'pocket-ind-food']));
+  });
+});
