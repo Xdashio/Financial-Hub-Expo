@@ -5,13 +5,15 @@ import {
   OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
+  MsmeOnboardingInputSchema,
+  MsmeOnboardingInput,
   PlanPreviewResult,
   PlanRetakeResult,
   RetakeEligibility,
   PocketKind,
   PlanType,
 } from '@financial-hub/shared';
-import { assignPlan, validateOnboardingInput } from './rules-engine';
+import { assignPlan, assignMsmePlan, validateOnboardingInput, validateMsmeOnboardingInput } from './rules-engine';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import {
   nextRetakeAvailableOn,
@@ -22,6 +24,7 @@ import {
 } from './plan-redistribution';
 import {
   buildPocketInputs,
+  buildMsmePocketInputs,
   previewSpendableBreakdown,
   resolveSpendableCategories,
   defaultCategoryPercentages,
@@ -43,6 +46,27 @@ export class OnboardingService {
       incomePattern: assignment.incomePattern,
       incomeConcentration: assignment.incomeConcentration,
       hasSideIncome: assignment.hasSideIncome,
+      reasons: assignment.reasons,
+      remainingAfterFixed: assignment.remainingAfterFixed,
+      savingsTarget: assignment.savingsTarget,
+      spendableAmount: assignment.spendableAmount,
+      needsRatio: assignment.needsRatio,
+      needsBand: assignment.needsBand,
+    };
+  }
+
+  /** MSME onboarding preview (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2) — always
+   *  a structured plan, no daily caps. No persistence. */
+  assignMsme(rawInput: unknown): OnboardingAssignResult {
+    const input = this.parseMsmeInput(rawInput);
+
+    const assignment = assignMsmePlan(input);
+
+    return {
+      segment: 'msme',
+      plan: assignment.plan,
+      planType: assignment.planType,
+      incomePattern: assignment.incomePattern,
       reasons: assignment.reasons,
       remainingAfterFixed: assignment.remainingAfterFixed,
       savingsTarget: assignment.savingsTarget,
@@ -156,6 +180,78 @@ export class OnboardingService {
         incomePattern: assignment.incomePattern,
         incomeConcentration: assignment.incomeConcentration,
         hasSideIncome: assignment.hasSideIncome,
+      },
+    });
+
+    return {
+      planId,
+      pockets: createdPockets.map(p => ({
+        id: p.id,
+        name: p.name,
+        kind: p.kind,
+        category: p.category || undefined,
+        monthlyAllocation: p.monthly_allocation,
+        dailyCap: p.daily_cap || undefined,
+      })),
+    };
+  }
+
+  /**
+   * MSME onboarding commit — creates a segment-scoped active plan plus the
+   * MSME pocket set. Uses deactivateUserPlansBySegment so an existing active
+   * *individual* plan stays live: ADR-001 D1 allows one active plan per
+   * segment to coexist. `monthlyRevenue` maps to plans.expected_income_amount.
+   */
+  async commitMsme(rawInput: unknown, userId: string): Promise<OnboardingCommitResult> {
+    const input = this.parseMsmeInput(rawInput);
+    const assignment = assignMsmePlan(input);
+    const planId = uuidv4();
+
+    // Segment-scoped: never deactivates the individual segment's plan.
+    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'msme');
+
+    const plan = await this.supabaseRepo.createPlan({
+      id: planId,
+      user_id: userId,
+      segment: 'msme',
+      type: 'structured',
+      // MSME always resolves to a monthly/structured rhythm — never 'mix',
+      // and never stored as 'freelancer' (no daily-cap runway math applies).
+      income_pattern: 'salaried',
+      expected_income_amount: input.monthlyRevenue,
+      status: 'active',
+      money_personality: 'saver',
+    });
+
+    if (!plan) {
+      throw new Error('Failed to create plan');
+    }
+
+    const pocketInputs = buildMsmePocketInputs(planId, assignment, input);
+    const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
+
+    if (input.fixedExpenses !== undefined) {
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+      for (const expense of input.fixedExpenses) {
+        await this.supabaseRepo.createFixedExpense({
+          user_id: userId,
+          name: expense.name,
+          amount: expense.amount,
+          due_day: expense.dueDay,
+          category: expense.category,
+        });
+      }
+    }
+
+    await this.supabaseRepo.createBehaviorEvent({
+      user_id: userId,
+      type: 'plan_created',
+      payload: {
+        planId,
+        segment: 'msme',
+        planType: assignment.planType,
+        businessName: input.businessName,
+        incomePattern: assignment.incomePattern,
       },
     });
 
@@ -360,6 +456,19 @@ export class OnboardingService {
     const categoryErrors = validateCategoryPercentages(result.data);
     if (categoryErrors.length > 0) {
       throw new BadRequestException(categoryErrors.join('; '));
+    }
+    return result.data;
+  }
+
+  // MSME counterpart of parseInput — schema then domain rules.
+  private parseMsmeInput(input: unknown): MsmeOnboardingInput {
+    const result = MsmeOnboardingInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
+    }
+    const errors = validateMsmeOnboardingInput(result.data);
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join('; '));
     }
     return result.data;
   }

@@ -43,6 +43,10 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          // Segment discriminator (014_msme_segment.sql / ADR-001 D1).
+          // Defaults to 'individual'; existing rows without it read as
+          // individual.
+          segment: 'individual' | 'msme'
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
           income_interval_days: number | null
@@ -59,6 +63,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          segment?: 'individual' | 'msme'
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
           income_interval_days?: number | null
@@ -74,6 +79,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          segment?: 'individual' | 'msme'
           type?: 'structured' | 'daily'
           income_pattern?: 'salaried' | 'freelancer'
           income_interval_days?: number | null
@@ -94,7 +100,7 @@ export interface Database {
           plan_id: string
           name: string
           kind: 'savings' | 'fixed' | 'spendable' | 'loan'
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other' | null
           is_time_locked: boolean
           lock_until: string | null
           monthly_allocation: number
@@ -122,7 +128,7 @@ export interface Database {
           plan_id: string
           name: string
           kind: 'savings' | 'fixed' | 'spendable' | 'loan'
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation: number
@@ -141,7 +147,7 @@ export interface Database {
           plan_id?: string
           name?: string
           kind?: 'savings' | 'fixed' | 'spendable' | 'loan'
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation?: number
@@ -164,7 +170,7 @@ export interface Database {
           name: string
           amount: number
           due_day: number
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other'
           status: 'active' | 'inactive'
           // Reserve obligation tracking (migration 013)
           funded_amount: number
@@ -180,7 +186,7 @@ export interface Database {
           name: string
           amount: number
           due_day: number
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other'
           status?: 'active' | 'inactive'
           funded_amount?: number
           carry_forward?: boolean
@@ -195,7 +201,7 @@ export interface Database {
           name?: string
           amount?: number
           due_day?: number
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other'
           status?: 'active' | 'inactive'
           funded_amount?: number
           carry_forward?: boolean

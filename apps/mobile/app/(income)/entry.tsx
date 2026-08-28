@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
@@ -35,6 +36,8 @@ export default function IncomeEntryScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { alert, modal } = useAlertModal();
+  const { segment } = useLocalSearchParams<{ segment?: string }>();
+  const segmentParam = segment === 'msme' ? 'msme' : undefined;
 
   const [amount, setAmount] = useState('');
   const [source, setSource] = useState<Source>('client_payment');
@@ -80,11 +83,11 @@ export default function IncomeEntryScreen() {
     }
     setIsPreviewLoading(true);
     incomeApi
-      .allocatePreview({ amount: amt, source: src })
+      .allocatePreview({ amount: amt, source: src, ...(segmentParam ? { segment: segmentParam } : {}) })
       .then((res) => setPreview(res.preview))
       .catch(() => setPreview(null))
       .finally(() => setIsPreviewLoading(false));
-  }, []);
+  }, [segmentParam]);
 
   useEffect(() => {
     if (previewTimer.current) clearTimeout(previewTimer.current);
@@ -133,6 +136,7 @@ export default function IncomeEntryScreen() {
         date: isoDate,
         run_allocation: runAllocation,
         idempotency_key: idempotencyKey,
+        ...(segmentParam ? { segment: segmentParam } : {}),
       });
 
       // Reconcile with the server's actual allocation (source of truth —
@@ -165,6 +169,7 @@ export default function IncomeEntryScreen() {
           allocations: JSON.stringify(result.allocation.allocations),
           totalAllocated: String(result.allocation.total_allocated),
           unallocated: String(result.allocation.unallocated),
+          segment: segmentParam || '',
         },
       });
     } catch (error: any) {
@@ -180,6 +185,7 @@ export default function IncomeEntryScreen() {
           date: isoDate,
           run_allocation: runAllocation,
           idempotency_key: idempotencyKey,
+          ...(segmentParam ? { segment: segmentParam } : {}),
         });
         alert(
           'Saved offline',
@@ -246,6 +252,7 @@ export default function IncomeEntryScreen() {
           allocations: JSON.stringify([]),
           totalAllocated: String(surplusPrompt.surplusAmount),
           unallocated: '0',
+          segment: segmentParam || '',
         },
       });
     } catch (error: any) {
@@ -267,6 +274,7 @@ export default function IncomeEntryScreen() {
         allocations: JSON.stringify([]),
         totalAllocated: '0',
         unallocated: String(surplusPrompt.surplusAmount),
+        segment: segmentParam || '',
       },
     });
   };

@@ -105,14 +105,15 @@ export const onboardingApi = {
 };
 
 export const pocketsApi = {
-  getAll: () => api.get<any[]>('/pockets'),
+  getAll: (segment: 'individual' | 'msme' = 'individual') =>
+    api.get<any[]>(segment === 'msme' ? '/pockets?segment=msme' : '/pockets'),
   // { applicable: false } for salaried/mix/structured plans. See
   // docs/FREELANCER_RUNWAY.md.
   getRunway: () => api.get<RunwaySummary>('/pockets/runway'),
   getById: (id: string) => api.get<any>(`/pockets/${id}`),
   update: (id: string, data: unknown) => api.put<any>(`/pockets/${id}`, data),
-  create: (data: { name: string; kind?: string; category?: string; monthlyAllocation?: number; dailyCap?: number }) =>
-    api.post<any>('/pockets', data),
+  create: (data: { name: string; kind?: string; category?: string; monthlyAllocation?: number; dailyCap?: number }, segment: 'individual' | 'msme' = 'individual') =>
+    api.post<any>(`/pockets${segment === 'msme' ? '?segment=msme' : ''}`, data),
   delete: (id: string) => api.delete<any>(`/pockets/${id}`),
   getSummary: (id: string) => api.get<any>(`/pockets/${id}/summary`),
   getTransactions: (id: string, page = 1, limit = 20) =>
@@ -455,7 +456,7 @@ export const emergencyUnlockApi = {
 };
 
 export const incomeApi = {
-  allocatePreview: (data: { amount: number; source: 'client_payment' | 'cash' | 'other' }) =>
+  allocatePreview: (data: { amount: number; source: 'client_payment' | 'cash' | 'other'; segment?: 'individual' | 'msme' }) =>
     api.post<any>('/income/manual/allocate-preview', data),
   createManual: (data: {
     amount: number;
@@ -464,6 +465,7 @@ export const incomeApi = {
     date: string;
     run_allocation: boolean;
     idempotency_key?: string;
+    segment?: 'individual' | 'msme';
   }) =>
     api.post<any>('/income/manual', {
       ...data,

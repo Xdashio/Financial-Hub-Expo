@@ -80,16 +80,15 @@ export class SupabaseRepository {
     return data;
   }
 
-  async getActivePlanByUserId(userId: string): Promise<Plan | null> {
+  async getActivePlanByUserId(userId: string, segment: 'individual' | 'msme' = 'individual'): Promise<Plan | null> {
     const { data, error } = await this.supabase
       .from('plans')
       .select('*')
       .eq('user_id', userId)
       .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (error && error.code !== 'PGRST116') throw error;
+      .eq('segment', segment)
+      .maybeSingle();
+    if (error) throw error;
     return data;
   }
 
@@ -163,6 +162,19 @@ export class SupabaseRepository {
       .update({ status: 'inactive' })
       .eq('user_id', userId)
       .eq('status', 'active');
+    if (error) throw error;
+  }
+
+  /** Deactivate every active plan for the user in one segment, leaving the
+   *  other segment's active plan untouched (ADR-001 D1 — two active plans,
+   *  one per segment, can coexist). */
+  async deactivateUserPlansBySegment(userId: string, segment: 'individual' | 'msme'): Promise<void> {
+    const { error } = await this.supabase
+      .from('plans')
+      .update({ status: 'inactive' })
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .eq('segment', segment);
     if (error) throw error;
   }
 

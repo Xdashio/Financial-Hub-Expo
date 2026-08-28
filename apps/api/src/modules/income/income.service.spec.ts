@@ -654,3 +654,61 @@ describe('IncomeService.createManualIncome', () => {
     });
   });
 });
+
+describe('IncomeService segment awareness (ADR-001 §5.1)', () => {
+  it('resolves the Individual plan when no segment is given (backward compat)', async () => {
+    const repository = makeRepository();
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    await service.createManualIncome(BASE_DTO, 'user-1');
+    expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'individual');
+  });
+
+  it('passes the msme segment through to createManualIncome', async () => {
+    const repository = makeRepository();
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    await service.createManualIncome({ ...BASE_DTO, segment: 'msme' }, 'user-1');
+    expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'msme');
+  });
+
+  it('passes the msme segment through to allocatePreview', async () => {
+    const repository = makeRepository();
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    await service.allocatePreview({ ...BASE_DTO, segment: 'msme' }, 'user-1');
+    expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'msme');
+  });
+
+  it('allocates across business fixed/savings/spendable pockets for an msme plan', async () => {
+    const MSME_PLAN = {
+      ...PLAN,
+      id: 'plan-msme',
+      segment: 'msme',
+      expected_income_amount: 30000,
+    };
+    const MSME_POCKETS = [
+      { id: 'pocket-savings', plan_id: 'plan-msme', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      { id: 'pocket-rent', plan_id: 'plan-msme', name: 'Rent', kind: 'fixed', category: 'rent', is_time_locked: true, lock_until: null, monthly_allocation: 8000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      { id: 'pocket-stock', plan_id: 'plan-msme', name: 'Stock & Inventory', kind: 'spendable', category: 'stock', is_time_locked: false, lock_until: null, monthly_allocation: 12000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      { id: 'pocket-marketing', plan_id: 'plan-msme', name: 'Marketing', kind: 'spendable', category: 'marketing', is_time_locked: false, lock_until: null, monthly_allocation: 4000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+    ];
+    const repository = makeRepository({
+      getActivePlanByUserId: jest.fn().mockResolvedValue(MSME_PLAN as any),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(MSME_POCKETS.map(p => ({ ...p }))),
+    } as any);
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    // Income equal to total monthly allocation (27000) → exact split, no
+    // surplus, no fixed-cap redistribution.
+    const result = await service.createManualIncome({ ...BASE_DTO, amount: 27000, segment: 'msme' }, 'user-1');
+
+    expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'msme');
+    const allocations = result.allocation.allocations;
+    expect(allocations.find(a => a.pocket_id === 'pocket-rent')?.amount).toBe(8000);
+    expect(allocations.find(a => a.pocket_id === 'pocket-savings')?.amount).toBe(3000);
+    expect(allocations.find(a => a.pocket_id === 'pocket-stock')?.amount).toBe(12000);
+    expect(allocations.find(a => a.pocket_id === 'pocket-marketing')?.amount).toBe(4000);
+    expect(result.allocation.total_allocated).toBe(27000);
+  });
+});

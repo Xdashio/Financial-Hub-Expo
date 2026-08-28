@@ -8,6 +8,12 @@ export class CreateIncomeDto {
   @IsEnum(['client_payment', 'cash', 'other'])
   source: 'client_payment' | 'cash' | 'other';
 
+  /** Which segment's active plan this income feeds (ADR-001 §5.1). Defaults
+   *  to 'individual' for backward compat. */
+  @IsOptional()
+  @IsEnum(['individual', 'msme'])
+  segment?: 'individual' | 'msme';
+
   @IsString()
   @IsOptional()
   label?: string;
