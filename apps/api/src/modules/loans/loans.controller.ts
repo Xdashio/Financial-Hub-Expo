@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Param, Body, Request } from '@nestjs/common';
+import { Controller, Get, Post, Put, Param, Body, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { LoansService } from './loans.service';
 
@@ -11,8 +11,8 @@ export class LoansController {
   @Get()
   @ApiOperation({ summary: "List the current user's loans" })
   @ApiResponse({ status: 200, description: 'List of loans with repayment progress' })
-  getAll(@Request() req: any) {
-    return this.loansService.getLoansForUser(req.user.id);
+  getAll(@Request() req: any, @Query('segment') segment?: 'individual' | 'msme') {
+    return this.loansService.getLoansForUser(req.user.id, segment ?? 'individual');
   }
 
   @Post()
@@ -20,8 +20,12 @@ export class LoansController {
   @ApiResponse({ status: 201, description: 'Loan created with Repayment sub-pocket' })
   @ApiResponse({ status: 400, description: 'Invalid loan input or repayment schedule' })
   @ApiResponse({ status: 400, description: 'User must have an active plan' })
-  create(@Body() input: unknown, @Request() req: any) {
-    return this.loansService.createLoan(req.user.id, input);
+  create(
+    @Body() input: unknown,
+    @Request() req: any,
+    @Query('segment') segment?: 'individual' | 'msme',
+  ) {
+    return this.loansService.createLoan(req.user.id, input, segment ?? 'individual');
   }
 
   @Get(':id')

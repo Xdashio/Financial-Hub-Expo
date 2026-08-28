@@ -233,19 +233,23 @@ export const behavioralRecommendationsApi = {
 };
 
 export const loansApi = {
-  getAll: () => api.get<any[]>('/loans'),
+  getAll: (segment?: 'individual' | 'msme') =>
+    api.get<any[]>(segment ? `/loans?segment=${segment}` : '/loans'),
   getById: (id: string) => api.get<any>(`/loans/${id}`),
-  create: (data: {
-    name: string;
-    totalAmount: number;
-    repaymentAmount: number;
-    cadence: 'weekly' | 'biweekly' | 'monthly';
-    startDate: string;
-    endDate: string;
-    dueDay: number;
-    loanProvider?: string;
-    loanPurpose?: string;
-  }) => api.post<any>('/loans', data),
+  create: (
+    data: {
+      name: string;
+      totalAmount: number;
+      repaymentAmount: number;
+      cadence: 'weekly' | 'biweekly' | 'monthly';
+      startDate: string;
+      endDate: string;
+      dueDay: number;
+      loanProvider?: string;
+      loanPurpose?: string;
+    },
+    segment?: 'individual' | 'msme',
+  ) => api.post<any>(segment ? `/loans?segment=${segment}` : '/loans', data),
   update: (id: string, data: any) => api.put<any>(`/loans/${id}`, data),
   createPurposeSubPocket: (id: string, data: { name: string; category: string; splitPercentage: number }) =>
     api.post<any>(`/loans/${id}/purpose-sub-pockets`, data),
@@ -342,8 +346,11 @@ export const rolloverApi = {
 };
 
 export const profileApi = {
-  getFixedExpenses: () => api.get<any[]>('/profile/fixed-expenses'),
-  getPlan: () => api.get<any>('/profile/plan'),
+  getFixedExpenses: (segment?: 'individual' | 'msme') =>
+    api.get<any[]>(segment ? `/profile/fixed-expenses?segment=${segment}` : '/profile/fixed-expenses'),
+  getPlan: (segment?: 'individual' | 'msme') =>
+    api.get<any>(segment ? `/profile/plan?segment=${segment}` : '/profile/plan'),
+  getPlans: () => api.get<any[]>('/profile/plans'),
   getRetakeEligibility: () =>
     api.get<{
       allowed: boolean;
@@ -471,12 +478,15 @@ export const incomeApi = {
       ...data,
       idempotency_key: data.idempotency_key || createIdempotencyKey('income'),
     }),
-  allocateSurplus: (incomeEventId: string, data: {
-    target: 'main_pocket' | 'pocket' | 'new_pocket';
-    pocket_id?: string;
-    new_pocket_name?: string;
-  }) =>
-    api.post<any>(`/income/${incomeEventId}/allocate-surplus`, data),
+  allocateSurplus: (
+    incomeEventId: string,
+    data: {
+      target: 'main_pocket' | 'pocket' | 'new_pocket' | 'savings';
+      pocket_id?: string;
+      new_pocket_name?: string;
+      segment?: 'individual' | 'msme';
+    },
+  ) => api.post<any>(`/income/${incomeEventId}/allocate-surplus`, data),
 };
 
 export const merchantApi = {

@@ -7,7 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useHomeStore, Pocket } from '@/services/home-store';
 import { Button, ScreenContainer, SafeScrollView, BrandHeader, SectionTitle } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { incomeApi } from '@/services/api';
+import { incomeApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { formatMoney } from '@/utils/money';
 
@@ -35,10 +35,35 @@ function formatCurrency(amount: number) {
 
 export default function SurplusPocketPickerScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ incomeEventId: string; surplusAmount: string }>();
-  const pockets = useHomeStore((s) => s.pockets);
+  const params = useLocalSearchParams<{ incomeEventId: string; surplusAmount: string; segment?: string }>();
+  const segmentParam = params.segment === 'msme' ? 'msme' : undefined;
+  const homePockets = useHomeStore((s) => s.pockets);
   const { colors } = useTheme();
   const { alert } = useAlertModal();
+
+  const [msmePockets, setMsmePockets] = React.useState<Pocket[] | null>(null);
+  const pockets = segmentParam === 'msme' ? (msmePockets ?? []) : homePockets;
+
+  React.useEffect(() => {
+    if (segmentParam === 'msme') {
+      pocketsApi
+        .getAll('msme')
+        .then((res: any[]) =>
+          setMsmePockets(
+            res.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              kind: p.kind,
+              category: p.category,
+              monthlyAllocation: p.monthly_allocation,
+              availableBalance: p.available_balance,
+              isTimeLocked: p.is_time_locked,
+            })),
+          ),
+        )
+        .catch(() => setMsmePockets([]));
+    }
+  }, [segmentParam]);
 
   const [selectedPocketId, setSelectedPocketId] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -59,7 +84,8 @@ export default function SurplusPocketPickerScreen() {
       await incomeApi.allocateSurplus(params.incomeEventId, {
         target: 'pocket',
         pocket_id: selectedPocketId,
-      });
+        ...(segmentParam ? { segment: segmentParam } : {}),
+      } as any);
 
       // Refresh data and navigate to success
       useDataSync.getState().bump();
@@ -72,6 +98,7 @@ export default function SurplusPocketPickerScreen() {
           allocations: JSON.stringify([]),
           totalAllocated: String(surplusAmount),
           unallocated: '0',
+          ...(segmentParam ? { segment: segmentParam } : {}),
         },
       });
     } catch (error: any) {

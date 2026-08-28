@@ -8,7 +8,7 @@ import { ArrowRight, Plus, Wallet, Building2 } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
 
 export interface AllocationOption {
-  id: 'main_pocket' | 'pocket' | 'new_pocket';
+  id: 'main_pocket' | 'pocket' | 'new_pocket' | 'savings';
   label: string;
   description: string;
   icon: React.ElementType;

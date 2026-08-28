@@ -99,7 +99,8 @@ export class EmergencyUnlockService {
     }
 
     // Calculate discretionary runway (reserve - fixed obligations)
-    const fixedExpenses = await this.repository.getFixedExpensesByUserId(userId);
+    // Segment-scoped to Individual so MSME bills don't deflate runway (016)
+    const fixedExpenses = await this.repository.getFixedExpensesByUserId(userId, 'individual');
     const activeFixedExpenses = fixedExpenses.filter(f => f.status === 'active');
     const totalFixedObligations = activeFixedExpenses.reduce(
       (sum, f) => sum + Number(f.amount), 

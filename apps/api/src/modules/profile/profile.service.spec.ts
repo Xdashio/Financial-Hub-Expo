@@ -65,7 +65,7 @@ describe('ProfileService', () => {
 
     const result = await service.getActivePlan('user-123');
 
-    expect(supabaseRepo.getActivePlanByUserId).toHaveBeenCalledWith('user-123');
+    expect(supabaseRepo.getActivePlanByUserId).toHaveBeenCalledWith('user-123', 'individual');
     expect(result).toEqual({ id: 'plan-1', type: 'daily' });
   });
 
@@ -74,7 +74,7 @@ describe('ProfileService', () => {
 
     const result = await service.getFixedExpenses('user-123');
 
-    expect(supabaseRepo.getFixedExpensesByUserId).toHaveBeenCalledWith('user-123');
+    expect(supabaseRepo.getFixedExpensesByUserId).toHaveBeenCalledWith('user-123', undefined);
     expect(result).toEqual([]);
   });
 
@@ -94,6 +94,7 @@ describe('ProfileService', () => {
       amount: 15000,
       due_day: 1,
       category: 'utilities',
+      segment: 'individual',
     });
     expect(result).toEqual({ id: 'fe-1', user_id: 'user-123' });
   });

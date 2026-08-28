@@ -14,7 +14,8 @@ export default function SurplusCreatePocketScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { alert } = useAlertModal();
-  const params = useLocalSearchParams<{ incomeEventId: string; surplusAmount: string }>();
+  const params = useLocalSearchParams<{ incomeEventId: string; surplusAmount: string; segment?: string }>();
+  const segmentParam = params.segment === 'msme' ? 'msme' : undefined;
 
   const [name, setName] = React.useState('');
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -31,7 +32,8 @@ export default function SurplusCreatePocketScreen() {
       await incomeApi.allocateSurplus(params.incomeEventId, {
         target: 'new_pocket',
         new_pocket_name: name.trim(),
-      });
+        ...(segmentParam ? { segment: segmentParam } : {}),
+      } as any);
 
       // Refresh data and navigate to success
       useDataSync.getState().bump();
@@ -44,6 +46,7 @@ export default function SurplusCreatePocketScreen() {
           allocations: JSON.stringify([]),
           totalAllocated: String(surplusAmount),
           unallocated: '0',
+          ...(segmentParam ? { segment: segmentParam } : {}),
         },
       });
     } catch (error: any) {
