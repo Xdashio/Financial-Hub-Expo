@@ -139,7 +139,7 @@ export function EmergencyUnlockRunwayImpactSheet({
       <BottomSheetModal visible={visible} onClose={handleClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.xxl, alignItems: 'center', gap: spacing.md }}>
           <PocketLoader size={36} color={colors.emeraldDeep} />
-          <Text style={{ ...typography.body, color: colors.sage }}>Calculating runway impact…</Text>
+          <Text style={{ ...typography.body, color: colors.sage }}>Calculating spending runway impact…</Text>
         </View>
       </BottomSheetModal>
     );
@@ -235,11 +235,11 @@ export function EmergencyUnlockRunwayImpactSheet({
           </View>
         </View>
 
-        {/* Current Runway Display */}
+        {/* Spending Runway Display */}
         <View style={styles.runwayCard}>
           <View style={styles.runwayRow}>
             <View style={styles.runwayStat}>
-              <Text style={[typography.caption, { color: colors.sage }]}>Current Runway</Text>
+              <Text style={[typography.caption, { color: colors.sage }]}>Spending Runway</Text>
               <Text style={[typography.display, { color: colors.ink, fontVariant: ['tabular-nums'] }]}>
                 {discretionaryRunway!.runway_days}
               </Text>
@@ -383,7 +383,7 @@ export function EmergencyUnlockRunwayImpactSheet({
           ]}>
             <View style={styles.impactSummaryRow}>
               <View>
-                <Text style={{ ...typography.caption, color: colors.sage }}>Current Runway</Text>
+                <Text style={{ ...typography.caption, color: colors.sage }}>Spending Runway</Text>
                 <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>
                   {selectedOption.runway_days_before} days
                 </Text>
@@ -407,7 +407,7 @@ export function EmergencyUnlockRunwayImpactSheet({
                 { color: selectedOption.runway_reduction_days >= 5 ? colors.clay : 
                                   selectedOption.runway_reduction_days >= 3 ? colors.gold : colors.emeraldDeep }
               ]}>
-                {formatCurrency(selectedOption.emergency_amount)} will reduce your runway by {selectedOption.runway_reduction_days} day{selectedOption.runway_reduction_days !== 1 ? 's' : ''}
+                {formatCurrency(selectedOption.emergency_amount)} will reduce your spending runway by {selectedOption.runway_reduction_days} day{selectedOption.runway_reduction_days !== 1 ? 's' : ''}
               </Text>
             </View>
           </View>
@@ -468,8 +468,8 @@ export function EmergencyUnlockRunwayImpactSheet({
             <AlertTriangle size={16} color={colors.clay} strokeWidth={2} />
             <Text style={{ ...typography.caption, color: colors.clay, flex: 1 }}>
               {selectedOption 
-                ? `Allocating ${formatCurrency(selectedOption.emergency_amount)} will reduce your runway by ${selectedOption.runway_reduction_days} day${selectedOption.runway_reduction_days !== 1 ? 's' : ''}. Fixed obligations remain protected.`
-                : 'Please review the runway impact above before confirming.'
+                ? `Allocating ${formatCurrency(selectedOption.emergency_amount)} will reduce your spending runway by ${selectedOption.runway_reduction_days} day${selectedOption.runway_reduction_days !== 1 ? 's' : ''}. Fixed obligations remain protected.`
+                : 'Please review the spending runway impact above before confirming.'
               }
             </Text>
           </View>
