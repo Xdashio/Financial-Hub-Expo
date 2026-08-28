@@ -92,6 +92,17 @@ export class SupabaseRepository {
     return data;
   }
 
+  /** All active plans for the user (both segments). Used by cold-start routing to decide hasPlan. */
+  async getActivePlansByUserId(userId: string): Promise<Plan[]> {
+    const { data, error } = await this.supabase
+      .from('plans')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active');
+    if (error) throw error;
+    return data || [];
+  }
+
   async getPlanById(id: string): Promise<Plan | null> {
     const { data, error } = await this.supabase
       .from('plans')
@@ -297,17 +308,50 @@ export class SupabaseRepository {
       .insert(expense)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      const msg = typeof error.message === 'string' ? error.message : '';
+      if (/segment/i.test(msg) || (error as any).code === '42703') {
+        // Pre-016 DB fallback — strip segment and retry
+        const { segment: _seg, ...withoutSegment } = expense as any;
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('fixed_expenses')
+          .insert(withoutSegment)
+          .select()
+          .single();
+        if (fallbackErr) throw fallbackErr;
+        return fallback;
+      }
+      throw error;
+    }
     return data;
   }
 
-  async getFixedExpensesByUserId(userId: string): Promise<FixedExpense[]> {
-    const { data, error } = await this.supabase
+  async getFixedExpensesByUserId(
+    userId: string,
+    segment?: 'individual' | 'msme',
+  ): Promise<FixedExpense[]> {
+    let query = this.supabase
       .from('fixed_expenses')
       .select('*')
-      .eq('user_id', userId)
-      .order('due_day', { ascending: true });
-    if (error) throw error;
+      .eq('user_id', userId);
+    if (segment) {
+      query = query.eq('segment', segment);
+    }
+    const { data, error } = await query.order('due_day', { ascending: true });
+    if (error) {
+      // Column not yet migrated (pre-016) — fall back to unfiltered
+      const msg = typeof error.message === 'string' ? error.message : '';
+      if (/segment/i.test(msg) || (error as any).code === '42703') {
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('fixed_expenses')
+          .select('*')
+          .eq('user_id', userId)
+          .order('due_day', { ascending: true });
+        if (fallbackErr) throw fallbackErr;
+        return fallback || [];
+      }
+      throw error;
+    }
     return data || [];
   }
 
@@ -368,12 +412,30 @@ export class SupabaseRepository {
   // full-replace semantics instead of appending on top of whatever was
   // already there — see BACKEND_FRONTEND_AUDIT.md-style note in
   // onboarding.service.ts commit().
-  async deleteFixedExpensesByUserId(userId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('fixed_expenses')
-      .delete()
-      .eq('user_id', userId);
-    if (error) throw error;
+  // Phase 2: optionally scoped to one segment so Individual and MSME
+  // onboarding do not wipe each other's bills.
+  async deleteFixedExpensesByUserId(
+    userId: string,
+    segment?: 'individual' | 'msme',
+  ): Promise<void> {
+    let query = this.supabase.from('fixed_expenses').delete().eq('user_id', userId);
+    if (segment) {
+      query = query.eq('segment', segment);
+    }
+    const { error } = await query;
+    if (error) {
+      const msg = typeof error.message === 'string' ? error.message : '';
+      if (segment && (/segment/i.test(msg) || (error as any).code === '42703')) {
+        // Pre-migration fallback — delete unfiltered (old behaviour)
+        const { error: fallbackErr } = await this.supabase
+          .from('fixed_expenses')
+          .delete()
+          .eq('user_id', userId);
+        if (fallbackErr) throw fallbackErr;
+        return;
+      }
+      throw error;
+    }
   }
 
   // Income Events
@@ -383,17 +445,48 @@ export class SupabaseRepository {
       .insert(event)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      const msg = typeof error.message === 'string' ? error.message : '';
+      if (/segment/i.test(msg) || (error as any).code === '42703') {
+        const { segment: _seg, ...withoutSegment } = event as any;
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('income_events')
+          .insert(withoutSegment)
+          .select()
+          .single();
+        if (fallbackErr) throw fallbackErr;
+        return fallback;
+      }
+      throw error;
+    }
     return data;
   }
 
-  async getIncomeEventsByUserId(userId: string): Promise<IncomeEvent[]> {
-    const { data, error } = await this.supabase
+  async getIncomeEventsByUserId(
+    userId: string,
+    segment?: 'individual' | 'msme',
+  ): Promise<IncomeEvent[]> {
+    let query = this.supabase
       .from('income_events')
       .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-    if (error) throw error;
+      .eq('user_id', userId);
+    if (segment) {
+      query = query.eq('segment', segment);
+    }
+    const { data, error } = await query.order('date', { ascending: false });
+    if (error) {
+      const msg = typeof error.message === 'string' ? error.message : '';
+      if (/segment/i.test(msg) || (error as any).code === '42703') {
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('income_events')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false });
+        if (fallbackErr) throw fallbackErr;
+        return fallback || [];
+      }
+      throw error;
+    }
     return data || [];
   }
 

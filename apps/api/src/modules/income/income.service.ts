@@ -171,6 +171,7 @@ export class IncomeService {
       label: dto.label?.trim() || '',
       date: dto.date,
       run_allocation: dto.run_allocation,
+      segment: (dto.segment ?? 'individual') as 'individual' | 'msme',
     };
 
     let createdIncomeEvent;
@@ -611,24 +612,31 @@ export class IncomeService {
       throw new BadRequestException('This income event has no pending surplus to allocate');
     }
 
-    const plan = await this.repository.getActivePlanByUserId(userId);
+    // Phase 2: segment-aware surplus allocation (known limit #2 — main_pocket was individual-only)
+    // DTO segment takes precedence; otherwise infer from the income event's own segment
+    // (persisted at createManualIncome time). Pre-016 rows have no segment → default individual.
+    const segment = (dto.segment ??
+      (incomeEvent as any).segment ??
+      'individual') as 'individual' | 'msme';
+    const plan = await this.repository.getActivePlanByUserId(userId, segment);
     if (!plan) {
-      throw new BadRequestException('No active plan found');
+      throw new BadRequestException(`No active ${segment} plan found`);
     }
 
+    const surplusAmount = incomeEvent.unallocated_surplus;
+
     switch (dto.target) {
-      case 'main_pocket':
-        // Allocate proportionally to all pockets using the same logic as normal income
+      case 'main_pocket': {
+        // Allocate proportionally to all pockets in the *segment's* plan
         const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
         const allocations = await this.applySubPocketSplits(
-          this.calculateAllocationsBasedOnProportions(incomeEvent.unallocated_surplus, pockets),
+          this.calculateAllocationsBasedOnProportions(surplusAmount, pockets),
         );
-        
+
         if (allocations.length === 0) {
           throw new BadRequestException('No pockets available for allocation');
         }
 
-        // Write allocation transactions
         const transactions: TransactionInsert[] = allocations.map(alloc => ({
           pocket_id: alloc.pocket_id,
           amount: alloc.amount,
@@ -639,7 +647,6 @@ export class IncomeService {
 
         await this.repository.createTransactions(transactions);
 
-        // Update income event status
         await this.repository.updateIncomeEvent(incomeEventId, {
           surplus_allocation_status: 'allocated',
           unallocated_surplus: null,
@@ -650,51 +657,44 @@ export class IncomeService {
           allocation: {
             pocket_id: 'main_pocket',
             pocket_name: 'Distributed across all pockets',
-            amount: incomeEvent.unallocated_surplus,
+            amount: surplusAmount,
           },
         };
+      }
 
-      case 'pocket':
+      case 'pocket': {
         if (!dto.pocket_id) {
           throw new BadRequestException('pocket_id is required when target is "pocket"');
         }
-
-        // Verify pocket belongs to user's plan
         const pocket = await this.repository.getPocketById(dto.pocket_id);
         if (!pocket || pocket.plan_id !== plan.id) {
           throw new BadRequestException('Invalid pocket');
         }
-
-        // Write allocation transaction
         await this.repository.createTransactions([{
           pocket_id: dto.pocket_id,
-          amount: incomeEvent.unallocated_surplus,
+          amount: surplusAmount,
           type: 'allocation' as const,
           merchant: null,
           category: null,
         }]);
-
-        // Update income event status
         await this.repository.updateIncomeEvent(incomeEventId, {
           surplus_allocation_status: 'allocated',
           unallocated_surplus: null,
         });
-
         return {
           success: true,
           allocation: {
             pocket_id: dto.pocket_id,
             pocket_name: pocket.name,
-            amount: incomeEvent.unallocated_surplus,
+            amount: surplusAmount,
           },
         };
+      }
 
-      case 'new_pocket':
+      case 'new_pocket': {
         if (!dto.new_pocket_name) {
           throw new BadRequestException('new_pocket_name is required when target is "new_pocket"');
         }
-
-        // Create new pocket (default to spendable kind, can be extended later)
         const newPocket: PocketInsert = {
           plan_id: plan.id,
           name: dto.new_pocket_name,
@@ -703,35 +703,99 @@ export class IncomeService {
           is_time_locked: false,
           monthly_allocation: 0,
         };
-
         const createdPocket = await this.repository.createPocket(newPocket);
         if (!createdPocket) {
           throw new BadRequestException('Failed to create new pocket');
         }
-
-        // Write allocation transaction
         await this.repository.createTransactions([{
           pocket_id: createdPocket.id,
-          amount: incomeEvent.unallocated_surplus,
+          amount: surplusAmount,
           type: 'allocation' as const,
           merchant: null,
           category: null,
         }]);
-
-        // Update income event status
         await this.repository.updateIncomeEvent(incomeEventId, {
           surplus_allocation_status: 'allocated',
           unallocated_surplus: null,
         });
-
         return {
           success: true,
           allocation: {
             pocket_id: createdPocket.id,
             pocket_name: createdPocket.name,
-            amount: incomeEvent.unallocated_surplus,
+            amount: surplusAmount,
           },
         };
+      }
+
+      case 'savings': {
+        // MSME/business surplus → dedicated Savings pocket (§4:107)
+        const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
+        const savingsPockets = pockets.filter(p => p.kind === 'savings');
+        if (savingsPockets.length === 0) {
+          throw new BadRequestException(`No savings pocket found for ${segment} plan`);
+        }
+        // If multiple savings pockets, distribute proportionally; common case is one.
+        let savingsAllocations: Array<{ pocket_id: string; amount: number }>;
+        if (savingsPockets.length === 1) {
+          savingsAllocations = [{ pocket_id: savingsPockets[0].id, amount: surplusAmount }];
+        } else {
+          const totalAlloc = savingsPockets.reduce((s, p) => s + (p.monthly_allocation || 0), 0);
+          if (totalAlloc > 0) {
+            savingsAllocations = savingsPockets.map(p => ({
+              pocket_id: p.id,
+              amount: round2((surplusAmount * (p.monthly_allocation || 0)) / totalAlloc),
+            }));
+            // Reconcile rounding drift to largest allocation
+            const sum = savingsAllocations.reduce((s, a) => s + a.amount, 0);
+            const remainder = round2(surplusAmount - sum);
+            if (remainder !== 0 && savingsAllocations.length > 0) {
+              const largest = savingsAllocations.reduce((max, a) => (a.amount > max.amount ? a : max), savingsAllocations[0]);
+              largest.amount = round2(largest.amount + remainder);
+            }
+          } else {
+            // Even split if no allocation weights
+            const per = round2(surplusAmount / savingsPockets.length);
+            savingsAllocations = savingsPockets.map((p, i) => ({
+              pocket_id: p.id,
+              amount: i === savingsPockets.length - 1 ? round2(surplusAmount - per * (savingsPockets.length - 1)) : per,
+            }));
+          }
+        }
+        const savingsTransactions: TransactionInsert[] = savingsAllocations
+          .filter(a => a.amount > 0)
+          .map(a => ({
+            pocket_id: a.pocket_id,
+            amount: a.amount,
+            type: 'allocation' as const,
+            merchant: null,
+            category: null,
+          }));
+        if (savingsTransactions.length === 0) {
+          throw new BadRequestException('No savings allocation computed');
+        }
+        await this.repository.createTransactions(savingsTransactions);
+        await this.repository.updateIncomeEvent(incomeEventId, {
+          surplus_allocation_status: 'allocated',
+          unallocated_surplus: null,
+        });
+        // Fire-and-forget push for business copy ("Move excess KSh X to Savings? [Confirm]")
+        // — mirrors the allocation push but with savings-specific copy. Never blocks the response.
+        void this.pushDelivery
+          .notifyAllocationReceived?.(userId, incomeEventId, surplusAmount, savingsTransactions.length)
+          .catch(() => {});
+
+        const primary = savingsAllocations[0];
+        const primaryPocket = savingsPockets.find(p => p.id === primary.pocket_id);
+        return {
+          success: true,
+          allocation: {
+            pocket_id: primary.pocket_id,
+            pocket_name: primaryPocket?.name ?? 'Savings',
+            amount: surplusAmount,
+          },
+        };
+      }
 
       default:
         throw new BadRequestException('Invalid target type');

@@ -115,8 +115,8 @@ export class OnboardingService {
     const assignment = assignPlan(input);
     const planId = uuidv4();
 
-    // Deactivate any existing active plans for this user
-    await this.supabaseRepo.deactivateUserPlans(userId);
+    // Segment-scoped: never deactivates the other segment's active plan (ADR-001 D1)
+    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'individual');
 
     // Map income pattern: 'mix' -> 'salaried' for database
     const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
@@ -156,8 +156,9 @@ export class OnboardingService {
     // whatever the user already has untouched — otherwise every onboarding
     // commit that doesn't resubmit fixed expenses silently wipes them.
     if (input.fixedExpenses !== undefined) {
-      // Delete existing fixed expenses to prevent duplicates when retaking check-in
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+      // Delete existing fixed expenses for this segment only — keeps the
+      // other segment's bills intact (016_msme_phase2_segment_isolation).
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'individual');
 
       for (const expense of input.fixedExpenses) {
         await this.supabaseRepo.createFixedExpense({
@@ -166,6 +167,7 @@ export class OnboardingService {
           amount: expense.amount,
           due_day: expense.dueDay,
           category: expense.category,
+          segment: 'individual',
         });
       }
     }
@@ -231,7 +233,7 @@ export class OnboardingService {
     const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
 
     if (input.fixedExpenses !== undefined) {
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'msme');
       for (const expense of input.fixedExpenses) {
         await this.supabaseRepo.createFixedExpense({
           user_id: userId,
@@ -239,6 +241,7 @@ export class OnboardingService {
           amount: expense.amount,
           due_day: expense.dueDay,
           category: expense.category,
+          segment: 'msme',
         });
       }
     }
@@ -308,13 +311,13 @@ export class OnboardingService {
     const planId = uuidv4();
     const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
 
-    // Schema enforces one active plan per user (partial unique index), so we
+    // Schema enforces one active plan per segment (partial unique index), so we
     // must deactivate the old plan before inserting the new one. Snapshot of
     // balances already happened above; ledger rows stay on old pocket ids and
     // are moved via reallocation_* txs after the new pockets exist. If the
     // create/migrate path fails, re-activate the previous plan so the user is
-    // not left without an active plan.
-    await this.supabaseRepo.deactivateUserPlans(userId);
+    // not left without an active plan. Segment-scoped so MSME is untouched.
+    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'individual');
 
     let createdPockets;
     let movementPlans;
@@ -362,7 +365,7 @@ export class OnboardingService {
     }
 
     if (input.fixedExpenses !== undefined) {
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'individual');
       for (const expense of input.fixedExpenses) {
         await this.supabaseRepo.createFixedExpense({
           user_id: userId,
@@ -370,6 +373,7 @@ export class OnboardingService {
           amount: expense.amount,
           due_day: expense.dueDay,
           category: expense.category,
+          segment: 'individual',
         });
       }
     }

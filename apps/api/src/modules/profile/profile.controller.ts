@@ -10,6 +10,7 @@ import {
   HttpCode,
   HttpStatus,
   Request,
+  Query,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiBody } from '@nestjs/swagger';
 import { ProfileService } from './profile.service';
@@ -28,10 +29,17 @@ export class ProfileController {
   }
 
   @Get('plan')
-  @ApiOperation({ summary: "Get the current user's active plan" })
+  @ApiOperation({ summary: "Get the current user's active plan (segment-aware)" })
   @ApiResponse({ status: 200, description: 'The active plan' })
-  getPlan(@Request() req: any) {
-    return this.profileService.getActivePlan(req.user.id);
+  getPlan(@Request() req: any, @Query('segment') segment?: 'individual' | 'msme') {
+    return this.profileService.getActivePlan(req.user.id, segment);
+  }
+
+  @Get('plans')
+  @ApiOperation({ summary: "Get all active plans (individual + msme) for the current user — used by cold-start routing" })
+  @ApiResponse({ status: 200, description: 'List of active plans across segments' })
+  getPlans(@Request() req: any) {
+    return this.profileService.getActivePlans(req.user.id);
   }
 
   @Get('plan/retake-eligibility')
@@ -71,10 +79,10 @@ export class ProfileController {
   }
 
   @Get('fixed-expenses')
-  @ApiOperation({ summary: "Get the current user's fixed expenses" })
+  @ApiOperation({ summary: "Get the current user's fixed expenses (segment-filtered)" })
   @ApiResponse({ status: 200, description: 'List of fixed expenses' })
-  getFixedExpenses(@Request() req: any) {
-    return this.profileService.getFixedExpenses(req.user.id);
+  getFixedExpenses(@Request() req: any, @Query('segment') segment?: 'individual' | 'msme') {
+    return this.profileService.getFixedExpenses(req.user.id, segment);
   }
 
   @Post('fixed-expenses')
@@ -82,8 +90,12 @@ export class ProfileController {
   @ApiBody({ description: 'name, amount, dueDay, category' })
   @ApiResponse({ status: 201, description: 'The created fixed expense' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
-  createFixedExpense(@Body() input: unknown, @Request() req: any) {
-    return this.profileService.createFixedExpense(req.user.id, input);
+  createFixedExpense(
+    @Body() input: unknown,
+    @Request() req: any,
+    @Query('segment') segment?: 'individual' | 'msme',
+  ) {
+    return this.profileService.createFixedExpense(req.user.id, input, segment ?? 'individual');
   }
 
   @Put('fixed-expenses/:id')
@@ -116,8 +128,12 @@ export class ProfileController {
   @ApiOperation({ summary: 'Bulk create fixed expenses' })
   @ApiResponse({ status: 201, description: 'Created fixed expenses' })
   @ApiResponse({ status: 400, description: 'Invalid input' })
-  bulkCreateFixedExpenses(@Body() input: unknown, @Request() req: any) {
-    return this.profileService.bulkCreateFixedExpenses(req.user.id, input);
+  bulkCreateFixedExpenses(
+    @Body() input: unknown,
+    @Request() req: any,
+    @Query('segment') segment?: 'individual' | 'msme',
+  ) {
+    return this.profileService.bulkCreateFixedExpenses(req.user.id, input, segment ?? 'individual');
   }
 
   @Put('fixed-expenses/:id/status')

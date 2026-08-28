@@ -27,15 +27,23 @@ export class ProfileService {
     return this.supabaseRepo.getUserById(userId);
   }
 
-  async getActivePlan(userId: string): Promise<Plan | null> {
-    return this.supabaseRepo.getActivePlanByUserId(userId);
+  async getActivePlan(userId: string, segment?: 'individual' | 'msme'): Promise<Plan | null> {
+    if (segment) return this.supabaseRepo.getActivePlanByUserId(userId, segment);
+    // No segment → try individual first, fallback to msme so hasPlan reflects either
+    const individual = await this.supabaseRepo.getActivePlanByUserId(userId, 'individual');
+    if (individual) return individual;
+    return this.supabaseRepo.getActivePlanByUserId(userId, 'msme');
   }
 
-  async getFixedExpenses(userId: string): Promise<FixedExpense[]> {
-    return this.supabaseRepo.getFixedExpensesByUserId(userId);
+  async getActivePlans(userId: string): Promise<Plan[]> {
+    return this.supabaseRepo.getActivePlansByUserId(userId);
   }
 
-  async createFixedExpense(userId: string, input: unknown): Promise<FixedExpense> {
+  async getFixedExpenses(userId: string, segment?: 'individual' | 'msme'): Promise<FixedExpense[]> {
+    return this.supabaseRepo.getFixedExpensesByUserId(userId, segment);
+  }
+
+  async createFixedExpense(userId: string, input: unknown, segment: 'individual' | 'msme' = 'individual'): Promise<FixedExpense> {
     const parsed = this.parseFixedExpenseInput(input);
     const created = await this.supabaseRepo.createFixedExpense({
       user_id: userId,
@@ -43,6 +51,7 @@ export class ProfileService {
       amount: parsed.amount,
       due_day: parsed.dueDay,
       category: parsed.category,
+      segment,
     });
     if (!created) {
       throw new BadRequestException('Failed to create fixed expense');
@@ -50,7 +59,7 @@ export class ProfileService {
     // Homepage lists pockets, not fixed_expenses rows. A post-onboarding
     // add used to save the bill without a matching fixed pocket, so the
     // new name never appeared under Fixed & Protected.
-    await this.syncFixedPocketFromExpense(userId, null, parsed);
+    await this.syncFixedPocketFromExpense(userId, null, parsed, segment);
     return created;
   }
 
@@ -66,7 +75,12 @@ export class ProfileService {
     if (!updated) {
       throw new NotFoundException('Fixed expense not found');
     }
-    await this.syncFixedPocketFromExpense(userId, existing, parsed);
+    await this.syncFixedPocketFromExpense(
+      userId,
+      existing,
+      parsed,
+      (existing as any).segment ?? 'individual',
+    );
     return updated;
   }
 
@@ -326,8 +340,9 @@ const percentages = newPercentages as Record<string, number>;
     userId: string,
     previous: Pick<FixedExpense, 'name' | 'category'> | null,
     next: FixedExpenseInput,
+    segment: 'individual' | 'msme' = 'individual',
   ): Promise<void> {
-    const plan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    const plan = await this.supabaseRepo.getActivePlanByUserId(userId, segment);
     if (!plan) return;
 
     const pockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(plan.id);
@@ -422,9 +437,10 @@ const percentages = newPercentages as Record<string, number>;
    */
   private async removeFixedPocketForExpense(
     userId: string,
-    expense: Pick<FixedExpense, 'name' | 'category'>,
+    expense: Pick<FixedExpense, 'name' | 'category' | 'segment'>,
   ): Promise<void> {
-    const plan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    const segment = (expense as any).segment ?? 'individual';
+    const plan = await this.supabaseRepo.getActivePlanByUserId(userId, segment);
     if (!plan) return;
 
     const pockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(plan.id);
@@ -453,9 +469,10 @@ const percentages = newPercentages as Record<string, number>;
 
   private async assertFixedPocketEmptyOrMissing(
     userId: string,
-    expense: Pick<FixedExpense, 'name' | 'category'>,
+    expense: Pick<FixedExpense, 'name' | 'category' | 'segment'>,
   ): Promise<void> {
-    const plan = await this.supabaseRepo.getActivePlanByUserId(userId);
+    const segment = (expense as any).segment ?? 'individual';
+    const plan = await this.supabaseRepo.getActivePlanByUserId(userId, segment);
     if (!plan) return;
 
     const pockets = await this.supabaseRepo.getTopLevelPocketsByPlanId(plan.id);
@@ -550,7 +567,11 @@ const percentages = newPercentages as Record<string, number>;
     };
   }
 
-  async bulkCreateFixedExpenses(userId: string, input: unknown): Promise<{
+  async bulkCreateFixedExpenses(
+    userId: string,
+    input: unknown,
+    segment: 'individual' | 'msme' = 'individual',
+  ): Promise<{
     created: FixedExpense[];
     failed: Array<{ index: number; error: string }>;
     total_monthly: number;
@@ -572,6 +593,7 @@ const percentages = newPercentages as Record<string, number>;
           amount: expenses[i].amount,
           due_day: expenses[i].dueDay,
           category: expenses[i].category,
+          segment,
         });
         if (createdExpense) {
           created.push(createdExpense);

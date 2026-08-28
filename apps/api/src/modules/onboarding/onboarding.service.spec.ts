@@ -180,8 +180,8 @@ describe('OnboardingService.commit', () => {
   it('deactivates existing plans before creating the new one', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    expect(repository.deactivateUserPlans).toHaveBeenCalledWith('user-1');
-    expect(repository.deactivateUserPlans.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'individual');
+    expect(repository.deactivateUserPlansBySegment.mock.invocationCallOrder[0]).toBeLessThan(
       repository.createPlan.mock.invocationCallOrder[0]
     );
   });
@@ -322,7 +322,7 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1');
+    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1', 'individual');
     // Delete must happen before the new rows are inserted, not after.
     const deleteOrder = (repository.deleteFixedExpensesByUserId as jest.Mock).mock.invocationCallOrder[0];
     const createOrder = (repository.createFixedExpense as jest.Mock).mock.invocationCallOrder[0];
@@ -334,7 +334,7 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1');
+    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1', 'individual');
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 
@@ -460,7 +460,7 @@ describe('OnboardingService.retake', () => {
     expect(credited).toBeCloseTo(1600);
     expect(debited).toBeCloseTo(1600);
 
-    expect(repository.deactivateUserPlans).toHaveBeenCalledWith('user-1');
+    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'individual');
     expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: 'user-1', type: 'plan_retaken' }),
     );

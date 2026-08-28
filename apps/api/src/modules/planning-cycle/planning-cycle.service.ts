@@ -64,9 +64,10 @@ export class PlanningCycleService {
     const today = new Date();
     const cycleMonth = this.getCycleMonth(today);
 
-    // Get data for the cycle
-    const fixedExpenses = await this.repository.getFixedExpensesByUserId(userId);
-    const incomeEvents = await this.repository.getIncomeEventsByUserId(userId);
+    // Get data for the cycle — segment-scoped so MSME bills don't
+    // pollute the Individual planning-cycle math (016)
+    const fixedExpenses = await this.repository.getFixedExpensesByUserId(userId, 'individual');
+    const incomeEvents = await this.repository.getIncomeEventsByUserId(userId, 'individual');
     const dailyAllocations = await this.repository.getDailyAllocationsByPlanIdAndMonth(
       planId,
       cycleMonth,

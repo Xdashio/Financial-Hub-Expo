@@ -177,6 +177,9 @@ export interface Database {
           carry_forward: boolean
           funded_at: string | null
           notification_day_offset: number
+          // Segment discriminator (016_msme_phase2_segment_isolation.sql) — optional for
+          // pre-016 rows in tests/local DBs that haven't run the migration yet.
+          segment?: 'individual' | 'msme'
           created_at: string
           updated_at: string
         }
@@ -192,6 +195,7 @@ export interface Database {
           carry_forward?: boolean
           funded_at?: string | null
           notification_day_offset?: number
+          segment?: 'individual' | 'msme'
           created_at?: string
           updated_at?: string
         }
@@ -207,6 +211,7 @@ export interface Database {
           carry_forward?: boolean
           funded_at?: string | null
           notification_day_offset?: number
+          segment?: 'individual' | 'msme'
           created_at?: string
           updated_at?: string
         }
@@ -223,6 +228,7 @@ export interface Database {
           run_allocation: boolean
           unallocated_surplus: number | null
           surplus_allocation_status: 'pending' | 'allocated' | 'skipped' | null
+          segment?: 'individual' | 'msme'
           created_at: string
         }
         Insert: {
@@ -235,6 +241,7 @@ export interface Database {
           run_allocation?: boolean
           unallocated_surplus?: number | null
           surplus_allocation_status?: 'pending' | 'allocated' | 'skipped' | null
+          segment?: 'individual' | 'msme'
           created_at?: string
         }
         Update: {
@@ -247,6 +254,7 @@ export interface Database {
           run_allocation?: boolean
           unallocated_surplus?: number | null
           surplus_allocation_status?: 'pending' | 'allocated' | 'skipped' | null
+          segment?: 'individual' | 'msme'
           created_at?: string
         }
         Relationships: []
