@@ -40,6 +40,19 @@ function isValidDate(dateString: string): boolean {
   return !isNaN(date.getTime());
 }
 
+// BUG FIX (2026-08-27): this used to be its own independent formula
+// (floor(diffDays/period)+1 for weekly/biweekly, calendar-month-diff+1 for
+// monthly) that disagreed with the backend's calculateTotalPayments
+// (loans.service.ts) by exactly one payment whenever the chosen date range
+// was an exact multiple of the cadence period -- which is precisely what a
+// user picking "4 weeks" or "3 months" would naturally choose. That made
+// this screen's own live preview and pre-submit validation pass with a
+// payment count the backend would then recompute one lower, so submitting
+// a perfectly sensible loan (e.g. 2026-01-01 to 2026-04-01, monthly) failed
+// with a confusing "repayment schedule doesn't match the loan total" error
+// even though this screen had just confirmed it matched. Mirrors the
+// backend's math exactly so this screen never disagrees with what actually
+// gets persisted.
 function calculateNumberOfPayments(
   startDate: string,
   endDate: string,
@@ -52,12 +65,14 @@ function calculateNumberOfPayments(
 
   switch (cadence) {
     case 'weekly':
-      return Math.floor(diffDays / 7) + 1;
+      return Math.ceil(diffDays / 7);
     case 'biweekly':
-      return Math.floor(diffDays / 14) + 1;
+      return Math.ceil(diffDays / 14);
     case 'monthly':
-      const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-      return months + 1;
+      // Matches loans.service.ts's approximate-month math exactly (30-day
+      // periods) rather than a real calendar-month count, specifically so
+      // this never drifts from what the backend will actually persist.
+      return Math.ceil(diffDays / 30);
     default:
       return 1;
   }

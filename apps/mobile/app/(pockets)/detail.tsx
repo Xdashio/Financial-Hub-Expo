@@ -38,6 +38,7 @@ import {
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
 import { getEnhancedErrorMessage } from '@/utils/errorMessages';
+import { useIsFreelancerDaily } from '@/hooks/useFreelancer';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -522,6 +523,14 @@ export default function PocketDetailScreen() {
   // next to a much bigger figure, and invites "I've got plenty left"
   // thinking on a day the user should really be pacing against ~$cap/day.
   const isDailyCapped = pocket?.kind === 'spendable' && (pocket?.daily_cap ?? 0) > 0;
+  // Freelancer/daily plans pace against runwayDays (days until the next
+  // expected payment), not a fixed calendar month — days_remaining above
+  // already reflects that (see PocketsService.getPocketSummary), but the
+  // "This month's allocation" label below still called it a month
+  // regardless of plan type. Swap in runway-flavored copy here so the
+  // label matches the number next to it and the "N days of runway"
+  // language already used on the home screen.
+  const isFreelancerDaily = useIsFreelancerDaily();
   const dailyCap = pocket?.daily_cap ?? 0;
   const availableToday = isDailyCapped ? (stat?.today_remaining ?? stat?.available ?? 0) : (stat?.available ?? 0);
   // Full whole-cycle pocket balance — shown as secondary context alongside
@@ -832,9 +841,14 @@ export default function PocketDetailScreen() {
                 paddingVertical: spacing.sm + 2,
               }}
             >
-              <Text style={{ ...typography.caption, color: colors.sage }}>This month's allocation</Text>
+              <Text style={{ ...typography.caption, color: colors.sage }}>
+                {isFreelancerDaily ? "This cycle's allocation" : "This month's allocation"}
+              </Text>
               <Text style={{ ...typography.caption, color: colors.inkSoft, fontVariant: ['tabular-nums'] }}>
-                {fmt(stat?.monthly_allocation ?? 0)} · {stat?.days_remaining ?? '—'} days left
+                {fmt(stat?.monthly_allocation ?? 0)} · {stat?.days_remaining ?? '—'}{' '}
+                {isFreelancerDaily
+                  ? `${stat?.days_remaining === 1 ? 'day' : 'days'} of runway left`
+                  : 'days left'}
               </Text>
             </View>
           </View>
