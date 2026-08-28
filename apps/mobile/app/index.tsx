@@ -7,6 +7,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { PocketLoader } from '@/components/ui';
 import LandingScreen from './landing';
 import { profileApi } from '@/services/api';
+import { getLastHomeSegment } from '@/services/auth';
 
 export default function Index() {
   const { colors } = useTheme();
@@ -28,8 +29,8 @@ export default function Index() {
 
   // Phase 2: segment-aware cold-start routing (Known limit #3)
   // If the user has only an MSME plan (no Individual), land on /(msme)
-  // instead of always /(tabs). If both exist, default to Individual (home
-  // switcher lets them flip to Business).
+  // instead of always /(tabs). If both exist, use persisted last_home_segment
+  // (or default to Individual with switcher).
   React.useEffect(() => {
     if (!isAuthenticated || isCheckingPlan || !hasPlan || segmentRoute !== null) return;
     let cancelled = false;
@@ -42,6 +43,13 @@ export default function Index() {
         const hasMsme = Array.isArray(plans) && plans.some((p) => p.segment === 'msme');
         if (hasMsme && !hasIndividual) {
           setSegmentRoute('msme');
+        } else if (hasIndividual && hasMsme) {
+          // Both plans exist — use persisted last segment, default to individual
+          getLastHomeSegment().then((lastSegment) => {
+            if (!cancelled) {
+              setSegmentRoute(lastSegment ?? 'individual');
+            }
+          });
         } else if (hasIndividual) {
           setSegmentRoute('individual');
         } else if (Array.isArray(plans) && plans.length === 0) {

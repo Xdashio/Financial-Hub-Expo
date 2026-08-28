@@ -20,8 +20,16 @@ describe('Shared Schemas - Pack 1', () => {
       expect(PocketCategorySchema.parse('education')).toBe('education');
     });
 
+    it('accepts MSME business categories (Phase 1 MSME expansion)', () => {
+      expect(PocketCategorySchema.parse('rent')).toBe('rent');
+      expect(PocketCategorySchema.parse('salary')).toBe('salary');
+      expect(PocketCategorySchema.parse('stock')).toBe('stock');
+      expect(PocketCategorySchema.parse('supplier')).toBe('supplier');
+      expect(PocketCategorySchema.parse('marketing')).toBe('marketing');
+    });
+
     it('rejects unknown categories', () => {
-      expect(() => PocketCategorySchema.parse('rent')).toThrow();
+      expect(() => PocketCategorySchema.parse('invalid_category')).toThrow();
     });
   });
 

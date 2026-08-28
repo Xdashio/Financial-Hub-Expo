@@ -266,6 +266,7 @@ export const spendApi = {
     override?: boolean;
     borrow_from_parent?: boolean;
     override_daily_cap?: boolean;
+    segment?: 'individual' | 'msme';
   }) =>
     api.post<any>('/spend/check', data),
   commit: (data: {
@@ -277,6 +278,7 @@ export const spendApi = {
     override?: boolean;
     borrow_from_parent?: boolean;
     override_daily_cap?: boolean;
+    segment?: 'individual' | 'msme';
   }) =>
     api.post<any>('/spend/commit', {
       ...data,

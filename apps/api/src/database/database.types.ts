@@ -177,9 +177,9 @@ export interface Database {
           carry_forward: boolean
           funded_at: string | null
           notification_day_offset: number
-          // Segment discriminator (016_msme_phase2_segment_isolation.sql) — optional for
-          // pre-016 rows in tests/local DBs that haven't run the migration yet.
-          segment?: 'individual' | 'msme'
+          // Segment discriminator (016_msme_phase2_segment_isolation.sql) —
+          // NOT NULL DEFAULT 'individual' in DB, so always present after migration.
+          segment: 'individual' | 'msme'
           created_at: string
           updated_at: string
         }
@@ -228,7 +228,7 @@ export interface Database {
           run_allocation: boolean
           unallocated_surplus: number | null
           surplus_allocation_status: 'pending' | 'allocated' | 'skipped' | null
-          segment?: 'individual' | 'msme'
+          segment: 'individual' | 'msme'
           created_at: string
         }
         Insert: {
@@ -609,7 +609,9 @@ export interface NotificationDeliveryInsert {
   sent_at?: string;
 }
 
-export type IdempotencyScope = 'income' | 'spend' | 'loan_reminder';
+// Segment-aware scopes (e.g., 'income:individual', 'income:msme') prevent cross-segment
+// replay when the same idempotency key is used in different segments.
+export type IdempotencyScope = `income:${'individual' | 'msme'}` | `spend:${'individual' | 'msme'}` | 'loan_reminder';
 
 export interface IdempotencyRecord {
   id: string;

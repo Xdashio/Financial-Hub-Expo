@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { v4 as uuidv4 } from 'uuid';
 import { CreateIncomeDto, AllocatePreviewDto, AllocateSurplusDto } from './dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { IncomeEventInsert, TransactionInsert, Pocket, Plan, PocketInsert } from '../../database/database.types';
+import { IncomeEventInsert, TransactionInsert, Pocket, Plan, PocketInsert, IdempotencyScope } from '../../database/database.types';
 import { RunwaySummary } from '@financial-hub/shared';
 import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
@@ -96,10 +96,11 @@ export class IncomeService {
     idempotent_replay?: boolean;
   }> {
     if (dto.idempotency_key) {
+      const scope = `income:${dto.segment ?? 'individual'}` as IdempotencyScope;
       try {
         const existing = await this.repository.getIdempotencyRecord(
           userId,
-          'income',
+          scope,
           dto.idempotency_key,
         );
         if (existing?.response) {
@@ -323,11 +324,12 @@ export class IncomeService {
     };
 
     if (dto.idempotency_key) {
+      const scope = `income:${dto.segment ?? 'individual'}` as IdempotencyScope;
       try {
         const saved = await this.repository.saveIdempotencyRecord({
           id: uuidv4(),
           user_id: userId,
-          scope: 'income',
+          scope,
           idempotency_key: dto.idempotency_key,
           resource_id: createdIncomeEvent.id,
           response: result as unknown as Record<string, unknown>,
@@ -335,7 +337,7 @@ export class IncomeService {
         if (!saved) {
           const raced = await this.repository.getIdempotencyRecord(
             userId,
-            'income',
+            scope,
             dto.idempotency_key,
           );
           if (raced?.response) {
