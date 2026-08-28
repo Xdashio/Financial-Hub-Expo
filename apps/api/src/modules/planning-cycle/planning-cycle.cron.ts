@@ -2,12 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PlanningCycleService } from './planning-cycle.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { DailyAllocationService } from '../daily-allocation/daily-allocation.service';
 
 @Injectable()
 export class PlanningCycleCronService {
   constructor(
     private readonly planningCycleService: PlanningCycleService,
     private readonly repository: SupabaseRepository,
+    private readonly dailyAllocation: DailyAllocationService,
   ) {}
 
   /**
@@ -49,6 +51,20 @@ export class PlanningCycleCronService {
 
   /**
    * Runs daily at 00:00 EAT (21:00 UTC) to create daily allocations.
+   *
+   * BUG FIX (2026-08-27): this used to only console.log("Would create
+   * daily allocation...") instead of actually calling
+   * DailyAllocationService.createDailyAllocation. That meant GET
+   * /pockets/daily-allocation/today always returned null for every
+   * freelancer user, forever, and the freelancer dashboard's "Today's
+   * Allocation" card permanently showed its empty state ("Your daily
+   * budget will appear here at midnight") — a promise the app was never
+   * going to keep. Now actually creates the row. Also drops the cron's
+   * own separate computeDailyBudget in favor of calling
+   * DailyAllocationService.getDailyBudget directly, so there's one
+   * "how do we compute today's daily budget" implementation instead of
+   * two that could drift from each other the same way the loan
+   * payment-count formula did (see codebase-review-2026-08-27.md).
    */
   @Cron('0 21 * * *') // 00:00 EAT = 21:00 UTC (previous day)
   async runDailyAllocationCreation(): Promise<void> {
@@ -69,12 +85,8 @@ export class PlanningCycleCronService {
           );
           if (existing) continue;
 
-          // Get daily budget from plan or compute
-          const dailyBudget = this.computeDailyBudget(plan);
-          
-          // Create the daily allocation (this would call DailyAllocationService)
-          // For now, we just log
-          console.log(`Would create daily allocation for plan ${plan.id}: ${dailyBudget}`);
+          const dailyBudget = await this.dailyAllocation.getDailyBudget(plan.id);
+          await this.dailyAllocation.createDailyAllocation(plan.user_id, plan.id, dailyBudget, todayEAT);
         } catch (error) {
           console.error(`Daily allocation creation failed for plan ${plan.id}:`, error);
         }
@@ -86,6 +98,12 @@ export class PlanningCycleCronService {
 
   /**
    * Runs daily at 23:55 EAT (20:55 UTC) to close daily allocations and sweep.
+   *
+   * BUG FIX (2026-08-27): same as runDailyAllocationCreation above — this
+   * only console.logged instead of calling
+   * DailyAllocationService.closeDailyAllocation, so an allocation created
+   * by the fix above would otherwise stay 'open' forever and never sweep
+   * unused funds back to Reserve or record overspend.
    */
   @Cron('55 20 * * *') // 23:55 EAT = 20:55 UTC (same day)
   async runDailyAllocationClose(): Promise<void> {
@@ -104,8 +122,7 @@ export class PlanningCycleCronService {
             allocation.id,
           );
 
-          // Close the allocation (would call DailyAllocationService.closeDailyAllocation)
-          console.log(`Would close allocation ${allocation.id} with spend ${actualSpend}`);
+          await this.dailyAllocation.closeDailyAllocation(allocation.id, actualSpend);
         } catch (error) {
           console.error(`Daily allocation close failed for ${allocation.id}:`, error);
         }
@@ -119,11 +136,5 @@ export class PlanningCycleCronService {
     // EAT is UTC+3
     const eat = new Date(date.getTime() + 3 * 60 * 60 * 1000);
     return eat;
-  }
-
-  private computeDailyBudget(plan: any): number {
-    const reserveBalance = plan.reserve_balance || 0;
-    const targetRunwayDays = 30;
-    return Math.max(1, Math.round(reserveBalance / targetRunwayDays * 100) / 100);
   }
 }
