@@ -113,21 +113,49 @@ export function buildPocketInputs(
   return pockets;
 }
 
+export function isDailyOrRegularExpense(expense: { category?: PocketCategory | null; name?: string; frequency?: string }): boolean {
+  if (expense.frequency === 'daily' || expense.frequency === 'weekly') {
+    return true;
+  }
+  if (expense.category === 'transport') {
+    return true;
+  }
+  if (expense.name) {
+    const lower = expense.name.toLowerCase();
+    if (
+      lower.includes('transport') ||
+      lower.includes('bus') ||
+      lower.includes('fare') ||
+      lower.includes('fuel') ||
+      lower.includes('matatu') ||
+      lower.includes('daily') ||
+      lower.includes('commute') ||
+      lower.includes('subscription')
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function buildFixedPockets(planId: string, input: OnboardingInput): PocketInsertInput[] {
   const expenses = input.fixedExpenses ?? [];
 
   if (expenses.length > 0) {
-    return expenses.map((expense) => ({
-      id: uuidv4(),
-      plan_id: planId,
-      name: expense.name,
-      kind: 'fixed' as PocketKind,
-      category: expense.category,
-      is_time_locked: true,
-      lock_until: nextDueDateIso(expense.dueDay),
-      monthly_allocation: expense.amount,
-      daily_cap: null,
-    }));
+    return expenses.map((expense) => {
+      const isRegular = isDailyOrRegularExpense(expense);
+      return {
+        id: uuidv4(),
+        plan_id: planId,
+        name: expense.name,
+        kind: 'fixed' as PocketKind,
+        category: expense.category,
+        is_time_locked: !isRegular,
+        lock_until: isRegular ? null : nextDueDateIso(expense.dueDay),
+        monthly_allocation: expense.amount,
+        daily_cap: null,
+      };
+    });
   }
 
   if (input.fixedTotal > 0) {
