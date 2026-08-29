@@ -279,6 +279,16 @@ export const msmeProjectsApi = {
     api.put<ProjectSummary>(`/msme/projects/${id}/status`, { status }),
   activateCascade: (id: string) => api.post<ProjectSummary>(`/msme/projects/${id}/activate-cascade`, {}),
   deactivateCascade: (id: string) => api.post<ProjectSummary>(`/msme/projects/${id}/deactivate-cascade`, {}),
+  // Phase 5 §22 — completion
+  completeProject: (id: string) =>
+    api.post<{ project: ProjectSummary; remainingPerTier: Array<{ tier: FundingTier; remainingCash: number; targetAmount: number; allocatedAmount: number }>; totalRemaining: number; suggestion: string; requiresResolution: boolean }>(
+      `/msme/projects/${id}/complete`,
+      {},
+    ),
+  resolveCompletion: (id: string, data: { target: 'savings' | 'keep'; confirmSavings?: boolean }) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/complete/resolve`, data),
+  updateSpendingControls: (id: string, data: { lockWantsUntilPrioritiesAndNeedsFunded?: boolean; warnOnLowPrioritySpend?: boolean }) =>
+    api.patch<ProjectSummary>(`/msme/projects/${id}/spending-controls`, data),
   recordIncome: (id: string, data: ProjectIncomeInput) =>
     api.post<ProjectSummary>(`/msme/projects/${id}/income`, data),
   previewIncome: (id: string, data: ProjectIncomeInput) =>
@@ -292,13 +302,14 @@ export const msmeProjectsApi = {
     merchant?: string;
     category?: string;
     note?: string;
+    confirmRisky?: boolean;
   }) => api.post<ProjectSummary>(`/msme/projects/${id}/spend`, data),
   getTransactions: (id: string, page = 1, limit = 20) =>
     api.get<any>(`/msme/projects/${id}/transactions?page=${page}&limit=${limit}`),
   getPendingExcessPrompts: (id: string) =>
     api.get<any[]>(`/msme/projects/${id}/excess-prompts`),
-  resolveExcessPrompt: (id: string, promptId: string, chosenTarget: 'needs' | 'wants' | 'savings' | 'keep') =>
-    api.post<ProjectSummary>(`/msme/projects/${id}/excess-prompts/${promptId}/resolve`, { chosenTarget }),
+  resolveExcessPrompt: (id: string, promptId: string, chosenTarget: 'needs' | 'wants' | 'savings' | 'keep', confirmSavings?: boolean) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/excess-prompts/${promptId}/resolve`, { chosenTarget, confirmSavings }),
   dismissExcessPrompt: (id: string, promptId: string) =>
     api.post<ProjectSummary>(`/msme/projects/${id}/excess-prompts/${promptId}/dismiss`, {}),
 };

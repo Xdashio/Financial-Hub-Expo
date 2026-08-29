@@ -10,10 +10,12 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, shadow, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { msmeProjectsApi } from '@/services/api';
-import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, Button, Toggle } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { formatMoney } from '@/utils/money';
 import { safeGoBack } from '@/utils/navigation';
+import { ProjectExcessSheet } from '@/components/msme/ProjectExcessSheet';
+import { ProjectCompleteSheet } from '@/components/msme/ProjectCompleteSheet';
 import {
   ArrowLeft,
   Wallet,
@@ -27,6 +29,7 @@ import {
   Check,
   X,
   ChevronRight,
+  AlertTriangle,
 } from 'lucide-react-native';
 import { useDataSync } from '@/services/data-sync';
 
@@ -52,6 +55,9 @@ interface ProjectSummary {
   contractValue: number;
   status: 'draft' | 'active' | 'completed' | 'cancelled';
   isActiveCascade: boolean;
+  spendingControls?: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean };
+  completionResolvedAt?: string | null;
+  completionResolvedTo?: 'savings' | 'keep' | null;
   tiers: TierSummary[];
   nextIncomeGoesTo: FundingTier | null;
   totalAllocated: number;
@@ -264,6 +270,11 @@ export default function MsmeProjectDetailScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Phase 5 state
+  const [excessPrompts, setExcessPrompts] = useState<any[]>([]);
+  const [showExcessSheet, setShowExcessSheet] = useState(false);
+  const [showCompleteSheet, setShowCompleteSheet] = useState(false);
+  const [completeInfo, setCompleteInfo] = useState<any>(null);
 
   // pagination for transactions
   const [page, setPage] = useState(1);
@@ -274,11 +285,13 @@ export default function MsmeProjectDetailScreen() {
     if (!id) return;
     try {
       setError(null);
-      const [proj, txPage] = await Promise.all([
+      const [proj, txPage, prompts] = await Promise.all([
         msmeProjectsApi.getById(id),
         msmeProjectsApi.getTransactions(id, 1, 20).catch(() => ({ data: [], total: 0 })),
+        msmeProjectsApi.getPendingExcessPrompts(id).catch(() => []),
       ]);
       setProject(proj);
+      setExcessPrompts(prompts as any[]);
       const txList: TxItem[] = (txPage as any)?.data ?? (txPage as any)?.transactions ?? [];
       setTransactions(txList);
       setPage(1);
@@ -365,14 +378,33 @@ export default function MsmeProjectDetailScreen() {
 
   const handleComplete = async () => {
     if (!project) return;
-    const ok = await confirm('Mark project completed?', 'This will lock the project. Remaining cash stays in tiers until you move it via a future flow.');
+    const ok = await confirm('Mark project completed?', 'This will lock the project. Remaining cash stays in tiers until you explicitly move it — the new Phase 5 flow will show you exactly how much is left and ask where it should go.');
     if (!ok) return;
     try {
-      if (project.isActiveCascade) await msmeProjectsApi.deactivateCascade(project.id);
-      await msmeProjectsApi.updateStatus(project.id, 'completed');
+      // Phase 5: use dedicated complete endpoint (§22) which auto-deactivates cascade and returns remaining summary.
+      const result: any = await msmeProjectsApi.completeProject(project.id);
+      setCompleteInfo(result);
       await loadAll();
+      // Show the completion sheet immediately so the user can resolve remaining funds without a second tap.
+      if (result?.requiresResolution) setShowCompleteSheet(true);
+      else await alert('Project completed', result?.suggestion || 'No remaining funds.');
     } catch (e) {
       await alert('Could not complete', e instanceof Error ? e.message : 'Please try again.');
+    }
+  };
+
+  const handleSpendingControlToggle = async (key: 'lockWantsUntilPrioritiesAndNeedsFunded' | 'warnOnLowPrioritySpend', value: boolean) => {
+    if (!project) return;
+    const prev = project.spendingControls;
+    // optimistic update
+    setProject({ ...project, spendingControls: { ...(prev ?? { lockWantsUntilPrioritiesAndNeedsFunded: false, warnOnLowPrioritySpend: false }), [key]: value } });
+    try {
+      const updated = await msmeProjectsApi.updateSpendingControls(project.id, { [key]: value });
+      setProject(updated);
+    } catch (e) {
+      // rollback
+      setProject(project);
+      await alert('Could not update control', e instanceof Error ? e.message : 'Please try again.');
     }
   };
 
@@ -459,6 +491,51 @@ export default function MsmeProjectDetailScreen() {
           )}
         </View>
 
+        {/* ── Phase 5 banners ── */}
+        {excessPrompts.length > 0 && (
+          <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+            <View style={{ backgroundColor: colors.goldTint, borderWidth: 1, borderColor: colors.gold + '30', borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+              <View style={{ width: 36, height: 36, borderRadius: radius.xs, backgroundColor: colors.gold + '18', alignItems: 'center', justifyContent: 'center' }}>
+                <AlertTriangle size={16} color={colors.gold} strokeWidth={2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...typography.heading, color: colors.gold }}>{formatMoney(Number(excessPrompts[0].excess_amount))} excess — direct it?</Text>
+                <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>All tiers funded. Choose Needs / Wants / Savings / Keep — per §21 excess is never moved silently.</Text>
+              </View>
+              <Pressable onPress={() => setShowExcessSheet(true)} style={{ backgroundColor: colors.gold, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md }}>
+                <Text style={{ ...typography.caption, color: colors.surface }}>Resolve</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+        {project.status === 'completed' && project.totalRemaining > 0 && project.completionResolvedTo == null && (
+          <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+            <View style={{ backgroundColor: colors.plumTint, borderWidth: 1, borderColor: colors.plum + '30', borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+              <Check size={16} color={colors.plum} strokeWidth={2} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...typography.heading, color: colors.plum }}>Completed — {formatMoney(project.totalRemaining)} unused</Text>
+                <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>Keep in project or move to Savings? (§22)</Text>
+              </View>
+              <Pressable onPress={() => setShowCompleteSheet(true)} style={{ backgroundColor: colors.plum, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.md }}>
+                <Text style={{ ...typography.caption, color: colors.surface }}>Decide</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+        {project.status === 'completed' && project.completionResolvedTo && (
+          <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
+            <View style={{ backgroundColor: colors.emeraldTint, borderWidth: 1, borderColor: colors.emeraldDeep + '30', borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+              <Check size={16} color={colors.emeraldDeep} strokeWidth={2} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ ...typography.heading, color: colors.emeraldDeep }}>Resolved to {project.completionResolvedTo}</Text>
+                <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                  {project.completionResolvedTo === 'savings' ? `Moved ${formatMoney(project.totalRemaining)} to Savings · ${project.completionResolvedAt ? new Date(project.completionResolvedAt).toLocaleDateString('en-KE') : ''}` : 'Left in project tiers'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* ── Hero card — overall funding (dark, like pocket detail hero) ── */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
           <View style={{ backgroundColor: colors.ink, borderRadius: radius.sm, padding: spacing.lg, paddingTop: spacing.xl, overflow: 'hidden', ...shadow.elevated }}>
@@ -526,6 +603,39 @@ export default function MsmeProjectDetailScreen() {
           </View>
         </View>
 
+        {/* ── Phase 5: spending controls (§20) ── */}
+        {project.status === 'active' && (
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.md }}>
+              <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.sm }}>Spending controls — §20</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.md, lineHeight: 16 }}>
+                Optional friction. Locking Wants prevents spending from Wants before Priorities & Needs are fully funded.
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
+                <View style={{ flex: 1, marginRight: spacing.md }}>
+                  <Text style={{ ...typography.heading, color: colors.ink }}>Lock Wants</Text>
+                  <Text style={{ ...typography.caption, color: colors.sage }}>Until Priorities + Needs funded</Text>
+                </View>
+                <Toggle
+                  value={Boolean(project.spendingControls?.lockWantsUntilPrioritiesAndNeedsFunded)}
+                  onValueChange={(v) => handleSpendingControlToggle('lockWantsUntilPrioritiesAndNeedsFunded', v)}
+                />
+              </View>
+              <View style={{ height: 1, backgroundColor: colors.lineSoft, marginVertical: spacing.xs }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: spacing.sm }}>
+                <View style={{ flex: 1, marginRight: spacing.md }}>
+                  <Text style={{ ...typography.heading, color: colors.ink }}>Warn on early Wants</Text>
+                  <Text style={{ ...typography.caption, color: colors.sage }}>Show recommendation if Wants used early</Text>
+                </View>
+                <Toggle
+                  value={Boolean(project.spendingControls?.warnOnLowPrioritySpend)}
+                  onValueChange={(v) => handleSpendingControlToggle('warnOnLowPrioritySpend', v)}
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* ── Actions ── */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.sm }}>
           {project.status === 'draft' && (
@@ -580,10 +690,17 @@ export default function MsmeProjectDetailScreen() {
             </>
           )}
           {project.status === 'completed' && (
-            <View style={{ backgroundColor: colors.plumTint, borderRadius: radius.md, borderWidth: 1, borderColor: colors.plum + '30', padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <Check size={16} color={colors.plum} strokeWidth={2} />
-              <Text style={{ ...typography.caption, color: colors.plum, flex: 1 }}>Project completed · {formatMoney(project.totalRemaining)} cash left across tiers</Text>
-            </View>
+            <>
+              <View style={{ backgroundColor: colors.plumTint, borderRadius: radius.md, borderWidth: 1, borderColor: colors.plum + '30', padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <Check size={16} color={colors.plum} strokeWidth={2} />
+                <Text style={{ ...typography.caption, color: colors.plum, flex: 1 }}>Project completed · {formatMoney(project.totalRemaining)} cash left across tiers</Text>
+              </View>
+              {project.totalRemaining > 0 && project.completionResolvedTo == null && (
+                <Button fullWidth variant="secondary" onPress={() => setShowCompleteSheet(true)}>
+                  Resolve remaining — Move to Savings?
+                </Button>
+              )}
+            </>
           )}
         </View>
 
@@ -650,6 +767,28 @@ export default function MsmeProjectDetailScreen() {
         </View>
       </ScrollView>
       {modal}
+      <ProjectExcessSheet
+        visible={showExcessSheet}
+        onClose={() => setShowExcessSheet(false)}
+        projectId={project.id}
+        projectName={project.name}
+        prompt={excessPrompts[0] ?? null}
+        onSuccess={async () => {
+          await loadAll();
+          useDataSync.getState().bump();
+        }}
+      />
+      <ProjectCompleteSheet
+        visible={showCompleteSheet}
+        onClose={() => setShowCompleteSheet(false)}
+        projectId={project.id}
+        project={project}
+        completeInfo={completeInfo ?? (project.totalRemaining > 0 ? { project, remainingPerTier: project.tiers.map(t => ({ tier: t.tier as any, remainingCash: t.remainingCash, targetAmount: t.targetAmount, allocatedAmount: t.allocatedAmount })), totalRemaining: project.totalRemaining, suggestion: `Project completed — ${formatMoney(project.totalRemaining)} unused. Keep or move to Savings?`, requiresResolution: true } : null)}
+        onSuccess={async () => {
+          await loadAll();
+          useDataSync.getState().bump();
+        }}
+      />
     </ScreenContainer>
   );
 }

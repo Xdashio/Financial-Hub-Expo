@@ -41,7 +41,7 @@ export default function MsmeProjectLogSpendScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { alert, modal } = useAlertModal();
+  const { alert, modal, confirm } = useAlertModal();
 
   const [project, setProject] = useState<any>(null);
   const [tiers, setTiers] = useState<TierSummary[]>([]);
@@ -52,6 +52,7 @@ export default function MsmeProjectLogSpendScreen() {
   const [category, setCategory] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [confirmRisky, setConfirmRisky] = useState(false);
 
   const formatAmountInput = (text: string) => {
     const cleaned = text.replace(/[^\d]/g, '');
@@ -78,6 +79,15 @@ export default function MsmeProjectLogSpendScreen() {
 
   const selectedTier = useMemo(() => tiers.find(t => t.id === selectedTierId) ?? null, [tiers, selectedTierId]);
   const availableCash = selectedTier?.remainingCash ?? 0;
+  // Phase 5 spending controls helpers
+  const controls = project?.spendingControls ?? { lockWantsUntilPrioritiesAndNeedsFunded: false, warnOnLowPrioritySpend: false };
+  const higherTiersComplete = React.useMemo(() => {
+    const pri = tiers.find(t => t.tier === 'priorities');
+    const needs = tiers.find(t => t.tier === 'needs');
+    return Boolean(pri && needs && pri.fundingStatus === 'complete' && needs.fundingStatus === 'complete');
+  }, [tiers]);
+  const isWantsLocked = selectedTier?.tier === 'wants' && controls.lockWantsUntilPrioritiesAndNeedsFunded && !higherTiersComplete;
+  const shouldWarnWants = selectedTier?.tier === 'wants' && controls.warnOnLowPrioritySpend && !higherTiersComplete;
 
   const handleSubmit = async () => {
     if (!id || !selectedTierId) {
@@ -95,6 +105,13 @@ export default function MsmeProjectLogSpendScreen() {
       );
       return;
     }
+    // Phase 5 Wants lock — require explicit confirmRisky
+    if (isWantsLocked && !confirmRisky) {
+      const ok = await confirm('Wants locked', 'Wants is locked until Priorities and Needs are fully funded (§20). Spending on Wants now is discouraged — continue anyway?');
+      if (!ok) return;
+      // fall through with confirmRisky true for this attempt
+      setConfirmRisky(true);
+    }
 
     try {
       setIsSubmitting(true);
@@ -104,6 +121,7 @@ export default function MsmeProjectLogSpendScreen() {
         merchant: merchant || undefined,
         category: category || undefined,
         note: note || undefined,
+        confirmRisky: isWantsLocked ? true : undefined,
       });
       useDataSync.getState().bump();
       const tierAfter = result.tiers.find(t => t.id === selectedTierId);
@@ -115,7 +133,32 @@ export default function MsmeProjectLogSpendScreen() {
       );
       safeGoBack(router, `/msme-projects/detail?id=${id}`);
     } catch (e) {
-      await alert('Could not log spend', e instanceof Error ? e.message : 'Please try again.');
+      const msg = e instanceof Error ? e.message : 'Please try again.';
+      // Surface Wants locked error with confirm affordance
+      if (msg.includes('Wants locked')) {
+        const ok = await confirm('Wants locked', msg + ' Tap Confirm to override with confirmRisky.');
+        if (ok) {
+          try {
+            setConfirmRisky(true);
+            const retry = await msmeProjectsApi.recordSpend(id, {
+              tierId: selectedTierId,
+              amount: numericAmount,
+              merchant: merchant || undefined,
+              category: category || undefined,
+              note: note || undefined,
+              confirmRisky: true,
+            });
+            useDataSync.getState().bump();
+            await alert('Spend logged (override)', 'Wants spend recorded with override.');
+            safeGoBack(router, `/msme-projects/detail?id=${id}`);
+            return;
+          } catch (retryErr) {
+            await alert('Could not log spend', retryErr instanceof Error ? retryErr.message : 'Please try again.');
+            return;
+          }
+        }
+      }
+      await alert('Could not log spend', msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -205,6 +248,23 @@ export default function MsmeProjectLogSpendScreen() {
                 })}
               </View>
             </View>
+            {/* Phase 5 spending controls hints */}
+            {isWantsLocked && (
+              <View style={{ marginTop: spacing.md, backgroundColor: colors.clayTint, borderWidth: 1, borderColor: colors.clay + '30', borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm }}>
+                <AlertTriangle size={16} color={colors.clay} strokeWidth={2} style={{ marginTop: 1 }} />
+                <Text style={{ ...typography.caption, color: colors.clay, flex: 1, lineHeight: 18 }}>
+                  Wants is locked until Priorities and Needs are fully funded (§20). Enable the toggle in project detail or continue with an explicit override (you’ll be asked to confirm).
+                </Text>
+              </View>
+            )}
+            {shouldWarnWants && !isWantsLocked && (
+              <View style={{ marginTop: spacing.md, backgroundColor: colors.goldTint, borderWidth: 1, borderColor: colors.gold + '30', borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm }}>
+                <AlertTriangle size={16} color={colors.gold} strokeWidth={2} style={{ marginTop: 1 }} />
+                <Text style={{ ...typography.caption, color: colors.gold, flex: 1, lineHeight: 18 }}>
+                  Recommendation: fund Priorities and Needs before tapping Wants. This is a soft warning (non-blocking) from your spending controls.
+                </Text>
+              </View>
+            )}
 
             {/* Amount */}
             <View

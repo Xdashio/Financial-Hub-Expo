@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Put, Patch, Param, Body, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { ProjectsService, ProjectSummary } from './projects.service';
+import { ProjectsService, ProjectSummary, ProjectCompleteResult, SpendingControls } from './projects.service';
 
 @ApiTags('MSME Projects')
 @Controller('msme/projects')
@@ -48,6 +48,39 @@ export class MsmeProjectsController {
     @Request() req: any,
   ): Promise<ProjectSummary> {
     return this.projectsService.updateProjectStatus(id, req.user.id, body.status);
+  }
+
+  // ── Phase 5: completion (§22) ──────────────────────────────────────────
+  @Post(':id/complete')
+  @ApiOperation({ summary: 'Complete an active project — returns remaining-funds summary (§22)' })
+  @ApiResponse({ status: 200, description: 'Project completed with remainingPerTier / suggestion' })
+  @ApiResponse({ status: 400, description: 'Only active projects can be completed' })
+  async completeProject(@Param('id') id: string, @Request() req: any): Promise<ProjectCompleteResult> {
+    return this.projectsService.completeProject(id, req.user.id);
+  }
+
+  @Post(':id/complete/resolve')
+  @ApiOperation({ summary: 'Resolve completed project remaining funds — savings requires confirmSavings:true (§22)' })
+  @ApiResponse({ status: 200, description: 'Completion resolved, funds moved if target=savings' })
+  @ApiResponse({ status: 400, description: 'Already resolved or missing confirmSavings' })
+  async resolveCompletion(
+    @Param('id') id: string,
+    @Body() body: { target: 'savings' | 'keep'; confirmSavings?: boolean },
+    @Request() req: any,
+  ): Promise<ProjectSummary> {
+    return this.projectsService.resolveProjectCompletion(id, req.user.id, body.target, body.confirmSavings);
+  }
+
+  // ── Phase 5: spending controls (§20) ───────────────────────────────────
+  @Patch(':id/spending-controls')
+  @ApiOperation({ summary: 'Update spending controls (Wants lock / warn) for a project (§20)' })
+  @ApiResponse({ status: 200, description: 'Updated project with new spending controls' })
+  async updateSpendingControls(
+    @Param('id') id: string,
+    @Body() body: Partial<SpendingControls>,
+    @Request() req: any,
+  ): Promise<ProjectSummary> {
+    return this.projectsService.updateSpendingControls(id, req.user.id, body);
   }
 
   @Post(':id/activate-cascade')
@@ -98,14 +131,14 @@ export class MsmeProjectsController {
   }
 
   @Post(':id/spend')
-  @ApiOperation({ summary: 'Record spending against a specific tier' })
+  @ApiOperation({ summary: 'Record spending against a specific tier (respects §20 Wants lock when enabled)' })
   @ApiResponse({ status: 200, description: 'Spend recorded, tier updated, updated project returned' })
-  @ApiResponse({ status: 400, description: 'Invalid amount, insufficient cash in tier, or tier not found' })
+  @ApiResponse({ status: 400, description: 'Invalid amount, insufficient cash, tier not found, or Wants locked' })
   @ApiResponse({ status: 403, description: 'You do not have access to this project' })
   @ApiResponse({ status: 404, description: 'Project or tier not found' })
   async recordSpend(
     @Param('id') id: string,
-    @Body() body: { tierId: string; amount: number; merchant?: string; category?: string; note?: string },
+    @Body() body: { tierId: string; amount: number; merchant?: string; category?: string; note?: string; confirmRisky?: boolean },
     @Request() req: any,
   ): Promise<ProjectSummary> {
     return this.projectsService.recordSpend(
@@ -116,6 +149,7 @@ export class MsmeProjectsController {
       body.merchant,
       body.category,
       body.note,
+      body.confirmRisky,
     );
   }
 
@@ -145,18 +179,18 @@ export class MsmeProjectsController {
   }
 
   @Post(':id/excess-prompts/:promptId/resolve')
-  @ApiOperation({ summary: 'Resolve an excess prompt with a chosen target' })
+  @ApiOperation({ summary: 'Resolve an excess prompt with a chosen target — savings requires confirmSavings:true (§21)' })
   @ApiResponse({ status: 200, description: 'Excess resolved, project updated' })
-  @ApiResponse({ status: 400, description: 'Invalid target or prompt already resolved' })
+  @ApiResponse({ status: 400, description: 'Invalid target, prompt already resolved, or missing confirmSavings for savings' })
   @ApiResponse({ status: 403, description: 'You do not have access to this project' })
   @ApiResponse({ status: 404, description: 'Project or prompt not found' })
   async resolveExcessPrompt(
     @Param('id') id: string,
     @Param('promptId') promptId: string,
-    @Body() body: { chosenTarget: 'needs' | 'wants' | 'savings' | 'keep' },
+    @Body() body: { chosenTarget: 'needs' | 'wants' | 'savings' | 'keep'; confirmSavings?: boolean },
     @Request() req: any,
   ): Promise<ProjectSummary> {
-    return this.projectsService.resolveExcessPrompt(id, req.user.id, promptId, body.chosenTarget);
+    return this.projectsService.resolveExcessPrompt(id, req.user.id, promptId, body.chosenTarget, body.confirmSavings);
   }
 
   @Post(':id/excess-prompts/:promptId/dismiss')

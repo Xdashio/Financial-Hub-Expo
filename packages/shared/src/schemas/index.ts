@@ -437,6 +437,12 @@ export const TierSummarySchema = z.object({
 });
 export type TierSummary = z.infer<typeof TierSummarySchema>;
 
+export const SpendingControlsSchema = z.object({
+  lockWantsUntilPrioritiesAndNeedsFunded: z.boolean().default(false),
+  warnOnLowPrioritySpend: z.boolean().default(false),
+});
+export type SpendingControls = z.infer<typeof SpendingControlsSchema>;
+
 export const ProjectSummarySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -444,6 +450,10 @@ export const ProjectSummarySchema = z.object({
   contractValue: z.number(),
   status: ProjectStatusSchema,
   isActiveCascade: z.boolean(),
+  // Phase 5 spending controls (§20) — defaults mirror DB DEFAULT.
+  spendingControls: SpendingControlsSchema.optional(),
+  completionResolvedAt: z.string().datetime().nullable().optional(),
+  completionResolvedTo: z.enum(['savings', 'keep']).nullable().optional(),
   tiers: z.array(TierSummarySchema).length(3),
   nextIncomeGoesTo: FundingTierSchema.nullable(), // null if all funded
   totalAllocated: z.number(),
@@ -466,6 +476,9 @@ export const MsmeProjectSchema = z.object({
   contractValue: z.number().positive(),
   status: ProjectStatusSchema,
   isActiveCascade: z.boolean(),
+  spendingControls: SpendingControlsSchema.optional(),
+  completionResolvedAt: z.string().datetime().nullable().optional(),
+  completionResolvedTo: z.enum(['savings', 'keep']).nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   completedAt: z.string().datetime().nullable().optional(),
@@ -537,6 +550,47 @@ export const MsmeProjectExcessPromptSchema = z.object({
   resolvedAt: z.string().datetime().nullable().optional(),
 });
 export type MsmeProjectExcessPrompt = z.infer<typeof MsmeProjectExcessPromptSchema>;
+
+export const ExcessResolveInputSchema = z.object({
+  chosenTarget: ExcessPromptTargetSchema,
+  // §21:525 — moving excess to Savings requires explicit second confirmation.
+  confirmSavings: z.boolean().optional(),
+});
+export type ExcessResolveInput = z.infer<typeof ExcessResolveInputSchema>;
+
+export const SpendControlsUpdateInputSchema = SpendingControlsSchema.partial();
+export type SpendControlsUpdateInput = z.infer<typeof SpendControlsUpdateInputSchema>;
+
+export const ProjectCompleteResultSchema = z.object({
+  project: ProjectSummarySchema,
+  remainingPerTier: z.array(z.object({
+    tier: FundingTierSchema,
+    remainingCash: z.number().nonnegative(),
+    targetAmount: z.number(),
+    allocatedAmount: z.number(),
+  })),
+  totalRemaining: z.number().nonnegative(),
+  suggestion: z.string(),
+  requiresResolution: z.boolean(),
+});
+export type ProjectCompleteResult = z.infer<typeof ProjectCompleteResultSchema>;
+
+export const ProjectCompletionResolveInputSchema = z.object({
+  target: z.enum(['savings', 'keep']),
+  confirmSavings: z.boolean().optional(),
+});
+export type ProjectCompletionResolveInput = z.infer<typeof ProjectCompletionResolveInputSchema>;
+
+export const ProjectSpendInputSchema = z.object({
+  tierId: z.string().uuid(),
+  amount: z.number().positive(),
+  merchant: z.string().min(1).max(100).optional(),
+  category: z.string().max(100).optional(),
+  note: z.string().max(300).optional(),
+  // §20 — bypass Wants lock when user confirms risky spend.
+  confirmRisky: z.boolean().optional(),
+});
+export type ProjectSpendInput = z.infer<typeof ProjectSpendInputSchema>;
 
 export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
@@ -1093,6 +1147,12 @@ export const schemas = {
   ProjectIncomeInput: ProjectIncomeInputSchema,
   TierSummary: TierSummarySchema,
   ProjectSummary: ProjectSummarySchema,
+  SpendingControls: SpendingControlsSchema,
+  ExcessResolveInput: ExcessResolveInputSchema,
+  SpendControlsUpdateInput: SpendControlsUpdateInputSchema,
+  ProjectCompleteResult: ProjectCompleteResultSchema,
+  ProjectCompletionResolveInput: ProjectCompletionResolveInputSchema,
+  ProjectSpendInput: ProjectSpendInputSchema,
   MsmeProject: MsmeProjectSchema,
   MsmeProjectTier: MsmeProjectTierSchema,
   MsmeProjectIncomeEvent: MsmeProjectIncomeEventSchema,

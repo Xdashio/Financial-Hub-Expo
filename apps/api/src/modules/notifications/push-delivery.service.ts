@@ -277,6 +277,61 @@ export class PushDeliveryService {
     );
   }
 
+  async notifyProjectExcess(
+    userId: string,
+    projectId: string,
+    projectName: string,
+    excessAmount: number,
+    incomeEventId: string,
+  ): Promise<PushSendResult> {
+    const formatted = Math.round(excessAmount).toLocaleString('en-KE');
+    return this.sendIfAllowed(
+      userId,
+      NOTIFICATION_KIND.MSME_PROJECT_EXCESS,
+      `msme_excess:${projectId}:${incomeEventId}`,
+      {
+        title: 'Excess funds — where should it go?',
+        body: `KSh ${formatted} excess on ${projectName} — direct to Needs, Wants, or Savings?`,
+        data: {
+          kind: NOTIFICATION_KIND.MSME_PROJECT_EXCESS,
+          projectId,
+          projectName,
+          excessAmount,
+          screen: 'msme-project-detail',
+        },
+      },
+    );
+  }
+
+  async notifyProjectCompleted(
+    userId: string,
+    projectId: string,
+    projectName: string,
+    totalRemaining: number,
+  ): Promise<PushSendResult> {
+    const formatted = Math.round(totalRemaining).toLocaleString('en-KE');
+    const body =
+      totalRemaining > 0
+        ? `Project ${projectName} completed — KSh ${formatted} unused. Move to Savings?`
+        : `Project ${projectName} completed.`;
+    return this.sendIfAllowed(
+      userId,
+      NOTIFICATION_KIND.MSME_PROJECT_COMPLETED,
+      `msme_completed:${projectId}`,
+      {
+        title: 'Project completed',
+        body,
+        data: {
+          kind: NOTIFICATION_KIND.MSME_PROJECT_COMPLETED,
+          projectId,
+          projectName,
+          totalRemaining,
+          screen: 'msme-project-detail',
+        },
+      },
+    );
+  }
+
   async isPreferenceEnabled(userId: string, key: PreferenceKey): Promise<boolean> {
     const prefs = await this.repository.getNotificationPreferencesByUserId(userId);
     if (!prefs) {

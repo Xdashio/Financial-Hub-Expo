@@ -81,6 +81,11 @@ describe('MsmeProjectsController', () => {
       getPendingExcessPrompts: jest.fn(),
       resolveExcessPrompt: jest.fn(),
       dismissExcessPrompt: jest.fn(),
+      completeProject: jest.fn(),
+      resolveProjectCompletion: jest.fn(),
+      updateSpendingControls: jest.fn(),
+      previewIncome: jest.fn(),
+      getProjectTransactions: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
@@ -320,7 +325,7 @@ describe('MsmeProjectsController', () => {
       expect(result.totalSpent).toBe(20000);
       expect(result.tiers[0].spentAmount).toBe(15000);
       expect(projectsService.recordSpend).toHaveBeenCalledWith(
-        'proj-123', 'user-123', 'tier-1', 5000, 'Catering Co', 'food', 'Food tasting'
+        'proj-123', 'user-123', 'tier-1', 5000, 'Catering Co', 'food', 'Food tasting', undefined
       );
     });
 
@@ -367,7 +372,22 @@ describe('MsmeProjectsController', () => {
       const result = await controller.resolveExcessPrompt('proj-123', 'prompt-1', { chosenTarget: 'needs' }, mockReq);
 
       expect(result.excessPending).toBeNull();
-      expect(projectsService.resolveExcessPrompt).toHaveBeenCalledWith('proj-123', 'user-123', 'prompt-1', 'needs');
+      expect(projectsService.resolveExcessPrompt).toHaveBeenCalledWith('proj-123', 'user-123', 'prompt-1', 'needs', undefined);
+    });
+
+    it('requires confirmSavings for savings target', async () => {
+      projectsService.resolveExcessPrompt.mockRejectedValue(new Error('Moving excess to Savings requires explicit confirmation'));
+      await expect(
+        controller.resolveExcessPrompt('proj-123', 'prompt-1', { chosenTarget: 'savings' }, mockReq),
+      ).rejects.toThrow('Moving excess to Savings requires explicit confirmation');
+    });
+
+    it('resolves savings excess with confirmSavings true', async () => {
+      const updatedSummary = createMockSummary({ excessPending: null });
+      projectsService.resolveExcessPrompt.mockResolvedValue(updatedSummary);
+      const result = await controller.resolveExcessPrompt('proj-123', 'prompt-1', { chosenTarget: 'savings', confirmSavings: true }, mockReq);
+      expect(result.excessPending).toBeNull();
+      expect(projectsService.resolveExcessPrompt).toHaveBeenCalledWith('proj-123', 'user-123', 'prompt-1', 'savings', true);
     });
 
     it('throws for invalid target', async () => {

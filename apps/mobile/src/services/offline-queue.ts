@@ -13,7 +13,7 @@ const MAX_ITEMS = 25;
 
 export type QueuedWrite = {
   id: string;
-  endpoint: '/spend/commit' | '/income/manual';
+  endpoint: '/spend/commit' | '/income/manual' | string;
   body: Record<string, unknown>;
   createdAt: string;
   attempts: number;
