@@ -128,6 +128,7 @@ function RootLayoutInner() {
           <Stack.Screen name="(onboarding)" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="(msme)" />
+          <Stack.Screen name="msme-projects" />
           <Stack.Screen name="(profile)" />
           <Stack.Screen name="(loans)" />
           <Stack.Screen name="(modals)" options={{ presentation: 'modal' }} />

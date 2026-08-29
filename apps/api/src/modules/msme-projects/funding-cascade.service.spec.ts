@@ -1,4 +1,5 @@
-import { FundingCascadeService, TierState, AllocationResult, FundingTier } from './funding-cascade.service';
+import type { TierState, AllocationResult} from './funding-cascade.service';
+import { FundingCascadeService, FundingTier } from './funding-cascade.service';
 
 describe('FundingCascadeService', () => {
   let service: FundingCascadeService;

@@ -84,6 +84,19 @@ export class MsmeProjectsController {
     return this.projectsService.recordIncome(id, req.user.id, input);
   }
 
+  @Post(':id/income/preview')
+  @ApiOperation({ summary: 'Preview cascade allocation for a hypothetical income (no DB write)' })
+  @ApiResponse({ status: 200, description: 'Projected per-tier allocations and excess' })
+  @ApiResponse({ status: 404, description: 'Project not found' })
+  @ApiResponse({ status: 403, description: 'You do not have access to this project' })
+  async previewIncome(
+    @Param('id') id: string,
+    @Body() input: unknown,
+    @Request() req: any,
+  ) {
+    return this.projectsService.previewIncome(id, req.user.id, input);
+  }
+
   @Post(':id/spend')
   @ApiOperation({ summary: 'Record spending against a specific tier' })
   @ApiResponse({ status: 200, description: 'Spend recorded, tier updated, updated project returned' })
@@ -104,6 +117,22 @@ export class MsmeProjectsController {
       body.category,
       body.note,
     );
+  }
+
+  @Get(':id/transactions')
+  @ApiOperation({ summary: 'Get paginated transactions (allocations + spends) for a project' })
+  @ApiResponse({ status: 200, description: 'Paginated list of transactions' })
+  @ApiResponse({ status: 404, description: 'Project not found' })
+  @ApiResponse({ status: 403, description: 'You do not have access to this project' })
+  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number (default: 1)' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page (default: 20)' })
+  async getTransactions(
+    @Param('id') id: string,
+    @Request() req: any,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
+  ) {
+    return this.projectsService.getProjectTransactions(id, req.user.id, page ?? 1, limit ?? 20);
   }
 
   @Get(':id/excess-prompts')

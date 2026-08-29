@@ -3,7 +3,7 @@ import { Test } from '@nestjs/testing';
 import { MsmeProjectsController } from './msme-projects.controller';
 import { ProjectsService } from './projects.service';
 import { SupabaseAuthGuard } from '../../auth/supabase-auth.guard';
-import { FundingTier } from './funding-cascade.service';
+import type { FundingTier } from './funding-cascade.service';
 
 interface ProjectSummary {
   id: string;

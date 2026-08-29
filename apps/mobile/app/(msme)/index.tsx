@@ -248,9 +248,9 @@ export default function MsmeHomeScreen() {
             <Text style={{ ...typography.caption, color: colors.sage }}>{view.pockets.length} pockets</Text>
           </View>
 
-          <View style={{ marginTop: spacing.xl }}>
+          <View style={{ marginTop: spacing.xl, flexDirection: 'row', gap: spacing.sm }}>
             <Pressable
-              style={({ pressed }) => [{ width: '100%', minHeight: touchTarget.minHeight, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
+              style={({ pressed }) => [{ flex: 1, minHeight: touchTarget.minHeight, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
               onPress={() => router.push('/(income)/entry?segment=msme' as any)}
               accessibilityLabel="Add business income"
               accessibilityRole="button"
@@ -258,7 +258,31 @@ export default function MsmeHomeScreen() {
               <Plus size={18} color={colors.emerald} strokeWidth={2} />
               <Text style={{ ...typography.caption, color: colors.ink }}>Add income</Text>
             </Pressable>
+            <Pressable
+              style={({ pressed }) => [{ flex: 1, minHeight: touchTarget.minHeight, backgroundColor: colors.ink, borderWidth: 1, borderColor: colors.ink, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
+              onPress={() => router.push('/msme-projects' as any)}
+              accessibilityLabel="View projects"
+              accessibilityRole="button"
+            >
+              <Store size={18} color={colors.surface} strokeWidth={2} />
+              <Text style={{ ...typography.caption, color: colors.surface }}>Projects</Text>
+            </Pressable>
           </View>
+          {/* Phase 4 entry point — Projects Funding Cascade (§11–§19) */}
+          <Pressable
+            onPress={() => router.push('/msme-projects' as any)}
+            style={({ pressed }) => [{ marginTop: spacing.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open projects — Funding Cascade"
+          >
+            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Store size={18} color={colors.emeraldDeep} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.heading, color: colors.ink }}>Projects — Funding Cascade</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Priorities → Needs → Wants · Create a project (e.g. Catering KES 500k) and track Funding vs Spending vs Remaining cash.</Text>
+            </View>
+          </Pressable>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}>
             {view.pockets.map(renderPocketCard)}
