@@ -2126,11 +2126,36 @@ User Interface Design, 3.7
 
 ---
 
+### MSME Segment Architecture & Implementation (Phases 1–6)
+
+#### Overview
+The MSME (Micro, Small, and Medium Enterprises) segment extends Financial Hub's pocket-based discipline system to business money management. Built in accordance with ADR-001, it separates business cash flow from personal finances while introducing project-based funding cascades.
+
+#### Core Components
+1. **General Business Pockets (Phase 1–2)**:
+   - Dedicated business categories (Stock & Inventory, Supplier Payments, Operating Expenses, Taxes, Owner Draw, Profit Reserve).
+   - Domain isolation ensuring personal vs business plan separation.
+2. **Project Funding Cascade Engine (Phase 3–4)**:
+   - Priorities (Sort 1), Needs (Sort 2), Wants (Sort 3) funding tiers per project.
+   - Sequential income allocation: income automatically satisfies higher-order tiers before allocating cash to lower tiers.
+   - Active cascade tracking: exactly one active project cascade per MSME plan.
+3. **Spending Controls & Project Completion (Phase 5)**:
+   - Optional spending friction (`spending_controls` JSONB): `lockWantsUntilPrioritiesAndNeedsFunded` and `warnOnLowPrioritySpend` with `confirmRisky` override.
+   - Project completion lifecycle (§22): formal resolution of unused project funds (`savings` vs `keep`).
+4. **Domain Isolation & Offline Operations (Phase 6)**:
+   - Integration guard (`msme-isolation.integration.spec.ts`) preventing auto-contamination between general business pockets and project funding tiers.
+   - Offline-capable spend and income logging (`offline-queue.ts` write queue with foreground sync).
+   - Comprehensive PostgreSQL RLS policies covering all 6 MSME database tables.
+   - User-level feature flag gating (`feature_flags` JSONB) for controlled pilot rollout.
+
+---
+
 **Document Version History**
 
 - **Version 1.0** (January 2026): Initial project proposal
 - **Version 1.5** (June 2026): Updated with Phase A completion
 - **Version 2.0** (August 2026): Complete system documentation with Phase 1 status
+- **Version 2.5** (August 2026): Added MSME Segment Architecture (Phases 1–6 completion)
 
 ---
 

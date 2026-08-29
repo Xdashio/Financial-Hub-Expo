@@ -3,11 +3,11 @@ import { View, Text, ScrollView, RefreshControl, Pressable, Image } from 'react-
 import { useRouter, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography, touchTarget } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
-import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
+import { ScreenContainer, LoadingState, ErrorState, SearchBar } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketsApi, incomeApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
-import { Plus, Store } from 'lucide-react-native';
+import { Plus, Store, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
 import { getCategoryIcon } from '@/utils/categoryIcons';
 import { BUSINESS_CATEGORIES } from '@/services/onboarding-store';
@@ -24,6 +24,7 @@ interface MsmePocket {
 
 type ViewState =
   | { status: 'loading' }
+  | { status: 'disabled' }
   | { status: 'error'; message: string }
   | { status: 'empty-msme' }
   | { status: 'empty-neither' }
@@ -40,11 +41,18 @@ export default function MsmeHomeScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { alert, modal } = useAlertModal();
+  const user = useAuthStore((state) => state.user);
 
   const [view, setView] = React.useState<ViewState>({ status: 'loading' });
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [pocketSearch, setPocketSearch] = React.useState('');
+  const [showAllPockets, setShowAllPockets] = React.useState(false);
 
   const load = React.useCallback(async () => {
+    if (user?.featureFlags?.msme_segment === false) {
+      setView({ status: 'disabled' });
+      return;
+    }
     try {
       const [msme, individual] = await Promise.all([
         pocketsApi.getAll('msme').catch(() => []),
@@ -60,7 +68,7 @@ export default function MsmeHomeScreen() {
     } catch (error) {
       setView({ status: 'error', message: error instanceof Error ? error.message : 'Failed to load' });
     }
-  }, []);
+  }, [user]);
 
   React.useEffect(() => {
     load();
@@ -214,6 +222,29 @@ export default function MsmeHomeScreen() {
     );
   }
 
+  if (view.status === 'disabled') {
+    return (
+      <ScreenContainer>
+        {renderHeader()}
+        <View style={{ alignItems: 'center', paddingVertical: spacing.xxxl, paddingHorizontal: spacing.lg }}>
+          <Text style={{ ...typography.title, color: colors.ink, textAlign: 'center' }}>
+            MSME Feature Preview
+          </Text>
+          <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.sm, textAlign: 'center', lineHeight: 21 }}>
+            Business management features are rolling out in phases. Access will be unlocked for your account shortly.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [{ marginTop: spacing.lg, backgroundColor: colors.emeraldDeep, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.xl }, { opacity: pressed ? 0.7 : 1 }]}
+            onPress={switchPersonal}
+            accessibilityRole="button"
+          >
+            <Text style={{ ...typography.heading, color: colors.surface }}>Go to Personal Plan</Text>
+          </Pressable>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   if (view.status === 'empty-msme' || view.status === 'empty-neither') {
     return (
       <ScreenContainer>
@@ -224,6 +255,17 @@ export default function MsmeHomeScreen() {
       </ScreenContainer>
     );
   }
+
+  // ── Derived filtering + collapsible (MSME info-overload §28 #1, Phase 6) ──
+  const MSME_POCKET_COLLAPSE_AT = 4;
+  const allPockets = view.status === 'ready' ? view.pockets : [];
+  const filteredPockets = allPockets.filter(p => {
+    if (pocketSearch.trim() === '') return true;
+    const q = pocketSearch.trim().toLowerCase();
+    return p.name.toLowerCase().includes(q) || (p.category && p.category.toLowerCase().includes(q));
+  });
+  const visiblePockets = showAllPockets ? filteredPockets : filteredPockets.slice(0, MSME_POCKET_COLLAPSE_AT);
+  const hiddenCount = Math.max(0, filteredPockets.length - MSME_POCKET_COLLAPSE_AT);
 
   return (
     <ScreenContainer>
@@ -284,9 +326,47 @@ export default function MsmeHomeScreen() {
             </View>
           </Pressable>
 
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}>
-            {view.pockets.map(renderPocketCard)}
-          </View>
+          {/* Search — visible when pocket count warrants it (avoids empty-state noise for 1-2 pockets) */}
+          {allPockets.length > 3 && (
+            <View style={{ marginTop: spacing.lg }}>
+              <SearchBar
+                value={pocketSearch}
+                onChangeText={(v) => {
+                  setPocketSearch(v);
+                  if (v.length === 1) setShowAllPockets(true);
+                }}
+                placeholder="Search pockets…"
+                onClear={() => setPocketSearch('')}
+              />
+            </View>
+          )}
+
+          {filteredPockets.length === 0 ? (
+            <View style={{ paddingVertical: spacing.xl, alignItems: 'center', marginTop: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md }}>
+              <Store size={28} color={colors.sage} strokeWidth={2} />
+              <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>No pockets match “{pocketSearch}”</Text>
+              <Pressable onPress={() => setPocketSearch('')} style={{ marginTop: spacing.sm }} accessibilityRole="button">
+                <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>Clear search</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}>
+              {visiblePockets.map(renderPocketCard)}
+            </View>
+          )}
+          {filteredPockets.length > MSME_POCKET_COLLAPSE_AT && (
+            <Pressable
+              onPress={() => setShowAllPockets(v => !v)}
+              style={({ pressed }) => [{ marginTop: spacing.md, paddingVertical: spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.paper }, { opacity: pressed ? 0.7 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel={showAllPockets ? 'Show less pockets' : `Show ${hiddenCount} more pockets`}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                {showAllPockets ? <ChevronUp size={14} color={colors.emeraldDeep} strokeWidth={2} /> : <ChevronDown size={14} color={colors.emeraldDeep} strokeWidth={2} />}
+                <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>{showAllPockets ? 'Show less' : `Show ${hiddenCount} more`}</Text>
+              </View>
+            </Pressable>
+          )}
         </ScrollView>
       </View>
       {modal}

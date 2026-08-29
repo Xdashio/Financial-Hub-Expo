@@ -45,6 +45,7 @@ export interface User {
   biometricEnabled: boolean;
   createdAt: string;
   email?: string;
+  featureFlags?: Record<string, boolean> | null;
 }
 
 export interface AuthState {

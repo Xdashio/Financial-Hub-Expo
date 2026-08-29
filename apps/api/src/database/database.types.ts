@@ -18,6 +18,7 @@ export interface Database {
           email: string | null
           full_name: string | null
           biometric_enabled: boolean
+          feature_flags: Record<string, boolean> | null
           created_at: string
           updated_at: string
         }
@@ -26,6 +27,7 @@ export interface Database {
           email?: string | null
           full_name?: string | null
           biometric_enabled?: boolean
+          feature_flags?: Record<string, boolean> | null
           created_at?: string
           updated_at?: string
         }
@@ -34,6 +36,7 @@ export interface Database {
           email?: string | null
           full_name?: string | null
           biometric_enabled?: boolean
+          feature_flags?: Record<string, boolean> | null
           created_at?: string
           updated_at?: string
         }
