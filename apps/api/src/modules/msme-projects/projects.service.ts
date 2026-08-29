@@ -423,6 +423,51 @@ export class ProjectsService {
   }
 
   /**
+   * Dry-run cascade preview — no DB writes (§13 preview analogue to income.service allocatePreview).
+   * Returns what allocateIncome WOULD do for a given amount.
+   */
+  async previewIncome(
+    projectId: string,
+    userId: string,
+    input: unknown,
+  ): Promise<{ allocations: { tier: FundingTier; amount: number }[]; excess: number; nextIncomeGoesTo: FundingTier | null }> {
+    const result = ProjectIncomeInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map((i: any) => i.message).join('; '));
+    }
+    const parsed = result.data;
+
+    const project = await this.repository.getMsmeProjectById(projectId);
+    if (!project) throw new NotFoundException('Project not found');
+    if (project.user_id !== userId) throw new ForbiddenException('You do not have access to this project');
+
+    const tiers = await this.repository.getMsmeProjectTiersByProjectId(projectId);
+    if (tiers.length !== 3) throw new BadRequestException('Project must have exactly 3 tiers');
+
+    const tierStates: TierState[] = tiers.map(t => ({
+      tier: t.tier as FundingTier,
+      targetAmount: Number(t.target_amount),
+      allocatedAmount: Number(t.allocated_amount),
+      spentAmount: Number(t.spent_amount),
+    }));
+
+    const allocation = this.cascade.previewAllocation(parsed.amount, tierStates);
+    const nextIncomeGoesTo = this.cascade.getNextIncomeTier(
+      // simulate post-allocation state for next pointer
+      tierStates.map(ts => {
+        const alloc = allocation.allocations.find(a => a.tier === ts.tier);
+        return alloc ? { ...ts, allocatedAmount: ts.allocatedAmount + alloc.amount } : ts;
+      }),
+    );
+
+    return {
+      allocations: allocation.allocations,
+      excess: allocation.excessAmount,
+      nextIncomeGoesTo: allocation.allTiersComplete ? null : nextIncomeGoesTo,
+    };
+  }
+
+  /**
    * Resolves an excess prompt with user's choice.
    * 
    * Flow (§21):
@@ -606,6 +651,87 @@ export class ProjectsService {
     }
 
     return this.repository.getMsmeProjectExcessPromptsByProjectId(projectId, 'pending');
+  }
+
+  /**
+   * Gets paginated transactions (allocations + spends) for a project.
+   */
+  async getProjectTransactions(
+    projectId: string,
+    userId: string,
+    page = 1,
+    limit = 20,
+  ): Promise<{
+    data: Array<{
+      id: string;
+      type: 'allocation' | 'spend';
+      amount: number;
+      tier: 'priorities' | 'needs' | 'wants';
+      date: string;
+      source?: string;
+      merchant?: string;
+      category?: string;
+      note?: string;
+    }>;
+    page: number;
+    limit: number;
+    total: number;
+  }> {
+    const project = await this.repository.getMsmeProjectById(projectId);
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    if (project.user_id !== userId) {
+      throw new ForbiddenException('You do not have access to this project');
+    }
+
+    const [allocations, spends] = await Promise.all([
+      this.repository.getMsmeProjectAllocationsByProjectId(projectId),
+      this.repository.getMsmeProjectSpendsByProjectId(projectId),
+    ]);
+
+    // Get tier info for each allocation/spend
+    const tiers = await this.repository.getMsmeProjectTiersByProjectId(projectId);
+    const tierMap = new Map(tiers.map(t => [t.id, t.tier]));
+
+    // Combine and format transactions
+    const allTransactions: Array<{
+      id: string;
+      type: 'allocation' | 'spend';
+      amount: number;
+      tier: 'priorities' | 'needs' | 'wants';
+      date: string;
+      source?: string;
+      merchant?: string;
+      category?: string;
+      note?: string;
+    }> = [
+      ...allocations.map(a => ({
+        id: a.id,
+        type: 'allocation' as const,
+        amount: Number(a.amount),
+        tier: (tierMap.get(a.tier_id) as 'priorities' | 'needs' | 'wants') || 'priorities',
+        date: a.created_at,
+        source: a.income_event_id, // Could be enriched with income event source
+      })),
+      ...spends.map(s => ({
+        id: s.id,
+        type: 'spend' as const,
+        amount: Number(s.amount),
+        tier: (tierMap.get(s.tier_id) as 'priorities' | 'needs' | 'wants') || 'priorities',
+        date: s.created_at,
+        merchant: s.merchant ?? undefined,
+        category: s.category ?? undefined,
+        note: s.note ?? undefined,
+      })),
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const total = allTransactions.length;
+    const start = (page - 1) * limit;
+    const data = allTransactions.slice(start, start + limit);
+
+    return { data, page, limit, total };
   }
 
   /**

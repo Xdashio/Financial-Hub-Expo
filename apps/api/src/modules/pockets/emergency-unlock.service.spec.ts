@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { EmergencyUnlockService } from './emergency-unlock.service';
-import { SpendingAnalysisService } from '../insights/spending-analysis.service';
+import type { SpendingAnalysisService } from '../insights/spending-analysis.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { Pocket, Plan, FixedExpense } from '../../database/database.types';
 

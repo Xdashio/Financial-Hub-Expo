@@ -94,6 +94,11 @@ import {
   RunwayImpactOption,
   DiscretionaryRunway,
   EmergencyUnlockEligibilityReason,
+  ProjectSummary,
+  TierSummary,
+  ProjectIncomeInput,
+  ProjectKind,
+  FundingTier,
 } from '@financial-hub/shared';
 
 export const onboardingApi = {
@@ -255,6 +260,47 @@ export const loansApi = {
     api.post<any>(`/loans/${id}/purpose-sub-pockets`, data),
   fundRepayment: (id: string, amount: number) =>
     api.post<any>(`/loans/${id}/fund-repayment`, { amount }),
+};
+
+export const msmeProjectsApi = {
+  getAll: () => api.get<ProjectSummary[]>('/msme/projects'),
+  getById: (id: string) => api.get<ProjectSummary>(`/msme/projects/${id}`),
+  create: (data: {
+    name: string;
+    kind: ProjectKind;
+    contractValue: number;
+    tiers: {
+      priorities: number;
+      needs: number;
+      wants: number;
+    };
+  }) => api.post<ProjectSummary>('/msme/projects', data),
+  updateStatus: (id: string, status: 'draft' | 'active' | 'completed' | 'cancelled') =>
+    api.put<ProjectSummary>(`/msme/projects/${id}/status`, { status }),
+  activateCascade: (id: string) => api.post<ProjectSummary>(`/msme/projects/${id}/activate-cascade`, {}),
+  deactivateCascade: (id: string) => api.post<ProjectSummary>(`/msme/projects/${id}/deactivate-cascade`, {}),
+  recordIncome: (id: string, data: ProjectIncomeInput) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/income`, data),
+  previewIncome: (id: string, data: ProjectIncomeInput) =>
+    api.post<{ allocations: { tier: FundingTier; amount: number }[]; excess: number; nextIncomeGoesTo: FundingTier | null }>(
+      `/msme/projects/${id}/income/preview`,
+      data,
+    ),
+  recordSpend: (id: string, data: {
+    tierId: string;
+    amount: number;
+    merchant?: string;
+    category?: string;
+    note?: string;
+  }) => api.post<ProjectSummary>(`/msme/projects/${id}/spend`, data),
+  getTransactions: (id: string, page = 1, limit = 20) =>
+    api.get<any>(`/msme/projects/${id}/transactions?page=${page}&limit=${limit}`),
+  getPendingExcessPrompts: (id: string) =>
+    api.get<any[]>(`/msme/projects/${id}/excess-prompts`),
+  resolveExcessPrompt: (id: string, promptId: string, chosenTarget: 'needs' | 'wants' | 'savings' | 'keep') =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/excess-prompts/${promptId}/resolve`, { chosenTarget }),
+  dismissExcessPrompt: (id: string, promptId: string) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/excess-prompts/${promptId}/dismiss`, {}),
 };
 
 export const spendApi = {
