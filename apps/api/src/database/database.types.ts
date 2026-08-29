@@ -671,6 +671,10 @@ export interface MsmeProject {
   contract_value: number;
   status: 'draft' | 'active' | 'completed' | 'cancelled';
   is_active_cascade: boolean;
+  // Phase 5 spending controls (§20:500) — JSONB with defaults; always present after 018.
+  spending_controls: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean };
+  completion_resolved_at: string | null;
+  completion_resolved_to: 'savings' | 'keep' | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -686,6 +690,9 @@ export interface MsmeProjectInsert {
   contract_value: number;
   status?: 'draft' | 'active' | 'completed' | 'cancelled';
   is_active_cascade?: boolean;
+  spending_controls?: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean };
+  completion_resolved_at?: string | null;
+  completion_resolved_to?: 'savings' | 'keep' | null;
   created_at?: string;
   updated_at?: string;
   completed_at?: string | null;
@@ -701,6 +708,9 @@ export interface MsmeProjectUpdate {
   contract_value?: number;
   status?: 'draft' | 'active' | 'completed' | 'cancelled';
   is_active_cascade?: boolean;
+  spending_controls?: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean };
+  completion_resolved_at?: string | null;
+  completion_resolved_to?: 'savings' | 'keep' | null;
   updated_at?: string;
   completed_at?: string | null;
   cancelled_at?: string | null;

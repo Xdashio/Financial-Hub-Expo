@@ -7,6 +7,7 @@ import { useAlertModal } from '@/hooks/useAlertModal';
 import { msmeProjectsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer } from '@/components/ui';
+import { enqueueWrite } from '@/services/offline-queue';
 import { ArrowLeft, Calculator, ShieldCheck, CircleDollarSign, AlertTriangle } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
@@ -115,23 +116,44 @@ export default function MsmeProjectIncomeEntryScreen() {
     }
     try {
       setIsSubmitting(true);
-      const result = await msmeProjectsApi.recordIncome(id, {
+      const body = {
         amount: numericAmount,
         source: source || 'Deposit',
         label: label || undefined,
         date: isoDate,
-      });
+      };
+      let result: any;
+      try {
+        result = await msmeProjectsApi.recordIncome(id, body);
+      } catch (netErr: any) {
+        const msg = netErr instanceof Error ? netErr.message : String(netErr);
+        const isNetwork = /network|fetch|timeout|offline/i.test(msg) || netErr?.status === undefined;
+        if (isNetwork) {
+          await enqueueWrite(`/msme/projects/${id}/income`, body as any);
+          await alert('Queued offline', 'No connection — this instalment will be sent when you’re back online.');
+          safeGoBack(router, `/msme-projects/detail?id=${id}`);
+          return;
+        }
+        throw netErr;
+      }
       useDataSync.getState().bump();
       // cascade result is reflected in returned project summary — show preview-like confirmation
       const allocationsText = preview?.allocations.length
         ? preview.allocations.map(a => `${tierLabel(a.tier)} ${formatMoney(a.amount)}`).join(' · ')
         : `${formatMoney(numericAmount)} allocated`;
-      await alert(
-        'Income recorded',
-        result.nextIncomeGoesTo
-          ? `${allocationsText}. Next payment goes to ${tierLabel(result.nextIncomeGoesTo as any)}.`
-          : `${allocationsText}. All tiers funded${(preview?.excess ?? 0) > 0 ? ` · Excess ${formatMoney(preview!.excess)} pending` : ''}.`,
-      );
+      if ((result as any)?.excessPending != null && Number((result as any).excessPending) > 0) {
+        await alert(
+          'Income recorded — excess pending',
+          `${allocationsText}. Excess ${formatMoney(Number((result as any).excessPending))} needs your direction — open the project to resolve it.`,
+        );
+      } else {
+        await alert(
+          'Income recorded',
+          result.nextIncomeGoesTo
+            ? `${allocationsText}. Next payment goes to ${tierLabel(result.nextIncomeGoesTo as any)}.`
+            : `${allocationsText}. All tiers funded${(preview?.excess ?? 0) > 0 ? ` · Excess ${formatMoney(preview!.excess)} pending` : ''}.`,
+        );
+      }
       safeGoBack(router, `/msme-projects/detail?id=${id}`);
     } catch (e) {
       await alert('Could not add income', e instanceof Error ? e.message : 'Please try again.');

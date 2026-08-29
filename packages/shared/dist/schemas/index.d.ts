@@ -448,6 +448,17 @@ export declare const TierSummarySchema: z.ZodObject<{
     fundingPercent: number;
 }>;
 export type TierSummary = z.infer<typeof TierSummarySchema>;
+export declare const SpendingControlsSchema: z.ZodObject<{
+    lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+    warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+    lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+    warnOnLowPrioritySpend: boolean;
+}, {
+    lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+    warnOnLowPrioritySpend?: boolean | undefined;
+}>;
+export type SpendingControls = z.infer<typeof SpendingControlsSchema>;
 export declare const ProjectSummarySchema: z.ZodObject<{
     id: z.ZodString;
     name: z.ZodString;
@@ -455,6 +466,18 @@ export declare const ProjectSummarySchema: z.ZodObject<{
     contractValue: z.ZodNumber;
     status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
     isActiveCascade: z.ZodBoolean;
+    spendingControls: z.ZodOptional<z.ZodObject<{
+        lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+        warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+    }, "strip", z.ZodTypeAny, {
+        lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+        warnOnLowPrioritySpend: boolean;
+    }, {
+        lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+        warnOnLowPrioritySpend?: boolean | undefined;
+    }>>;
+    completionResolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    completionResolvedTo: z.ZodOptional<z.ZodNullable<z.ZodEnum<["savings", "keep"]>>>;
     tiers: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         tier: z.ZodEnum<["priorities", "needs", "wants"]>;
@@ -514,6 +537,12 @@ export declare const ProjectSummarySchema: z.ZodObject<{
     totalSpent: number;
     totalRemaining: number;
     excessPending: number | null;
+    spendingControls?: {
+        lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+        warnOnLowPrioritySpend: boolean;
+    } | undefined;
+    completionResolvedAt?: string | null | undefined;
+    completionResolvedTo?: "savings" | "keep" | null | undefined;
 }, {
     status: "completed" | "active" | "draft" | "cancelled";
     name: string;
@@ -537,6 +566,12 @@ export declare const ProjectSummarySchema: z.ZodObject<{
     totalSpent: number;
     totalRemaining: number;
     excessPending: number | null;
+    spendingControls?: {
+        lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+        warnOnLowPrioritySpend?: boolean | undefined;
+    } | undefined;
+    completionResolvedAt?: string | null | undefined;
+    completionResolvedTo?: "savings" | "keep" | null | undefined;
 }>;
 export type ProjectSummary = z.infer<typeof ProjectSummarySchema>;
 export declare const MsmeProjectSchema: z.ZodObject<{
@@ -548,6 +583,18 @@ export declare const MsmeProjectSchema: z.ZodObject<{
     contractValue: z.ZodNumber;
     status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
     isActiveCascade: z.ZodBoolean;
+    spendingControls: z.ZodOptional<z.ZodObject<{
+        lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+        warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+    }, "strip", z.ZodTypeAny, {
+        lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+        warnOnLowPrioritySpend: boolean;
+    }, {
+        lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+        warnOnLowPrioritySpend?: boolean | undefined;
+    }>>;
+    completionResolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    completionResolvedTo: z.ZodOptional<z.ZodNullable<z.ZodEnum<["savings", "keep"]>>>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
     completedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
@@ -563,6 +610,12 @@ export declare const MsmeProjectSchema: z.ZodObject<{
     planId: string;
     createdAt: string;
     updatedAt: string;
+    spendingControls?: {
+        lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+        warnOnLowPrioritySpend: boolean;
+    } | undefined;
+    completionResolvedAt?: string | null | undefined;
+    completionResolvedTo?: "savings" | "keep" | null | undefined;
     completedAt?: string | null | undefined;
     cancelledAt?: string | null | undefined;
 }, {
@@ -576,6 +629,12 @@ export declare const MsmeProjectSchema: z.ZodObject<{
     planId: string;
     createdAt: string;
     updatedAt: string;
+    spendingControls?: {
+        lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+        warnOnLowPrioritySpend?: boolean | undefined;
+    } | undefined;
+    completionResolvedAt?: string | null | undefined;
+    completionResolvedTo?: "savings" | "keep" | null | undefined;
     completedAt?: string | null | undefined;
     cancelledAt?: string | null | undefined;
 }>;
@@ -726,6 +785,278 @@ export declare const MsmeProjectExcessPromptSchema: z.ZodObject<{
     resolvedAt?: string | null | undefined;
 }>;
 export type MsmeProjectExcessPrompt = z.infer<typeof MsmeProjectExcessPromptSchema>;
+export declare const ExcessResolveInputSchema: z.ZodObject<{
+    chosenTarget: z.ZodEnum<["needs", "wants", "savings", "keep"]>;
+    confirmSavings: z.ZodOptional<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+    chosenTarget: "savings" | "needs" | "wants" | "keep";
+    confirmSavings?: boolean | undefined;
+}, {
+    chosenTarget: "savings" | "needs" | "wants" | "keep";
+    confirmSavings?: boolean | undefined;
+}>;
+export type ExcessResolveInput = z.infer<typeof ExcessResolveInputSchema>;
+export declare const SpendControlsUpdateInputSchema: z.ZodObject<{
+    lockWantsUntilPrioritiesAndNeedsFunded: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
+    warnOnLowPrioritySpend: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
+}, "strip", z.ZodTypeAny, {
+    lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+    warnOnLowPrioritySpend?: boolean | undefined;
+}, {
+    lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+    warnOnLowPrioritySpend?: boolean | undefined;
+}>;
+export type SpendControlsUpdateInput = z.infer<typeof SpendControlsUpdateInputSchema>;
+export declare const ProjectCompleteResultSchema: z.ZodObject<{
+    project: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+        contractValue: z.ZodNumber;
+        status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+        isActiveCascade: z.ZodBoolean;
+        spendingControls: z.ZodOptional<z.ZodObject<{
+            lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+            warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+        }, "strip", z.ZodTypeAny, {
+            lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+            warnOnLowPrioritySpend: boolean;
+        }, {
+            lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+            warnOnLowPrioritySpend?: boolean | undefined;
+        }>>;
+        completionResolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        completionResolvedTo: z.ZodOptional<z.ZodNullable<z.ZodEnum<["savings", "keep"]>>>;
+        tiers: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+            sortOrder: z.ZodNumber;
+            targetAmount: z.ZodNumber;
+            allocatedAmount: z.ZodNumber;
+            spentAmount: z.ZodNumber;
+            remainingCash: z.ZodNumber;
+            fundingStatus: z.ZodEnum<["in_progress", "complete"]>;
+            fundingPercent: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }, {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }>, "many">;
+        nextIncomeGoesTo: z.ZodNullable<z.ZodEnum<["priorities", "needs", "wants"]>>;
+        totalAllocated: z.ZodNumber;
+        totalSpent: z.ZodNumber;
+        totalRemaining: z.ZodNumber;
+        excessPending: z.ZodNullable<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }[];
+        id: string;
+        isActiveCascade: boolean;
+        nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+        totalAllocated: number;
+        totalSpent: number;
+        totalRemaining: number;
+        excessPending: number | null;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+            warnOnLowPrioritySpend: boolean;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
+    }, {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }[];
+        id: string;
+        isActiveCascade: boolean;
+        nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+        totalAllocated: number;
+        totalSpent: number;
+        totalRemaining: number;
+        excessPending: number | null;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+            warnOnLowPrioritySpend?: boolean | undefined;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
+    }>;
+    remainingPerTier: z.ZodArray<z.ZodObject<{
+        tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+        remainingCash: z.ZodNumber;
+        targetAmount: z.ZodNumber;
+        allocatedAmount: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        tier: "priorities" | "needs" | "wants";
+        targetAmount: number;
+        allocatedAmount: number;
+        remainingCash: number;
+    }, {
+        tier: "priorities" | "needs" | "wants";
+        targetAmount: number;
+        allocatedAmount: number;
+        remainingCash: number;
+    }>, "many">;
+    totalRemaining: z.ZodNumber;
+    suggestion: z.ZodString;
+    requiresResolution: z.ZodBoolean;
+}, "strip", z.ZodTypeAny, {
+    totalRemaining: number;
+    project: {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }[];
+        id: string;
+        isActiveCascade: boolean;
+        nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+        totalAllocated: number;
+        totalSpent: number;
+        totalRemaining: number;
+        excessPending: number | null;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+            warnOnLowPrioritySpend: boolean;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
+    };
+    remainingPerTier: {
+        tier: "priorities" | "needs" | "wants";
+        targetAmount: number;
+        allocatedAmount: number;
+        remainingCash: number;
+    }[];
+    suggestion: string;
+    requiresResolution: boolean;
+}, {
+    totalRemaining: number;
+    project: {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }[];
+        id: string;
+        isActiveCascade: boolean;
+        nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+        totalAllocated: number;
+        totalSpent: number;
+        totalRemaining: number;
+        excessPending: number | null;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+            warnOnLowPrioritySpend?: boolean | undefined;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
+    };
+    remainingPerTier: {
+        tier: "priorities" | "needs" | "wants";
+        targetAmount: number;
+        allocatedAmount: number;
+        remainingCash: number;
+    }[];
+    suggestion: string;
+    requiresResolution: boolean;
+}>;
+export type ProjectCompleteResult = z.infer<typeof ProjectCompleteResultSchema>;
+export declare const ProjectCompletionResolveInputSchema: z.ZodObject<{
+    target: z.ZodEnum<["savings", "keep"]>;
+    confirmSavings: z.ZodOptional<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+    target: "savings" | "keep";
+    confirmSavings?: boolean | undefined;
+}, {
+    target: "savings" | "keep";
+    confirmSavings?: boolean | undefined;
+}>;
+export type ProjectCompletionResolveInput = z.infer<typeof ProjectCompletionResolveInputSchema>;
+export declare const ProjectSpendInputSchema: z.ZodObject<{
+    tierId: z.ZodString;
+    amount: z.ZodNumber;
+    merchant: z.ZodOptional<z.ZodString>;
+    category: z.ZodOptional<z.ZodString>;
+    note: z.ZodOptional<z.ZodString>;
+    confirmRisky: z.ZodOptional<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    tierId: string;
+    category?: string | undefined;
+    merchant?: string | undefined;
+    note?: string | undefined;
+    confirmRisky?: boolean | undefined;
+}, {
+    amount: number;
+    tierId: string;
+    category?: string | undefined;
+    merchant?: string | undefined;
+    note?: string | undefined;
+    confirmRisky?: boolean | undefined;
+}>;
+export type ProjectSpendInput = z.infer<typeof ProjectSpendInputSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
     rule: z.ZodString;
     reason: z.ZodString;
@@ -2667,6 +2998,18 @@ export declare const schemas: {
         contractValue: z.ZodNumber;
         status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
         isActiveCascade: z.ZodBoolean;
+        spendingControls: z.ZodOptional<z.ZodObject<{
+            lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+            warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+        }, "strip", z.ZodTypeAny, {
+            lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+            warnOnLowPrioritySpend: boolean;
+        }, {
+            lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+            warnOnLowPrioritySpend?: boolean | undefined;
+        }>>;
+        completionResolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        completionResolvedTo: z.ZodOptional<z.ZodNullable<z.ZodEnum<["savings", "keep"]>>>;
         tiers: z.ZodArray<z.ZodObject<{
             id: z.ZodString;
             tier: z.ZodEnum<["priorities", "needs", "wants"]>;
@@ -2726,6 +3069,12 @@ export declare const schemas: {
         totalSpent: number;
         totalRemaining: number;
         excessPending: number | null;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+            warnOnLowPrioritySpend: boolean;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
     }, {
         status: "completed" | "active" | "draft" | "cancelled";
         name: string;
@@ -2749,6 +3098,289 @@ export declare const schemas: {
         totalSpent: number;
         totalRemaining: number;
         excessPending: number | null;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+            warnOnLowPrioritySpend?: boolean | undefined;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
+    }>;
+    SpendingControls: z.ZodObject<{
+        lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+        warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+    }, "strip", z.ZodTypeAny, {
+        lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+        warnOnLowPrioritySpend: boolean;
+    }, {
+        lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+        warnOnLowPrioritySpend?: boolean | undefined;
+    }>;
+    ExcessResolveInput: z.ZodObject<{
+        chosenTarget: z.ZodEnum<["needs", "wants", "savings", "keep"]>;
+        confirmSavings: z.ZodOptional<z.ZodBoolean>;
+    }, "strip", z.ZodTypeAny, {
+        chosenTarget: "savings" | "needs" | "wants" | "keep";
+        confirmSavings?: boolean | undefined;
+    }, {
+        chosenTarget: "savings" | "needs" | "wants" | "keep";
+        confirmSavings?: boolean | undefined;
+    }>;
+    SpendControlsUpdateInput: z.ZodObject<{
+        lockWantsUntilPrioritiesAndNeedsFunded: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
+        warnOnLowPrioritySpend: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
+    }, "strip", z.ZodTypeAny, {
+        lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+        warnOnLowPrioritySpend?: boolean | undefined;
+    }, {
+        lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+        warnOnLowPrioritySpend?: boolean | undefined;
+    }>;
+    ProjectCompleteResult: z.ZodObject<{
+        project: z.ZodObject<{
+            id: z.ZodString;
+            name: z.ZodString;
+            kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+            contractValue: z.ZodNumber;
+            status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+            isActiveCascade: z.ZodBoolean;
+            spendingControls: z.ZodOptional<z.ZodObject<{
+                lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+                warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+            }, "strip", z.ZodTypeAny, {
+                lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+                warnOnLowPrioritySpend: boolean;
+            }, {
+                lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+                warnOnLowPrioritySpend?: boolean | undefined;
+            }>>;
+            completionResolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+            completionResolvedTo: z.ZodOptional<z.ZodNullable<z.ZodEnum<["savings", "keep"]>>>;
+            tiers: z.ZodArray<z.ZodObject<{
+                id: z.ZodString;
+                tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+                sortOrder: z.ZodNumber;
+                targetAmount: z.ZodNumber;
+                allocatedAmount: z.ZodNumber;
+                spentAmount: z.ZodNumber;
+                remainingCash: z.ZodNumber;
+                fundingStatus: z.ZodEnum<["in_progress", "complete"]>;
+                fundingPercent: z.ZodNumber;
+            }, "strip", z.ZodTypeAny, {
+                id: string;
+                tier: "priorities" | "needs" | "wants";
+                sortOrder: number;
+                targetAmount: number;
+                allocatedAmount: number;
+                spentAmount: number;
+                remainingCash: number;
+                fundingStatus: "in_progress" | "complete";
+                fundingPercent: number;
+            }, {
+                id: string;
+                tier: "priorities" | "needs" | "wants";
+                sortOrder: number;
+                targetAmount: number;
+                allocatedAmount: number;
+                spentAmount: number;
+                remainingCash: number;
+                fundingStatus: "in_progress" | "complete";
+                fundingPercent: number;
+            }>, "many">;
+            nextIncomeGoesTo: z.ZodNullable<z.ZodEnum<["priorities", "needs", "wants"]>>;
+            totalAllocated: z.ZodNumber;
+            totalSpent: z.ZodNumber;
+            totalRemaining: z.ZodNumber;
+            excessPending: z.ZodNullable<z.ZodNumber>;
+        }, "strip", z.ZodTypeAny, {
+            status: "completed" | "active" | "draft" | "cancelled";
+            name: string;
+            kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+            contractValue: number;
+            tiers: {
+                id: string;
+                tier: "priorities" | "needs" | "wants";
+                sortOrder: number;
+                targetAmount: number;
+                allocatedAmount: number;
+                spentAmount: number;
+                remainingCash: number;
+                fundingStatus: "in_progress" | "complete";
+                fundingPercent: number;
+            }[];
+            id: string;
+            isActiveCascade: boolean;
+            nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+            totalAllocated: number;
+            totalSpent: number;
+            totalRemaining: number;
+            excessPending: number | null;
+            spendingControls?: {
+                lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+                warnOnLowPrioritySpend: boolean;
+            } | undefined;
+            completionResolvedAt?: string | null | undefined;
+            completionResolvedTo?: "savings" | "keep" | null | undefined;
+        }, {
+            status: "completed" | "active" | "draft" | "cancelled";
+            name: string;
+            kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+            contractValue: number;
+            tiers: {
+                id: string;
+                tier: "priorities" | "needs" | "wants";
+                sortOrder: number;
+                targetAmount: number;
+                allocatedAmount: number;
+                spentAmount: number;
+                remainingCash: number;
+                fundingStatus: "in_progress" | "complete";
+                fundingPercent: number;
+            }[];
+            id: string;
+            isActiveCascade: boolean;
+            nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+            totalAllocated: number;
+            totalSpent: number;
+            totalRemaining: number;
+            excessPending: number | null;
+            spendingControls?: {
+                lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+                warnOnLowPrioritySpend?: boolean | undefined;
+            } | undefined;
+            completionResolvedAt?: string | null | undefined;
+            completionResolvedTo?: "savings" | "keep" | null | undefined;
+        }>;
+        remainingPerTier: z.ZodArray<z.ZodObject<{
+            tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+            remainingCash: z.ZodNumber;
+            targetAmount: z.ZodNumber;
+            allocatedAmount: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            tier: "priorities" | "needs" | "wants";
+            targetAmount: number;
+            allocatedAmount: number;
+            remainingCash: number;
+        }, {
+            tier: "priorities" | "needs" | "wants";
+            targetAmount: number;
+            allocatedAmount: number;
+            remainingCash: number;
+        }>, "many">;
+        totalRemaining: z.ZodNumber;
+        suggestion: z.ZodString;
+        requiresResolution: z.ZodBoolean;
+    }, "strip", z.ZodTypeAny, {
+        totalRemaining: number;
+        project: {
+            status: "completed" | "active" | "draft" | "cancelled";
+            name: string;
+            kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+            contractValue: number;
+            tiers: {
+                id: string;
+                tier: "priorities" | "needs" | "wants";
+                sortOrder: number;
+                targetAmount: number;
+                allocatedAmount: number;
+                spentAmount: number;
+                remainingCash: number;
+                fundingStatus: "in_progress" | "complete";
+                fundingPercent: number;
+            }[];
+            id: string;
+            isActiveCascade: boolean;
+            nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+            totalAllocated: number;
+            totalSpent: number;
+            totalRemaining: number;
+            excessPending: number | null;
+            spendingControls?: {
+                lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+                warnOnLowPrioritySpend: boolean;
+            } | undefined;
+            completionResolvedAt?: string | null | undefined;
+            completionResolvedTo?: "savings" | "keep" | null | undefined;
+        };
+        remainingPerTier: {
+            tier: "priorities" | "needs" | "wants";
+            targetAmount: number;
+            allocatedAmount: number;
+            remainingCash: number;
+        }[];
+        suggestion: string;
+        requiresResolution: boolean;
+    }, {
+        totalRemaining: number;
+        project: {
+            status: "completed" | "active" | "draft" | "cancelled";
+            name: string;
+            kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+            contractValue: number;
+            tiers: {
+                id: string;
+                tier: "priorities" | "needs" | "wants";
+                sortOrder: number;
+                targetAmount: number;
+                allocatedAmount: number;
+                spentAmount: number;
+                remainingCash: number;
+                fundingStatus: "in_progress" | "complete";
+                fundingPercent: number;
+            }[];
+            id: string;
+            isActiveCascade: boolean;
+            nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+            totalAllocated: number;
+            totalSpent: number;
+            totalRemaining: number;
+            excessPending: number | null;
+            spendingControls?: {
+                lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+                warnOnLowPrioritySpend?: boolean | undefined;
+            } | undefined;
+            completionResolvedAt?: string | null | undefined;
+            completionResolvedTo?: "savings" | "keep" | null | undefined;
+        };
+        remainingPerTier: {
+            tier: "priorities" | "needs" | "wants";
+            targetAmount: number;
+            allocatedAmount: number;
+            remainingCash: number;
+        }[];
+        suggestion: string;
+        requiresResolution: boolean;
+    }>;
+    ProjectCompletionResolveInput: z.ZodObject<{
+        target: z.ZodEnum<["savings", "keep"]>;
+        confirmSavings: z.ZodOptional<z.ZodBoolean>;
+    }, "strip", z.ZodTypeAny, {
+        target: "savings" | "keep";
+        confirmSavings?: boolean | undefined;
+    }, {
+        target: "savings" | "keep";
+        confirmSavings?: boolean | undefined;
+    }>;
+    ProjectSpendInput: z.ZodObject<{
+        tierId: z.ZodString;
+        amount: z.ZodNumber;
+        merchant: z.ZodOptional<z.ZodString>;
+        category: z.ZodOptional<z.ZodString>;
+        note: z.ZodOptional<z.ZodString>;
+        confirmRisky: z.ZodOptional<z.ZodBoolean>;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        tierId: string;
+        category?: string | undefined;
+        merchant?: string | undefined;
+        note?: string | undefined;
+        confirmRisky?: boolean | undefined;
+    }, {
+        amount: number;
+        tierId: string;
+        category?: string | undefined;
+        merchant?: string | undefined;
+        note?: string | undefined;
+        confirmRisky?: boolean | undefined;
     }>;
     MsmeProject: z.ZodObject<{
         id: z.ZodString;
@@ -2759,6 +3391,18 @@ export declare const schemas: {
         contractValue: z.ZodNumber;
         status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
         isActiveCascade: z.ZodBoolean;
+        spendingControls: z.ZodOptional<z.ZodObject<{
+            lockWantsUntilPrioritiesAndNeedsFunded: z.ZodDefault<z.ZodBoolean>;
+            warnOnLowPrioritySpend: z.ZodDefault<z.ZodBoolean>;
+        }, "strip", z.ZodTypeAny, {
+            lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+            warnOnLowPrioritySpend: boolean;
+        }, {
+            lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+            warnOnLowPrioritySpend?: boolean | undefined;
+        }>>;
+        completionResolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        completionResolvedTo: z.ZodOptional<z.ZodNullable<z.ZodEnum<["savings", "keep"]>>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
         completedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
@@ -2774,6 +3418,12 @@ export declare const schemas: {
         planId: string;
         createdAt: string;
         updatedAt: string;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded: boolean;
+            warnOnLowPrioritySpend: boolean;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
         completedAt?: string | null | undefined;
         cancelledAt?: string | null | undefined;
     }, {
@@ -2787,6 +3437,12 @@ export declare const schemas: {
         planId: string;
         createdAt: string;
         updatedAt: string;
+        spendingControls?: {
+            lockWantsUntilPrioritiesAndNeedsFunded?: boolean | undefined;
+            warnOnLowPrioritySpend?: boolean | undefined;
+        } | undefined;
+        completionResolvedAt?: string | null | undefined;
+        completionResolvedTo?: "savings" | "keep" | null | undefined;
         completedAt?: string | null | undefined;
         cancelledAt?: string | null | undefined;
     }>;
