@@ -660,3 +660,177 @@ export interface EmergencyUnlockInsert {
 
 export type EmergencyUnlockRow = Database['public']['Tables']['emergency_unlocks']['Row'];
 export type EmergencyUnlockRowInsert = Database['public']['Tables']['emergency_unlocks']['Insert'];
+
+// MSME Project Funding Cascade (Phase 3 - 017_msme_projects.sql)
+export interface MsmeProject {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  name: string;
+  kind: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other';
+  contract_value: number;
+  status: 'draft' | 'active' | 'completed' | 'cancelled';
+  is_active_cascade: boolean;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  cancelled_at: string | null;
+}
+
+export interface MsmeProjectInsert {
+  id?: string;
+  user_id: string;
+  plan_id: string;
+  name: string;
+  kind: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other';
+  contract_value: number;
+  status?: 'draft' | 'active' | 'completed' | 'cancelled';
+  is_active_cascade?: boolean;
+  created_at?: string;
+  updated_at?: string;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+}
+
+export interface MsmeProjectUpdate {
+  id?: string;
+  user_id?: string;
+  plan_id?: string;
+  name?: string;
+  kind?: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other';
+  contract_value?: number;
+  status?: 'draft' | 'active' | 'completed' | 'cancelled';
+  is_active_cascade?: boolean;
+  updated_at?: string;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+}
+
+export interface MsmeProjectTier {
+  id: string;
+  project_id: string;
+  tier: 'priorities' | 'needs' | 'wants';
+  sort_order: number;
+  target_amount: number;
+  allocated_amount: number;
+  spent_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MsmeProjectTierInsert {
+  id?: string;
+  project_id: string;
+  tier: 'priorities' | 'needs' | 'wants';
+  sort_order: number;
+  target_amount: number;
+  allocated_amount?: number;
+  spent_amount?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MsmeProjectTierUpdate {
+  id?: string;
+  project_id?: string;
+  tier?: 'priorities' | 'needs' | 'wants';
+  sort_order?: number;
+  target_amount?: number;
+  allocated_amount?: number;
+  spent_amount?: number;
+  updated_at?: string;
+}
+
+export interface MsmeProjectIncomeEvent {
+  id: string;
+  project_id: string;
+  user_id: string;
+  amount: number;
+  source: string;
+  label: string | null;
+  date: string;
+  created_at: string;
+}
+
+export interface MsmeProjectIncomeEventInsert {
+  id?: string;
+  project_id: string;
+  user_id: string;
+  amount: number;
+  source: string;
+  label?: string | null;
+  date: string;
+  created_at?: string;
+}
+
+export interface MsmeProjectAllocation {
+  id: string;
+  project_id: string;
+  tier_id: string;
+  income_event_id: string;
+  amount: number;
+  created_at: string;
+}
+
+export interface MsmeProjectAllocationInsert {
+  id?: string;
+  project_id: string;
+  tier_id: string;
+  income_event_id: string;
+  amount: number;
+  created_at?: string;
+}
+
+export interface MsmeProjectSpend {
+  id: string;
+  tier_id: string;
+  project_id: string;
+  amount: number;
+  merchant: string | null;
+  category: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface MsmeProjectSpendInsert {
+  id?: string;
+  tier_id: string;
+  project_id: string;
+  amount: number;
+  merchant?: string | null;
+  category?: string | null;
+  note?: string | null;
+  created_at?: string;
+}
+
+export interface MsmeProjectExcessPrompt {
+  id: string;
+  project_id: string;
+  income_event_id: string;
+  excess_amount: number;
+  chosen_target: 'needs' | 'wants' | 'savings' | 'keep' | null;
+  status: 'pending' | 'resolved' | 'dismissed';
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface MsmeProjectExcessPromptInsert {
+  id?: string;
+  project_id: string;
+  income_event_id: string;
+  excess_amount: number;
+  chosen_target?: 'needs' | 'wants' | 'savings' | 'keep' | null;
+  status?: 'pending' | 'resolved' | 'dismissed';
+  created_at?: string;
+  resolved_at?: string | null;
+}
+
+export interface MsmeProjectExcessPromptUpdate {
+  id?: string;
+  project_id?: string;
+  income_event_id?: string;
+  excess_amount?: number;
+  chosen_target?: 'needs' | 'wants' | 'savings' | 'keep' | null;
+  status?: 'pending' | 'resolved' | 'dismissed';
+  resolved_at?: string | null;
+}

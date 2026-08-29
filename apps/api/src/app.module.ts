@@ -20,6 +20,7 @@ import { LoansModule } from './modules/loans/loans.module';
 import { DailyAllocationModule } from './modules/daily-allocation/daily-allocation.module';
 import { PlanningCycleModule } from './modules/planning-cycle/planning-cycle.module';
 import { BehavioralRecommendationsModule } from './modules/behavioral-recommendations/behavioral-recommendations.module';
+import { MsmeProjectsModule } from './modules/msme-projects/msme-projects.module';
 import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 
 @Module({
@@ -55,6 +56,7 @@ import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
     DailyAllocationModule,
     PlanningCycleModule,
     BehavioralRecommendationsModule,
+    MsmeProjectsModule,
   ],
   providers: [
     // Authenticated-by-default: new controllers are locked unless marked @Public().

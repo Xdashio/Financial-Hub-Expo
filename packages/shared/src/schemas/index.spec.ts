@@ -9,7 +9,15 @@ import {
   ReallocationSchema,
   ReallocationInputSchema,
   ReallocationCompleteInputSchema,
-  IncomeEventSchema
+  IncomeEventSchema,
+  ProjectCreateInputSchema,
+  ProjectIncomeInputSchema,
+  TierSummarySchema,
+  ProjectSummarySchema,
+  ProjectKindSchema,
+  FundingTierSchema,
+  FundingStatusSchema,
+  ProjectStatusSchema
 } from '../index';
 
 describe('Shared Schemas - Pack 1', () => {
@@ -317,6 +325,333 @@ describe('Shared Schemas - Pack 1', () => {
 
     it('rejects invalid pocket kinds', () => {
       expect(() => PocketKindSchema.parse('invalid')).toThrow();
+    });
+  });
+
+  describe('MSME Project Schemas (Phase 3)', () => {
+    describe('ProjectKindSchema', () => {
+      it('accepts valid project kinds', () => {
+        expect(() => ProjectKindSchema.parse('catering')).not.toThrow();
+        expect(() => ProjectKindSchema.parse('wedding')).not.toThrow();
+        expect(() => ProjectKindSchema.parse('contract')).not.toThrow();
+        expect(() => ProjectKindSchema.parse('other')).not.toThrow();
+      });
+
+      it('rejects invalid project kinds', () => {
+        expect(() => ProjectKindSchema.parse('invalid')).toThrow();
+      });
+    });
+
+    describe('FundingTierSchema', () => {
+      it('accepts the three required tiers', () => {
+        expect(() => FundingTierSchema.parse('priorities')).not.toThrow();
+        expect(() => FundingTierSchema.parse('needs')).not.toThrow();
+        expect(() => FundingTierSchema.parse('wants')).not.toThrow();
+      });
+
+      it('rejects invalid tiers', () => {
+        expect(() => FundingTierSchema.parse('emergency')).toThrow();
+      });
+    });
+
+    describe('FundingStatusSchema', () => {
+      it('accepts valid funding statuses', () => {
+        expect(() => FundingStatusSchema.parse('in_progress')).not.toThrow();
+        expect(() => FundingStatusSchema.parse('complete')).not.toThrow();
+      });
+
+      it('rejects invalid funding statuses', () => {
+        expect(() => FundingStatusSchema.parse('pending')).toThrow();
+      });
+    });
+
+    describe('ProjectStatusSchema', () => {
+      it('accepts valid project statuses', () => {
+        expect(() => ProjectStatusSchema.parse('draft')).not.toThrow();
+        expect(() => ProjectStatusSchema.parse('active')).not.toThrow();
+        expect(() => ProjectStatusSchema.parse('completed')).not.toThrow();
+        expect(() => ProjectStatusSchema.parse('cancelled')).not.toThrow();
+      });
+
+      it('rejects invalid project statuses', () => {
+        expect(() => ProjectStatusSchema.parse('pending')).toThrow();
+      });
+    });
+
+    describe('ProjectCreateInputSchema', () => {
+      it('validates a correct project creation input', () => {
+        const input = {
+          name: 'Catering Event',
+          kind: 'catering' as const,
+          contractValue: 500000,
+          tiers: {
+            priorities: 250000,
+            needs: 150000,
+            wants: 100000,
+          },
+        };
+        expect(() => ProjectCreateInputSchema.parse(input)).not.toThrow();
+      });
+
+      it('rejects when tier targets do not sum to contract value', () => {
+        const input = {
+          name: 'Catering Event',
+          kind: 'catering' as const,
+          contractValue: 500000,
+          tiers: {
+            priorities: 250000,
+            needs: 150000,
+            wants: 50000, // Only sums to 450000
+          },
+        };
+        expect(() => ProjectCreateInputSchema.parse(input)).toThrow();
+      });
+
+      it('allows small floating point tolerance for contract value matching', () => {
+        const input = {
+          name: 'Catering Event',
+          kind: 'catering' as const,
+          contractValue: 500000.005,
+          tiers: {
+            priorities: 250000,
+            needs: 150000,
+            wants: 100000, // Sums to 500000, within 0.01 tolerance
+          },
+        };
+        expect(() => ProjectCreateInputSchema.parse(input)).not.toThrow();
+      });
+
+      it('rejects empty tier targets', () => {
+        const input = {
+          name: 'Catering Event',
+          kind: 'catering' as const,
+          contractValue: 500000,
+          tiers: {
+            priorities: 0,
+            needs: 0,
+            wants: 0,
+          },
+        };
+        expect(() => ProjectCreateInputSchema.parse(input)).toThrow();
+      });
+    });
+
+    describe('ProjectIncomeInputSchema', () => {
+      it('validates a correct income input', () => {
+        const input = {
+          amount: 250000,
+          source: 'Deposit',
+          label: 'Initial payment',
+          date: '2024-01-15',
+        };
+        expect(() => ProjectIncomeInputSchema.parse(input)).not.toThrow();
+      });
+
+      it('accepts income without label', () => {
+        const input = {
+          amount: 250000,
+          source: 'Deposit',
+          date: '2024-01-15',
+        };
+        expect(() => ProjectIncomeInputSchema.parse(input)).not.toThrow();
+      });
+
+      it('rejects invalid date format', () => {
+        const input = {
+          amount: 250000,
+          source: 'Deposit',
+          date: '2024-01-15T00:00:00Z', // ISO format, not date only
+        };
+        expect(() => ProjectIncomeInputSchema.parse(input)).toThrow();
+      });
+
+      it('rejects source that is too long', () => {
+        const input = {
+          amount: 250000,
+          source: 'A'.repeat(101), // Exceeds 100 char limit
+          date: '2024-01-15',
+        };
+        expect(() => ProjectIncomeInputSchema.parse(input)).toThrow();
+      });
+    });
+
+    describe('TierSummarySchema', () => {
+      it('validates a complete tier summary', () => {
+        const summary = {
+          id: '550e8400-e29b-41d4-a716-446655440001',
+          tier: 'priorities' as const,
+          sortOrder: 1,
+          targetAmount: 250000,
+          allocatedAmount: 250000,
+          spentAmount: 180000,
+          remainingCash: 70000,
+          fundingStatus: 'complete' as const,
+          fundingPercent: 100,
+        };
+        expect(() => TierSummarySchema.parse(summary)).not.toThrow();
+      });
+
+      it('validates in-progress tier', () => {
+        const summary = {
+          id: '550e8400-e29b-41d4-a716-446655440002',
+          tier: 'needs' as const,
+          sortOrder: 2,
+          targetAmount: 150000,
+          allocatedAmount: 100000,
+          spentAmount: 50000,
+          remainingCash: 50000,
+          fundingStatus: 'in_progress' as const,
+          fundingPercent: 66.67,
+        };
+        expect(() => TierSummarySchema.parse(summary)).not.toThrow();
+      });
+    });
+
+    describe('ProjectSummarySchema', () => {
+      it('validates a complete project summary', () => {
+        const summary = {
+          id: '550e8400-e29b-41d4-a716-446655440003',
+          name: 'Catering Event',
+          kind: 'catering' as const,
+          contractValue: 500000,
+          status: 'active' as const,
+          isActiveCascade: true,
+          tiers: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440004',
+              tier: 'priorities' as const,
+              sortOrder: 1,
+              targetAmount: 250000,
+              allocatedAmount: 250000,
+              spentAmount: 180000,
+              remainingCash: 70000,
+              fundingStatus: 'complete' as const,
+              fundingPercent: 100,
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440005',
+              tier: 'needs' as const,
+              sortOrder: 2,
+              targetAmount: 150000,
+              allocatedAmount: 100000,
+              spentAmount: 50000,
+              remainingCash: 50000,
+              fundingStatus: 'in_progress' as const,
+              fundingPercent: 66.67,
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440006',
+              tier: 'wants' as const,
+              sortOrder: 3,
+              targetAmount: 100000,
+              allocatedAmount: 0,
+              spentAmount: 0,
+              remainingCash: 0,
+              fundingStatus: 'in_progress' as const,
+              fundingPercent: 0,
+            },
+          ],
+          nextIncomeGoesTo: 'needs' as const,
+          totalAllocated: 350000,
+          totalSpent: 230000,
+          totalRemaining: 120000,
+          excessPending: null,
+        };
+        expect(() => ProjectSummarySchema.parse(summary)).not.toThrow();
+      });
+
+      it('validates completed project with all tiers funded', () => {
+        const summary = {
+          id: '550e8400-e29b-41d4-a716-446655440007',
+          name: 'Catering Event',
+          kind: 'catering' as const,
+          contractValue: 500000,
+          status: 'completed' as const,
+          isActiveCascade: false,
+          tiers: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440008',
+              tier: 'priorities' as const,
+              sortOrder: 1,
+              targetAmount: 250000,
+              allocatedAmount: 250000,
+              spentAmount: 250000,
+              remainingCash: 0,
+              fundingStatus: 'complete' as const,
+              fundingPercent: 100,
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440009',
+              tier: 'needs' as const,
+              sortOrder: 2,
+              targetAmount: 150000,
+              allocatedAmount: 150000,
+              spentAmount: 150000,
+              remainingCash: 0,
+              fundingStatus: 'complete' as const,
+              fundingPercent: 100,
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440010',
+              tier: 'wants' as const,
+              sortOrder: 3,
+              targetAmount: 100000,
+              allocatedAmount: 100000,
+              spentAmount: 100000,
+              remainingCash: 0,
+              fundingStatus: 'complete' as const,
+              fundingPercent: 100,
+            },
+          ],
+          nextIncomeGoesTo: null,
+          totalAllocated: 500000,
+          totalSpent: 500000,
+          totalRemaining: 0,
+          excessPending: null,
+        };
+        expect(() => ProjectSummarySchema.parse(summary)).not.toThrow();
+      });
+
+      it('rejects if tiers array does not have exactly 3 elements', () => {
+        const summary = {
+          id: '550e8400-e29b-41d4-a716-446655440011',
+          name: 'Catering Event',
+          kind: 'catering' as const,
+          contractValue: 500000,
+          status: 'active' as const,
+          isActiveCascade: true,
+          tiers: [
+            {
+              id: '550e8400-e29b-41d4-a716-446655440012',
+              tier: 'priorities' as const,
+              sortOrder: 1,
+              targetAmount: 250000,
+              allocatedAmount: 250000,
+              spentAmount: 180000,
+              remainingCash: 70000,
+              fundingStatus: 'complete' as const,
+              fundingPercent: 100,
+            },
+            {
+              id: '550e8400-e29b-41d4-a716-446655440013',
+              tier: 'needs' as const,
+              sortOrder: 2,
+              targetAmount: 150000,
+              allocatedAmount: 100000,
+              spentAmount: 50000,
+              remainingCash: 50000,
+              fundingStatus: 'in_progress' as const,
+              fundingPercent: 66.67,
+            },
+          ], // Only 2 tiers instead of 3
+          nextIncomeGoesTo: 'needs' as const,
+          totalAllocated: 350000,
+          totalSpent: 230000,
+          totalRemaining: 120000,
+          excessPending: null,
+        };
+        expect(() => ProjectSummarySchema.parse(summary)).toThrow();
+      });
     });
   });
 });
