@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { msmeProjectsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
+import { enqueueWrite } from '@/services/offline-queue';
 import { ScreenContainer, Button } from '@/components/ui';
 import { ArrowLeft, ShoppingCart, AlertTriangle } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
@@ -133,7 +134,21 @@ export default function MsmeProjectLogSpendScreen() {
       );
       safeGoBack(router, `/msme-projects/detail?id=${id}`);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Please try again.';
+      const msg = e instanceof Error ? e.message : String(e);
+      const isNetwork = /network|fetch|timeout|offline/i.test(msg) || (e as any)?.status === undefined;
+      if (isNetwork && !msg.includes('Wants locked')) {
+        await enqueueWrite(`/msme/projects/${id}/spend`, {
+          tierId: selectedTierId,
+          amount: numericAmount,
+          merchant: merchant || undefined,
+          category: category || undefined,
+          note: note || undefined,
+          confirmRisky: isWantsLocked ? true : undefined,
+        });
+        await alert('Queued offline', 'No connection — spend entry has been saved offline and will sync when reconnected.');
+        safeGoBack(router, `/msme-projects/detail?id=${id}`);
+        return;
+      }
       // Surface Wants locked error with confirm affordance
       if (msg.includes('Wants locked')) {
         const ok = await confirm('Wants locked', msg + ' Tap Confirm to override with confirmRisky.');

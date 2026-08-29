@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { CalendarCheck, ArrowLeftRight, Timer, TrendingUp, TrendingDown, PieChart } from 'lucide-react-native';
+import { CalendarCheck, ArrowLeftRight, Timer, TrendingUp, TrendingDown, PieChart, Briefcase, Target, Clock, Shield } from 'lucide-react-native';
 import { radius, spacing, typography, shadow, categoryColors } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi, pocketsApi } from '@/services/api';
@@ -80,6 +80,11 @@ export default function InsightsScreen() {
   const [spendingTrends, setSpendingTrends] = React.useState<any[]>([]);
   const [selectedTrendPeriod, setSelectedTrendPeriod] = React.useState<'7' | '30' | '90'>('30');
   const [trendData, setTrendData] = React.useState<{ period: string; total: number; breakdown: any[] } | null>(null);
+  
+  // MSME Insights state (Phase 6)
+  const [segment, setSegment] = React.useState<'individual' | 'msme'>('individual');
+  const [msmeInsights, setMsmeInsights] = React.useState<any>(null);
+  const [msmeLoading, setMsmeLoading] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -170,13 +175,27 @@ export default function InsightsScreen() {
         total: totalSpending,
         breakdown,
       });
+
+      // Load MSME insights if segment is MSME
+      if (segment === 'msme') {
+        setMsmeLoading(true);
+        try {
+          const msmeData = await insightsApi.getMsmeInsights();
+          setMsmeInsights(msmeData);
+        } catch (e) {
+          console.error('MSME insights load error:', e);
+          setMsmeInsights(null);
+        } finally {
+          setMsmeLoading(false);
+        }
+      }
     } catch (e) {
       console.error('Insights load error:', e);
       setLoadError('Failed to load your insights. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [segment]);
 
   // Recalculate trends when period changes
   React.useEffect(() => {
@@ -321,7 +340,183 @@ export default function InsightsScreen() {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
         <Text style={{ ...typography.title, color: colors.ink, marginTop: spacing.sm }}>Insights</Text>
 
-        <View style={{ marginTop: spacing.xl, borderRadius: radius.lg, paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, backgroundColor: colors.emeraldDeep, alignItems: 'center' }}>
+        {/* Segment Switcher (Phase 6) */}
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+          <Pressable
+            onPress={() => setSegment('individual')}
+            style={{
+              flex: 1,
+              paddingVertical: spacing.sm,
+              paddingHorizontal: spacing.md,
+              borderRadius: radius.pill,
+              backgroundColor: segment === 'individual' ? colors.emeraldDeep : colors.surface,
+              borderWidth: 1,
+              borderColor: segment === 'individual' ? colors.emeraldDeep : colors.line,
+            }}
+          >
+            <Text style={{ ...typography.caption, color: segment === 'individual' ? colors.surface : colors.ink, textAlign: 'center' }}>
+              Personal
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setSegment('msme')}
+            style={{
+              flex: 1,
+              paddingVertical: spacing.sm,
+              paddingHorizontal: spacing.md,
+              borderRadius: radius.pill,
+              backgroundColor: segment === 'msme' ? colors.gold : colors.surface,
+              borderWidth: 1,
+              borderColor: segment === 'msme' ? colors.gold : colors.line,
+            }}
+          >
+            <Text style={{ ...typography.caption, color: segment === 'msme' ? colors.surface : colors.ink, textAlign: 'center' }}>
+              Business
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* MSME Business Insights (Phase 6) */}
+        {segment === 'msme' && (
+          <View style={{ marginTop: spacing.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg }}>
+              <Briefcase size={15} color={colors.ink} strokeWidth={2} />
+              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Business Performance</Text>
+            </View>
+            
+            {msmeLoading ? (
+              <InlineLoading />
+            ) : !msmeInsights ? (
+              <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
+                <Briefcase size={32} color={colors.sage} strokeWidth={2} />
+                <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.md }}>
+                  No business data available
+                </Text>
+                <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.xs, lineHeight: 16 }}>
+                  Create projects to track your business performance metrics
+                </Text>
+              </View>
+            ) : (
+              <View style={{ gap: spacing.lg }}>
+                {/* Project Overview */}
+                <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                  <View style={{ flex: 1, backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+                      <Target size={14} color={colors.ink} strokeWidth={2} />
+                      <Text style={{ ...typography.caption, color: colors.sage }}>Total Projects</Text>
+                    </View>
+                    <Text style={{ ...typography.display, color: colors.ink, fontSize: 24 }}>
+                      {msmeInsights.totalProjects}
+                    </Text>
+                    <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
+                      {msmeInsights.activeProjects} active • {msmeInsights.completedProjects} completed
+                    </Text>
+                  </View>
+                  
+                  <View style={{ flex: 1, backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
+                      <Clock size={14} color={colors.ink} strokeWidth={2} />
+                      <Text style={{ ...typography.caption, color: colors.sage }}>Avg Funding Speed</Text>
+                    </View>
+                    <Text style={{ ...typography.display, color: colors.ink, fontSize: 24 }}>
+                      {msmeInsights.avgFundingVelocity}d
+                    </Text>
+                    <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
+                      Days to full funding
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Financial Summary */}
+                <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                  <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>Financial Summary</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                    <Text style={{ ...typography.caption, color: colors.sage }}>Total Contract Value</Text>
+                    <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                      {formatMoney(msmeInsights.totalContractValue)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                    <Text style={{ ...typography.caption, color: colors.sage }}>Total Allocated</Text>
+                    <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
+                      {formatMoney(msmeInsights.totalAllocated)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ ...typography.caption, color: colors.sage }}>Total Spent</Text>
+                    <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                      {formatMoney(msmeInsights.totalSpent)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Tier Discipline */}
+                <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md }}>
+                    <Shield size={14} color={colors.ink} strokeWidth={2} />
+                    <Text style={{ ...typography.heading, color: colors.ink }}>Wants Discipline</Text>
+                  </View>
+                  
+                  <View style={{ marginBottom: spacing.md }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>Discipline Score</Text>
+                      <Text style={{ ...typography.heading, color: msmeInsights.wantsDisciplineScore >= 80 ? colors.emeraldDeep : msmeInsights.wantsDisciplineScore >= 60 ? colors.gold : colors.clay, fontVariant: ['tabular-nums'] }}>
+                        {msmeInsights.wantsDisciplineScore}%
+                      </Text>
+                    </View>
+                    <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden' }}>
+                      <View
+                        style={{
+                          height: '100%',
+                          width: `${msmeInsights.wantsDisciplineScore}%`,
+                          backgroundColor: msmeInsights.wantsDisciplineScore >= 80 ? colors.emeraldDeep : msmeInsights.wantsDisciplineScore >= 60 ? colors.gold : colors.clay,
+                          borderRadius: radius.pill,
+                        }}
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={{ ...typography.caption, color: colors.sage, lineHeight: 16 }}>
+                    {msmeInsights.wantsDisciplineScore >= 80 
+                      ? 'Excellent spending discipline - Wants spending respects funding priorities' 
+                      : msmeInsights.wantsDisciplineScore >= 60 
+                        ? 'Good discipline - Consider enabling spending controls for better priority adherence' 
+                        : 'Review spending patterns - Wants spending before priorities/needs is funded'}
+                  </Text>
+                </View>
+
+                {/* Tier Funding Days */}
+                <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                  <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>Avg Days to Fund Tiers</Text>
+                  <View style={{ gap: spacing.sm }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>Priorities</Text>
+                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                        {msmeInsights.avgDaysPerTier.priorities}d
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>Needs</Text>
+                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                        {msmeInsights.avgDaysPerTier.needs}d
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>Wants</Text>
+                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
+                        {msmeInsights.avgDaysPerTier.wants}d
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Personal Insights - Only show when segment is individual */}
+        {segment === 'individual' && (
+          <View style={{ marginTop: spacing.xl, borderRadius: radius.lg, paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl, backgroundColor: colors.emeraldDeep, alignItems: 'center' }}>
           {/* Gate on hasScoreHistory (not score === null) so a backend regression
               that returns a non-null default score can't resurrect the fake-100 display.
               hasScoreHistory is an independent signal from the API that the user has
@@ -416,7 +611,11 @@ export default function InsightsScreen() {
             </>
           )}
         </View>
+        )}
 
+        {/* Personal Insights Section */}
+        {segment === 'individual' && (
+          <>
         {/* Purpose stories — discipline score lives in the hero only (no duplicate metric). */}
         <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
           {orderedMetrics.map((metric, i) => (
@@ -627,6 +826,8 @@ export default function InsightsScreen() {
           )}
         </View>
 
+        {segment === 'individual' && (
+          <>
         <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Spending behavior insights</Text>
 
         <SearchBar
@@ -688,6 +889,10 @@ export default function InsightsScreen() {
               </Text>
             </Pressable>
           )
+        )}
+        </>
+        )}
+          </>
         )}
       </ScrollView>
     </ScreenContainer>
