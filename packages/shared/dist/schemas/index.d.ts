@@ -328,6 +328,404 @@ export declare const MsmeOnboardingInputSchema: z.ZodObject<{
     }[] | undefined;
 }>;
 export type MsmeOnboardingInput = z.infer<typeof MsmeOnboardingInputSchema>;
+export declare const ProjectKindSchema: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+export type ProjectKind = z.infer<typeof ProjectKindSchema>;
+export declare const FundingTierSchema: z.ZodEnum<["priorities", "needs", "wants"]>;
+export type FundingTier = z.infer<typeof FundingTierSchema>;
+export declare const FundingStatusSchema: z.ZodEnum<["in_progress", "complete"]>;
+export type FundingStatus = z.infer<typeof FundingStatusSchema>;
+export declare const ProjectStatusSchema: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
+export declare const ProjectCreateInputSchema: z.ZodEffects<z.ZodObject<{
+    name: z.ZodString;
+    kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+    contractValue: z.ZodNumber;
+    tiers: z.ZodEffects<z.ZodObject<{
+        priorities: z.ZodNumber;
+        needs: z.ZodNumber;
+        wants: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        priorities: number;
+        needs: number;
+        wants: number;
+    }, {
+        priorities: number;
+        needs: number;
+        wants: number;
+    }>, {
+        priorities: number;
+        needs: number;
+        wants: number;
+    }, {
+        priorities: number;
+        needs: number;
+        wants: number;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    tiers: {
+        priorities: number;
+        needs: number;
+        wants: number;
+    };
+}, {
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    tiers: {
+        priorities: number;
+        needs: number;
+        wants: number;
+    };
+}>, {
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    tiers: {
+        priorities: number;
+        needs: number;
+        wants: number;
+    };
+}, {
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    tiers: {
+        priorities: number;
+        needs: number;
+        wants: number;
+    };
+}>;
+export type ProjectCreateInput = z.infer<typeof ProjectCreateInputSchema>;
+export declare const ProjectIncomeInputSchema: z.ZodObject<{
+    amount: z.ZodNumber;
+    source: z.ZodString;
+    label: z.ZodOptional<z.ZodString>;
+    date: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    date: string;
+    source: string;
+    label?: string | undefined;
+}, {
+    amount: number;
+    date: string;
+    source: string;
+    label?: string | undefined;
+}>;
+export type ProjectIncomeInput = z.infer<typeof ProjectIncomeInputSchema>;
+export declare const TierSummarySchema: z.ZodObject<{
+    id: z.ZodString;
+    tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+    sortOrder: z.ZodNumber;
+    targetAmount: z.ZodNumber;
+    allocatedAmount: z.ZodNumber;
+    spentAmount: z.ZodNumber;
+    remainingCash: z.ZodNumber;
+    fundingStatus: z.ZodEnum<["in_progress", "complete"]>;
+    fundingPercent: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    tier: "priorities" | "needs" | "wants";
+    sortOrder: number;
+    targetAmount: number;
+    allocatedAmount: number;
+    spentAmount: number;
+    remainingCash: number;
+    fundingStatus: "in_progress" | "complete";
+    fundingPercent: number;
+}, {
+    id: string;
+    tier: "priorities" | "needs" | "wants";
+    sortOrder: number;
+    targetAmount: number;
+    allocatedAmount: number;
+    spentAmount: number;
+    remainingCash: number;
+    fundingStatus: "in_progress" | "complete";
+    fundingPercent: number;
+}>;
+export type TierSummary = z.infer<typeof TierSummarySchema>;
+export declare const ProjectSummarySchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+    contractValue: z.ZodNumber;
+    status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+    isActiveCascade: z.ZodBoolean;
+    tiers: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+        sortOrder: z.ZodNumber;
+        targetAmount: z.ZodNumber;
+        allocatedAmount: z.ZodNumber;
+        spentAmount: z.ZodNumber;
+        remainingCash: z.ZodNumber;
+        fundingStatus: z.ZodEnum<["in_progress", "complete"]>;
+        fundingPercent: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        remainingCash: number;
+        fundingStatus: "in_progress" | "complete";
+        fundingPercent: number;
+    }, {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        remainingCash: number;
+        fundingStatus: "in_progress" | "complete";
+        fundingPercent: number;
+    }>, "many">;
+    nextIncomeGoesTo: z.ZodNullable<z.ZodEnum<["priorities", "needs", "wants"]>>;
+    totalAllocated: z.ZodNumber;
+    totalSpent: z.ZodNumber;
+    totalRemaining: z.ZodNumber;
+    excessPending: z.ZodNullable<z.ZodNumber>;
+}, "strip", z.ZodTypeAny, {
+    status: "completed" | "active" | "draft" | "cancelled";
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    tiers: {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        remainingCash: number;
+        fundingStatus: "in_progress" | "complete";
+        fundingPercent: number;
+    }[];
+    id: string;
+    isActiveCascade: boolean;
+    nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+    totalAllocated: number;
+    totalSpent: number;
+    totalRemaining: number;
+    excessPending: number | null;
+}, {
+    status: "completed" | "active" | "draft" | "cancelled";
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    tiers: {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        remainingCash: number;
+        fundingStatus: "in_progress" | "complete";
+        fundingPercent: number;
+    }[];
+    id: string;
+    isActiveCascade: boolean;
+    nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+    totalAllocated: number;
+    totalSpent: number;
+    totalRemaining: number;
+    excessPending: number | null;
+}>;
+export type ProjectSummary = z.infer<typeof ProjectSummarySchema>;
+export declare const MsmeProjectSchema: z.ZodObject<{
+    id: z.ZodString;
+    userId: z.ZodString;
+    planId: z.ZodString;
+    name: z.ZodString;
+    kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+    contractValue: z.ZodNumber;
+    status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+    isActiveCascade: z.ZodBoolean;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    completedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    cancelledAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    status: "completed" | "active" | "draft" | "cancelled";
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    id: string;
+    isActiveCascade: boolean;
+    userId: string;
+    planId: string;
+    createdAt: string;
+    updatedAt: string;
+    completedAt?: string | null | undefined;
+    cancelledAt?: string | null | undefined;
+}, {
+    status: "completed" | "active" | "draft" | "cancelled";
+    name: string;
+    kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+    contractValue: number;
+    id: string;
+    isActiveCascade: boolean;
+    userId: string;
+    planId: string;
+    createdAt: string;
+    updatedAt: string;
+    completedAt?: string | null | undefined;
+    cancelledAt?: string | null | undefined;
+}>;
+export type MsmeProject = z.infer<typeof MsmeProjectSchema>;
+export declare const MsmeProjectTierSchema: z.ZodObject<{
+    id: z.ZodString;
+    projectId: z.ZodString;
+    tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+    sortOrder: z.ZodNumber;
+    targetAmount: z.ZodNumber;
+    allocatedAmount: z.ZodNumber;
+    spentAmount: z.ZodNumber;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    tier: "priorities" | "needs" | "wants";
+    sortOrder: number;
+    targetAmount: number;
+    allocatedAmount: number;
+    spentAmount: number;
+    createdAt: string;
+    updatedAt: string;
+    projectId: string;
+}, {
+    id: string;
+    tier: "priorities" | "needs" | "wants";
+    sortOrder: number;
+    targetAmount: number;
+    allocatedAmount: number;
+    spentAmount: number;
+    createdAt: string;
+    updatedAt: string;
+    projectId: string;
+}>;
+export type MsmeProjectTier = z.infer<typeof MsmeProjectTierSchema>;
+export declare const MsmeProjectIncomeEventSchema: z.ZodObject<{
+    id: z.ZodString;
+    projectId: z.ZodString;
+    userId: z.ZodString;
+    amount: z.ZodNumber;
+    source: z.ZodString;
+    label: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    date: z.ZodString;
+    createdAt: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    date: string;
+    source: string;
+    id: string;
+    userId: string;
+    createdAt: string;
+    projectId: string;
+    label?: string | null | undefined;
+}, {
+    amount: number;
+    date: string;
+    source: string;
+    id: string;
+    userId: string;
+    createdAt: string;
+    projectId: string;
+    label?: string | null | undefined;
+}>;
+export type MsmeProjectIncomeEvent = z.infer<typeof MsmeProjectIncomeEventSchema>;
+export declare const MsmeProjectAllocationSchema: z.ZodObject<{
+    id: z.ZodString;
+    projectId: z.ZodString;
+    tierId: z.ZodString;
+    incomeEventId: z.ZodString;
+    amount: z.ZodNumber;
+    createdAt: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    id: string;
+    createdAt: string;
+    projectId: string;
+    tierId: string;
+    incomeEventId: string;
+}, {
+    amount: number;
+    id: string;
+    createdAt: string;
+    projectId: string;
+    tierId: string;
+    incomeEventId: string;
+}>;
+export type MsmeProjectAllocation = z.infer<typeof MsmeProjectAllocationSchema>;
+export declare const MsmeProjectSpendSchema: z.ZodObject<{
+    id: z.ZodString;
+    tierId: z.ZodString;
+    projectId: z.ZodString;
+    amount: z.ZodNumber;
+    merchant: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    category: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    note: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    createdAt: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    id: string;
+    createdAt: string;
+    projectId: string;
+    tierId: string;
+    category?: string | null | undefined;
+    merchant?: string | null | undefined;
+    note?: string | null | undefined;
+}, {
+    amount: number;
+    id: string;
+    createdAt: string;
+    projectId: string;
+    tierId: string;
+    category?: string | null | undefined;
+    merchant?: string | null | undefined;
+    note?: string | null | undefined;
+}>;
+export type MsmeProjectSpend = z.infer<typeof MsmeProjectSpendSchema>;
+export declare const ExcessPromptStatusSchema: z.ZodEnum<["pending", "resolved", "dismissed"]>;
+export type ExcessPromptStatus = z.infer<typeof ExcessPromptStatusSchema>;
+export declare const ExcessPromptTargetSchema: z.ZodEnum<["needs", "wants", "savings", "keep"]>;
+export type ExcessPromptTarget = z.infer<typeof ExcessPromptTargetSchema>;
+export declare const MsmeProjectExcessPromptSchema: z.ZodObject<{
+    id: z.ZodString;
+    projectId: z.ZodString;
+    incomeEventId: z.ZodString;
+    excessAmount: z.ZodNumber;
+    chosenTarget: z.ZodOptional<z.ZodNullable<z.ZodEnum<["needs", "wants", "savings", "keep"]>>>;
+    status: z.ZodEnum<["pending", "resolved", "dismissed"]>;
+    createdAt: z.ZodString;
+    resolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    status: "pending" | "resolved" | "dismissed";
+    id: string;
+    createdAt: string;
+    projectId: string;
+    incomeEventId: string;
+    excessAmount: number;
+    chosenTarget?: "savings" | "needs" | "wants" | "keep" | null | undefined;
+    resolvedAt?: string | null | undefined;
+}, {
+    status: "pending" | "resolved" | "dismissed";
+    id: string;
+    createdAt: string;
+    projectId: string;
+    incomeEventId: string;
+    excessAmount: number;
+    chosenTarget?: "savings" | "needs" | "wants" | "keep" | null | undefined;
+    resolvedAt?: string | null | undefined;
+}>;
+export type MsmeProjectExcessPrompt = z.infer<typeof MsmeProjectExcessPromptSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
     rule: z.ZodString;
     reason: z.ZodString;
@@ -574,15 +972,15 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
         dailyCap: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }, {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -591,8 +989,8 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
     planId: string;
     pockets: {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -601,8 +999,8 @@ export declare const OnboardingCommitResultSchema: z.ZodObject<{
     planId: string;
     pockets: {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -686,15 +1084,15 @@ export declare const PlanRetakeResultSchema: z.ZodObject<{
         dailyCap: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
     }, {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -748,8 +1146,8 @@ export declare const PlanRetakeResultSchema: z.ZodObject<{
     planId: string;
     pockets: {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -770,8 +1168,8 @@ export declare const PlanRetakeResultSchema: z.ZodObject<{
     planId: string;
     pockets: {
         name: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
+        id: string;
         monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
@@ -845,15 +1243,15 @@ export declare const UserSchema: z.ZodObject<{
     updatedAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
     id: string;
-    fullName: string;
     createdAt: string;
     updatedAt: string;
+    fullName: string;
     email?: string | null | undefined;
 }, {
     id: string;
-    fullName: string;
     createdAt: string;
     updatedAt: string;
+    fullName: string;
     email?: string | null | undefined;
 }>;
 export type User = z.infer<typeof UserSchema>;
@@ -872,8 +1270,8 @@ export declare const PlanSchema: z.ZodObject<{
     status: "active" | "inactive" | "reassigned";
     incomePattern: "salaried" | "freelancer" | "mix";
     id: string;
-    createdAt: string;
     userId: string;
+    createdAt: string;
     segment?: "individual" | "msme" | undefined;
     incomeIntervalDays?: number | null | undefined;
     reassignedAt?: string | undefined;
@@ -882,8 +1280,8 @@ export declare const PlanSchema: z.ZodObject<{
     status: "active" | "inactive" | "reassigned";
     incomePattern: "salaried" | "freelancer" | "mix";
     id: string;
-    createdAt: string;
     userId: string;
+    createdAt: string;
     segment?: "individual" | "msme" | undefined;
     incomeIntervalDays?: number | null | undefined;
     reassignedAt?: string | undefined;
@@ -906,12 +1304,12 @@ export declare const PocketSchema: z.ZodObject<{
     updatedAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
     name: string;
-    planId: string;
-    id: string;
     kind: "savings" | "fixed" | "spendable" | "loan";
-    monthlyAllocation: number;
+    id: string;
+    planId: string;
     createdAt: string;
     updatedAt: string;
+    monthlyAllocation: number;
     isTimeLocked: boolean;
     category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     segment?: "individual" | "msme" | undefined;
@@ -921,12 +1319,12 @@ export declare const PocketSchema: z.ZodObject<{
     splitPercentage?: number | null | undefined;
 }, {
     name: string;
-    planId: string;
-    id: string;
     kind: "savings" | "fixed" | "spendable" | "loan";
-    monthlyAllocation: number;
+    id: string;
+    planId: string;
     createdAt: string;
     updatedAt: string;
+    monthlyAllocation: number;
     category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     segment?: "individual" | "msme" | undefined;
     dailyCap?: number | undefined;
@@ -1497,12 +1895,12 @@ export declare const LoanDetailSchema: z.ZodObject<{
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        planId: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         isTimeLocked: boolean;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         segment?: "individual" | "msme" | undefined;
@@ -1512,12 +1910,12 @@ export declare const LoanDetailSchema: z.ZodObject<{
         splitPercentage?: number | null | undefined;
     }, {
         name: string;
-        planId: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         segment?: "individual" | "msme" | undefined;
         dailyCap?: number | undefined;
@@ -1529,12 +1927,12 @@ export declare const LoanDetailSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     name: string;
     dueDay: number;
-    planId: string;
-    id: string;
     kind: "loan";
-    monthlyAllocation: number;
+    id: string;
+    planId: string;
     createdAt: string;
     updatedAt: string;
+    monthlyAllocation: number;
     isTimeLocked: boolean;
     loanProvider: string | null;
     loanPurpose: string | null;
@@ -1556,12 +1954,12 @@ export declare const LoanDetailSchema: z.ZodObject<{
     splitPercentage?: number | null | undefined;
     subPockets?: {
         name: string;
-        planId: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         isTimeLocked: boolean;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         segment?: "individual" | "msme" | undefined;
@@ -1573,12 +1971,12 @@ export declare const LoanDetailSchema: z.ZodObject<{
 }, {
     name: string;
     dueDay: number;
-    planId: string;
-    id: string;
     kind: "loan";
-    monthlyAllocation: number;
+    id: string;
+    planId: string;
     createdAt: string;
     updatedAt: string;
+    monthlyAllocation: number;
     loanProvider: string | null;
     loanPurpose: string | null;
     repaymentSchedule: {
@@ -1600,12 +1998,12 @@ export declare const LoanDetailSchema: z.ZodObject<{
     splitPercentage?: number | null | undefined;
     subPockets?: {
         name: string;
-        planId: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         segment?: "individual" | "msme" | undefined;
         dailyCap?: number | undefined;
@@ -1631,18 +2029,18 @@ export declare const FixedExpenseSchema: z.ZodObject<{
     dueDay: number;
     category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     id: string;
+    userId: string;
     createdAt: string;
     updatedAt: string;
-    userId: string;
 }, {
     name: string;
     amount: number;
     dueDay: number;
     category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     id: string;
+    userId: string;
     createdAt: string;
     updatedAt: string;
-    userId: string;
 }>;
 export type FixedExpense = z.infer<typeof FixedExpenseSchema>;
 export declare const IncomeEventSchema: z.ZodObject<{
@@ -1657,20 +2055,20 @@ export declare const IncomeEventSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     amount: number;
     date: string;
-    id: string;
-    createdAt: string;
-    userId: string;
     source: string;
     label: string;
+    id: string;
+    userId: string;
+    createdAt: string;
     runAllocation: boolean;
 }, {
     amount: number;
     date: string;
-    id: string;
-    createdAt: string;
-    userId: string;
     source: string;
     label: string;
+    id: string;
+    userId: string;
+    createdAt: string;
     runAllocation?: boolean | undefined;
 }>;
 export type IncomeEvent = z.infer<typeof IncomeEventSchema>;
@@ -1730,10 +2128,10 @@ export declare const DailyAllocationSchema: z.ZodObject<{
     closedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, "strip", z.ZodTypeAny, {
     status: "open" | "closed";
-    planId: string;
     id: string;
-    createdAt: string;
     userId: string;
+    planId: string;
+    createdAt: string;
     allocationDate: string;
     plannedAmount: number;
     actualSpend: number;
@@ -1744,10 +2142,10 @@ export declare const DailyAllocationSchema: z.ZodObject<{
     closedAt?: string | null | undefined;
 }, {
     status: "open" | "closed";
-    planId: string;
     id: string;
-    createdAt: string;
     userId: string;
+    planId: string;
+    createdAt: string;
     allocationDate: string;
     plannedAmount: number;
     actualSpend: number;
@@ -1772,25 +2170,25 @@ export declare const ReallocationSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     status: "pending" | "cooling_off" | "completed" | "skipped";
     amount: number;
-    reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
     id: string;
     createdAt: string;
+    reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
     fromPocketId: string;
     toPocketId: string;
     disciplineCost: number;
-    coolingOffEndsAt?: string | undefined;
     completedAt?: string | undefined;
+    coolingOffEndsAt?: string | undefined;
 }, {
     status: "pending" | "cooling_off" | "completed" | "skipped";
     amount: number;
-    reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
     id: string;
     createdAt: string;
+    reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
     fromPocketId: string;
     toPocketId: string;
+    completedAt?: string | undefined;
     coolingOffEndsAt?: string | undefined;
     disciplineCost?: number | undefined;
-    completedAt?: string | undefined;
 }>;
 export type Reallocation = z.infer<typeof ReallocationSchema>;
 export declare const ReallocationInputSchema: z.ZodObject<{
@@ -2149,6 +2547,388 @@ export declare const schemas: {
         name: string;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
     }>;
+    ProjectKind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+    FundingTier: z.ZodEnum<["priorities", "needs", "wants"]>;
+    FundingStatus: z.ZodEnum<["in_progress", "complete"]>;
+    ProjectStatus: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+    ProjectCreateInput: z.ZodEffects<z.ZodObject<{
+        name: z.ZodString;
+        kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+        contractValue: z.ZodNumber;
+        tiers: z.ZodEffects<z.ZodObject<{
+            priorities: z.ZodNumber;
+            needs: z.ZodNumber;
+            wants: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            priorities: number;
+            needs: number;
+            wants: number;
+        }, {
+            priorities: number;
+            needs: number;
+            wants: number;
+        }>, {
+            priorities: number;
+            needs: number;
+            wants: number;
+        }, {
+            priorities: number;
+            needs: number;
+            wants: number;
+        }>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            priorities: number;
+            needs: number;
+            wants: number;
+        };
+    }, {
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            priorities: number;
+            needs: number;
+            wants: number;
+        };
+    }>, {
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            priorities: number;
+            needs: number;
+            wants: number;
+        };
+    }, {
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            priorities: number;
+            needs: number;
+            wants: number;
+        };
+    }>;
+    ProjectIncomeInput: z.ZodObject<{
+        amount: z.ZodNumber;
+        source: z.ZodString;
+        label: z.ZodOptional<z.ZodString>;
+        date: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        date: string;
+        source: string;
+        label?: string | undefined;
+    }, {
+        amount: number;
+        date: string;
+        source: string;
+        label?: string | undefined;
+    }>;
+    TierSummary: z.ZodObject<{
+        id: z.ZodString;
+        tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+        sortOrder: z.ZodNumber;
+        targetAmount: z.ZodNumber;
+        allocatedAmount: z.ZodNumber;
+        spentAmount: z.ZodNumber;
+        remainingCash: z.ZodNumber;
+        fundingStatus: z.ZodEnum<["in_progress", "complete"]>;
+        fundingPercent: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        remainingCash: number;
+        fundingStatus: "in_progress" | "complete";
+        fundingPercent: number;
+    }, {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        remainingCash: number;
+        fundingStatus: "in_progress" | "complete";
+        fundingPercent: number;
+    }>;
+    ProjectSummary: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+        contractValue: z.ZodNumber;
+        status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+        isActiveCascade: z.ZodBoolean;
+        tiers: z.ZodArray<z.ZodObject<{
+            id: z.ZodString;
+            tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+            sortOrder: z.ZodNumber;
+            targetAmount: z.ZodNumber;
+            allocatedAmount: z.ZodNumber;
+            spentAmount: z.ZodNumber;
+            remainingCash: z.ZodNumber;
+            fundingStatus: z.ZodEnum<["in_progress", "complete"]>;
+            fundingPercent: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }, {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }>, "many">;
+        nextIncomeGoesTo: z.ZodNullable<z.ZodEnum<["priorities", "needs", "wants"]>>;
+        totalAllocated: z.ZodNumber;
+        totalSpent: z.ZodNumber;
+        totalRemaining: z.ZodNumber;
+        excessPending: z.ZodNullable<z.ZodNumber>;
+    }, "strip", z.ZodTypeAny, {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }[];
+        id: string;
+        isActiveCascade: boolean;
+        nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+        totalAllocated: number;
+        totalSpent: number;
+        totalRemaining: number;
+        excessPending: number | null;
+    }, {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        tiers: {
+            id: string;
+            tier: "priorities" | "needs" | "wants";
+            sortOrder: number;
+            targetAmount: number;
+            allocatedAmount: number;
+            spentAmount: number;
+            remainingCash: number;
+            fundingStatus: "in_progress" | "complete";
+            fundingPercent: number;
+        }[];
+        id: string;
+        isActiveCascade: boolean;
+        nextIncomeGoesTo: "priorities" | "needs" | "wants" | null;
+        totalAllocated: number;
+        totalSpent: number;
+        totalRemaining: number;
+        excessPending: number | null;
+    }>;
+    MsmeProject: z.ZodObject<{
+        id: z.ZodString;
+        userId: z.ZodString;
+        planId: z.ZodString;
+        name: z.ZodString;
+        kind: z.ZodEnum<["catering", "wedding", "trip", "tour", "contract", "construction", "agri", "other"]>;
+        contractValue: z.ZodNumber;
+        status: z.ZodEnum<["draft", "active", "completed", "cancelled"]>;
+        isActiveCascade: z.ZodBoolean;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        completedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        cancelledAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        id: string;
+        isActiveCascade: boolean;
+        userId: string;
+        planId: string;
+        createdAt: string;
+        updatedAt: string;
+        completedAt?: string | null | undefined;
+        cancelledAt?: string | null | undefined;
+    }, {
+        status: "completed" | "active" | "draft" | "cancelled";
+        name: string;
+        kind: "other" | "catering" | "wedding" | "trip" | "tour" | "contract" | "construction" | "agri";
+        contractValue: number;
+        id: string;
+        isActiveCascade: boolean;
+        userId: string;
+        planId: string;
+        createdAt: string;
+        updatedAt: string;
+        completedAt?: string | null | undefined;
+        cancelledAt?: string | null | undefined;
+    }>;
+    MsmeProjectTier: z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        tier: z.ZodEnum<["priorities", "needs", "wants"]>;
+        sortOrder: z.ZodNumber;
+        targetAmount: z.ZodNumber;
+        allocatedAmount: z.ZodNumber;
+        spentAmount: z.ZodNumber;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        createdAt: string;
+        updatedAt: string;
+        projectId: string;
+    }, {
+        id: string;
+        tier: "priorities" | "needs" | "wants";
+        sortOrder: number;
+        targetAmount: number;
+        allocatedAmount: number;
+        spentAmount: number;
+        createdAt: string;
+        updatedAt: string;
+        projectId: string;
+    }>;
+    MsmeProjectIncomeEvent: z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        userId: z.ZodString;
+        amount: z.ZodNumber;
+        source: z.ZodString;
+        label: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        date: z.ZodString;
+        createdAt: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        date: string;
+        source: string;
+        id: string;
+        userId: string;
+        createdAt: string;
+        projectId: string;
+        label?: string | null | undefined;
+    }, {
+        amount: number;
+        date: string;
+        source: string;
+        id: string;
+        userId: string;
+        createdAt: string;
+        projectId: string;
+        label?: string | null | undefined;
+    }>;
+    MsmeProjectAllocation: z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        tierId: z.ZodString;
+        incomeEventId: z.ZodString;
+        amount: z.ZodNumber;
+        createdAt: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        id: string;
+        createdAt: string;
+        projectId: string;
+        tierId: string;
+        incomeEventId: string;
+    }, {
+        amount: number;
+        id: string;
+        createdAt: string;
+        projectId: string;
+        tierId: string;
+        incomeEventId: string;
+    }>;
+    MsmeProjectSpend: z.ZodObject<{
+        id: z.ZodString;
+        tierId: z.ZodString;
+        projectId: z.ZodString;
+        amount: z.ZodNumber;
+        merchant: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        category: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        note: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        createdAt: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        id: string;
+        createdAt: string;
+        projectId: string;
+        tierId: string;
+        category?: string | null | undefined;
+        merchant?: string | null | undefined;
+        note?: string | null | undefined;
+    }, {
+        amount: number;
+        id: string;
+        createdAt: string;
+        projectId: string;
+        tierId: string;
+        category?: string | null | undefined;
+        merchant?: string | null | undefined;
+        note?: string | null | undefined;
+    }>;
+    ExcessPromptStatus: z.ZodEnum<["pending", "resolved", "dismissed"]>;
+    ExcessPromptTarget: z.ZodEnum<["needs", "wants", "savings", "keep"]>;
+    MsmeProjectExcessPrompt: z.ZodObject<{
+        id: z.ZodString;
+        projectId: z.ZodString;
+        incomeEventId: z.ZodString;
+        excessAmount: z.ZodNumber;
+        chosenTarget: z.ZodOptional<z.ZodNullable<z.ZodEnum<["needs", "wants", "savings", "keep"]>>>;
+        status: z.ZodEnum<["pending", "resolved", "dismissed"]>;
+        createdAt: z.ZodString;
+        resolvedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        status: "pending" | "resolved" | "dismissed";
+        id: string;
+        createdAt: string;
+        projectId: string;
+        incomeEventId: string;
+        excessAmount: number;
+        chosenTarget?: "savings" | "needs" | "wants" | "keep" | null | undefined;
+        resolvedAt?: string | null | undefined;
+    }, {
+        status: "pending" | "resolved" | "dismissed";
+        id: string;
+        createdAt: string;
+        projectId: string;
+        incomeEventId: string;
+        excessAmount: number;
+        chosenTarget?: "savings" | "needs" | "wants" | "keep" | null | undefined;
+        resolvedAt?: string | null | undefined;
+    }>;
     PlanAssignReason: z.ZodObject<{
         rule: z.ZodString;
         reason: z.ZodString;
@@ -2388,15 +3168,15 @@ export declare const schemas: {
             dailyCap: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }, {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -2405,8 +3185,8 @@ export declare const schemas: {
         planId: string;
         pockets: {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -2415,8 +3195,8 @@ export declare const schemas: {
         planId: string;
         pockets: {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -2433,15 +3213,15 @@ export declare const schemas: {
             dailyCap: z.ZodOptional<z.ZodNumber>;
         }, "strip", z.ZodTypeAny, {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
         }, {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -2495,8 +3275,8 @@ export declare const schemas: {
         planId: string;
         pockets: {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -2517,8 +3297,8 @@ export declare const schemas: {
         planId: string;
         pockets: {
             name: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
+            id: string;
             monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             dailyCap?: number | undefined;
@@ -2560,15 +3340,15 @@ export declare const schemas: {
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
         id: string;
-        fullName: string;
         createdAt: string;
         updatedAt: string;
+        fullName: string;
         email?: string | null | undefined;
     }, {
         id: string;
-        fullName: string;
         createdAt: string;
         updatedAt: string;
+        fullName: string;
         email?: string | null | undefined;
     }>;
     Plan: z.ZodObject<{
@@ -2586,8 +3366,8 @@ export declare const schemas: {
         status: "active" | "inactive" | "reassigned";
         incomePattern: "salaried" | "freelancer" | "mix";
         id: string;
-        createdAt: string;
         userId: string;
+        createdAt: string;
         segment?: "individual" | "msme" | undefined;
         incomeIntervalDays?: number | null | undefined;
         reassignedAt?: string | undefined;
@@ -2596,8 +3376,8 @@ export declare const schemas: {
         status: "active" | "inactive" | "reassigned";
         incomePattern: "salaried" | "freelancer" | "mix";
         id: string;
-        createdAt: string;
         userId: string;
+        createdAt: string;
         segment?: "individual" | "msme" | undefined;
         incomeIntervalDays?: number | null | undefined;
         reassignedAt?: string | undefined;
@@ -2619,12 +3399,12 @@ export declare const schemas: {
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
         name: string;
-        planId: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         isTimeLocked: boolean;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         segment?: "individual" | "msme" | undefined;
@@ -2634,12 +3414,12 @@ export declare const schemas: {
         splitPercentage?: number | null | undefined;
     }, {
         name: string;
-        planId: string;
-        id: string;
         kind: "savings" | "fixed" | "spendable" | "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         segment?: "individual" | "msme" | undefined;
         dailyCap?: number | undefined;
@@ -3137,12 +3917,12 @@ export declare const schemas: {
             updatedAt: z.ZodString;
         }, "strip", z.ZodTypeAny, {
             name: string;
-            planId: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
-            monthlyAllocation: number;
+            id: string;
+            planId: string;
             createdAt: string;
             updatedAt: string;
+            monthlyAllocation: number;
             isTimeLocked: boolean;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             segment?: "individual" | "msme" | undefined;
@@ -3152,12 +3932,12 @@ export declare const schemas: {
             splitPercentage?: number | null | undefined;
         }, {
             name: string;
-            planId: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
-            monthlyAllocation: number;
+            id: string;
+            planId: string;
             createdAt: string;
             updatedAt: string;
+            monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             segment?: "individual" | "msme" | undefined;
             dailyCap?: number | undefined;
@@ -3169,12 +3949,12 @@ export declare const schemas: {
     }, "strip", z.ZodTypeAny, {
         name: string;
         dueDay: number;
-        planId: string;
-        id: string;
         kind: "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         isTimeLocked: boolean;
         loanProvider: string | null;
         loanPurpose: string | null;
@@ -3196,12 +3976,12 @@ export declare const schemas: {
         splitPercentage?: number | null | undefined;
         subPockets?: {
             name: string;
-            planId: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
-            monthlyAllocation: number;
+            id: string;
+            planId: string;
             createdAt: string;
             updatedAt: string;
+            monthlyAllocation: number;
             isTimeLocked: boolean;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             segment?: "individual" | "msme" | undefined;
@@ -3213,12 +3993,12 @@ export declare const schemas: {
     }, {
         name: string;
         dueDay: number;
-        planId: string;
-        id: string;
         kind: "loan";
-        monthlyAllocation: number;
+        id: string;
+        planId: string;
         createdAt: string;
         updatedAt: string;
+        monthlyAllocation: number;
         loanProvider: string | null;
         loanPurpose: string | null;
         repaymentSchedule: {
@@ -3240,12 +4020,12 @@ export declare const schemas: {
         splitPercentage?: number | null | undefined;
         subPockets?: {
             name: string;
-            planId: string;
-            id: string;
             kind: "savings" | "fixed" | "spendable" | "loan";
-            monthlyAllocation: number;
+            id: string;
+            planId: string;
             createdAt: string;
             updatedAt: string;
+            monthlyAllocation: number;
             category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
             segment?: "individual" | "msme" | undefined;
             dailyCap?: number | undefined;
@@ -3270,18 +4050,18 @@ export declare const schemas: {
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         id: string;
+        userId: string;
         createdAt: string;
         updatedAt: string;
-        userId: string;
     }, {
         name: string;
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
         id: string;
+        userId: string;
         createdAt: string;
         updatedAt: string;
-        userId: string;
     }>;
     IncomeEvent: z.ZodObject<{
         id: z.ZodString;
@@ -3295,20 +4075,20 @@ export declare const schemas: {
     }, "strip", z.ZodTypeAny, {
         amount: number;
         date: string;
-        id: string;
-        createdAt: string;
-        userId: string;
         source: string;
         label: string;
+        id: string;
+        userId: string;
+        createdAt: string;
         runAllocation: boolean;
     }, {
         amount: number;
         date: string;
-        id: string;
-        createdAt: string;
-        userId: string;
         source: string;
         label: string;
+        id: string;
+        userId: string;
+        createdAt: string;
         runAllocation?: boolean | undefined;
     }>;
     Transaction: z.ZodObject<{
@@ -3355,10 +4135,10 @@ export declare const schemas: {
         closedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, "strip", z.ZodTypeAny, {
         status: "open" | "closed";
-        planId: string;
         id: string;
-        createdAt: string;
         userId: string;
+        planId: string;
+        createdAt: string;
         allocationDate: string;
         plannedAmount: number;
         actualSpend: number;
@@ -3369,10 +4149,10 @@ export declare const schemas: {
         closedAt?: string | null | undefined;
     }, {
         status: "open" | "closed";
-        planId: string;
         id: string;
-        createdAt: string;
         userId: string;
+        planId: string;
+        createdAt: string;
         allocationDate: string;
         plannedAmount: number;
         actualSpend: number;
@@ -3396,25 +4176,25 @@ export declare const schemas: {
     }, "strip", z.ZodTypeAny, {
         status: "pending" | "cooling_off" | "completed" | "skipped";
         amount: number;
-        reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
         id: string;
         createdAt: string;
+        reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
         fromPocketId: string;
         toPocketId: string;
         disciplineCost: number;
-        coolingOffEndsAt?: string | undefined;
         completedAt?: string | undefined;
+        coolingOffEndsAt?: string | undefined;
     }, {
         status: "pending" | "cooling_off" | "completed" | "skipped";
         amount: number;
-        reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
         id: string;
         createdAt: string;
+        reason: "other" | "emergency" | "unexpected_expense" | "income_change" | "priority_shift";
         fromPocketId: string;
         toPocketId: string;
+        completedAt?: string | undefined;
         coolingOffEndsAt?: string | undefined;
         disciplineCost?: number | undefined;
-        completedAt?: string | undefined;
     }>;
     ReallocationInput: z.ZodObject<{
         fromPocketId: z.ZodString;
