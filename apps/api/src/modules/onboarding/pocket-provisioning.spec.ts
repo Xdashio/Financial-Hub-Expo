@@ -118,6 +118,26 @@ describe('pocket-provisioning', () => {
       expect(spendableTotal).toBeCloseTo(structuredAssignment.spendableAmount);
     });
 
+    it('keeps daily/regular fixed expenses like Transport unlocked while Rent stays locked', () => {
+      const input: OnboardingInput = {
+        ...baseInput,
+        fixedExpenses: [
+          { name: 'House Rent', amount: 15000, dueDay: 5, category: 'housing' },
+          { name: 'Daily Transport Fare', amount: 3000, dueDay: 1, category: 'transport' },
+        ],
+        fixedTotal: 18000,
+      };
+
+      const pockets = buildPocketInputs('plan-1', structuredAssignment, input);
+      const rent = pockets.find((p) => p.name === 'House Rent');
+      const transport = pockets.find((p) => p.name === 'Daily Transport Fare');
+
+      expect(rent?.is_time_locked).toBe(true);
+      expect(rent?.lock_until).not.toBeNull();
+      expect(transport?.is_time_locked).toBe(false);
+      expect(transport?.lock_until).toBeNull();
+    });
+
     it('falls back to a lump Fixed Expenses pocket when only fixedTotal is set', () => {
       const pockets = buildPocketInputs('plan-1', structuredAssignment, baseInput);
       const fixed = pockets.filter((p) => p.kind === 'fixed');

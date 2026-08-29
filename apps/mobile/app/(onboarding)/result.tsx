@@ -125,13 +125,13 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
     const isStudentPlan = categories[0] === 'leisure';
     return (
       <View style={{ marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: `${colors.surface}26` }}>
-        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>
-          {isStudentPlan ? 'Daily budget style' : 'Your plan allocation'}
+        <Text style={{ ...typography.caption, fontSize: 11, fontWeight: '700', color: colors.gold }}>
+          {isStudentPlan ? 'Student — Simplified Plan' : 'Your plan allocation'}
         </Text>
-        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}80`, marginTop: spacing.xs }}>
+        <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}CC`, marginTop: spacing.xs, lineHeight: 16 }}>
           {isStudentPlan 
-            ? 'This plan uses a single daily budget. Add more pockets after onboarding to create category splits.'
-            : 'Add more pockets after onboarding to customize your allocation'
+            ? 'Single daily allowance pocket created to keep your budget clean and avoid category friction. Unspent allowance sweeps to Savings at midnight.'
+            : 'Add more pockets after onboarding to customize your allocation.'
           }
         </Text>
       </View>

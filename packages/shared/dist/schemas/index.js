@@ -200,6 +200,7 @@ exports.FixedExpenseInputSchema = zod_1.z.object({
     amount: zod_1.z.number().positive(),
     dueDay: zod_1.z.number().int().min(1).max(31),
     category: exports.PocketCategorySchema,
+    frequency: zod_1.z.enum(['monthly', 'weekly', 'daily']).optional(),
 });
 exports.OnboardingInputSchema = zod_1.z.object({
     incomePattern: exports.IncomePatternSchema,

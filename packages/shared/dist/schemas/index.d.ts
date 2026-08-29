@@ -79,16 +79,19 @@ export declare const FixedExpenseInputSchema: z.ZodObject<{
     amount: z.ZodNumber;
     dueDay: z.ZodNumber;
     category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
+    frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
 }, "strip", z.ZodTypeAny, {
     name: string;
     amount: number;
     dueDay: number;
     category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+    frequency?: "daily" | "weekly" | "monthly" | undefined;
 }, {
     name: string;
     amount: number;
     dueDay: number;
     category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+    frequency?: "daily" | "weekly" | "monthly" | undefined;
 }>;
 export type FixedExpenseInput = z.infer<typeof FixedExpenseInputSchema>;
 export declare const OnboardingInputSchema: z.ZodObject<{
@@ -102,16 +105,19 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         amount: z.ZodNumber;
         dueDay: z.ZodNumber;
         category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
+        frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
     }, "strip", z.ZodTypeAny, {
         name: string;
         amount: number;
         dueDay: number;
         category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }, {
         name: string;
         amount: number;
         dueDay: number;
         category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }>, "many">>;
     incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
     lifeStage: z.ZodOptional<z.ZodEnum<["student", "working_adult", "self_employed"]>>;
@@ -147,6 +153,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         amount: number;
         dueDay: number;
         category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }[] | undefined;
     incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
     lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
@@ -172,6 +179,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         amount: number;
         dueDay: number;
         category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }[] | undefined;
     incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
     lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
@@ -1769,16 +1777,19 @@ export declare const schemas: {
             amount: z.ZodNumber;
             dueDay: z.ZodNumber;
             category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "other"]>;
+            frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
         }, "strip", z.ZodTypeAny, {
             name: string;
             amount: number;
             dueDay: number;
             category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }, {
             name: string;
             amount: number;
             dueDay: number;
             category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }>, "many">>;
         incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
         lifeStage: z.ZodOptional<z.ZodEnum<["student", "working_adult", "self_employed"]>>;
@@ -1814,6 +1825,7 @@ export declare const schemas: {
             amount: number;
             dueDay: number;
             category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }[] | undefined;
         incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
         lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
@@ -1839,6 +1851,7 @@ export declare const schemas: {
             amount: number;
             dueDay: number;
             category: "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }[] | undefined;
         incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
         lifeStage?: "student" | "working_adult" | "self_employed" | undefined;

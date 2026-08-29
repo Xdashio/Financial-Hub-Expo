@@ -248,6 +248,7 @@ export const FixedExpenseInputSchema = z.object({
   amount: z.number().positive(),
   dueDay: z.number().int().min(1).max(31),
   category: PocketCategorySchema,
+  frequency: z.enum(['monthly', 'weekly', 'daily']).optional(),
 });
 export type FixedExpenseInput = z.infer<typeof FixedExpenseInputSchema>;
 

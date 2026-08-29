@@ -464,7 +464,7 @@ export function assignPlan(input: OnboardingInput): PlanAssignment {
   if (input.lifeStage === 'student') {
     reasons.push({
       rule: 'persona_student',
-      reason: 'As a student, spending is usually less category-split — one Daily spend pocket keeps the plan simple.',
+      reason: 'Student Simplified Plan: Your allowance is organized into one simple Daily Spend pocket and protected Savings, keeping your daily spending easy to track without complex category splits.',
     });
   }
 
