@@ -109,16 +109,19 @@ export declare const FixedExpenseInputSchema: z.ZodObject<{
     amount: z.ZodNumber;
     dueDay: z.ZodNumber;
     category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "stock", "supplier", "licence", "tax", "salary", "rent", "operations", "profit", "owner_draw", "growth", "marketing", "equipment", "other"]>;
+    frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
 }, "strip", z.ZodTypeAny, {
     name: string;
     amount: number;
     dueDay: number;
     category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+    frequency?: "daily" | "weekly" | "monthly" | undefined;
 }, {
     name: string;
     amount: number;
     dueDay: number;
     category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+    frequency?: "daily" | "weekly" | "monthly" | undefined;
 }>;
 export type FixedExpenseInput = z.infer<typeof FixedExpenseInputSchema>;
 export declare const OnboardingInputSchema: z.ZodObject<{
@@ -132,16 +135,19 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         amount: z.ZodNumber;
         dueDay: z.ZodNumber;
         category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "stock", "supplier", "licence", "tax", "salary", "rent", "operations", "profit", "owner_draw", "growth", "marketing", "equipment", "other"]>;
+        frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
     }, "strip", z.ZodTypeAny, {
         name: string;
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }, {
         name: string;
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }>, "many">>;
     incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
     lifeStage: z.ZodOptional<z.ZodEnum<["student", "working_adult", "self_employed"]>>;
@@ -177,6 +183,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }[] | undefined;
     incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
     lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
@@ -202,6 +209,7 @@ export declare const OnboardingInputSchema: z.ZodObject<{
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }[] | undefined;
     incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
     lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
@@ -241,16 +249,19 @@ export declare const MsmeOnboardingInputSchema: z.ZodObject<{
         amount: z.ZodNumber;
         dueDay: z.ZodNumber;
         category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "stock", "supplier", "licence", "tax", "salary", "rent", "operations", "profit", "owner_draw", "growth", "marketing", "equipment", "other"]>;
+        frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
     }, "strip", z.ZodTypeAny, {
         name: string;
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }, {
         name: string;
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }>, "many">>;
     hasEmployees: z.ZodOptional<z.ZodBoolean>;
     businessStage: z.ZodOptional<z.ZodEnum<["starting", "stable", "growing"]>>;
@@ -290,6 +301,7 @@ export declare const MsmeOnboardingInputSchema: z.ZodObject<{
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }[] | undefined;
     savingsGoal?: {
         goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
@@ -313,6 +325,7 @@ export declare const MsmeOnboardingInputSchema: z.ZodObject<{
         amount: number;
         dueDay: number;
         category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+        frequency?: "daily" | "weekly" | "monthly" | undefined;
     }[] | undefined;
     savingsGoal?: {
         goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
@@ -2686,16 +2699,19 @@ export declare const schemas: {
             amount: z.ZodNumber;
             dueDay: z.ZodNumber;
             category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "stock", "supplier", "licence", "tax", "salary", "rent", "operations", "profit", "owner_draw", "growth", "marketing", "equipment", "other"]>;
+            frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
         }, "strip", z.ZodTypeAny, {
             name: string;
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }, {
             name: string;
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }>, "many">>;
         incomeIntervalBand: z.ZodOptional<z.ZodEnum<["weekly", "biweekly", "monthly", "irregular"]>>;
         lifeStage: z.ZodOptional<z.ZodEnum<["student", "working_adult", "self_employed"]>>;
@@ -2731,6 +2747,7 @@ export declare const schemas: {
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }[] | undefined;
         incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
         lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
@@ -2756,6 +2773,7 @@ export declare const schemas: {
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }[] | undefined;
         incomeIntervalBand?: "weekly" | "biweekly" | "monthly" | "irregular" | undefined;
         lifeStage?: "student" | "working_adult" | "self_employed" | undefined;
@@ -2781,16 +2799,19 @@ export declare const schemas: {
             amount: z.ZodNumber;
             dueDay: z.ZodNumber;
             category: z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "stock", "supplier", "licence", "tax", "salary", "rent", "operations", "profit", "owner_draw", "growth", "marketing", "equipment", "other"]>;
+            frequency: z.ZodOptional<z.ZodEnum<["monthly", "weekly", "daily"]>>;
         }, "strip", z.ZodTypeAny, {
             name: string;
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }, {
             name: string;
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }>, "many">>;
         hasEmployees: z.ZodOptional<z.ZodBoolean>;
         businessStage: z.ZodOptional<z.ZodEnum<["starting", "stable", "growing"]>>;
@@ -2830,6 +2851,7 @@ export declare const schemas: {
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }[] | undefined;
         savingsGoal?: {
             goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
@@ -2853,6 +2875,7 @@ export declare const schemas: {
             amount: number;
             dueDay: number;
             category: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other";
+            frequency?: "daily" | "weekly" | "monthly" | undefined;
         }[] | undefined;
         savingsGoal?: {
             goalType: "other" | "emergency_fund" | "purchase" | "dependent_education";
