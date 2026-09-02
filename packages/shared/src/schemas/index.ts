@@ -650,6 +650,51 @@ export const InvoiceSchema = z.object({
 });
 export type Invoice = z.infer<typeof InvoiceSchema>;
 
+// ============================================================================
+// MSME Operational Insights (Invoices + Projects) — real aggregates, no mocks
+// ============================================================================
+
+export const MsmeInvoiceStatsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  draft: z.number().int().nonnegative(),
+  sent: z.number().int().nonnegative(),
+  paid: z.number().int().nonnegative(),
+  voidCount: z.number().int().nonnegative(),
+  overdue: z.number().int().nonnegative(),
+  outstanding: z.number().nonnegative(),
+  overdueAmount: z.number().nonnegative(),
+  paidAmount: z.number().nonnegative(),
+  collectionRate: z.number().min(0).max(100),
+});
+export type MsmeInvoiceStats = z.infer<typeof MsmeInvoiceStatsSchema>;
+
+export const MsmeProjectStatsSchema = z.object({
+  total: z.number().int().nonnegative(),
+  active: z.number().int().nonnegative(),
+  draft: z.number().int().nonnegative(),
+  completed: z.number().int().nonnegative(),
+  totalContractValue: z.number().nonnegative(),
+  totalAllocated: z.number().nonnegative(),
+  totalSpent: z.number().nonnegative(),
+  fundingPercent: z.number().min(0).max(100),
+});
+export type MsmeProjectStats = z.infer<typeof MsmeProjectStatsSchema>;
+
+export const MsmeAlertSchema = z.object({
+  type: z.enum(['overdue_receivables', 'funding_stalled', 'wants_discipline', 'no_data']),
+  message: z.string(),
+  severity: z.enum(['info', 'warn', 'critical']),
+});
+export type MsmeAlert = z.infer<typeof MsmeAlertSchema>;
+
+export const MsmeOperationalInsightsSchema = z.object({
+  invoices: MsmeInvoiceStatsSchema,
+  projects: MsmeProjectStatsSchema,
+  fundingVelocityDays: z.number().nonnegative().nullable(),
+  alerts: z.array(MsmeAlertSchema),
+});
+export type MsmeOperationalInsights = z.infer<typeof MsmeOperationalInsightsSchema>;
+
 export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
   reason: z.string(),
@@ -1260,4 +1305,8 @@ export const schemas = {
   InvoiceCreateInput: InvoiceCreateInputSchema,
   InvoiceUpdateInput: InvoiceUpdateInputSchema,
   Invoice: InvoiceSchema,
+  MsmeInvoiceStats: MsmeInvoiceStatsSchema,
+  MsmeProjectStats: MsmeProjectStatsSchema,
+  MsmeAlert: MsmeAlertSchema,
+  MsmeOperationalInsights: MsmeOperationalInsightsSchema,
 };

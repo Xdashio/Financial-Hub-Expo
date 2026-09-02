@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExcessPromptTargetSchema = exports.ExcessPromptStatusSchema = exports.MsmeProjectSpendSchema = exports.MsmeProjectAllocationSchema = exports.MsmeProjectIncomeEventSchema = exports.MsmeProjectTierSchema = exports.MsmeProjectSchema = exports.ProjectSummarySchema = exports.SpendingControlsSchema = exports.TierSummarySchema = exports.ProjectIncomeInputSchema = exports.ProjectCreateInputSchema = exports.ProjectStatusSchema = exports.FundingStatusSchema = exports.FundingTierSchema = exports.ProjectKindSchema = exports.MsmeOnboardingInputSchema = exports.MsmePocketInputSchema = exports.BusinessStageSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.MSME_SPENDABLE_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.BusinessPocketCategorySchema = exports.PocketKindSchema = exports.SegmentSchema = exports.PlanTypeSchema = void 0;
-exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = void 0;
+exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.MsmeOperationalInsightsSchema = exports.MsmeAlertSchema = exports.MsmeProjectStatsSchema = exports.MsmeInvoiceStatsSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -527,6 +527,42 @@ exports.InvoiceSchema = zod_1.z.object({
     // Derived, not stored — overdue is dueDate < today AND status in draft/sent
     isOverdue: zod_1.z.boolean().optional(),
 });
+// ============================================================================
+// MSME Operational Insights (Invoices + Projects) — real aggregates, no mocks
+// ============================================================================
+exports.MsmeInvoiceStatsSchema = zod_1.z.object({
+    total: zod_1.z.number().int().nonnegative(),
+    draft: zod_1.z.number().int().nonnegative(),
+    sent: zod_1.z.number().int().nonnegative(),
+    paid: zod_1.z.number().int().nonnegative(),
+    voidCount: zod_1.z.number().int().nonnegative(),
+    overdue: zod_1.z.number().int().nonnegative(),
+    outstanding: zod_1.z.number().nonnegative(),
+    overdueAmount: zod_1.z.number().nonnegative(),
+    paidAmount: zod_1.z.number().nonnegative(),
+    collectionRate: zod_1.z.number().min(0).max(100),
+});
+exports.MsmeProjectStatsSchema = zod_1.z.object({
+    total: zod_1.z.number().int().nonnegative(),
+    active: zod_1.z.number().int().nonnegative(),
+    draft: zod_1.z.number().int().nonnegative(),
+    completed: zod_1.z.number().int().nonnegative(),
+    totalContractValue: zod_1.z.number().nonnegative(),
+    totalAllocated: zod_1.z.number().nonnegative(),
+    totalSpent: zod_1.z.number().nonnegative(),
+    fundingPercent: zod_1.z.number().min(0).max(100),
+});
+exports.MsmeAlertSchema = zod_1.z.object({
+    type: zod_1.z.enum(['overdue_receivables', 'funding_stalled', 'wants_discipline', 'no_data']),
+    message: zod_1.z.string(),
+    severity: zod_1.z.enum(['info', 'warn', 'critical']),
+});
+exports.MsmeOperationalInsightsSchema = zod_1.z.object({
+    invoices: exports.MsmeInvoiceStatsSchema,
+    projects: exports.MsmeProjectStatsSchema,
+    fundingVelocityDays: zod_1.z.number().nonnegative().nullable(),
+    alerts: zod_1.z.array(exports.MsmeAlertSchema),
+});
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
     reason: zod_1.z.string(),
@@ -1035,4 +1071,8 @@ exports.schemas = {
     InvoiceCreateInput: exports.InvoiceCreateInputSchema,
     InvoiceUpdateInput: exports.InvoiceUpdateInputSchema,
     Invoice: exports.InvoiceSchema,
+    MsmeInvoiceStats: exports.MsmeInvoiceStatsSchema,
+    MsmeProjectStats: exports.MsmeProjectStatsSchema,
+    MsmeAlert: exports.MsmeAlertSchema,
+    MsmeOperationalInsights: exports.MsmeOperationalInsightsSchema,
 };

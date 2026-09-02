@@ -1172,6 +1172,221 @@ export declare const InvoiceSchema: z.ZodObject<{
     isOverdue?: boolean | undefined;
 }>;
 export type Invoice = z.infer<typeof InvoiceSchema>;
+export declare const MsmeInvoiceStatsSchema: z.ZodObject<{
+    total: z.ZodNumber;
+    draft: z.ZodNumber;
+    sent: z.ZodNumber;
+    paid: z.ZodNumber;
+    voidCount: z.ZodNumber;
+    overdue: z.ZodNumber;
+    outstanding: z.ZodNumber;
+    overdueAmount: z.ZodNumber;
+    paidAmount: z.ZodNumber;
+    collectionRate: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    draft: number;
+    sent: number;
+    paid: number;
+    total: number;
+    voidCount: number;
+    overdue: number;
+    outstanding: number;
+    overdueAmount: number;
+    paidAmount: number;
+    collectionRate: number;
+}, {
+    draft: number;
+    sent: number;
+    paid: number;
+    total: number;
+    voidCount: number;
+    overdue: number;
+    outstanding: number;
+    overdueAmount: number;
+    paidAmount: number;
+    collectionRate: number;
+}>;
+export type MsmeInvoiceStats = z.infer<typeof MsmeInvoiceStatsSchema>;
+export declare const MsmeProjectStatsSchema: z.ZodObject<{
+    total: z.ZodNumber;
+    active: z.ZodNumber;
+    draft: z.ZodNumber;
+    completed: z.ZodNumber;
+    totalContractValue: z.ZodNumber;
+    totalAllocated: z.ZodNumber;
+    totalSpent: z.ZodNumber;
+    fundingPercent: z.ZodNumber;
+}, "strip", z.ZodTypeAny, {
+    completed: number;
+    active: number;
+    draft: number;
+    fundingPercent: number;
+    totalAllocated: number;
+    totalSpent: number;
+    total: number;
+    totalContractValue: number;
+}, {
+    completed: number;
+    active: number;
+    draft: number;
+    fundingPercent: number;
+    totalAllocated: number;
+    totalSpent: number;
+    total: number;
+    totalContractValue: number;
+}>;
+export type MsmeProjectStats = z.infer<typeof MsmeProjectStatsSchema>;
+export declare const MsmeAlertSchema: z.ZodObject<{
+    type: z.ZodEnum<["overdue_receivables", "funding_stalled", "wants_discipline", "no_data"]>;
+    message: z.ZodString;
+    severity: z.ZodEnum<["info", "warn", "critical"]>;
+}, "strip", z.ZodTypeAny, {
+    message: string;
+    type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+    severity: "info" | "warn" | "critical";
+}, {
+    message: string;
+    type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+    severity: "info" | "warn" | "critical";
+}>;
+export type MsmeAlert = z.infer<typeof MsmeAlertSchema>;
+export declare const MsmeOperationalInsightsSchema: z.ZodObject<{
+    invoices: z.ZodObject<{
+        total: z.ZodNumber;
+        draft: z.ZodNumber;
+        sent: z.ZodNumber;
+        paid: z.ZodNumber;
+        voidCount: z.ZodNumber;
+        overdue: z.ZodNumber;
+        outstanding: z.ZodNumber;
+        overdueAmount: z.ZodNumber;
+        paidAmount: z.ZodNumber;
+        collectionRate: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        draft: number;
+        sent: number;
+        paid: number;
+        total: number;
+        voidCount: number;
+        overdue: number;
+        outstanding: number;
+        overdueAmount: number;
+        paidAmount: number;
+        collectionRate: number;
+    }, {
+        draft: number;
+        sent: number;
+        paid: number;
+        total: number;
+        voidCount: number;
+        overdue: number;
+        outstanding: number;
+        overdueAmount: number;
+        paidAmount: number;
+        collectionRate: number;
+    }>;
+    projects: z.ZodObject<{
+        total: z.ZodNumber;
+        active: z.ZodNumber;
+        draft: z.ZodNumber;
+        completed: z.ZodNumber;
+        totalContractValue: z.ZodNumber;
+        totalAllocated: z.ZodNumber;
+        totalSpent: z.ZodNumber;
+        fundingPercent: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        completed: number;
+        active: number;
+        draft: number;
+        fundingPercent: number;
+        totalAllocated: number;
+        totalSpent: number;
+        total: number;
+        totalContractValue: number;
+    }, {
+        completed: number;
+        active: number;
+        draft: number;
+        fundingPercent: number;
+        totalAllocated: number;
+        totalSpent: number;
+        total: number;
+        totalContractValue: number;
+    }>;
+    fundingVelocityDays: z.ZodNullable<z.ZodNumber>;
+    alerts: z.ZodArray<z.ZodObject<{
+        type: z.ZodEnum<["overdue_receivables", "funding_stalled", "wants_discipline", "no_data"]>;
+        message: z.ZodString;
+        severity: z.ZodEnum<["info", "warn", "critical"]>;
+    }, "strip", z.ZodTypeAny, {
+        message: string;
+        type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+        severity: "info" | "warn" | "critical";
+    }, {
+        message: string;
+        type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+        severity: "info" | "warn" | "critical";
+    }>, "many">;
+}, "strip", z.ZodTypeAny, {
+    invoices: {
+        draft: number;
+        sent: number;
+        paid: number;
+        total: number;
+        voidCount: number;
+        overdue: number;
+        outstanding: number;
+        overdueAmount: number;
+        paidAmount: number;
+        collectionRate: number;
+    };
+    projects: {
+        completed: number;
+        active: number;
+        draft: number;
+        fundingPercent: number;
+        totalAllocated: number;
+        totalSpent: number;
+        total: number;
+        totalContractValue: number;
+    };
+    fundingVelocityDays: number | null;
+    alerts: {
+        message: string;
+        type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+        severity: "info" | "warn" | "critical";
+    }[];
+}, {
+    invoices: {
+        draft: number;
+        sent: number;
+        paid: number;
+        total: number;
+        voidCount: number;
+        overdue: number;
+        outstanding: number;
+        overdueAmount: number;
+        paidAmount: number;
+        collectionRate: number;
+    };
+    projects: {
+        completed: number;
+        active: number;
+        draft: number;
+        fundingPercent: number;
+        totalAllocated: number;
+        totalSpent: number;
+        total: number;
+        totalContractValue: number;
+    };
+    fundingVelocityDays: number | null;
+    alerts: {
+        message: string;
+        type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+        severity: "info" | "warn" | "critical";
+    }[];
+}>;
+export type MsmeOperationalInsights = z.infer<typeof MsmeOperationalInsightsSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
     rule: z.ZodString;
     reason: z.ZodString;
@@ -5149,6 +5364,217 @@ export declare const schemas: {
         paidAt?: string | null | undefined;
         voidedAt?: string | null | undefined;
         isOverdue?: boolean | undefined;
+    }>;
+    MsmeInvoiceStats: z.ZodObject<{
+        total: z.ZodNumber;
+        draft: z.ZodNumber;
+        sent: z.ZodNumber;
+        paid: z.ZodNumber;
+        voidCount: z.ZodNumber;
+        overdue: z.ZodNumber;
+        outstanding: z.ZodNumber;
+        overdueAmount: z.ZodNumber;
+        paidAmount: z.ZodNumber;
+        collectionRate: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        draft: number;
+        sent: number;
+        paid: number;
+        total: number;
+        voidCount: number;
+        overdue: number;
+        outstanding: number;
+        overdueAmount: number;
+        paidAmount: number;
+        collectionRate: number;
+    }, {
+        draft: number;
+        sent: number;
+        paid: number;
+        total: number;
+        voidCount: number;
+        overdue: number;
+        outstanding: number;
+        overdueAmount: number;
+        paidAmount: number;
+        collectionRate: number;
+    }>;
+    MsmeProjectStats: z.ZodObject<{
+        total: z.ZodNumber;
+        active: z.ZodNumber;
+        draft: z.ZodNumber;
+        completed: z.ZodNumber;
+        totalContractValue: z.ZodNumber;
+        totalAllocated: z.ZodNumber;
+        totalSpent: z.ZodNumber;
+        fundingPercent: z.ZodNumber;
+    }, "strip", z.ZodTypeAny, {
+        completed: number;
+        active: number;
+        draft: number;
+        fundingPercent: number;
+        totalAllocated: number;
+        totalSpent: number;
+        total: number;
+        totalContractValue: number;
+    }, {
+        completed: number;
+        active: number;
+        draft: number;
+        fundingPercent: number;
+        totalAllocated: number;
+        totalSpent: number;
+        total: number;
+        totalContractValue: number;
+    }>;
+    MsmeAlert: z.ZodObject<{
+        type: z.ZodEnum<["overdue_receivables", "funding_stalled", "wants_discipline", "no_data"]>;
+        message: z.ZodString;
+        severity: z.ZodEnum<["info", "warn", "critical"]>;
+    }, "strip", z.ZodTypeAny, {
+        message: string;
+        type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+        severity: "info" | "warn" | "critical";
+    }, {
+        message: string;
+        type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+        severity: "info" | "warn" | "critical";
+    }>;
+    MsmeOperationalInsights: z.ZodObject<{
+        invoices: z.ZodObject<{
+            total: z.ZodNumber;
+            draft: z.ZodNumber;
+            sent: z.ZodNumber;
+            paid: z.ZodNumber;
+            voidCount: z.ZodNumber;
+            overdue: z.ZodNumber;
+            outstanding: z.ZodNumber;
+            overdueAmount: z.ZodNumber;
+            paidAmount: z.ZodNumber;
+            collectionRate: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            draft: number;
+            sent: number;
+            paid: number;
+            total: number;
+            voidCount: number;
+            overdue: number;
+            outstanding: number;
+            overdueAmount: number;
+            paidAmount: number;
+            collectionRate: number;
+        }, {
+            draft: number;
+            sent: number;
+            paid: number;
+            total: number;
+            voidCount: number;
+            overdue: number;
+            outstanding: number;
+            overdueAmount: number;
+            paidAmount: number;
+            collectionRate: number;
+        }>;
+        projects: z.ZodObject<{
+            total: z.ZodNumber;
+            active: z.ZodNumber;
+            draft: z.ZodNumber;
+            completed: z.ZodNumber;
+            totalContractValue: z.ZodNumber;
+            totalAllocated: z.ZodNumber;
+            totalSpent: z.ZodNumber;
+            fundingPercent: z.ZodNumber;
+        }, "strip", z.ZodTypeAny, {
+            completed: number;
+            active: number;
+            draft: number;
+            fundingPercent: number;
+            totalAllocated: number;
+            totalSpent: number;
+            total: number;
+            totalContractValue: number;
+        }, {
+            completed: number;
+            active: number;
+            draft: number;
+            fundingPercent: number;
+            totalAllocated: number;
+            totalSpent: number;
+            total: number;
+            totalContractValue: number;
+        }>;
+        fundingVelocityDays: z.ZodNullable<z.ZodNumber>;
+        alerts: z.ZodArray<z.ZodObject<{
+            type: z.ZodEnum<["overdue_receivables", "funding_stalled", "wants_discipline", "no_data"]>;
+            message: z.ZodString;
+            severity: z.ZodEnum<["info", "warn", "critical"]>;
+        }, "strip", z.ZodTypeAny, {
+            message: string;
+            type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+            severity: "info" | "warn" | "critical";
+        }, {
+            message: string;
+            type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+            severity: "info" | "warn" | "critical";
+        }>, "many">;
+    }, "strip", z.ZodTypeAny, {
+        invoices: {
+            draft: number;
+            sent: number;
+            paid: number;
+            total: number;
+            voidCount: number;
+            overdue: number;
+            outstanding: number;
+            overdueAmount: number;
+            paidAmount: number;
+            collectionRate: number;
+        };
+        projects: {
+            completed: number;
+            active: number;
+            draft: number;
+            fundingPercent: number;
+            totalAllocated: number;
+            totalSpent: number;
+            total: number;
+            totalContractValue: number;
+        };
+        fundingVelocityDays: number | null;
+        alerts: {
+            message: string;
+            type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+            severity: "info" | "warn" | "critical";
+        }[];
+    }, {
+        invoices: {
+            draft: number;
+            sent: number;
+            paid: number;
+            total: number;
+            voidCount: number;
+            overdue: number;
+            outstanding: number;
+            overdueAmount: number;
+            paidAmount: number;
+            collectionRate: number;
+        };
+        projects: {
+            completed: number;
+            active: number;
+            draft: number;
+            fundingPercent: number;
+            totalAllocated: number;
+            totalSpent: number;
+            total: number;
+            totalContractValue: number;
+        };
+        fundingVelocityDays: number | null;
+        alerts: {
+            message: string;
+            type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
+            severity: "info" | "warn" | "critical";
+        }[];
     }>;
 };
 //# sourceMappingURL=index.d.ts.map

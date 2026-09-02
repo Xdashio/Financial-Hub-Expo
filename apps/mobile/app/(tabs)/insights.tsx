@@ -81,9 +81,10 @@ export default function InsightsScreen() {
   const [selectedTrendPeriod, setSelectedTrendPeriod] = React.useState<'7' | '30' | '90'>('30');
   const [trendData, setTrendData] = React.useState<{ period: string; total: number; breakdown: any[] } | null>(null);
   
-  // MSME Insights state (Phase 6)
+  // MSME Insights state (Phase 6 + 020 operational)
   const [segment, setSegment] = React.useState<'individual' | 'msme'>('individual');
   const [msmeInsights, setMsmeInsights] = React.useState<any>(null);
+  const [msmeOperational, setMsmeOperational] = React.useState<any>(null);
   const [msmeLoading, setMsmeLoading] = React.useState(false);
 
   const load = React.useCallback(async () => {
@@ -176,15 +177,20 @@ export default function InsightsScreen() {
         breakdown,
       });
 
-      // Load MSME insights if segment is MSME
+      // Load MSME insights if segment is MSME — operational (invoices + projects) + legacy
       if (segment === 'msme') {
         setMsmeLoading(true);
         try {
-          const msmeData = await insightsApi.getMsmeInsights();
-          setMsmeInsights(msmeData);
+          const [legacy, operational] = await Promise.all([
+            insightsApi.getMsmeInsights().catch(() => null),
+            insightsApi.getMsmeOperational().catch(() => null),
+          ]);
+          setMsmeInsights(legacy);
+          setMsmeOperational(operational);
         } catch (e) {
           console.error('MSME insights load error:', e);
           setMsmeInsights(null);
+          setMsmeOperational(null);
         } finally {
           setMsmeLoading(false);
         }
@@ -376,139 +382,99 @@ export default function InsightsScreen() {
           </Pressable>
         </View>
 
-        {/* MSME Business Insights (Phase 6) */}
+        {/* MSME Operational Insights — 020 invoices + 017 projects (real aggregates) */}
         {segment === 'msme' && (
           <View style={{ marginTop: spacing.xl, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.lg }}>
               <Briefcase size={15} color={colors.ink} strokeWidth={2} />
-              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Business Performance</Text>
+              <Text style={{ ...typography.eyebrow, color: colors.ink }}>Business Health — Operational</Text>
             </View>
-            
             {msmeLoading ? (
               <InlineLoading />
-            ) : !msmeInsights ? (
+            ) : !msmeOperational && !msmeInsights ? (
               <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
                 <Briefcase size={32} color={colors.sage} strokeWidth={2} />
-                <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.md }}>
-                  No business data available
-                </Text>
-                <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.xs, lineHeight: 16 }}>
-                  Create projects to track your business performance metrics
-                </Text>
+                <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.md }}>No business data yet</Text>
+                <Text style={{ ...typography.caption, color: colors.sage, textAlign: 'center', marginTop: spacing.xs, lineHeight: 16 }}>Create an invoice or project to see receivables & funding health.</Text>
               </View>
             ) : (
               <View style={{ gap: spacing.lg }}>
-                {/* Project Overview */}
-                <View style={{ flexDirection: 'row', gap: spacing.md }}>
-                  <View style={{ flex: 1, backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
-                      <Target size={14} color={colors.ink} strokeWidth={2} />
-                      <Text style={{ ...typography.caption, color: colors.sage }}>Total Projects</Text>
+                {/* Alerts */}
+                {msmeOperational?.alerts?.length > 0 && (
+                  <View style={{ gap: spacing.sm }}>
+                    {msmeOperational.alerts.map((a: any, i: number) => (
+                      <View key={i} style={{ backgroundColor: a.severity === 'critical' ? colors.clayTint : a.severity === 'warn' ? colors.goldTint : colors.emeraldTint, borderRadius: radius.sm, padding: spacing.md, borderWidth: 1, borderColor: a.severity === 'critical' ? colors.clay : a.severity === 'warn' ? colors.gold : colors.line }}>
+                        <Text style={{ ...typography.caption, color: a.severity === 'critical' ? colors.clay : a.severity === 'warn' ? colors.ink : colors.emeraldDeep, lineHeight: 16 }}>{a.message}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {/* Invoices — Receivables */}
+                {msmeOperational?.invoices && (
+                  <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                    <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>Receivables — Invoices</Text>
+                    <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md }}>
+                      <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.md }}>
+                        <Text style={{ ...typography.caption, color: colors.sage }}>Outstanding</Text>
+                        <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'], marginTop: 2 }}>{formatMoney(msmeOperational.invoices.outstanding)}</Text>
+                        <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>{msmeOperational.invoices.total - msmeOperational.invoices.paid - msmeOperational.invoices.voidCount} open · {msmeOperational.invoices.overdue} overdue</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: msmeOperational.invoices.overdue > 0 ? colors.clayTint : colors.surface, borderWidth: 1, borderColor: msmeOperational.invoices.overdue > 0 ? colors.clay : colors.line, borderRadius: radius.sm, padding: spacing.md }}>
+                        <Text style={{ ...typography.caption, color: msmeOperational.invoices.overdue > 0 ? colors.clay : colors.sage }}>Overdue</Text>
+                        <Text style={{ ...typography.heading, color: msmeOperational.invoices.overdue > 0 ? colors.clay : colors.ink, fontVariant: ['tabular-nums'], marginTop: 2 }}>{formatMoney(msmeOperational.invoices.overdueAmount)}</Text>
+                        <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>paid {formatMoney(msmeOperational.invoices.paidAmount)} · {msmeOperational.invoices.collectionRate}% collected</Text>
+                      </View>
                     </View>
-                    <Text style={{ ...typography.display, color: colors.ink, fontSize: 24 }}>
-                      {msmeInsights.totalProjects}
-                    </Text>
-                    <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
-                      {msmeInsights.activeProjects} active • {msmeInsights.completedProjects} completed
-                    </Text>
-                  </View>
-                  
-                  <View style={{ flex: 1, backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}>
-                      <Clock size={14} color={colors.ink} strokeWidth={2} />
-                      <Text style={{ ...typography.caption, color: colors.sage }}>Avg Funding Speed</Text>
-                    </View>
-                    <Text style={{ ...typography.display, color: colors.ink, fontSize: 24 }}>
-                      {msmeInsights.avgFundingVelocity}d
-                    </Text>
-                    <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
-                      Days to full funding
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Financial Summary */}
-                <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
-                  <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>Financial Summary</Text>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-                    <Text style={{ ...typography.caption, color: colors.sage }}>Total Contract Value</Text>
-                    <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
-                      {formatMoney(msmeInsights.totalContractValue)}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-                    <Text style={{ ...typography.caption, color: colors.sage }}>Total Allocated</Text>
-                    <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
-                      {formatMoney(msmeInsights.totalAllocated)}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={{ ...typography.caption, color: colors.sage }}>Total Spent</Text>
-                    <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
-                      {formatMoney(msmeInsights.totalSpent)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Tier Discipline */}
-                <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md }}>
-                    <Shield size={14} color={colors.ink} strokeWidth={2} />
-                    <Text style={{ ...typography.heading, color: colors.ink }}>Wants Discipline</Text>
-                  </View>
-                  
-                  <View style={{ marginBottom: spacing.md }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-                      <Text style={{ ...typography.caption, color: colors.sage }}>Discipline Score</Text>
-                      <Text style={{ ...typography.heading, color: msmeInsights.wantsDisciplineScore >= 80 ? colors.emeraldDeep : msmeInsights.wantsDisciplineScore >= 60 ? colors.gold : colors.clay, fontVariant: ['tabular-nums'] }}>
-                        {msmeInsights.wantsDisciplineScore}%
-                      </Text>
+                      <Text style={{ ...typography.caption, color: colors.sage }}>Collection rate</Text>
+                      <Text style={{ ...typography.caption, color: msmeOperational.invoices.collectionRate >= 70 ? colors.emeraldDeep : msmeOperational.invoices.collectionRate >= 40 ? colors.gold : colors.clay, fontWeight: '700' }}>{msmeOperational.invoices.collectionRate}%</Text>
                     </View>
                     <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden' }}>
-                      <View
-                        style={{
-                          height: '100%',
-                          width: `${msmeInsights.wantsDisciplineScore}%`,
-                          backgroundColor: msmeInsights.wantsDisciplineScore >= 80 ? colors.emeraldDeep : msmeInsights.wantsDisciplineScore >= 60 ? colors.gold : colors.clay,
-                          borderRadius: radius.pill,
-                        }}
-                      />
+                      <View style={{ height: '100%', width: `${msmeOperational.invoices.collectionRate}%`, backgroundColor: msmeOperational.invoices.collectionRate >= 70 ? colors.emeraldDeep : msmeOperational.invoices.collectionRate >= 40 ? colors.gold : colors.clay, borderRadius: radius.pill }} />
                     </View>
                   </View>
-
-                  <Text style={{ ...typography.caption, color: colors.sage, lineHeight: 16 }}>
-                    {msmeInsights.wantsDisciplineScore >= 80 
-                      ? 'Excellent spending discipline - Wants spending respects funding priorities' 
-                      : msmeInsights.wantsDisciplineScore >= 60 
-                        ? 'Good discipline - Consider enabling spending controls for better priority adherence' 
-                        : 'Review spending patterns - Wants spending before priorities/needs is funded'}
-                  </Text>
-                </View>
-
-                {/* Tier Funding Days */}
-                <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
-                  <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>Avg Days to Fund Tiers</Text>
-                  <View style={{ gap: spacing.sm }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ ...typography.caption, color: colors.sage }}>Priorities</Text>
-                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
-                        {msmeInsights.avgDaysPerTier.priorities}d
-                      </Text>
+                )}
+                {/* Projects — Funding */}
+                {msmeOperational?.projects && (
+                  <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                    <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>Projects — Funding</Text>
+                    <View style={{ flexDirection: 'row', gap: spacing.md, marginBottom: spacing.md }}>
+                      <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.md }}>
+                        <Text style={{ ...typography.caption, color: colors.sage }}>Contracts</Text>
+                        <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'], marginTop: 2 }}>{formatMoney(msmeOperational.projects.totalContractValue)}</Text>
+                        <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>{msmeOperational.projects.total} total · {msmeOperational.projects.active} active</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.md }}>
+                        <Text style={{ ...typography.caption, color: colors.sage }}>Funded</Text>
+                        <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'], marginTop: 2 }}>{msmeOperational.projects.fundingPercent}%</Text>
+                        <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>{formatMoney(msmeOperational.projects.totalAllocated)} / {formatMoney(msmeOperational.projects.totalContractValue)}</Text>
+                      </View>
                     </View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ ...typography.caption, color: colors.sage }}>Needs</Text>
-                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
-                        {msmeInsights.avgDaysPerTier.needs}d
-                      </Text>
-                    </View>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={{ ...typography.caption, color: colors.sage }}>Wants</Text>
-                      <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>
-                        {msmeInsights.avgDaysPerTier.wants}d
-                      </Text>
+                    {msmeOperational.fundingVelocityDays != null && (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={{ ...typography.caption, color: colors.sage }}>Avg funding velocity</Text>
+                        <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{msmeOperational.fundingVelocityDays}d</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                {/* Legacy fallback — show old Phase 6 card if operational missing but legacy present */}
+                {!msmeOperational && msmeInsights && (
+                  <View style={{ backgroundColor: colors.paper, borderRadius: radius.sm, padding: spacing.md }}>
+                    <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.md }}>Legacy Phase 6</Text>
+                    <View style={{ flexDirection: 'row', gap: spacing.md }}>
+                      <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.md }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}><Target size={14} color={colors.ink} strokeWidth={2} /><Text style={{ ...typography.caption, color: colors.sage }}>Total Projects</Text></View>
+                        <Text style={{ ...typography.display, color: colors.ink, fontSize: 24 }}>{msmeInsights.totalProjects}</Text>
+                        <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>{msmeInsights.activeProjects} active • {msmeInsights.completedProjects} completed</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.md }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.xs }}><Clock size={14} color={colors.ink} strokeWidth={2} /><Text style={{ ...typography.caption, color: colors.sage }}>Avg Funding Speed</Text></View>
+                        <Text style={{ ...typography.display, color: colors.ink, fontSize: 24 }}>{msmeInsights.avgFundingVelocity}d</Text>
+                      </View>
                     </View>
                   </View>
-                </View>
+                )}
               </View>
             )}
           </View>
