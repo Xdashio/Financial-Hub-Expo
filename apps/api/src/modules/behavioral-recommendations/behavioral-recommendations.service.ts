@@ -25,8 +25,8 @@ export class BehavioralRecommendationsService {
     // Get planning cycle events for the last 6 months
     const cycleEvents = await this.repository.getPlanningCycleEventsByUserId(userId, 6);
     
-    // Get current fixed expenses
-    const fixedExpenses = await this.repository.getFixedExpensesByUserId(userId);
+    // Get current fixed expenses — individual segment only (016 isolation)
+    const fixedExpenses = await this.repository.getFixedExpensesByUserId(userId, 'individual');
     const activeExpenses = fixedExpenses.filter(f => f.status === 'active');
 
     if (cycleEvents.length < 2) {

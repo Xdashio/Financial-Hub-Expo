@@ -271,6 +271,8 @@ export default function PocketDetailScreen() {
   const [filterType, setFilterType] = useState<'all' | 'spend' | 'allocation' | 'reallocation'>('all');
   const [goalReachedSheetVisible, setGoalReachedSheetVisible] = useState(false);
   const [reachedGoal, setReachedGoal] = useState<SavingsGoal | null>(null);
+  const [subPocketSearch, setSubPocketSearch] = useState('');
+  const [showAllSubPockets, setShowAllSubPockets] = useState(false);
 
   const filteredTransactions = transactions.filter(tx => {
     const matchesSearch = searchQuery === '' || 
@@ -284,6 +286,16 @@ export default function PocketDetailScreen() {
     
     return matchesSearch && matchesFilter;
   });
+
+  // ── Sub-pocket filtering + collapsible (MSME info-overload §28 #1, Phase 6) ──
+  const SUB_POCKET_COLLAPSE_AT = 3;
+  const filteredSubPockets = subPockets.filter(sp => {
+    if (subPocketSearch.trim() === '') return true;
+    const q = subPocketSearch.trim().toLowerCase();
+    return sp.name.toLowerCase().includes(q) || (sp.category && sp.category.toLowerCase().includes(q));
+  });
+  const visibleSubPockets = showAllSubPockets ? filteredSubPockets : filteredSubPockets.slice(0, SUB_POCKET_COLLAPSE_AT);
+  const hiddenSubPocketCount = Math.max(0, filteredSubPockets.length - SUB_POCKET_COLLAPSE_AT);
 
   const isFirstFocus = useRef(true);
 
@@ -1191,65 +1203,125 @@ export default function PocketDetailScreen() {
                     );
                   })()}
 
-                  {/* Sibling rows */}
-                  <View style={{ gap: 0 }}>
-                    {subPockets.map((sp) => {
-                      const pct = sp.split_percentage ?? 0;
-                      return (
-                        <View
-                          key={sp.id}
-                          style={{
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: spacing.sm,
-                            paddingVertical: spacing.md,
-                            borderTopWidth: borderWidth,
-                            borderTopColor: colors.lineSoft,
-                          }}
-                        >
-                          {/* Percentage pill */}
+                  {/* Search — visible when there are enough sub-pockets to need it (MSME Recurring Expenses has 4+) */}
+                  {subPockets.length > SUB_POCKET_COLLAPSE_AT && (
+                    <View style={{ marginBottom: spacing.md }}>
+                      <SearchBar
+                        value={subPocketSearch}
+                        onChangeText={(v) => {
+                          setSubPocketSearch(v);
+                          // Reset collapse when user starts searching so results are visible
+                          if (v.length === 1) setShowAllSubPockets(true);
+                        }}
+                        placeholder="Search sub-pockets…"
+                        onClear={() => setSubPocketSearch('')}
+                      />
+                    </View>
+                  )}
+
+                  {/* Sibling rows — collapsible after 3, searchable */}
+                  {filteredSubPockets.length === 0 ? (
+                    <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
+                      <Filter size={28} color={colors.sage} strokeWidth={2} />
+                      <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>
+                        No sub-pockets match “{subPocketSearch}”
+                      </Text>
+                      <Pressable
+                        onPress={() => setSubPocketSearch('')}
+                        style={{ marginTop: spacing.sm, paddingVertical: spacing.xs, paddingHorizontal: spacing.md }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Clear sub-pocket search"
+                      >
+                        <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>Clear search</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <View style={{ gap: 0 }}>
+                      {visibleSubPockets.map((sp) => {
+                        const pct = sp.split_percentage ?? 0;
+                        return (
                           <View
+                            key={sp.id}
                             style={{
-                              backgroundColor: colors.emeraldTint,
-                              borderRadius: radius.pill,
-                              paddingHorizontal: spacing.sm,
-                              paddingVertical: 2,
-                              minWidth: 44,
+                              flexDirection: 'row',
                               alignItems: 'center',
+                              gap: spacing.sm,
+                              paddingVertical: spacing.md,
+                              borderTopWidth: borderWidth,
+                              borderTopColor: colors.lineSoft,
                             }}
                           >
-                            <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
-                              {Math.round(pct)}%
-                            </Text>
-                          </View>
+                            {/* Percentage pill */}
+                            <View
+                              style={{
+                                backgroundColor: colors.emeraldTint,
+                                borderRadius: radius.pill,
+                                paddingHorizontal: spacing.sm,
+                                paddingVertical: 2,
+                                minWidth: 44,
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Text style={{ ...typography.caption, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>
+                                {Math.round(pct)}%
+                              </Text>
+                            </View>
 
-                          {/* Name + balance */}
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>
-                              {sp.name}
-                            </Text>
-                            <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
-                              {fmt(sp.available_balance)} available · {fmt(sp.monthly_allocation)} / mo
-                            </Text>
-                          </View>
+                            {/* Name + balance */}
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>
+                                {sp.name}
+                              </Text>
+                              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2 }}>
+                                {fmt(sp.available_balance)} available · {fmt(sp.monthly_allocation)} / mo
+                              </Text>
+                            </View>
 
-                          {/* Delete */}
-                          <Pressable
-                            onPress={() => {
-                              setDeleteError(null);
-                              confirmDeleteSubPocket(sp);
-                            }}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            style={{ padding: spacing.xs }}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Delete ${sp.name}`}
-                          >
-                            <Trash2 size={16} color={colors.clay} strokeWidth={2} />
-                          </Pressable>
-                        </View>
-                      );
-                    })}
-                  </View>
+                            {/* Delete */}
+                            <Pressable
+                              onPress={() => {
+                                setDeleteError(null);
+                                confirmDeleteSubPocket(sp);
+                              }}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={{ padding: spacing.xs }}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Delete ${sp.name}`}
+                            >
+                              <Trash2 size={16} color={colors.clay} strokeWidth={2} />
+                            </Pressable>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+
+                  {/* Collapsible toggle — progressive disclosure after 3 rows */}
+                  {filteredSubPockets.length > SUB_POCKET_COLLAPSE_AT && (
+                    <Pressable
+                      onPress={() => setShowAllSubPockets(v => !v)}
+                      style={{
+                        marginTop: spacing.md,
+                        paddingVertical: spacing.sm,
+                        alignItems: 'center',
+                        borderWidth: 1,
+                        borderColor: colors.line,
+                        borderRadius: radius.md,
+                        backgroundColor: colors.paper,
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={showAllSubPockets ? 'Show less sub-pockets' : `Show ${hiddenSubPocketCount} more sub-pockets`}
+                    >
+                      <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                        {showAllSubPockets ? 'Show less' : `Show ${hiddenSubPocketCount} more`}
+                      </Text>
+                    </Pressable>
+                  )}
+                  {filteredSubPockets.length > SUB_POCKET_COLLAPSE_AT && !showAllSubPockets && filteredSubPockets.length !== subPockets.length && (
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs, textAlign: 'center' }}>
+                      {filteredSubPockets.length} match{filteredSubPockets.length === 1 ? '' : 'es'} · {subPockets.length} total
+                    </Text>
+                  )}
                 </>
               )}
             </View>

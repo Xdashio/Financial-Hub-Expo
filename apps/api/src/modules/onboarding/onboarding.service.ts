@@ -5,13 +5,15 @@ import {
   OnboardingInput,
   OnboardingAssignResult,
   OnboardingCommitResult,
+  MsmeOnboardingInputSchema,
+  MsmeOnboardingInput,
   PlanPreviewResult,
   PlanRetakeResult,
   RetakeEligibility,
   PocketKind,
   PlanType,
 } from '@financial-hub/shared';
-import { assignPlan, validateOnboardingInput } from './rules-engine';
+import { assignPlan, assignMsmePlan, validateOnboardingInput, validateMsmeOnboardingInput } from './rules-engine';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import {
   nextRetakeAvailableOn,
@@ -22,6 +24,7 @@ import {
 } from './plan-redistribution';
 import {
   buildPocketInputs,
+  buildMsmePocketInputs,
   previewSpendableBreakdown,
   resolveSpendableCategories,
   defaultCategoryPercentages,
@@ -43,6 +46,27 @@ export class OnboardingService {
       incomePattern: assignment.incomePattern,
       incomeConcentration: assignment.incomeConcentration,
       hasSideIncome: assignment.hasSideIncome,
+      reasons: assignment.reasons,
+      remainingAfterFixed: assignment.remainingAfterFixed,
+      savingsTarget: assignment.savingsTarget,
+      spendableAmount: assignment.spendableAmount,
+      needsRatio: assignment.needsRatio,
+      needsBand: assignment.needsBand,
+    };
+  }
+
+  /** MSME onboarding preview (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2) — always
+   *  a structured plan, no daily caps. No persistence. */
+  assignMsme(rawInput: unknown): OnboardingAssignResult {
+    const input = this.parseMsmeInput(rawInput);
+
+    const assignment = assignMsmePlan(input);
+
+    return {
+      segment: 'msme',
+      plan: assignment.plan,
+      planType: assignment.planType,
+      incomePattern: assignment.incomePattern,
       reasons: assignment.reasons,
       remainingAfterFixed: assignment.remainingAfterFixed,
       savingsTarget: assignment.savingsTarget,
@@ -91,26 +115,22 @@ export class OnboardingService {
     const assignment = assignPlan(input);
     const planId = uuidv4();
 
-    // Deactivate any existing active plans for this user
-    await this.supabaseRepo.deactivateUserPlans(userId);
+    // Segment-scoped: never deactivates the other segment's active plan (ADR-001 D1)
+    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'individual');
 
     // Map income pattern: 'mix' -> 'salaried' for database
     const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
 
-    // Create the new plan
+    // Create the new plan — explicit segment so DB default is not relied upon
     const plan = await this.supabaseRepo.createPlan({
       id: planId,
       user_id: userId,
+      segment: 'individual',
       type: assignment.planType,
       income_pattern: dbIncomePattern,
       income_interval_days: assignment.incomeIntervalDays ?? null,
       expected_income_amount: input.incomeAmount ?? null,
       status: 'active',
-      // Money-personality modifier layer (audit_team.md item 2 batch 2 /
-      // ONBOARDING_AND_SCORING_REDESIGN.md §2.3) — persisted so it survives
-      // past onboarding for reallocations/notifications/insights to read.
-      // Falls back to 'saver', matching rules-engine.ts's own fallback for
-      // a skipped answer.
       money_personality: input.moneyPersonality ?? 'saver',
     });
 
@@ -132,8 +152,9 @@ export class OnboardingService {
     // whatever the user already has untouched — otherwise every onboarding
     // commit that doesn't resubmit fixed expenses silently wipes them.
     if (input.fixedExpenses !== undefined) {
-      // Delete existing fixed expenses to prevent duplicates when retaking check-in
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+      // Delete existing fixed expenses for this segment only — keeps the
+      // other segment's bills intact (016_msme_phase2_segment_isolation).
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'individual');
 
       for (const expense of input.fixedExpenses) {
         await this.supabaseRepo.createFixedExpense({
@@ -142,6 +163,7 @@ export class OnboardingService {
           amount: expense.amount,
           due_day: expense.dueDay,
           category: expense.category,
+          segment: 'individual',
         });
       }
     }
@@ -156,6 +178,79 @@ export class OnboardingService {
         incomePattern: assignment.incomePattern,
         incomeConcentration: assignment.incomeConcentration,
         hasSideIncome: assignment.hasSideIncome,
+      },
+    });
+
+    return {
+      planId,
+      pockets: createdPockets.map(p => ({
+        id: p.id,
+        name: p.name,
+        kind: p.kind,
+        category: p.category || undefined,
+        monthlyAllocation: p.monthly_allocation,
+        dailyCap: p.daily_cap || undefined,
+      })),
+    };
+  }
+
+  /**
+   * MSME onboarding commit — creates a segment-scoped active plan plus the
+   * MSME pocket set. Uses deactivateUserPlansBySegment so an existing active
+   * *individual* plan stays live: ADR-001 D1 allows one active plan per
+   * segment to coexist. `monthlyRevenue` maps to plans.expected_income_amount.
+   */
+  async commitMsme(rawInput: unknown, userId: string): Promise<OnboardingCommitResult> {
+    const input = this.parseMsmeInput(rawInput);
+    const assignment = assignMsmePlan(input);
+    const planId = uuidv4();
+
+    // Segment-scoped: never deactivates the individual segment's plan.
+    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'msme');
+
+    const plan = await this.supabaseRepo.createPlan({
+      id: planId,
+      user_id: userId,
+      segment: 'msme',
+      type: 'structured',
+      // MSME always resolves to a monthly/structured rhythm — never 'mix',
+      // and never stored as 'freelancer' (no daily-cap runway math applies).
+      income_pattern: 'salaried',
+      expected_income_amount: input.monthlyRevenue,
+      status: 'active',
+      money_personality: 'saver',
+    });
+
+    if (!plan) {
+      throw new Error('Failed to create plan');
+    }
+
+    const pocketInputs = buildMsmePocketInputs(planId, assignment, input);
+    const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
+
+    if (input.fixedExpenses !== undefined) {
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'msme');
+      for (const expense of input.fixedExpenses) {
+        await this.supabaseRepo.createFixedExpense({
+          user_id: userId,
+          name: expense.name,
+          amount: expense.amount,
+          due_day: expense.dueDay,
+          category: expense.category,
+          segment: 'msme',
+        });
+      }
+    }
+
+    await this.supabaseRepo.createBehaviorEvent({
+      user_id: userId,
+      type: 'plan_created',
+      payload: {
+        planId,
+        segment: 'msme',
+        planType: assignment.planType,
+        businessName: input.businessName,
+        incomePattern: assignment.incomePattern,
       },
     });
 
@@ -212,13 +307,13 @@ export class OnboardingService {
     const planId = uuidv4();
     const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
 
-    // Schema enforces one active plan per user (partial unique index), so we
+    // Schema enforces one active plan per segment (partial unique index), so we
     // must deactivate the old plan before inserting the new one. Snapshot of
     // balances already happened above; ledger rows stay on old pocket ids and
     // are moved via reallocation_* txs after the new pockets exist. If the
     // create/migrate path fails, re-activate the previous plan so the user is
-    // not left without an active plan.
-    await this.supabaseRepo.deactivateUserPlans(userId);
+    // not left without an active plan. Segment-scoped so MSME is untouched.
+    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'individual');
 
     let createdPockets;
     let movementPlans;
@@ -226,14 +321,12 @@ export class OnboardingService {
       const plan = await this.supabaseRepo.createPlan({
         id: planId,
         user_id: userId,
+        segment: 'individual',
         type: assignment.planType,
         income_pattern: dbIncomePattern,
         income_interval_days: assignment.incomeIntervalDays ?? null,
         expected_income_amount: input.incomeAmount ?? null,
         status: 'active',
-        // See the money_personality comment on the commit() createPlan call
-        // above — same modifier-layer persistence, applies on retake too
-        // since a retake can change the stated personality.
         money_personality: input.moneyPersonality ?? 'saver',
       });
 
@@ -266,7 +359,7 @@ export class OnboardingService {
     }
 
     if (input.fixedExpenses !== undefined) {
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId);
+      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'individual');
       for (const expense of input.fixedExpenses) {
         await this.supabaseRepo.createFixedExpense({
           user_id: userId,
@@ -274,6 +367,7 @@ export class OnboardingService {
           amount: expense.amount,
           due_day: expense.dueDay,
           category: expense.category,
+          segment: 'individual',
         });
       }
     }
@@ -360,6 +454,19 @@ export class OnboardingService {
     const categoryErrors = validateCategoryPercentages(result.data);
     if (categoryErrors.length > 0) {
       throw new BadRequestException(categoryErrors.join('; '));
+    }
+    return result.data;
+  }
+
+  // MSME counterpart of parseInput — schema then domain rules.
+  private parseMsmeInput(input: unknown): MsmeOnboardingInput {
+    const result = MsmeOnboardingInputSchema.safeParse(input);
+    if (!result.success) {
+      throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
+    }
+    const errors = validateMsmeOnboardingInput(result.data);
+    if (errors.length > 0) {
+      throw new BadRequestException(errors.join('; '));
     }
     return result.data;
   }

@@ -94,6 +94,11 @@ import {
   RunwayImpactOption,
   DiscretionaryRunway,
   EmergencyUnlockEligibilityReason,
+  ProjectSummary,
+  TierSummary,
+  ProjectIncomeInput,
+  ProjectKind,
+  FundingTier,
 } from '@financial-hub/shared';
 
 export const onboardingApi = {
@@ -105,14 +110,15 @@ export const onboardingApi = {
 };
 
 export const pocketsApi = {
-  getAll: () => api.get<any[]>('/pockets'),
+  getAll: (segment: 'individual' | 'msme' = 'individual') =>
+    api.get<any[]>(segment === 'msme' ? '/pockets?segment=msme' : '/pockets'),
   // { applicable: false } for salaried/mix/structured plans. See
   // docs/FREELANCER_RUNWAY.md.
   getRunway: () => api.get<RunwaySummary>('/pockets/runway'),
   getById: (id: string) => api.get<any>(`/pockets/${id}`),
   update: (id: string, data: unknown) => api.put<any>(`/pockets/${id}`, data),
-  create: (data: { name: string; kind?: string; category?: string; monthlyAllocation?: number; dailyCap?: number }) =>
-    api.post<any>('/pockets', data),
+  create: (data: { name: string; kind?: string; category?: string; monthlyAllocation?: number; dailyCap?: number }, segment: 'individual' | 'msme' = 'individual') =>
+    api.post<any>(`/pockets${segment === 'msme' ? '?segment=msme' : ''}`, data),
   delete: (id: string) => api.delete<any>(`/pockets/${id}`),
   getSummary: (id: string) => api.get<any>(`/pockets/${id}/summary`),
   getTransactions: (id: string, page = 1, limit = 20) =>
@@ -232,24 +238,80 @@ export const behavioralRecommendationsApi = {
 };
 
 export const loansApi = {
-  getAll: () => api.get<any[]>('/loans'),
+  getAll: (segment?: 'individual' | 'msme') =>
+    api.get<any[]>(segment ? `/loans?segment=${segment}` : '/loans'),
   getById: (id: string) => api.get<any>(`/loans/${id}`),
-  create: (data: {
-    name: string;
-    totalAmount: number;
-    repaymentAmount: number;
-    cadence: 'weekly' | 'biweekly' | 'monthly';
-    startDate: string;
-    endDate: string;
-    dueDay: number;
-    loanProvider?: string;
-    loanPurpose?: string;
-  }) => api.post<any>('/loans', data),
+  create: (
+    data: {
+      name: string;
+      totalAmount: number;
+      repaymentAmount: number;
+      cadence: 'weekly' | 'biweekly' | 'monthly';
+      startDate: string;
+      endDate: string;
+      dueDay: number;
+      loanProvider?: string;
+      loanPurpose?: string;
+    },
+    segment?: 'individual' | 'msme',
+  ) => api.post<any>(segment ? `/loans?segment=${segment}` : '/loans', data),
   update: (id: string, data: any) => api.put<any>(`/loans/${id}`, data),
   createPurposeSubPocket: (id: string, data: { name: string; category: string; splitPercentage: number }) =>
     api.post<any>(`/loans/${id}/purpose-sub-pockets`, data),
   fundRepayment: (id: string, amount: number) =>
     api.post<any>(`/loans/${id}/fund-repayment`, { amount }),
+};
+
+export const msmeProjectsApi = {
+  getAll: () => api.get<ProjectSummary[]>('/msme/projects'),
+  getById: (id: string) => api.get<ProjectSummary>(`/msme/projects/${id}`),
+  create: (data: {
+    name: string;
+    kind: ProjectKind;
+    contractValue: number;
+    tiers: {
+      priorities: number;
+      needs: number;
+      wants: number;
+    };
+  }) => api.post<ProjectSummary>('/msme/projects', data),
+  updateStatus: (id: string, status: 'draft' | 'active' | 'completed' | 'cancelled') =>
+    api.put<ProjectSummary>(`/msme/projects/${id}/status`, { status }),
+  activateCascade: (id: string) => api.post<ProjectSummary>(`/msme/projects/${id}/activate-cascade`, {}),
+  deactivateCascade: (id: string) => api.post<ProjectSummary>(`/msme/projects/${id}/deactivate-cascade`, {}),
+  // Phase 5 §22 — completion
+  completeProject: (id: string) =>
+    api.post<{ project: ProjectSummary; remainingPerTier: Array<{ tier: FundingTier; remainingCash: number; targetAmount: number; allocatedAmount: number }>; totalRemaining: number; suggestion: string; requiresResolution: boolean }>(
+      `/msme/projects/${id}/complete`,
+      {},
+    ),
+  resolveCompletion: (id: string, data: { target: 'savings' | 'keep'; confirmSavings?: boolean }) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/complete/resolve`, data),
+  updateSpendingControls: (id: string, data: { lockWantsUntilPrioritiesAndNeedsFunded?: boolean; warnOnLowPrioritySpend?: boolean }) =>
+    api.patch<ProjectSummary>(`/msme/projects/${id}/spending-controls`, data),
+  recordIncome: (id: string, data: ProjectIncomeInput) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/income`, data),
+  previewIncome: (id: string, data: ProjectIncomeInput) =>
+    api.post<{ allocations: { tier: FundingTier; amount: number }[]; excess: number; nextIncomeGoesTo: FundingTier | null }>(
+      `/msme/projects/${id}/income/preview`,
+      data,
+    ),
+  recordSpend: (id: string, data: {
+    tierId: string;
+    amount: number;
+    merchant?: string;
+    category?: string;
+    note?: string;
+    confirmRisky?: boolean;
+  }) => api.post<ProjectSummary>(`/msme/projects/${id}/spend`, data),
+  getTransactions: (id: string, page = 1, limit = 20) =>
+    api.get<any>(`/msme/projects/${id}/transactions?page=${page}&limit=${limit}`),
+  getPendingExcessPrompts: (id: string) =>
+    api.get<any[]>(`/msme/projects/${id}/excess-prompts`),
+  resolveExcessPrompt: (id: string, promptId: string, chosenTarget: 'needs' | 'wants' | 'savings' | 'keep', confirmSavings?: boolean) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/excess-prompts/${promptId}/resolve`, { chosenTarget, confirmSavings }),
+  dismissExcessPrompt: (id: string, promptId: string) =>
+    api.post<ProjectSummary>(`/msme/projects/${id}/excess-prompts/${promptId}/dismiss`, {}),
 };
 
 export const spendApi = {
@@ -261,6 +323,7 @@ export const spendApi = {
     override?: boolean;
     borrow_from_parent?: boolean;
     override_daily_cap?: boolean;
+    segment?: 'individual' | 'msme';
   }) =>
     api.post<any>('/spend/check', data),
   commit: (data: {
@@ -272,6 +335,7 @@ export const spendApi = {
     override?: boolean;
     borrow_from_parent?: boolean;
     override_daily_cap?: boolean;
+    segment?: 'individual' | 'msme';
   }) =>
     api.post<any>('/spend/commit', {
       ...data,
@@ -308,6 +372,7 @@ export const insightsApi = {
     ),
   getActivityHeatmapDay: (date: string) =>
     api.get<any[]>(`/insights/activity-heatmap/day?date=${date}`),
+  getMsmeInsights: () => api.get<any>('/insights/msme'),
 };
 
 export const rolloverApi = {
@@ -341,8 +406,11 @@ export const rolloverApi = {
 };
 
 export const profileApi = {
-  getFixedExpenses: () => api.get<any[]>('/profile/fixed-expenses'),
-  getPlan: () => api.get<any>('/profile/plan'),
+  getFixedExpenses: (segment?: 'individual' | 'msme') =>
+    api.get<any[]>(segment ? `/profile/fixed-expenses?segment=${segment}` : '/profile/fixed-expenses'),
+  getPlan: (segment?: 'individual' | 'msme') =>
+    api.get<any>(segment ? `/profile/plan?segment=${segment}` : '/profile/plan'),
+  getPlans: () => api.get<any[]>('/profile/plans'),
   getRetakeEligibility: () =>
     api.get<{
       allowed: boolean;
@@ -455,7 +523,7 @@ export const emergencyUnlockApi = {
 };
 
 export const incomeApi = {
-  allocatePreview: (data: { amount: number; source: 'client_payment' | 'cash' | 'other' }) =>
+  allocatePreview: (data: { amount: number; source: 'client_payment' | 'cash' | 'other'; segment?: 'individual' | 'msme' }) =>
     api.post<any>('/income/manual/allocate-preview', data),
   createManual: (data: {
     amount: number;
@@ -464,17 +532,21 @@ export const incomeApi = {
     date: string;
     run_allocation: boolean;
     idempotency_key?: string;
+    segment?: 'individual' | 'msme';
   }) =>
     api.post<any>('/income/manual', {
       ...data,
       idempotency_key: data.idempotency_key || createIdempotencyKey('income'),
     }),
-  allocateSurplus: (incomeEventId: string, data: {
-    target: 'main_pocket' | 'pocket' | 'new_pocket';
-    pocket_id?: string;
-    new_pocket_name?: string;
-  }) =>
-    api.post<any>(`/income/${incomeEventId}/allocate-surplus`, data),
+  allocateSurplus: (
+    incomeEventId: string,
+    data: {
+      target: 'main_pocket' | 'pocket' | 'new_pocket' | 'savings';
+      pocket_id?: string;
+      new_pocket_name?: string;
+      segment?: 'individual' | 'msme';
+    },
+  ) => api.post<any>(`/income/${incomeEventId}/allocate-surplus`, data),
 };
 
 export const merchantApi = {

@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PocketsService } from './pockets.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { DisciplineScoreService } from '../discipline-score/discipline-score.service';
@@ -588,5 +588,75 @@ describe('PocketsService today_remaining (daily-cap home UX fix)', () => {
     const result = await service.getPocketSummary('p-food', 'user-1');
 
     expect(result.summary.days_remaining).toBe(3);
+  });
+});
+
+describe('PocketsService segment isolation (ADR-001 D1 / MSME_PHASED_BUILD_PLAN §6.3)', () => {
+  let repository: jest.Mocked<
+    Pick<SupabaseRepository, 'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createPocket' | 'getPocketSummary' | 'getSubPocketsByParentId'>
+  >;
+  let disciplineScore: jest.Mocked<DisciplineScoreService>;
+  let runway: jest.Mocked<Pick<RunwayService, 'getRunwayForPlan'>>;
+  let dailyAllocation: any;
+  let service: PocketsService;
+
+  const INDIVIDUAL_PLAN = { id: 'plan-ind', user_id: 'user-1', expected_income_amount: 10000 };
+  const MSME_PLAN = { id: 'plan-msme', user_id: 'user-1', segment: 'msme', expected_income_amount: 50000 };
+
+  beforeEach(() => {
+    repository = {
+      getActivePlanByUserId: jest.fn().mockImplementation(
+        async (_userId: string, segment: string) => (segment === 'msme' ? MSME_PLAN : INDIVIDUAL_PLAN),
+      ),
+      getTopLevelPocketsByPlanId: jest.fn().mockImplementation(
+        async (planId: string) => (planId === 'plan-msme' ? [] : Array.from({ length: 6 }, (_, i) => ({ ...POCKET, id: `p-ind-${i}` }))),
+      ),
+      createPocket: jest.fn().mockImplementation((insert) => ({ id: 'new-pocket', ...insert })),
+      getPocketSummary: jest.fn().mockResolvedValue({ available: 0, spent: 0 }),
+      getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
+    } as any;
+    disciplineScore = { getCurrentScore: jest.fn(), applyDelta: jest.fn() } as any;
+    runway = { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any;
+    dailyAllocation = {} as any;
+    service = new PocketsService(repository as unknown as SupabaseRepository, disciplineScore, runway as unknown as RunwayService, dailyAllocation as unknown as DailyAllocationService);
+  });
+
+  it('getAllForUser resolves the requested segment plan and returns its pockets', async () => {
+    repository.getTopLevelPocketsByPlanId.mockResolvedValue([
+      { ...POCKET, id: 'p-stock', plan_id: 'plan-msme', name: 'Stock & Inventory', category: 'stock' },
+    ] as any);
+
+    const pockets = await service.getAllForUser('user-1', 'msme');
+
+    expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'msme');
+    expect(pockets[0].id).toBe('p-stock');
+  });
+
+  it('enforces the max-6 pocket limit per segment, not globally', async () => {
+    // Individual segment already has 6 pockets, but MSME is empty → the MSME
+    // create must still succeed (ADR-001 D1: one active plan per segment).
+    const created = await service.createForUser('user-1', { name: 'Stock', monthlyAllocation: 1000 }, 'msme');
+    expect(created.name).toBe('Stock');
+    expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'msme');
+    expect(repository.createPocket).toHaveBeenCalledWith(expect.objectContaining({ plan_id: 'plan-msme' }));
+  });
+
+  it('rejects a 7th pocket within the same segment', async () => {
+    repository.getTopLevelPocketsByPlanId.mockResolvedValue(
+      Array.from({ length: 6 }, (_, i) => ({ ...POCKET, id: `p-msme-${i}`, plan_id: 'plan-msme' })) as any,
+    );
+
+    await expect(
+      service.createForUser('user-1', { name: 'One too many', monthlyAllocation: 100 }, 'msme'),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.createPocket).not.toHaveBeenCalled();
+  });
+
+  it('fails fast when the user has no active plan in the requested segment', async () => {
+    repository.getActivePlanByUserId.mockResolvedValue(null);
+
+    await expect(
+      service.createForUser('user-1', { name: 'Orphan', monthlyAllocation: 100 }, 'msme'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

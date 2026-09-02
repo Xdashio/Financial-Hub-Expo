@@ -104,7 +104,7 @@ describe('NudgesService.getRunwayNudges', () => {
     const repository = makeRepository({
       getActivePlanByUserId: jest.fn().mockResolvedValue(FREELANCER_DAILY_PLAN),
       getIncomeEventsByUserId: jest.fn().mockResolvedValue([
-        { id: 'evt-1', user_id: 'user-1', amount: 20000, source: 'client', label: null, date: daysAgoIso(4), run_allocation: true, unallocated_surplus: null, surplus_allocation_status: null, created_at: daysAgoIso(4) },
+        { id: 'evt-1', user_id: 'user-1', amount: 20000, source: 'client', label: null, date: daysAgoIso(4), run_allocation: true, unallocated_surplus: null, surplus_allocation_status: null, segment: 'individual', created_at: daysAgoIso(4) },
       ]),
       getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([[SPENDABLE_POCKET.id, 3000]])),
       getPocketSummary: jest.fn().mockResolvedValue({

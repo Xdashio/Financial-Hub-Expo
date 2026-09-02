@@ -89,6 +89,56 @@ export const CATEGORY_COLORS: Record<string, CategoryColorMapping> = {
     darkMode: '#F4A576', // clayBright
   },
 
+  // MSME Business Categories (ADR-001 §5.2)
+  stock: {
+    lightMode: '#1A4F3E', // emerald (goods & inventory)
+    darkMode: '#5FC4A8', // emeraldBright
+  },
+  supplier: {
+    lightMode: '#B05320', // clay
+    darkMode: '#F4A576', // clayBright
+  },
+  licence: {
+    lightMode: '#7A5F9D', // plum
+    darkMode: '#D4B8F0', // plumBright
+  },
+  tax: {
+    lightMode: '#B05320', // clay
+    darkMode: '#F4A576', // clayBright
+  },
+  salary: {
+    lightMode: '#1A4F3E', // emerald (salaries & wages)
+    darkMode: '#5FC4A8', // emeraldBright
+  },
+  rent: {
+    lightMode: '#1A4F3E', // emerald
+    darkMode: '#5FC4A8', // emeraldBright
+  },
+  operations: {
+    lightMode: '#B05320', // clay
+    darkMode: '#F4A576', // clayBright
+  },
+  profit: {
+    lightMode: '#A6762D', // gold
+    darkMode: '#F5C97E', // goldBright
+  },
+  owner_draw: {
+    lightMode: '#A6762D', // gold
+    darkMode: '#F5C97E', // goldBright
+  },
+  growth: {
+    lightMode: '#1A4F3E', // emerald
+    darkMode: '#5FC4A8', // emeraldBright
+  },
+  marketing: {
+    lightMode: '#7A5F9D', // plum
+    darkMode: '#D4B8F0', // plumBright
+  },
+  equipment: {
+    lightMode: '#B05320', // clay
+    darkMode: '#F4A576', // clayBright
+  },
+
   // Savings Categories
   emergency: {
     lightMode: '#1A4F3E', // emerald

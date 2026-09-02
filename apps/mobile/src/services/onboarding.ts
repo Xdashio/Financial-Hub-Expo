@@ -3,6 +3,7 @@ import {
   OnboardingAssignResult,
   OnboardingCommitResult,
   PlanPreviewResult,
+  MsmeOnboardingInput,
 } from '@financial-hub/shared';
 import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
@@ -47,4 +48,11 @@ export const onboardingApi = {
 
   commit: (input: OnboardingInput): Promise<OnboardingCommitResult> =>
     fetchWithAuth<OnboardingCommitResult>('/onboarding/commit', input),
+
+  // MSME segment (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2)
+  msmeAssign: (input: MsmeOnboardingInput): Promise<OnboardingAssignResult> =>
+    fetchWithAuth<OnboardingAssignResult>('/onboarding/msme/assign', input),
+
+  msmeCommit: (input: MsmeOnboardingInput): Promise<OnboardingCommitResult> =>
+    fetchWithAuth<OnboardingCommitResult>('/onboarding/msme/commit', input),
 };

@@ -6,7 +6,7 @@ import {
   Pressable,
   TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
@@ -84,6 +84,8 @@ export default function CreateLoanScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { alert, modal } = useAlertModal();
+  const { segment } = useLocalSearchParams<{ segment?: string }>();
+  const segmentParam = segment === 'msme' ? 'msme' : undefined;
 
   const [name, setName] = useState('');
   const [totalAmount, setTotalAmount] = useState('');
@@ -191,17 +193,20 @@ export default function CreateLoanScreen() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      await loansApi.create({
-        name: name.trim(),
-        totalAmount: parseFloat(totalAmount),
-        repaymentAmount: parseFloat(repaymentAmount),
-        cadence,
-        startDate,
-        endDate,
-        dueDay: parseInt(dueDay),
-        loanProvider: loanProvider.trim() || undefined,
-        loanPurpose: loanPurpose.trim() || undefined,
-      });
+      await loansApi.create(
+        {
+          name: name.trim(),
+          totalAmount: parseFloat(totalAmount),
+          repaymentAmount: parseFloat(repaymentAmount),
+          cadence,
+          startDate,
+          endDate,
+          dueDay: parseInt(dueDay),
+          loanProvider: loanProvider.trim() || undefined,
+          loanPurpose: loanPurpose.trim() || undefined,
+        },
+        segmentParam,
+      );
 
       await alert('Loan Created', 'Your loan has been created successfully');
       router.replace('/(loans)');
@@ -374,6 +379,29 @@ export default function CreateLoanScreen() {
               value={loanProvider}
               onChangeText={setLoanProvider}
             />
+            {segmentParam === 'msme' && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.md }}>
+                {['Marketing', 'Equipment', 'Expansion', 'Venture', 'Order'].map((preset) => {
+                  const selected = loanPurpose.trim().toLowerCase() === preset.toLowerCase();
+                  return (
+                    <Pressable
+                      key={preset}
+                      onPress={() => setLoanPurpose(preset)}
+                      style={{
+                        paddingHorizontal: spacing.md,
+                        paddingVertical: spacing.xs,
+                        borderRadius: radius.pill,
+                        backgroundColor: selected ? colors.emeraldDeep : colors.surface,
+                        borderWidth: 1,
+                        borderColor: selected ? colors.emeraldDeep : colors.line,
+                      }}
+                    >
+                      <Text style={{ ...typography.caption, color: selected ? colors.surface : colors.ink }}>{preset}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
             <View style={{ marginBottom: spacing.lg }}>
               <Text style={{ ...typography.heading, color: colors.ink, marginBottom: spacing.sm }}>
                 Loan Purpose (Optional)

@@ -153,10 +153,14 @@ Shared validation: `packages/shared/src/schemas/index.ts:168` `SPENDABLE_CATEGOR
 
 Backward compat: existing rows stay valid; new MSME pockets use new categories; Individual onboarding still resolves `food|transport|leisure|family` only `pocket-provisioning.ts:344`.
 
-### 5.3 Project Funding Tables (Phase 3 migration `016_msme_projects.sql`)
+### 5.3 Project Funding Tables (Phase 3 migration `017_msme_projects.sql`)
+
+> Renumbered from `016` — Phase 2 shipped `016_msme_phase2_segment_isolation.sql`
+> (fixed_expenses/income_events segment columns) first, so the projects domain
+> moves to the next free number.
 
 ```sql
--- 016_msme_projects.sql — Funding Cascade domain (§11–§15)
+-- 017_msme_projects.sql — Funding Cascade domain (§11–§15)
 CREATE TABLE IF NOT EXISTS public.msme_projects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
@@ -589,7 +593,7 @@ apps/mobile/app/(modals)/project-complete-sheet.tsx — Completed handling: "KES
 
 **Spec in:** `§11:197` One flow + `§12:223` 3 levels + `§13:253` Target-based + `§14:270` Separation + `§15:308` Cascade + `§15.1:335` No re-funding + `§16:356` Instalments + `§23:553` rules
 
-**DB:** `016_msme_projects.sql` (§5.3) + `graphify update .`
+**DB:** `017_msme_projects.sql` (§5.3) + `graphify update .`
 
 **Shared:** `§6.3` Project schemas
 
@@ -713,7 +717,7 @@ Portfolio of property tests: `allocated` monotonic, `fundingStatus` never regres
 
 | Concern | Approach | Files |
 |---------|----------|-------|
-| **RLS** | New tables all `user_id = auth.uid()` plus tier join policy; segment column needs no RLS change — existing plan policies `001_initial_schema.sql:394` already scope by `user_id` | `016_msme_projects.sql` |
+| **RLS** | New tables all `user_id = auth.uid()` plus tier join policy; segment column needs no RLS change — existing plan policies `001_initial_schema.sql:394` already scope by `user_id` | `017_msme_projects.sql` |
 | **Idempotency** | Reuse `idempotency_records` `006_idempotency_records.sql:28` with new scopes `msme_onboarding`, `msme_project_income`, `msme_spend` | `income.service.ts:98` pattern |
 | **Money math** | `sumMoney/netMoney` `supabase.repository.ts:623` in cents + `round2` `income.service.ts:742` + reconciliation to largest allocation `income.service.ts:568` — copy for cascade | `common/sub-pocket-split.ts:53` reference |
 | **Push/offline** | `PushDeliveryService` fire-and-forget `income.service.ts:270` + `enqueueWrite` `app/(income)/entry.tsx:129` + `AppLockGate` flush `app/_layout.tsx:64` | `apps/mobile/src/services/data-sync.ts` |

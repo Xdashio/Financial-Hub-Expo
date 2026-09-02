@@ -176,18 +176,19 @@ export default function LoansScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [segment, setSegment] = useState<'individual' | 'msme'>('individual');
 
   const loadLoans = useCallback(async () => {
     try {
       setError(null);
-      const data = await loansApi.getAll();
+      const data = await loansApi.getAll(segment);
       setLoans(data);
     } catch (e) {
       console.error('Loans load error:', e);
       const errorMessage = e instanceof Error ? e.message : 'Failed to load loans';
       setError(errorMessage);
     }
-  }, []);
+  }, [segment]);
 
   // Initial load
   React.useEffect(() => {
@@ -207,7 +208,7 @@ export default function LoansScreen() {
   };
 
   const goToCreate = () => {
-    router.push('/(loans)/create');
+    router.push(`/loans/create?segment=${segment}` as any);
   };
 
   const goToDetail = (loanId: string) => {
@@ -279,6 +280,37 @@ export default function LoansScreen() {
           <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs }}>
             Manage your loans and repayment schedules
           </Text>
+        </View>
+        {/* Segment switcher */}
+        <View style={{ flexDirection: 'row', gap: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 9999, padding: 3, marginTop: spacing.md, marginHorizontal: spacing.lg }}>
+          <Pressable
+            onPress={() => setSegment('individual')}
+            style={({ pressed }) => [{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs,
+              borderRadius: 9999,
+              backgroundColor: segment === 'individual' ? colors.emeraldDeep : 'transparent',
+            }, { opacity: pressed ? 0.7 : 1 }]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: segment === 'individual' }}
+            accessibilityLabel="Switch to personal loans"
+          >
+            <Text style={{ ...typography.caption, color: segment === 'individual' ? colors.surface : colors.sage }}>Personal</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setSegment('msme')}
+            style={({ pressed }) => [{
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs,
+              borderRadius: 9999,
+              backgroundColor: segment === 'msme' ? colors.emeraldDeep : 'transparent',
+            }, { opacity: pressed ? 0.7 : 1 }]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: segment === 'msme' }}
+            accessibilityLabel="Switch to business loans"
+          >
+            <Text style={{ ...typography.caption, color: segment === 'msme' ? colors.surface : colors.sage }}>Business</Text>
+          </Pressable>
         </View>
 
         {/* Create button */}

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nest
 import { v4 as uuidv4 } from 'uuid';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { Pocket } from '../../database/database.types';
+import { Pocket, IdempotencyScope } from '../../database/database.types';
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket, isReviewableBlock } from '../../common/pocket-rules';
 import { getMerchantCategoryLabel, toCents, fromCents, formatWholeKsh } from '@financial-hub/shared';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
@@ -347,9 +347,10 @@ export class SpendService {
     }
   > {
     if (dto.idempotency_key) {
+      const scope = `spend:${dto.segment ?? 'individual'}` as IdempotencyScope;
       const existing = await this.repository.getIdempotencyRecord(
         userId,
-        'spend',
+        scope,
         dto.idempotency_key,
       );
       if (existing?.response) {
@@ -482,10 +483,11 @@ export class SpendService {
     };
 
     if (dto.idempotency_key) {
+      const scope = `spend:${dto.segment ?? 'individual'}` as IdempotencyScope;
       const saved = await this.repository.saveIdempotencyRecord({
         id: uuidv4(),
         user_id: userId,
-        scope: 'spend',
+        scope,
         idempotency_key: dto.idempotency_key,
         resource_id: transaction?.id ?? null,
         response: response as unknown as Record<string, unknown>,
@@ -493,7 +495,7 @@ export class SpendService {
       if (!saved) {
         const raced = await this.repository.getIdempotencyRecord(
           userId,
-          'spend',
+          scope,
           dto.idempotency_key,
         );
         if (raced?.response) {

@@ -25,10 +25,25 @@ export const ALL_MERCHANT_CATEGORIES = [
 ] as const;
 
 /**
+ * Business pocket categories treated as "essential" for the MSME segment
+ * (MSME_PHASED_BUILD_PLAN §5.2): rent/salaries/stock/suppliers/licences/taxes.
+ * Individual plans never reference these categories (the 12 business values
+ * only exist on MSME plans — migration 015), so guarding by *category* here
+ * is equivalent to guarding by segment, without threading a segment flag
+ * through every spend-time call site. They inherit the same hard-block-on-
+ * gambling treatment as essential Individual pockets.
+ */
+export const MSME_ESSENTIAL_CATEGORIES = [
+  'rent', 'salary', 'stock', 'supplier', 'licence', 'tax',
+] as const;
+
+/**
  * "Essential" = any Fixed Expenses pocket, plus category-scoped
- * food/transport/housing/family pockets. Essential pockets get a hard block
- * on blacklisted categories (no override); everything else is discretionary
- * and gets a soft warning the user can review past.
+ * food/transport/housing/family pockets, plus (MSME) business-mission-
+ * critical categories rent/salary/stock/supplier/licence/tax. Essential
+ * pockets get a hard block on blacklisted categories (no override);
+ * everything else is discretionary and gets a soft warning the user can
+ * review past.
  */
 export function isEssentialPocket(pocket: Pocket): boolean {
   if (pocket.kind === 'fixed') return true;
@@ -36,7 +51,9 @@ export function isEssentialPocket(pocket: Pocket): boolean {
     pocket.category === 'food' ||
     pocket.category === 'transport' ||
     pocket.category === 'housing' ||
-    pocket.category === 'family'
+    pocket.category === 'family' ||
+    (pocket.category !== null &&
+      (MSME_ESSENTIAL_CATEGORIES as readonly string[]).includes(pocket.category))
   );
 }
 
@@ -134,6 +151,28 @@ function allowedMerchantsForFixedCategory(category: string | null): string[] {
       return ['entertainment', 'personal_care', 'other'];
     case 'personal':
       return ['personal_care', 'other'];
+    // MSME business categories (migration 015 / MSME_PHASED_BUILD_PLAN §5.2).
+    // The merchant taxonomy is consumer-oriented, so most business lines map
+    // to the catch-all 'other' — the essential-protection point is category
+    // *scope* + the gambling hard-block, not a fine-grained allow-list. Rent
+    // maps to landlord_rent; stock/restocking to grocery (goods); operations
+    // to utility + other (working-capital spend is often utility/other).
+    case 'rent':
+      return ['landlord_rent'];
+    case 'stock':
+      return ['grocery', 'other'];
+    case 'operations':
+      return ['utility', 'other'];
+    case 'salary':
+    case 'supplier':
+    case 'licence':
+    case 'tax':
+    case 'profit':
+    case 'owner_draw':
+    case 'growth':
+    case 'marketing':
+    case 'equipment':
+      return ['other'];
     // Legacy lump "Fixed Expenses" pocket (category null) keeps the broad
     // essential allow-list so existing plans keep working until retake.
     default:

@@ -30,8 +30,9 @@ export class PocketsService {
 
   async getAllForUser(
     userId: string,
-  ): Promise<(Pocket & { available_balance: number; has_sub_pockets: boolean; today_remaining?: number; spent: number })[]> {
-    const plan = await this.repository.getActivePlanByUserId(userId);
+    segment: 'individual' | 'msme' = 'individual',
+  ): Promise<(Pocket & { segment: string; available_balance: number; has_sub_pockets: boolean; today_remaining?: number; spent: number })[]> {
+    const plan = await this.repository.getActivePlanByUserId(userId, segment);
     if (!plan) {
       return [];
     }
@@ -59,6 +60,7 @@ export class PocketsService {
         const subPockets = await this.repository.getSubPocketsByParentId(pocket.id);
         return { 
           ...pocket, 
+          segment: plan.segment,
           available_balance: summary.available,
           spent: summary.spent,
           has_sub_pockets: subPockets.length > 0
@@ -158,19 +160,20 @@ export class PocketsService {
   }
 
   /**
-   * Create a new pocket for the user's active plan.
-   * Enforces max 6 pockets limit per plan to prevent cognitive overload.
+   * Create a new pocket for the user's active plan in the given segment.
+   * Enforces max 6 top-level pockets limit per plan (segment-scoped since
+   * ADR-001 D1 — Individual and MSME segments each get their own 6).
    */
-  async createForUser(userId: string, input: unknown): Promise<Pocket> {
-    const plan = await this.repository.getActivePlanByUserId(userId);
+  async createForUser(userId: string, input: unknown, segment: 'individual' | 'msme' = 'individual'): Promise<Pocket> {
+    const plan = await this.repository.getActivePlanByUserId(userId, segment);
     if (!plan) {
       throw new NotFoundException('No active plan found');
     }
 
-    // Check pocket count limit (max 6)
+    // Check pocket count limit (max 6 per segment)
     const existingPockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
     if (existingPockets.length >= 6) {
-      throw new BadRequestException('Maximum of 6 pockets allowed. Delete or merge existing pockets first.');
+      throw new BadRequestException(`Maximum of 6 pockets allowed for the ${segment} segment. Delete or merge existing pockets first.`);
     }
 
     // Basic validation for top-level pocket creation

@@ -7,10 +7,36 @@ import { z } from 'zod';
 export const PlanTypeSchema = z.enum(['structured', 'daily']);
 export type PlanType = z.infer<typeof PlanTypeSchema>;
 
+// Individual vs MSME account segment (ADR-001 / MSME_PHASED_BUILD_PLAN §5.1).
+// A user can hold *two* active plans simultaneously — one per segment — so
+// segment discriminates plan ownership, not the user.
+export const SegmentSchema = z.enum(['individual', 'msme']);
+export type Segment = z.infer<typeof SegmentSchema>;
+
 export const PocketKindSchema = z.enum(['savings', 'fixed', 'spendable', 'loan']);
 export type PocketKind = z.infer<typeof PocketKindSchema>;
 
+// MSME business pocket categories (ADR-001 D2 / MSME_PHASED_BUILD_PLAN §5.2).
+// Kept separate from PocketCategorySchema so the Individual set stays
+// untouched; they're merged at the union/PocketCategorySchema level.
+export const BusinessPocketCategorySchema = z.enum([
+  'stock',
+  'supplier',
+  'licence',
+  'tax',
+  'salary',
+  'rent',
+  'operations',
+  'profit',
+  'owner_draw',
+  'growth',
+  'marketing',
+  'equipment',
+]);
+export type BusinessPocketCategory = z.infer<typeof BusinessPocketCategorySchema>;
+
 export const PocketCategorySchema = z.enum([
+  // individual (existing, unchanged)
   'food',
   'transport',
   'leisure',
@@ -20,6 +46,20 @@ export const PocketCategorySchema = z.enum([
   'education',
   'housing',
   'family',
+  // msme additions (business semantics, spec §2–§10)
+  'stock',
+  'supplier',
+  'licence',
+  'tax',
+  'salary',
+  'rent',
+  'operations',
+  'profit',
+  'owner_draw',
+  'growth',
+  'marketing',
+  'equipment',
+  // fallback
   'other',
 ]);
 export type PocketCategory = z.infer<typeof PocketCategorySchema>;
@@ -68,6 +108,9 @@ export const PlanNameSchema = z.enum([
   // shown identical plan naming to a single-employer salaried user.
   'Salaried + Side Income — Structured',
   'Salaried + Side Income — Daily Budget',
+  // MSME / business segment plan (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2).
+  // Always structured — business cash flow is monthly, no daily caps.
+  'Business — Structured',
 ]);
 export type PlanName = z.infer<typeof PlanNameSchema>;
 
@@ -165,12 +208,30 @@ export type SpendableCategory = z.infer<typeof SpendableCategorySchema>;
  * (see pocket-provisioning.ts). Other categories like 'grocery', 'healthcare',
  * etc. are merchant classification categories, not spendable pocket categories.
  */
+export const MSME_SPENDABLE_LABELS = {
+  stock: 'Stock & Inventory',
+  supplier: 'Suppliers',
+  licence: 'Licences',
+  tax: 'Taxes',
+  salary: 'Salaries & Wages',
+  rent: 'Rent',
+  operations: 'Operations',
+  profit: 'Profit',
+  owner_draw: 'Owner Draw',
+  growth: 'Growth',
+  marketing: 'Marketing',
+  equipment: 'Equipment',
+} as const satisfies Record<BusinessPocketCategory, string>;
+
 export const SPENDABLE_CATEGORY_LABELS = {
   food: 'Food & Groceries',
   transport: 'Transport',
   leisure: 'Personal & Leisure',
   family: 'Family & Dependents',
-} as const satisfies Record<SpendableCategory, string>;
+  // MSME business labels (MSME_PHASED_BUILD_PLAN §5.2) — spread from the
+  // single source of truth so the two label maps stay in lockstep.
+  ...MSME_SPENDABLE_LABELS,
+} as const satisfies Partial<Record<PocketCategory, string>>;
 
 // Partial map of category -> percentage (0-100) of the spendable amount.
 // Partial because which categories exist depends on persona (student gets
@@ -293,6 +354,244 @@ export const OnboardingInputSchema = z.object({
 });
 export type OnboardingInput = z.infer<typeof OnboardingInputSchema>;
 
+// ============================================================================
+// MSME onboarding (§6.2) — the business-segment sibling of OnboardingInput.
+// Deliberately separate: monthly revenue replaces incomeAmount (mapped to
+// plans.expected_income_amount server-side) and customPockets (max 6, §2.2)
+// lets a business name its own pockets instead of the individual persona set.
+// ============================================================================
+
+export const BusinessStageSchema = z.enum(['starting', 'stable', 'growing']);
+export type BusinessStage = z.infer<typeof BusinessStageSchema>;
+
+export const MsmePocketInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  category: PocketCategorySchema,
+});
+export type MsmePocketInput = z.infer<typeof MsmePocketInputSchema>;
+
+export const MsmeOnboardingInputSchema = z.object({
+  segment: z.literal('msme'),
+  businessName: z.string().min(1).max(100),
+  // maps to plans.expected_income_amount (see commitMsme)
+  monthlyRevenue: z.number().positive(),
+  // sum of recurring business obligations (rent, salaries, licences, taxes…)
+  fixedTotal: z.number().nonnegative(),
+  fixedExpenses: z.array(FixedExpenseInputSchema).optional(),
+  hasEmployees: z.boolean().optional(),
+  businessStage: BusinessStageSchema.optional(),
+  savingsGoal: SavingsGoalInputSchema.optional(),
+  // custom pocket names — max 6, validated server-side (§2.2)
+  customPockets: z.array(MsmePocketInputSchema).max(6).optional(),
+});
+export type MsmeOnboardingInput = z.infer<typeof MsmeOnboardingInputSchema>;
+
+// ============================================================================
+// MSME Project Funding (§6.3) — Funding Cascade Engine (Phase 3)
+// ============================================================================
+
+export const ProjectKindSchema = z.enum(['catering', 'wedding', 'trip', 'tour', 'contract', 'construction', 'agri', 'other']);
+export type ProjectKind = z.infer<typeof ProjectKindSchema>;
+
+export const FundingTierSchema = z.enum(['priorities', 'needs', 'wants']); // exactly 3, §12:231
+export type FundingTier = z.infer<typeof FundingTierSchema>;
+
+export const FundingStatusSchema = z.enum(['in_progress', 'complete']);
+export type FundingStatus = z.infer<typeof FundingStatusSchema>;
+
+export const ProjectStatusSchema = z.enum(['draft', 'active', 'completed', 'cancelled']);
+export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
+
+export const ProjectCreateInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  kind: ProjectKindSchema,
+  contractValue: z.number().positive(),
+  tiers: z.object({
+    priorities: z.number().positive(), // target amounts
+    needs: z.number().positive(),
+    wants: z.number().positive(),
+  }).refine(v => v.priorities + v.needs + v.wants > 0, { message: 'At least one tier target required' }),
+  // optional: allow wants=0 for lean projects — service normalizes
+}).refine(v => Math.abs((v.tiers.priorities + v.tiers.needs + v.tiers.wants) - v.contractValue) < 0.01,
+  { message: 'Tier targets must sum to contract value', path: ['contractValue'] });
+export type ProjectCreateInput = z.infer<typeof ProjectCreateInputSchema>;
+
+export const ProjectIncomeInputSchema = z.object({
+  amount: z.number().positive(),
+  source: z.string().min(1).max(100), // Deposit / Progress / Final
+  label: z.string().max(200).optional(),
+  date: z.string().date(),
+});
+export type ProjectIncomeInput = z.infer<typeof ProjectIncomeInputSchema>;
+
+export const TierSummarySchema = z.object({
+  id: z.string().uuid(),
+  tier: FundingTierSchema,
+  sortOrder: z.number().int().min(1).max(3),
+  targetAmount: z.number().positive(),
+  allocatedAmount: z.number().nonnegative(),
+  spentAmount: z.number().nonnegative(),
+  remainingCash: z.number().nonnegative(), // allocated - spent
+  fundingStatus: FundingStatusSchema,
+  fundingPercent: z.number().min(0).max(100),
+});
+export type TierSummary = z.infer<typeof TierSummarySchema>;
+
+export const SpendingControlsSchema = z.object({
+  lockWantsUntilPrioritiesAndNeedsFunded: z.boolean().default(false),
+  warnOnLowPrioritySpend: z.boolean().default(false),
+});
+export type SpendingControls = z.infer<typeof SpendingControlsSchema>;
+
+export const ProjectSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  kind: ProjectKindSchema,
+  contractValue: z.number(),
+  status: ProjectStatusSchema,
+  isActiveCascade: z.boolean(),
+  // Phase 5 spending controls (§20) — defaults mirror DB DEFAULT.
+  spendingControls: SpendingControlsSchema.optional(),
+  completionResolvedAt: z.string().datetime().nullable().optional(),
+  completionResolvedTo: z.enum(['savings', 'keep']).nullable().optional(),
+  tiers: z.array(TierSummarySchema).length(3),
+  nextIncomeGoesTo: FundingTierSchema.nullable(), // null if all funded
+  totalAllocated: z.number(),
+  totalSpent: z.number(),
+  totalRemaining: z.number(),
+  excessPending: z.number().nullable(),
+});
+export type ProjectSummary = z.infer<typeof ProjectSummarySchema>;
+
+// ============================================================================
+// MSME Project Database Table Schemas (Phase 3 - 017_msme_projects.sql)
+// ============================================================================
+
+export const MsmeProjectSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  planId: z.string().uuid(),
+  name: z.string().min(1).max(100),
+  kind: ProjectKindSchema,
+  contractValue: z.number().positive(),
+  status: ProjectStatusSchema,
+  isActiveCascade: z.boolean(),
+  spendingControls: SpendingControlsSchema.optional(),
+  completionResolvedAt: z.string().datetime().nullable().optional(),
+  completionResolvedTo: z.enum(['savings', 'keep']).nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  completedAt: z.string().datetime().nullable().optional(),
+  cancelledAt: z.string().datetime().nullable().optional(),
+});
+export type MsmeProject = z.infer<typeof MsmeProjectSchema>;
+
+export const MsmeProjectTierSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  tier: FundingTierSchema,
+  sortOrder: z.number().int().min(1).max(3),
+  targetAmount: z.number().positive(),
+  allocatedAmount: z.number().nonnegative(),
+  spentAmount: z.number().nonnegative(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type MsmeProjectTier = z.infer<typeof MsmeProjectTierSchema>;
+
+export const MsmeProjectIncomeEventSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  userId: z.string().uuid(),
+  amount: z.number().positive(),
+  source: z.string().min(1).max(100),
+  label: z.string().max(200).nullable().optional(),
+  date: z.string().date(),
+  createdAt: z.string().datetime(),
+});
+export type MsmeProjectIncomeEvent = z.infer<typeof MsmeProjectIncomeEventSchema>;
+
+export const MsmeProjectAllocationSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  tierId: z.string().uuid(),
+  incomeEventId: z.string().uuid(),
+  amount: z.number().positive(),
+  createdAt: z.string().datetime(),
+});
+export type MsmeProjectAllocation = z.infer<typeof MsmeProjectAllocationSchema>;
+
+export const MsmeProjectSpendSchema = z.object({
+  id: z.string().uuid(),
+  tierId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  amount: z.number().positive(),
+  merchant: z.string().nullable().optional(),
+  category: z.string().nullable().optional(),
+  note: z.string().max(300).nullable().optional(),
+  createdAt: z.string().datetime(),
+});
+export type MsmeProjectSpend = z.infer<typeof MsmeProjectSpendSchema>;
+
+export const ExcessPromptStatusSchema = z.enum(['pending', 'resolved', 'dismissed']);
+export type ExcessPromptStatus = z.infer<typeof ExcessPromptStatusSchema>;
+
+export const ExcessPromptTargetSchema = z.enum(['needs', 'wants', 'savings', 'keep']);
+export type ExcessPromptTarget = z.infer<typeof ExcessPromptTargetSchema>;
+
+export const MsmeProjectExcessPromptSchema = z.object({
+  id: z.string().uuid(),
+  projectId: z.string().uuid(),
+  incomeEventId: z.string().uuid(),
+  excessAmount: z.number().positive(),
+  chosenTarget: ExcessPromptTargetSchema.nullable().optional(),
+  status: ExcessPromptStatusSchema,
+  createdAt: z.string().datetime(),
+  resolvedAt: z.string().datetime().nullable().optional(),
+});
+export type MsmeProjectExcessPrompt = z.infer<typeof MsmeProjectExcessPromptSchema>;
+
+export const ExcessResolveInputSchema = z.object({
+  chosenTarget: ExcessPromptTargetSchema,
+  // §21:525 — moving excess to Savings requires explicit second confirmation.
+  confirmSavings: z.boolean().optional(),
+});
+export type ExcessResolveInput = z.infer<typeof ExcessResolveInputSchema>;
+
+export const SpendControlsUpdateInputSchema = SpendingControlsSchema.partial();
+export type SpendControlsUpdateInput = z.infer<typeof SpendControlsUpdateInputSchema>;
+
+export const ProjectCompleteResultSchema = z.object({
+  project: ProjectSummarySchema,
+  remainingPerTier: z.array(z.object({
+    tier: FundingTierSchema,
+    remainingCash: z.number().nonnegative(),
+    targetAmount: z.number(),
+    allocatedAmount: z.number(),
+  })),
+  totalRemaining: z.number().nonnegative(),
+  suggestion: z.string(),
+  requiresResolution: z.boolean(),
+});
+export type ProjectCompleteResult = z.infer<typeof ProjectCompleteResultSchema>;
+
+export const ProjectCompletionResolveInputSchema = z.object({
+  target: z.enum(['savings', 'keep']),
+  confirmSavings: z.boolean().optional(),
+});
+export type ProjectCompletionResolveInput = z.infer<typeof ProjectCompletionResolveInputSchema>;
+
+export const ProjectSpendInputSchema = z.object({
+  tierId: z.string().uuid(),
+  amount: z.number().positive(),
+  merchant: z.string().min(1).max(100).optional(),
+  category: z.string().max(100).optional(),
+  note: z.string().max(300).optional(),
+  // §20 — bypass Wants lock when user confirms risky spend.
+  confirmRisky: z.boolean().optional(),
+});
+export type ProjectSpendInput = z.infer<typeof ProjectSpendInputSchema>;
+
 export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
   reason: z.string(),
@@ -310,6 +609,9 @@ export const PlanAssignReasonSchema = z.object({
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 
 export const OnboardingAssignResultSchema = z.object({
+  // Which segment this assignment targets (individual assign flows omit it;
+  // MSME always sets 'msme' — see assignMsmePlan).
+  segment: SegmentSchema.optional(),
   plan: PlanNameSchema,
   planType: PlanTypeSchema,
   incomePattern: IncomePatternSchema,
@@ -445,6 +747,8 @@ export const PlanSchema = z.object({
   userId: z.string().uuid(),
   type: PlanTypeSchema, // 'structured' | 'daily'
   incomePattern: IncomePatternSchema, // 'salaried' | 'freelancer'
+  // 'individual' (default, keeps existing behavior) | 'msme' (ADR-001 §5.1)
+  segment: SegmentSchema.optional(),
   // Freelancer-only. The onboarding band's day-count estimate, persisted so
   // RunwayService has a fallback before enough income_events history exists.
   // Null for salaried/mix plans.
@@ -458,6 +762,9 @@ export type Plan = z.infer<typeof PlanSchema>;
 export const PocketSchema = z.object({
   id: z.string().uuid(),
   planId: z.string().uuid(), // per plan
+  // Which segment owns this pocket ('individual' default | 'msme'), derived
+  // from the plan — not stored on the pocket — for client filtering (§6.1).
+  segment: SegmentSchema.optional(),
   name: z.string(),
   kind: PocketKindSchema, // 'savings' | 'fixed' | 'spendable'
   category: PocketCategorySchema.optional(), // for spendable: 'food' | 'transport' | 'leisure' | …
@@ -804,8 +1111,11 @@ export type DisciplineScore = z.infer<typeof DisciplineScoreSchema>;
 
 export const schemas = {
   PlanType: PlanTypeSchema,
+  Segment: SegmentSchema,
   PocketKind: PocketKindSchema,
   PocketCategory: PocketCategorySchema,
+  BusinessPocketCategory: BusinessPocketCategorySchema,
+  MSME_SPENDABLE_LABELS,
   IncomePattern: IncomePatternSchema,
   SpendingHabit: SpendingHabitSchema,
   LifeStage: LifeStageSchema,
@@ -826,6 +1136,31 @@ export const schemas = {
   CategoryPercentages: CategoryPercentagesSchema,
   IncomeConcentration: IncomeConcentrationSchema,
   OnboardingInput: OnboardingInputSchema,
+  MsmeOnboardingInput: MsmeOnboardingInputSchema,
+  BusinessStage: BusinessStageSchema,
+  MsmePocketInput: MsmePocketInputSchema,
+  ProjectKind: ProjectKindSchema,
+  FundingTier: FundingTierSchema,
+  FundingStatus: FundingStatusSchema,
+  ProjectStatus: ProjectStatusSchema,
+  ProjectCreateInput: ProjectCreateInputSchema,
+  ProjectIncomeInput: ProjectIncomeInputSchema,
+  TierSummary: TierSummarySchema,
+  ProjectSummary: ProjectSummarySchema,
+  SpendingControls: SpendingControlsSchema,
+  ExcessResolveInput: ExcessResolveInputSchema,
+  SpendControlsUpdateInput: SpendControlsUpdateInputSchema,
+  ProjectCompleteResult: ProjectCompleteResultSchema,
+  ProjectCompletionResolveInput: ProjectCompletionResolveInputSchema,
+  ProjectSpendInput: ProjectSpendInputSchema,
+  MsmeProject: MsmeProjectSchema,
+  MsmeProjectTier: MsmeProjectTierSchema,
+  MsmeProjectIncomeEvent: MsmeProjectIncomeEventSchema,
+  MsmeProjectAllocation: MsmeProjectAllocationSchema,
+  MsmeProjectSpend: MsmeProjectSpendSchema,
+  ExcessPromptStatus: ExcessPromptStatusSchema,
+  ExcessPromptTarget: ExcessPromptTargetSchema,
+  MsmeProjectExcessPrompt: MsmeProjectExcessPromptSchema,
   PlanAssignReason: PlanAssignReasonSchema,
   OnboardingAssignResult: OnboardingAssignResultSchema,
   CategoryAllocationPreview: CategoryAllocationPreviewSchema,

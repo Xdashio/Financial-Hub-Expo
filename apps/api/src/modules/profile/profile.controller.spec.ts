@@ -47,18 +47,18 @@ describe('ProfileController', () => {
   it('returns the active plan for the authenticated user', async () => {
     const req = { user: { id: 'user-123' } };
 
-    const result = await controller.getPlan(req);
+    const result = await controller.getPlan(req, undefined);
 
-    expect(profileService.getActivePlan).toHaveBeenCalledWith('user-123');
+    expect(profileService.getActivePlan).toHaveBeenCalledWith('user-123', undefined);
     expect(result).toEqual({ id: 'plan-1', type: 'daily' });
   });
 
   it('returns the fixed expenses for the authenticated user', async () => {
     const req = { user: { id: 'user-123' } };
 
-    const result = await controller.getFixedExpenses(req);
+    const result = await controller.getFixedExpenses(req, undefined);
 
-    expect(profileService.getFixedExpenses).toHaveBeenCalledWith('user-123');
+    expect(profileService.getFixedExpenses).toHaveBeenCalledWith('user-123', undefined);
     expect(result).toEqual([]);
   });
 
@@ -66,9 +66,9 @@ describe('ProfileController', () => {
     const req = { user: { id: 'user-123' } };
     const body = { name: 'Rent', amount: 15000, dueDay: 1, category: 'utilities' };
 
-    const result = await controller.createFixedExpense(body, req);
+    const result = await controller.createFixedExpense(body, req, undefined);
 
-    expect(profileService.createFixedExpense).toHaveBeenCalledWith('user-123', body);
+    expect(profileService.createFixedExpense).toHaveBeenCalledWith('user-123', body, 'individual');
     expect(result).toEqual({ id: 'fe-1' });
   });
 

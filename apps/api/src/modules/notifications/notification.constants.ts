@@ -12,6 +12,9 @@ export const NOTIFICATION_KIND = {
   MONTHLY_INSIGHT: 'monthly_insight',
   ALLOCATION_RECEIVED: 'allocation_received',
   LOAN_REMINDER: 'loan_reminder',
+  MSME_PROJECT_EXCESS: 'msme_project_excess',
+  MSME_PROJECT_COMPLETED: 'msme_project_completed',
+  MSME_PROJECT_INACTIVE: 'msme_project_inactive',
 } as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KIND)[keyof typeof NOTIFICATION_KIND];
@@ -36,6 +39,11 @@ export const KIND_PREFERENCE: Record<NotificationKind, PreferenceKey> = {
   // settings copy covers rollover + allocation celebrations together.
   [NOTIFICATION_KIND.ALLOCATION_RECEIVED]: 'savings_milestones',
   [NOTIFICATION_KIND.LOAN_REMINDER]: 'loan_reminders',
+  // MSME project prompts reuse savings_milestones so a single toggle
+  // doesn't multiply the settings surface for every new MSME feature.
+  [NOTIFICATION_KIND.MSME_PROJECT_EXCESS]: 'savings_milestones',
+  [NOTIFICATION_KIND.MSME_PROJECT_COMPLETED]: 'savings_milestones',
+  [NOTIFICATION_KIND.MSME_PROJECT_INACTIVE]: 'savings_milestones',
 };
 
 export const DEFAULT_NOTIFICATION_PREFERENCES = {
