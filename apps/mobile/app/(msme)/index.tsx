@@ -310,6 +310,22 @@ export default function MsmeHomeScreen() {
               <Text style={{ ...typography.caption, color: colors.surface }}>Projects</Text>
             </Pressable>
           </View>
+          {/* Invoices — Receivables ledger (020) — eTIMS-ready */}
+          <Pressable
+            onPress={() => router.push('/msme-invoices' as any)}
+            style={({ pressed }) => [{ marginTop: spacing.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open invoices — Receivables"
+          >
+            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Store size={18} color={colors.gold} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.heading, color: colors.ink }}>Invoices — Receivables</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Draft → Sent → Paid. KRA PIN validated, overdue flagged, paid allocates to MSME pockets.</Text>
+            </View>
+          </Pressable>
+
           {/* Phase 4 entry point — Projects Funding Cascade (§11–§19) */}
           <Pressable
             onPress={() => router.push('/msme-projects' as any)}

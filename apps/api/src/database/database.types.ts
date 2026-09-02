@@ -847,3 +847,54 @@ export interface MsmeProjectExcessPromptUpdate {
   status?: 'pending' | 'resolved' | 'dismissed';
   resolved_at?: string | null;
 }
+
+// MSME Invoicing & Receivables (020_msme_invoices.sql) — eTIMS-ready
+export interface MsmeInvoice {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  customer_name: string;
+  customer_pin: string | null;
+  amount: number;
+  due_date: string;
+  status: 'draft' | 'sent' | 'paid' | 'void';
+  description: string | null;
+  etims_status: 'pending' | 'submitted' | 'accepted' | null;
+  paid_at: string | null;
+  voided_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MsmeInvoiceInsert {
+  id?: string;
+  user_id: string;
+  plan_id: string;
+  customer_name: string;
+  customer_pin?: string | null;
+  amount: number;
+  due_date: string;
+  status?: 'draft' | 'sent' | 'paid' | 'void';
+  description?: string | null;
+  etims_status?: 'pending' | 'submitted' | 'accepted' | null;
+  paid_at?: string | null;
+  voided_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MsmeInvoiceUpdate {
+  id?: string;
+  user_id?: string;
+  plan_id?: string;
+  customer_name?: string;
+  customer_pin?: string | null;
+  amount?: number;
+  due_date?: string;
+  status?: 'draft' | 'sent' | 'paid' | 'void';
+  description?: string | null;
+  etims_status?: 'pending' | 'submitted' | 'accepted' | null;
+  paid_at?: string | null;
+  voided_at?: string | null;
+  updated_at?: string;
+}

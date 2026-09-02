@@ -1,0 +1,68 @@
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { MsmeInvoicesService } from './msme-invoices.service';
+
+@ApiTags('MSME Invoices')
+@Controller('msme/invoices')
+@ApiBearerAuth()
+export class MsmeInvoicesController {
+  constructor(private readonly invoices: MsmeInvoicesService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'List MSME invoices (filter by status, overdue, search)' })
+  @ApiQuery({ name: 'status', required: false, enum: ['draft', 'sent', 'paid', 'void'] })
+  @ApiQuery({ name: 'overdue', required: false, type: Boolean })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  async list(@Request() req: any, @Query('status') status?: string, @Query('overdue') overdue?: string, @Query('search') search?: string) {
+    const overdueOnly = overdue === 'true';
+    return this.invoices.getInvoicesForUser(req.user.id, { status, overdueOnly, search });
+  }
+
+  @Get('stats')
+  @ApiOperation({ summary: 'Invoice stats (counts + outstanding/overdue totals)' })
+  async stats(@Request() req: any) {
+    return this.invoices.getStats(req.user.id);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get invoice by id' })
+  async getOne(@Param('id') id: string, @Request() req: any) {
+    return this.invoices.getInvoiceById(id, req.user.id);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Create draft invoice (eTIMS-ready, KRA PIN validated)' })
+  async create(@Body() body: unknown, @Request() req: any) {
+    return this.invoices.createInvoice(req.user.id, body);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update draft/sent invoice' })
+  async update(@Param('id') id: string, @Body() body: unknown, @Request() req: any) {
+    return this.invoices.updateInvoice(id, req.user.id, body);
+  }
+
+  @Post(':id/send')
+  @ApiOperation({ summary: 'Send draft → sent' })
+  async send(@Param('id') id: string, @Request() req: any) {
+    return this.invoices.sendInvoice(id, req.user.id);
+  }
+
+  @Post(':id/pay')
+  @ApiOperation({ summary: 'Mark sent invoice as paid → creates MSME income + allocation' })
+  async pay(@Param('id') id: string, @Request() req: any) {
+    return this.invoices.payInvoice(id, req.user.id);
+  }
+
+  @Post(':id/void')
+  @ApiOperation({ summary: 'Void draft/sent invoice' })
+  async void(@Param('id') id: string, @Request() req: any) {
+    return this.invoices.voidInvoice(id, req.user.id);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete draft/sent invoice (paid must be voided, not deleted)' })
+  async remove(@Param('id') id: string, @Request() req: any) {
+    return this.invoices.deleteInvoice(id, req.user.id);
+  }
+}

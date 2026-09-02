@@ -17,7 +17,13 @@ import {
   ProjectKindSchema,
   FundingTierSchema,
   FundingStatusSchema,
-  ProjectStatusSchema
+  ProjectStatusSchema,
+  InvoiceCreateInputSchema,
+  InvoiceUpdateInputSchema,
+  InvoiceStatusSchema,
+  EtimsStatusSchema,
+  KraPinSchema,
+  InvoiceSchema
 } from '../index';
 
 describe('Shared Schemas - Pack 1', () => {
@@ -651,6 +657,81 @@ describe('Shared Schemas - Pack 1', () => {
           excessPending: null,
         };
         expect(() => ProjectSummarySchema.parse(summary)).toThrow();
+      });
+    });
+  });
+
+  describe('MSME Invoicing Schemas (020)', () => {
+    describe('KraPinSchema', () => {
+      it('accepts valid KRA PIN', () => {
+        expect(() => KraPinSchema.parse('P051234567A')).not.toThrow();
+        expect(() => KraPinSchema.parse('A123456789Z')).not.toThrow();
+      });
+      it('rejects invalid PIN', () => {
+        expect(() => KraPinSchema.parse('123456789')).toThrow();
+        expect(() => KraPinSchema.parse('p051234567a')).toThrow();
+        expect(() => KraPinSchema.parse('P05123456A')).toThrow();
+      });
+    });
+    describe('InvoiceStatusSchema', () => {
+      it('accepts valid statuses', () => {
+        expect(() => InvoiceStatusSchema.parse('draft')).not.toThrow();
+        expect(() => InvoiceStatusSchema.parse('sent')).not.toThrow();
+        expect(() => InvoiceStatusSchema.parse('paid')).not.toThrow();
+        expect(() => InvoiceStatusSchema.parse('void')).not.toThrow();
+      });
+      it('rejects invalid status', () => {
+        expect(() => InvoiceStatusSchema.parse('overdue')).toThrow();
+      });
+    });
+    describe('EtimsStatusSchema', () => {
+      it('accepts pending/submitted/accepted', () => {
+        expect(() => EtimsStatusSchema.parse('pending')).not.toThrow();
+        expect(() => EtimsStatusSchema.parse('accepted')).not.toThrow();
+      });
+    });
+    describe('InvoiceCreateInputSchema', () => {
+      it('validates correct input', () => {
+        const input = { customerName: 'Wanjiku Supplies', amount: 45000, dueDate: '2026-09-20' };
+        expect(() => InvoiceCreateInputSchema.parse(input)).not.toThrow();
+      });
+      it('validates with optional PIN and description', () => {
+        const input = { customerName: 'Acme Ltd', customerPin: 'P051234567A', amount: 120000, dueDate: '2026-09-30', description: 'Cement 50 bags' };
+        expect(() => InvoiceCreateInputSchema.parse(input)).not.toThrow();
+      });
+      it('rejects missing customerName', () => {
+        expect(() => InvoiceCreateInputSchema.parse({ amount: 1000, dueDate: '2026-09-20' } as any)).toThrow();
+      });
+      it('rejects non-positive amount', () => {
+        expect(() => InvoiceCreateInputSchema.parse({ customerName: 'X', amount: 0, dueDate: '2026-09-20' })).toThrow();
+      });
+      it('rejects invalid dueDate', () => {
+        expect(() => InvoiceCreateInputSchema.parse({ customerName: 'X', amount: 1000, dueDate: '20-09-2026' })).toThrow();
+      });
+      it('rejects invalid PIN', () => {
+        expect(() => InvoiceCreateInputSchema.parse({ customerName: 'X', customerPin: 'bad', amount: 1000, dueDate: '2026-09-20' })).toThrow();
+      });
+    });
+    describe('InvoiceUpdateInputSchema', () => {
+      it('allows partial update', () => {
+        expect(() => InvoiceUpdateInputSchema.parse({ customerName: 'New Name' })).not.toThrow();
+        expect(() => InvoiceUpdateInputSchema.parse({ amount: 999 })).not.toThrow();
+      });
+    });
+    describe('InvoiceSchema', () => {
+      it('validates complete invoice', () => {
+        const inv = {
+          id: '550e8400-e29b-41d4-a716-446655440020',
+          userId: '550e8400-e29b-41d4-a716-446655440021',
+          planId: '550e8400-e29b-41d4-a716-446655440022',
+          customerName: 'Wanjiku',
+          amount: 50000,
+          dueDate: '2026-09-20',
+          status: 'draft' as const,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        expect(() => InvoiceSchema.parse(inv)).not.toThrow();
       });
     });
   });

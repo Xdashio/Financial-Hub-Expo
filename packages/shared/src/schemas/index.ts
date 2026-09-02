@@ -592,6 +592,64 @@ export const ProjectSpendInputSchema = z.object({
 });
 export type ProjectSpendInput = z.infer<typeof ProjectSpendInputSchema>;
 
+// ============================================================================
+// MSME Invoicing & Receivables (020_msme_invoices.sql) — eTIMS-ready
+// ============================================================================
+
+export const InvoiceStatusSchema = z.enum(['draft', 'sent', 'paid', 'void']);
+export type InvoiceStatus = z.infer<typeof InvoiceStatusSchema>;
+
+export const EtimsStatusSchema = z.enum(['pending', 'submitted', 'accepted']);
+export type EtimsStatus = z.infer<typeof EtimsStatusSchema>;
+
+// KRA PIN: A + 9 digits + A (e.g. P051234567A) — 11 chars, uppercase.
+export const KraPinSchema = z.string().regex(/^[A-Z][0-9]{9}[A-Z]$/, {
+  message: 'KRA PIN must be 11 characters: letter + 9 digits + letter (e.g. P051234567A)',
+});
+export type KraPin = z.infer<typeof KraPinSchema>;
+
+// Draft/sent invoice creation — amount >0, due_date is ISO date, pin optional but validated when present.
+export const InvoiceCreateInputSchema = z.object({
+  customerName: z.string().min(1).max(100),
+  customerPin: KraPinSchema.optional().nullable(),
+  amount: z.number().positive(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'dueDate must be YYYY-MM-DD' }),
+  description: z.string().max(200).optional().nullable(),
+});
+export type InvoiceCreateInput = z.infer<typeof InvoiceCreateInputSchema>;
+
+// PATCH /msme/invoices/:id — partial update; status transitions validated in service, not here.
+export const InvoiceUpdateInputSchema = z.object({
+  customerName: z.string().min(1).max(100).optional(),
+  customerPin: KraPinSchema.optional().nullable(),
+  amount: z.number().positive().optional(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  description: z.string().max(200).optional().nullable(),
+  status: InvoiceStatusSchema.optional(),
+  etimsStatus: EtimsStatusSchema.optional().nullable(),
+});
+export type InvoiceUpdateInput = z.infer<typeof InvoiceUpdateInputSchema>;
+
+export const InvoiceSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  planId: z.string().uuid(),
+  customerName: z.string().min(1).max(100),
+  customerPin: KraPinSchema.nullable().optional(),
+  amount: z.number().positive(),
+  dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  status: InvoiceStatusSchema,
+  description: z.string().max(200).nullable().optional(),
+  etimsStatus: EtimsStatusSchema.nullable().optional(),
+  paidAt: z.string().datetime().nullable().optional(),
+  voidedAt: z.string().datetime().nullable().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+  // Derived, not stored — overdue is dueDate < today AND status in draft/sent
+  isOverdue: z.boolean().optional(),
+});
+export type Invoice = z.infer<typeof InvoiceSchema>;
+
 export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
   reason: z.string(),
@@ -1196,4 +1254,10 @@ export const schemas = {
   MerchantClassification: MerchantClassificationSchema,
   BehaviorEvent: BehaviorEventSchema,
   DisciplineScore: DisciplineScoreSchema,
+  InvoiceStatus: InvoiceStatusSchema,
+  EtimsStatus: EtimsStatusSchema,
+  KraPin: KraPinSchema,
+  InvoiceCreateInput: InvoiceCreateInputSchema,
+  InvoiceUpdateInput: InvoiceUpdateInputSchema,
+  Invoice: InvoiceSchema,
 };

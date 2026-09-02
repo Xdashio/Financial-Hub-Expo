@@ -587,4 +587,78 @@ describe('Shared Schemas - Pack 1', () => {
             });
         });
     });
+    describe('MSME Invoicing Schemas (020)', () => {
+        describe('KraPinSchema', () => {
+            it('accepts valid KRA PIN', () => {
+                expect(() => index_1.KraPinSchema.parse('P051234567A')).not.toThrow();
+                expect(() => index_1.KraPinSchema.parse('A123456789Z')).not.toThrow();
+            });
+            it('rejects invalid PIN', () => {
+                expect(() => index_1.KraPinSchema.parse('123456789')).toThrow();
+                expect(() => index_1.KraPinSchema.parse('p051234567a')).toThrow();
+                expect(() => index_1.KraPinSchema.parse('P05123456A')).toThrow();
+            });
+        });
+        describe('InvoiceStatusSchema', () => {
+            it('accepts valid statuses', () => {
+                expect(() => index_1.InvoiceStatusSchema.parse('draft')).not.toThrow();
+                expect(() => index_1.InvoiceStatusSchema.parse('sent')).not.toThrow();
+                expect(() => index_1.InvoiceStatusSchema.parse('paid')).not.toThrow();
+                expect(() => index_1.InvoiceStatusSchema.parse('void')).not.toThrow();
+            });
+            it('rejects invalid status', () => {
+                expect(() => index_1.InvoiceStatusSchema.parse('overdue')).toThrow();
+            });
+        });
+        describe('EtimsStatusSchema', () => {
+            it('accepts pending/submitted/accepted', () => {
+                expect(() => index_1.EtimsStatusSchema.parse('pending')).not.toThrow();
+                expect(() => index_1.EtimsStatusSchema.parse('accepted')).not.toThrow();
+            });
+        });
+        describe('InvoiceCreateInputSchema', () => {
+            it('validates correct input', () => {
+                const input = { customerName: 'Wanjiku Supplies', amount: 45000, dueDate: '2026-09-20' };
+                expect(() => index_1.InvoiceCreateInputSchema.parse(input)).not.toThrow();
+            });
+            it('validates with optional PIN and description', () => {
+                const input = { customerName: 'Acme Ltd', customerPin: 'P051234567A', amount: 120000, dueDate: '2026-09-30', description: 'Cement 50 bags' };
+                expect(() => index_1.InvoiceCreateInputSchema.parse(input)).not.toThrow();
+            });
+            it('rejects missing customerName', () => {
+                expect(() => index_1.InvoiceCreateInputSchema.parse({ amount: 1000, dueDate: '2026-09-20' })).toThrow();
+            });
+            it('rejects non-positive amount', () => {
+                expect(() => index_1.InvoiceCreateInputSchema.parse({ customerName: 'X', amount: 0, dueDate: '2026-09-20' })).toThrow();
+            });
+            it('rejects invalid dueDate', () => {
+                expect(() => index_1.InvoiceCreateInputSchema.parse({ customerName: 'X', amount: 1000, dueDate: '20-09-2026' })).toThrow();
+            });
+            it('rejects invalid PIN', () => {
+                expect(() => index_1.InvoiceCreateInputSchema.parse({ customerName: 'X', customerPin: 'bad', amount: 1000, dueDate: '2026-09-20' })).toThrow();
+            });
+        });
+        describe('InvoiceUpdateInputSchema', () => {
+            it('allows partial update', () => {
+                expect(() => index_1.InvoiceUpdateInputSchema.parse({ customerName: 'New Name' })).not.toThrow();
+                expect(() => index_1.InvoiceUpdateInputSchema.parse({ amount: 999 })).not.toThrow();
+            });
+        });
+        describe('InvoiceSchema', () => {
+            it('validates complete invoice', () => {
+                const inv = {
+                    id: '550e8400-e29b-41d4-a716-446655440020',
+                    userId: '550e8400-e29b-41d4-a716-446655440021',
+                    planId: '550e8400-e29b-41d4-a716-446655440022',
+                    customerName: 'Wanjiku',
+                    amount: 50000,
+                    dueDate: '2026-09-20',
+                    status: 'draft',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+                expect(() => index_1.InvoiceSchema.parse(inv)).not.toThrow();
+            });
+        });
+    });
 });
