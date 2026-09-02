@@ -25,6 +25,8 @@ import {
   MsmeProjectSpend, MsmeProjectSpendInsert,
   MsmeProjectExcessPrompt, MsmeProjectExcessPromptInsert, MsmeProjectExcessPromptUpdate,
   MsmeInvoice, MsmeInvoiceInsert, MsmeInvoiceUpdate,
+  MsmeStockItem, MsmeStockItemInsert, MsmeStockItemUpdate,
+  MsmeStockMovement, MsmeStockMovementInsert,
 } from '../database/database.types';
 import { sumMoney, netMoney } from '@financial-hub/shared';
 
@@ -1835,5 +1837,62 @@ export class SupabaseRepository {
 
   async getOverdueInvoicesByUserId(userId: string): Promise<MsmeInvoice[]> {
     return this.getMsmeInvoicesByUserId(userId, { overdueOnly: true });
+  }
+
+  // ========================================================================
+  // MSME Stock (021_msme_stock.sql)
+  // ========================================================================
+
+  async createMsmeStockItem(item: MsmeStockItemInsert): Promise<MsmeStockItem | null> {
+    const { data, error } = await this.supabase.from('msme_stock_items').insert(item).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeStockItemById(id: string): Promise<MsmeStockItem | null> {
+    const { data, error } = await this.supabase.from('msme_stock_items').select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeStockItemsByUserId(userId: string): Promise<MsmeStockItem[]> {
+    const { data, error } = await this.supabase.from('msme_stock_items').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getMsmeStockItemsByPlanId(planId: string): Promise<MsmeStockItem[]> {
+    const { data, error } = await this.supabase.from('msme_stock_items').select('*').eq('plan_id', planId).order('name', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateMsmeStockItem(id: string, updates: MsmeStockItemUpdate): Promise<MsmeStockItem | null> {
+    const { data, error } = await this.supabase.from('msme_stock_items').update(updates).eq('id', id).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteMsmeStockItem(id: string): Promise<void> {
+    const { error } = await this.supabase.from('msme_stock_items').delete().eq('id', id);
+    if (error) throw error;
+  }
+
+  async createMsmeStockMovement(m: MsmeStockMovementInsert): Promise<MsmeStockMovement | null> {
+    const { data, error } = await this.supabase.from('msme_stock_movements').insert(m).select().single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeStockMovementsByItemId(itemId: string): Promise<MsmeStockMovement[]> {
+    const { data, error } = await this.supabase.from('msme_stock_movements').select('*').eq('item_id', itemId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getMsmeStockMovementsByUserId(userId: string, limit = 50): Promise<MsmeStockMovement[]> {
+    const { data, error } = await this.supabase.from('msme_stock_movements').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(limit);
+    if (error) throw error;
+    return data || [];
   }
 }

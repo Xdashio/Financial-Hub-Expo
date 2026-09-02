@@ -102,6 +102,11 @@ import {
   Invoice,
   InvoiceCreateInput,
   InvoiceUpdateInput,
+  StockItem,
+  StockItemCreateInput,
+  StockItemUpdateInput,
+  StockMovement,
+  StockMovementCreateInput,
 } from '@financial-hub/shared';
 
 export const onboardingApi = {
@@ -282,6 +287,23 @@ export const msmeInvoicesApi = {
   pay: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/pay`, {}),
   void: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/void`, {}),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/msme/invoices/${id}`),
+};
+
+export const msmeStockApi = {
+  getAll: (params?: { search?: string; lowStock?: boolean }) => {
+    const q = new URLSearchParams();
+    if (params?.search) q.set('search', params.search);
+    if (params?.lowStock) q.set('lowStock', 'true');
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return api.get<StockItem[]>(`/msme/stock${qs}`);
+  },
+  getStats: () => api.get<{ totalItems: number; lowStock: number; outOfStock: number; totalValueCost: number; totalValuePrice: number; potentialMargin: number }>('/msme/stock/stats'),
+  getById: (id: string) => api.get<StockItem>(`/msme/stock/${id}`),
+  create: (data: StockItemCreateInput) => api.post<StockItem>('/msme/stock', data),
+  update: (id: string, data: StockItemUpdateInput) => api.patch<StockItem>(`/msme/stock/${id}`, data),
+  delete: (id: string) => api.delete<{ deleted: boolean }>(`/msme/stock/${id}`),
+  getMovements: (id: string) => api.get<StockMovement[]>(`/msme/stock/${id}/movements`),
+  move: (id: string, data: StockMovementCreateInput) => api.post<{ movement: StockMovement; item: StockItem }>(`/msme/stock/${id}/movements`, data),
 };
 
 export const msmeProjectsApi = {

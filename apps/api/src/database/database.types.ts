@@ -898,3 +898,74 @@ export interface MsmeInvoiceUpdate {
   voided_at?: string | null;
   updated_at?: string;
 }
+
+// MSME Stock (021_msme_stock.sql)
+export interface MsmeStockItem {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  name: string;
+  sku: string | null;
+  qty_on_hand: number;
+  unit_cost: number;
+  unit_price: number;
+  low_stock_threshold: number;
+  location: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MsmeStockItemInsert {
+  id?: string;
+  user_id: string;
+  plan_id: string;
+  name: string;
+  sku?: string | null;
+  qty_on_hand?: number;
+  unit_cost?: number;
+  unit_price?: number;
+  low_stock_threshold?: number;
+  location?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MsmeStockItemUpdate {
+  id?: string;
+  user_id?: string;
+  plan_id?: string;
+  name?: string;
+  sku?: string | null;
+  qty_on_hand?: number;
+  unit_cost?: number;
+  unit_price?: number;
+  low_stock_threshold?: number;
+  location?: string | null;
+  updated_at?: string;
+}
+
+export interface MsmeStockMovement {
+  id: string;
+  item_id: string;
+  user_id: string;
+  type: 'in' | 'out' | 'adjust';
+  qty: number;
+  unit_cost: number | null;
+  total_cost: number;
+  note: string | null;
+  pocket_id: string | null;
+  created_at: string;
+}
+
+export interface MsmeStockMovementInsert {
+  id?: string;
+  item_id: string;
+  user_id: string;
+  type: 'in' | 'out' | 'adjust';
+  qty: number;
+  unit_cost?: number | null;
+  total_cost: number;
+  note?: string | null;
+  pocket_id?: string | null;
+  created_at?: string;
+}

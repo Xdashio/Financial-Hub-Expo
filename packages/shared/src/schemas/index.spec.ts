@@ -23,7 +23,13 @@ import {
   InvoiceStatusSchema,
   EtimsStatusSchema,
   KraPinSchema,
-  InvoiceSchema
+  InvoiceSchema,
+  StockItemCreateInputSchema,
+  StockItemUpdateInputSchema,
+  StockMovementCreateInputSchema,
+  StockItemSchema,
+  StockMovementSchema,
+  StockMovementTypeSchema
 } from '../index';
 
 describe('Shared Schemas - Pack 1', () => {
@@ -732,6 +738,58 @@ describe('Shared Schemas - Pack 1', () => {
           updatedAt: new Date().toISOString(),
         };
         expect(() => InvoiceSchema.parse(inv)).not.toThrow();
+      });
+    });
+  });
+
+  describe('MSME Stock Schemas (021)', () => {
+    describe('StockItemCreateInputSchema', () => {
+      it('validates correct input', () => {
+        expect(() => StockItemCreateInputSchema.parse({ name: 'Cement', unitCost: 500, unitPrice: 650 })).not.toThrow();
+      });
+      it('validates with optional SKU and qty', () => {
+        expect(() => StockItemCreateInputSchema.parse({ name: 'Cement', sku: 'CEM50', qtyOnHand: 10, unitCost: 500, unitPrice: 650, lowStockThreshold: 5 })).not.toThrow();
+      });
+      it('rejects missing name', () => {
+        expect(() => StockItemCreateInputSchema.parse({ unitCost: 500, unitPrice: 650 } as any)).toThrow();
+      });
+      it('rejects negative cost', () => {
+        expect(() => StockItemCreateInputSchema.parse({ name: 'X', unitCost: -1, unitPrice: 10 })).toThrow();
+      });
+    });
+    describe('StockMovementCreateInputSchema', () => {
+      it('validates in movement', () => {
+        expect(() => StockMovementCreateInputSchema.parse({ type: 'in', qty: 5 })).not.toThrow();
+      });
+      it('rejects zero qty', () => {
+        expect(() => StockMovementCreateInputSchema.parse({ type: 'out', qty: 0 })).toThrow();
+      });
+      it('rejects invalid type', () => {
+        expect(() => StockMovementCreateInputSchema.parse({ type: 'bad', qty: 5 } as any)).toThrow();
+      });
+    });
+    describe('StockItemSchema', () => {
+      it('validates stock item', () => {
+        const item = {
+          id: '550e8400-e29b-41d4-a716-446655440030',
+          userId: '550e8400-e29b-41d4-a716-446655440031',
+          planId: '550e8400-e29b-41d4-a716-446655440032',
+          name: 'Cement',
+          qtyOnHand: 10,
+          unitCost: 500,
+          unitPrice: 650,
+          lowStockThreshold: 5,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        expect(() => StockItemSchema.parse(item)).not.toThrow();
+      });
+    });
+    describe('StockMovementTypeSchema', () => {
+      it('accepts in/out/adjust', () => {
+        expect(() => StockMovementTypeSchema.parse('in')).not.toThrow();
+        expect(() => StockMovementTypeSchema.parse('out')).not.toThrow();
+        expect(() => StockMovementTypeSchema.parse('adjust')).not.toThrow();
       });
     });
   });

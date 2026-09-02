@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExcessPromptTargetSchema = exports.ExcessPromptStatusSchema = exports.MsmeProjectSpendSchema = exports.MsmeProjectAllocationSchema = exports.MsmeProjectIncomeEventSchema = exports.MsmeProjectTierSchema = exports.MsmeProjectSchema = exports.ProjectSummarySchema = exports.SpendingControlsSchema = exports.TierSummarySchema = exports.ProjectIncomeInputSchema = exports.ProjectCreateInputSchema = exports.ProjectStatusSchema = exports.FundingStatusSchema = exports.FundingTierSchema = exports.ProjectKindSchema = exports.MsmeOnboardingInputSchema = exports.MsmePocketInputSchema = exports.BusinessStageSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.MSME_SPENDABLE_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.BusinessPocketCategorySchema = exports.PocketKindSchema = exports.SegmentSchema = exports.PlanTypeSchema = void 0;
-exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.MsmeOperationalInsightsSchema = exports.MsmeAlertSchema = exports.MsmeProjectStatsSchema = exports.MsmeInvoiceStatsSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = void 0;
+exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.StockMovementSchema = exports.StockItemSchema = exports.StockMovementCreateInputSchema = exports.StockMovementTypeSchema = exports.StockItemUpdateInputSchema = exports.StockItemCreateInputSchema = exports.MsmeOperationalInsightsSchema = exports.MsmeAlertSchema = exports.MsmeProjectStatsSchema = exports.MsmeInvoiceStatsSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -563,6 +563,61 @@ exports.MsmeOperationalInsightsSchema = zod_1.z.object({
     fundingVelocityDays: zod_1.z.number().nonnegative().nullable(),
     alerts: zod_1.z.array(exports.MsmeAlertSchema),
 });
+// ============================================================================
+// MSME Stock & Inventory (021_msme_stock.sql)
+// ============================================================================
+exports.StockItemCreateInputSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(100),
+    sku: zod_1.z.string().min(1).max(30).optional().nullable(),
+    qtyOnHand: zod_1.z.number().nonnegative().optional(),
+    unitCost: zod_1.z.number().nonnegative(),
+    unitPrice: zod_1.z.number().nonnegative(),
+    lowStockThreshold: zod_1.z.number().nonnegative().optional(),
+    location: zod_1.z.string().max(100).optional().nullable(),
+});
+exports.StockItemUpdateInputSchema = zod_1.z.object({
+    name: zod_1.z.string().min(1).max(100).optional(),
+    sku: zod_1.z.string().min(1).max(30).optional().nullable(),
+    unitCost: zod_1.z.number().nonnegative().optional(),
+    unitPrice: zod_1.z.number().nonnegative().optional(),
+    lowStockThreshold: zod_1.z.number().nonnegative().optional(),
+    location: zod_1.z.string().max(100).optional().nullable(),
+});
+exports.StockMovementTypeSchema = zod_1.z.enum(['in', 'out', 'adjust']);
+exports.StockMovementCreateInputSchema = zod_1.z.object({
+    type: exports.StockMovementTypeSchema,
+    qty: zod_1.z.number().positive(),
+    unitCost: zod_1.z.number().nonnegative().optional().nullable(),
+    note: zod_1.z.string().max(200).optional().nullable(),
+    pocketId: zod_1.z.string().uuid().optional().nullable(),
+});
+exports.StockItemSchema = zod_1.z.object({
+    id: zod_1.z.string().uuid(),
+    userId: zod_1.z.string().uuid(),
+    planId: zod_1.z.string().uuid(),
+    name: zod_1.z.string().min(1).max(100),
+    sku: zod_1.z.string().max(30).nullable().optional(),
+    qtyOnHand: zod_1.z.number().nonnegative(),
+    unitCost: zod_1.z.number().nonnegative(),
+    unitPrice: zod_1.z.number().nonnegative(),
+    lowStockThreshold: zod_1.z.number().nonnegative(),
+    location: zod_1.z.string().max(100).nullable().optional(),
+    isLowStock: zod_1.z.boolean().optional(),
+    createdAt: zod_1.z.string().datetime(),
+    updatedAt: zod_1.z.string().datetime(),
+});
+exports.StockMovementSchema = zod_1.z.object({
+    id: zod_1.z.string().uuid(),
+    itemId: zod_1.z.string().uuid(),
+    userId: zod_1.z.string().uuid(),
+    type: exports.StockMovementTypeSchema,
+    qty: zod_1.z.number().positive(),
+    unitCost: zod_1.z.number().nonnegative().nullable().optional(),
+    totalCost: zod_1.z.number().nonnegative(),
+    note: zod_1.z.string().max(200).nullable().optional(),
+    pocketId: zod_1.z.string().uuid().nullable().optional(),
+    createdAt: zod_1.z.string().datetime(),
+});
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
     reason: zod_1.z.string(),
@@ -1075,4 +1130,10 @@ exports.schemas = {
     MsmeProjectStats: exports.MsmeProjectStatsSchema,
     MsmeAlert: exports.MsmeAlertSchema,
     MsmeOperationalInsights: exports.MsmeOperationalInsightsSchema,
+    StockItemCreateInput: exports.StockItemCreateInputSchema,
+    StockItemUpdateInput: exports.StockItemUpdateInputSchema,
+    StockMovementType: exports.StockMovementTypeSchema,
+    StockMovementCreateInput: exports.StockMovementCreateInputSchema,
+    StockItem: exports.StockItemSchema,
+    StockMovement: exports.StockMovementSchema,
 };

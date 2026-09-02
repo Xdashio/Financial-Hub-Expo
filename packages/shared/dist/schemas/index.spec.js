@@ -661,4 +661,55 @@ describe('Shared Schemas - Pack 1', () => {
             });
         });
     });
+    describe('MSME Stock Schemas (021)', () => {
+        describe('StockItemCreateInputSchema', () => {
+            it('validates correct input', () => {
+                expect(() => index_1.StockItemCreateInputSchema.parse({ name: 'Cement', unitCost: 500, unitPrice: 650 })).not.toThrow();
+            });
+            it('validates with optional SKU and qty', () => {
+                expect(() => index_1.StockItemCreateInputSchema.parse({ name: 'Cement', sku: 'CEM50', qtyOnHand: 10, unitCost: 500, unitPrice: 650, lowStockThreshold: 5 })).not.toThrow();
+            });
+            it('rejects missing name', () => {
+                expect(() => index_1.StockItemCreateInputSchema.parse({ unitCost: 500, unitPrice: 650 })).toThrow();
+            });
+            it('rejects negative cost', () => {
+                expect(() => index_1.StockItemCreateInputSchema.parse({ name: 'X', unitCost: -1, unitPrice: 10 })).toThrow();
+            });
+        });
+        describe('StockMovementCreateInputSchema', () => {
+            it('validates in movement', () => {
+                expect(() => index_1.StockMovementCreateInputSchema.parse({ type: 'in', qty: 5 })).not.toThrow();
+            });
+            it('rejects zero qty', () => {
+                expect(() => index_1.StockMovementCreateInputSchema.parse({ type: 'out', qty: 0 })).toThrow();
+            });
+            it('rejects invalid type', () => {
+                expect(() => index_1.StockMovementCreateInputSchema.parse({ type: 'bad', qty: 5 })).toThrow();
+            });
+        });
+        describe('StockItemSchema', () => {
+            it('validates stock item', () => {
+                const item = {
+                    id: '550e8400-e29b-41d4-a716-446655440030',
+                    userId: '550e8400-e29b-41d4-a716-446655440031',
+                    planId: '550e8400-e29b-41d4-a716-446655440032',
+                    name: 'Cement',
+                    qtyOnHand: 10,
+                    unitCost: 500,
+                    unitPrice: 650,
+                    lowStockThreshold: 5,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                };
+                expect(() => index_1.StockItemSchema.parse(item)).not.toThrow();
+            });
+        });
+        describe('StockMovementTypeSchema', () => {
+            it('accepts in/out/adjust', () => {
+                expect(() => index_1.StockMovementTypeSchema.parse('in')).not.toThrow();
+                expect(() => index_1.StockMovementTypeSchema.parse('out')).not.toThrow();
+                expect(() => index_1.StockMovementTypeSchema.parse('adjust')).not.toThrow();
+            });
+        });
+    });
 });
