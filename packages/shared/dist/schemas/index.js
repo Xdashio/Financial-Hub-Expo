@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ExcessPromptTargetSchema = exports.ExcessPromptStatusSchema = exports.MsmeProjectSpendSchema = exports.MsmeProjectAllocationSchema = exports.MsmeProjectIncomeEventSchema = exports.MsmeProjectTierSchema = exports.MsmeProjectSchema = exports.ProjectSummarySchema = exports.SpendingControlsSchema = exports.TierSummarySchema = exports.ProjectIncomeInputSchema = exports.ProjectCreateInputSchema = exports.ProjectStatusSchema = exports.FundingStatusSchema = exports.FundingTierSchema = exports.ProjectKindSchema = exports.MsmeOnboardingInputSchema = exports.MsmePocketInputSchema = exports.BusinessStageSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.MSME_SPENDABLE_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.BusinessPocketCategorySchema = exports.PocketKindSchema = exports.SegmentSchema = exports.PlanTypeSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = void 0;
+exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -480,6 +481,51 @@ exports.ProjectSpendInputSchema = zod_1.z.object({
     note: zod_1.z.string().max(300).optional(),
     // §20 — bypass Wants lock when user confirms risky spend.
     confirmRisky: zod_1.z.boolean().optional(),
+});
+// ============================================================================
+// MSME Invoicing & Receivables (020_msme_invoices.sql) — eTIMS-ready
+// ============================================================================
+exports.InvoiceStatusSchema = zod_1.z.enum(['draft', 'sent', 'paid', 'void']);
+exports.EtimsStatusSchema = zod_1.z.enum(['pending', 'submitted', 'accepted']);
+// KRA PIN: A + 9 digits + A (e.g. P051234567A) — 11 chars, uppercase.
+exports.KraPinSchema = zod_1.z.string().regex(/^[A-Z][0-9]{9}[A-Z]$/, {
+    message: 'KRA PIN must be 11 characters: letter + 9 digits + letter (e.g. P051234567A)',
+});
+// Draft/sent invoice creation — amount >0, due_date is ISO date, pin optional but validated when present.
+exports.InvoiceCreateInputSchema = zod_1.z.object({
+    customerName: zod_1.z.string().min(1).max(100),
+    customerPin: exports.KraPinSchema.optional().nullable(),
+    amount: zod_1.z.number().positive(),
+    dueDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'dueDate must be YYYY-MM-DD' }),
+    description: zod_1.z.string().max(200).optional().nullable(),
+});
+// PATCH /msme/invoices/:id — partial update; status transitions validated in service, not here.
+exports.InvoiceUpdateInputSchema = zod_1.z.object({
+    customerName: zod_1.z.string().min(1).max(100).optional(),
+    customerPin: exports.KraPinSchema.optional().nullable(),
+    amount: zod_1.z.number().positive().optional(),
+    dueDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    description: zod_1.z.string().max(200).optional().nullable(),
+    status: exports.InvoiceStatusSchema.optional(),
+    etimsStatus: exports.EtimsStatusSchema.optional().nullable(),
+});
+exports.InvoiceSchema = zod_1.z.object({
+    id: zod_1.z.string().uuid(),
+    userId: zod_1.z.string().uuid(),
+    planId: zod_1.z.string().uuid(),
+    customerName: zod_1.z.string().min(1).max(100),
+    customerPin: exports.KraPinSchema.nullable().optional(),
+    amount: zod_1.z.number().positive(),
+    dueDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    status: exports.InvoiceStatusSchema,
+    description: zod_1.z.string().max(200).nullable().optional(),
+    etimsStatus: exports.EtimsStatusSchema.nullable().optional(),
+    paidAt: zod_1.z.string().datetime().nullable().optional(),
+    voidedAt: zod_1.z.string().datetime().nullable().optional(),
+    createdAt: zod_1.z.string().datetime(),
+    updatedAt: zod_1.z.string().datetime(),
+    // Derived, not stored — overdue is dueDate < today AND status in draft/sent
+    isOverdue: zod_1.z.boolean().optional(),
 });
 exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
@@ -983,4 +1029,10 @@ exports.schemas = {
     MerchantClassification: exports.MerchantClassificationSchema,
     BehaviorEvent: exports.BehaviorEventSchema,
     DisciplineScore: exports.DisciplineScoreSchema,
+    InvoiceStatus: exports.InvoiceStatusSchema,
+    EtimsStatus: exports.EtimsStatusSchema,
+    KraPin: exports.KraPinSchema,
+    InvoiceCreateInput: exports.InvoiceCreateInputSchema,
+    InvoiceUpdateInput: exports.InvoiceUpdateInputSchema,
+    Invoice: exports.InvoiceSchema,
 };

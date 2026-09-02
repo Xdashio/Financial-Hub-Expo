@@ -1070,6 +1070,108 @@ export declare const ProjectSpendInputSchema: z.ZodObject<{
     confirmRisky?: boolean | undefined;
 }>;
 export type ProjectSpendInput = z.infer<typeof ProjectSpendInputSchema>;
+export declare const InvoiceStatusSchema: z.ZodEnum<["draft", "sent", "paid", "void"]>;
+export type InvoiceStatus = z.infer<typeof InvoiceStatusSchema>;
+export declare const EtimsStatusSchema: z.ZodEnum<["pending", "submitted", "accepted"]>;
+export type EtimsStatus = z.infer<typeof EtimsStatusSchema>;
+export declare const KraPinSchema: z.ZodString;
+export type KraPin = z.infer<typeof KraPinSchema>;
+export declare const InvoiceCreateInputSchema: z.ZodObject<{
+    customerName: z.ZodString;
+    customerPin: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    amount: z.ZodNumber;
+    dueDate: z.ZodString;
+    description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    amount: number;
+    customerName: string;
+    dueDate: string;
+    customerPin?: string | null | undefined;
+    description?: string | null | undefined;
+}, {
+    amount: number;
+    customerName: string;
+    dueDate: string;
+    customerPin?: string | null | undefined;
+    description?: string | null | undefined;
+}>;
+export type InvoiceCreateInput = z.infer<typeof InvoiceCreateInputSchema>;
+export declare const InvoiceUpdateInputSchema: z.ZodObject<{
+    customerName: z.ZodOptional<z.ZodString>;
+    customerPin: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    amount: z.ZodOptional<z.ZodNumber>;
+    dueDate: z.ZodOptional<z.ZodString>;
+    description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    status: z.ZodOptional<z.ZodEnum<["draft", "sent", "paid", "void"]>>;
+    etimsStatus: z.ZodNullable<z.ZodOptional<z.ZodEnum<["pending", "submitted", "accepted"]>>>;
+}, "strip", z.ZodTypeAny, {
+    status?: "void" | "draft" | "sent" | "paid" | undefined;
+    amount?: number | undefined;
+    customerName?: string | undefined;
+    customerPin?: string | null | undefined;
+    dueDate?: string | undefined;
+    description?: string | null | undefined;
+    etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+}, {
+    status?: "void" | "draft" | "sent" | "paid" | undefined;
+    amount?: number | undefined;
+    customerName?: string | undefined;
+    customerPin?: string | null | undefined;
+    dueDate?: string | undefined;
+    description?: string | null | undefined;
+    etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+}>;
+export type InvoiceUpdateInput = z.infer<typeof InvoiceUpdateInputSchema>;
+export declare const InvoiceSchema: z.ZodObject<{
+    id: z.ZodString;
+    userId: z.ZodString;
+    planId: z.ZodString;
+    customerName: z.ZodString;
+    customerPin: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    amount: z.ZodNumber;
+    dueDate: z.ZodString;
+    status: z.ZodEnum<["draft", "sent", "paid", "void"]>;
+    description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    etimsStatus: z.ZodOptional<z.ZodNullable<z.ZodEnum<["pending", "submitted", "accepted"]>>>;
+    paidAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    voidedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+    isOverdue: z.ZodOptional<z.ZodBoolean>;
+}, "strip", z.ZodTypeAny, {
+    status: "void" | "draft" | "sent" | "paid";
+    amount: number;
+    id: string;
+    userId: string;
+    planId: string;
+    createdAt: string;
+    updatedAt: string;
+    customerName: string;
+    dueDate: string;
+    customerPin?: string | null | undefined;
+    description?: string | null | undefined;
+    etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+    paidAt?: string | null | undefined;
+    voidedAt?: string | null | undefined;
+    isOverdue?: boolean | undefined;
+}, {
+    status: "void" | "draft" | "sent" | "paid";
+    amount: number;
+    id: string;
+    userId: string;
+    planId: string;
+    createdAt: string;
+    updatedAt: string;
+    customerName: string;
+    dueDate: string;
+    customerPin?: string | null | undefined;
+    description?: string | null | undefined;
+    etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+    paidAt?: string | null | undefined;
+    voidedAt?: string | null | undefined;
+    isOverdue?: boolean | undefined;
+}>;
+export type Invoice = z.infer<typeof InvoiceSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
     rule: z.ZodString;
     reason: z.ZodString;
@@ -4951,6 +5053,102 @@ export declare const schemas: {
         delta: number;
         period: string;
         calculatedAt: string;
+    }>;
+    InvoiceStatus: z.ZodEnum<["draft", "sent", "paid", "void"]>;
+    EtimsStatus: z.ZodEnum<["pending", "submitted", "accepted"]>;
+    KraPin: z.ZodString;
+    InvoiceCreateInput: z.ZodObject<{
+        customerName: z.ZodString;
+        customerPin: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        amount: z.ZodNumber;
+        dueDate: z.ZodString;
+        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        amount: number;
+        customerName: string;
+        dueDate: string;
+        customerPin?: string | null | undefined;
+        description?: string | null | undefined;
+    }, {
+        amount: number;
+        customerName: string;
+        dueDate: string;
+        customerPin?: string | null | undefined;
+        description?: string | null | undefined;
+    }>;
+    InvoiceUpdateInput: z.ZodObject<{
+        customerName: z.ZodOptional<z.ZodString>;
+        customerPin: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        amount: z.ZodOptional<z.ZodNumber>;
+        dueDate: z.ZodOptional<z.ZodString>;
+        description: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        status: z.ZodOptional<z.ZodEnum<["draft", "sent", "paid", "void"]>>;
+        etimsStatus: z.ZodNullable<z.ZodOptional<z.ZodEnum<["pending", "submitted", "accepted"]>>>;
+    }, "strip", z.ZodTypeAny, {
+        status?: "void" | "draft" | "sent" | "paid" | undefined;
+        amount?: number | undefined;
+        customerName?: string | undefined;
+        customerPin?: string | null | undefined;
+        dueDate?: string | undefined;
+        description?: string | null | undefined;
+        etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+    }, {
+        status?: "void" | "draft" | "sent" | "paid" | undefined;
+        amount?: number | undefined;
+        customerName?: string | undefined;
+        customerPin?: string | null | undefined;
+        dueDate?: string | undefined;
+        description?: string | null | undefined;
+        etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+    }>;
+    Invoice: z.ZodObject<{
+        id: z.ZodString;
+        userId: z.ZodString;
+        planId: z.ZodString;
+        customerName: z.ZodString;
+        customerPin: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        amount: z.ZodNumber;
+        dueDate: z.ZodString;
+        status: z.ZodEnum<["draft", "sent", "paid", "void"]>;
+        description: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        etimsStatus: z.ZodOptional<z.ZodNullable<z.ZodEnum<["pending", "submitted", "accepted"]>>>;
+        paidAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        voidedAt: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+        isOverdue: z.ZodOptional<z.ZodBoolean>;
+    }, "strip", z.ZodTypeAny, {
+        status: "void" | "draft" | "sent" | "paid";
+        amount: number;
+        id: string;
+        userId: string;
+        planId: string;
+        createdAt: string;
+        updatedAt: string;
+        customerName: string;
+        dueDate: string;
+        customerPin?: string | null | undefined;
+        description?: string | null | undefined;
+        etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+        paidAt?: string | null | undefined;
+        voidedAt?: string | null | undefined;
+        isOverdue?: boolean | undefined;
+    }, {
+        status: "void" | "draft" | "sent" | "paid";
+        amount: number;
+        id: string;
+        userId: string;
+        planId: string;
+        createdAt: string;
+        updatedAt: string;
+        customerName: string;
+        dueDate: string;
+        customerPin?: string | null | undefined;
+        description?: string | null | undefined;
+        etimsStatus?: "pending" | "submitted" | "accepted" | null | undefined;
+        paidAt?: string | null | undefined;
+        voidedAt?: string | null | undefined;
+        isOverdue?: boolean | undefined;
     }>;
 };
 //# sourceMappingURL=index.d.ts.map

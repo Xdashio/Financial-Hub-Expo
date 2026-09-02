@@ -24,6 +24,7 @@ import {
   MsmeProjectAllocation, MsmeProjectAllocationInsert,
   MsmeProjectSpend, MsmeProjectSpendInsert,
   MsmeProjectExcessPrompt, MsmeProjectExcessPromptInsert, MsmeProjectExcessPromptUpdate,
+  MsmeInvoice, MsmeInvoiceInsert, MsmeInvoiceUpdate,
 } from '../database/database.types';
 import { sumMoney, netMoney } from '@financial-hub/shared';
 
@@ -1751,5 +1752,88 @@ export class SupabaseRepository {
       .single();
     if (error) throw error;
     return data;
+  }
+
+  // ========================================================================
+  // MSME Invoicing & Receivables (020_msme_invoices.sql) — eTIMS-ready
+  // ========================================================================
+
+  async createMsmeInvoice(invoice: MsmeInvoiceInsert): Promise<MsmeInvoice | null> {
+    const { data, error } = await this.supabase
+      .from('msme_invoices')
+      .insert(invoice)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeInvoiceById(id: string): Promise<MsmeInvoice | null> {
+    const { data, error } = await this.supabase
+      .from('msme_invoices')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeInvoicesByUserId(
+    userId: string,
+    filters?: { status?: string; overdueOnly?: boolean }
+  ): Promise<MsmeInvoice[]> {
+    let query = this.supabase
+      .from('msme_invoices')
+      .select('*')
+      .eq('user_id', userId)
+      .order('due_date', { ascending: true });
+
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    let rows = (data || []) as MsmeInvoice[];
+
+    if (filters?.overdueOnly) {
+      const today = new Date().toISOString().slice(0, 10);
+      rows = rows.filter(r => r.due_date < today && (r.status === 'draft' || r.status === 'sent'));
+    }
+
+    return rows;
+  }
+
+  async getMsmeInvoicesByPlanId(planId: string): Promise<MsmeInvoice[]> {
+    const { data, error } = await this.supabase
+      .from('msme_invoices')
+      .select('*')
+      .eq('plan_id', planId)
+      .order('due_date', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateMsmeInvoice(id: string, updates: MsmeInvoiceUpdate): Promise<MsmeInvoice | null> {
+    const { data, error } = await this.supabase
+      .from('msme_invoices')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async deleteMsmeInvoice(id: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('msme_invoices')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+  }
+
+  async getOverdueInvoicesByUserId(userId: string): Promise<MsmeInvoice[]> {
+    return this.getMsmeInvoicesByUserId(userId, { overdueOnly: true });
   }
 }

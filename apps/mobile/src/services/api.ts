@@ -99,6 +99,9 @@ import {
   ProjectIncomeInput,
   ProjectKind,
   FundingTier,
+  Invoice,
+  InvoiceCreateInput,
+  InvoiceUpdateInput,
 } from '@financial-hub/shared';
 
 export const onboardingApi = {
@@ -260,6 +263,25 @@ export const loansApi = {
     api.post<any>(`/loans/${id}/purpose-sub-pockets`, data),
   fundRepayment: (id: string, amount: number) =>
     api.post<any>(`/loans/${id}/fund-repayment`, { amount }),
+};
+
+export const msmeInvoicesApi = {
+  getAll: (params?: { status?: string; overdue?: boolean; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set('status', params.status);
+    if (params?.overdue) q.set('overdue', 'true');
+    if (params?.search) q.set('search', params.search);
+    const qs = q.toString() ? `?${q.toString()}` : '';
+    return api.get<Invoice[]>(`/msme/invoices${qs}`);
+  },
+  getStats: () => api.get<{ total: number; draft: number; sent: number; paid: number; voidCount: number; overdue: number; outstanding: number; overdueAmount: number; paidAmount: number }>('/msme/invoices/stats'),
+  getById: (id: string) => api.get<Invoice>(`/msme/invoices/${id}`),
+  create: (data: InvoiceCreateInput) => api.post<Invoice>('/msme/invoices', data),
+  update: (id: string, data: InvoiceUpdateInput) => api.patch<Invoice>(`/msme/invoices/${id}`, data),
+  send: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/send`, {}),
+  pay: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/pay`, {}),
+  void: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/void`, {}),
+  delete: (id: string) => api.delete<{ deleted: boolean }>(`/msme/invoices/${id}`),
 };
 
 export const msmeProjectsApi = {
