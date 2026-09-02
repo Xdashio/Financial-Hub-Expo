@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { radius, spacing, typography, shadow } from '../../src/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { incomeApi, createIdempotencyKey } from '@/services/api';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
-import { ArrowLeft, Plus, Calendar, ShieldCheck } from 'lucide-react-native';
+import { ArrowLeft, Plus, Calendar, ShieldCheck, Wallet, Building2, PiggyBank } from 'lucide-react-native';
 import { showAllocationReceived } from '@/services/notifications';
 import { enqueueWrite } from '@/services/offline-queue';
 import { ScreenContainer, MoneyAllocationPrompt } from '@/components/ui';
@@ -35,6 +36,8 @@ export default function IncomeEntryScreen() {
   const { colors } = useTheme();
   const router = useRouter();
   const { alert, modal } = useAlertModal();
+  const { segment } = useLocalSearchParams<{ segment?: string }>();
+  const segmentParam = segment === 'msme' ? 'msme' : undefined;
 
   const [amount, setAmount] = useState('');
   const [source, setSource] = useState<Source>('client_payment');
@@ -80,11 +83,11 @@ export default function IncomeEntryScreen() {
     }
     setIsPreviewLoading(true);
     incomeApi
-      .allocatePreview({ amount: amt, source: src })
+      .allocatePreview({ amount: amt, source: src, ...(segmentParam ? { segment: segmentParam } : {}) })
       .then((res) => setPreview(res.preview))
       .catch(() => setPreview(null))
       .finally(() => setIsPreviewLoading(false));
-  }, []);
+  }, [segmentParam]);
 
   useEffect(() => {
     if (previewTimer.current) clearTimeout(previewTimer.current);
@@ -133,6 +136,7 @@ export default function IncomeEntryScreen() {
         date: isoDate,
         run_allocation: runAllocation,
         idempotency_key: idempotencyKey,
+        ...(segmentParam ? { segment: segmentParam } : {}),
       });
 
       // Reconcile with the server's actual allocation (source of truth —
@@ -165,6 +169,7 @@ export default function IncomeEntryScreen() {
           allocations: JSON.stringify(result.allocation.allocations),
           totalAllocated: String(result.allocation.total_allocated),
           unallocated: String(result.allocation.unallocated),
+          segment: segmentParam || '',
         },
       });
     } catch (error: any) {
@@ -180,6 +185,7 @@ export default function IncomeEntryScreen() {
           date: isoDate,
           run_allocation: runAllocation,
           idempotency_key: idempotencyKey,
+          ...(segmentParam ? { segment: segmentParam } : {}),
         });
         alert(
           'Saved offline',
@@ -202,7 +208,6 @@ export default function IncomeEntryScreen() {
       setIsSubmitting(true);
 
       if (optionId === 'pocket') {
-        // Navigate to pocket picker screen
         setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
         setIsSubmitting(false);
         router.push({
@@ -210,13 +215,13 @@ export default function IncomeEntryScreen() {
           params: {
             incomeEventId: surplusPrompt.incomeEventId,
             surplusAmount: String(surplusPrompt.surplusAmount),
+            ...(segmentParam ? { segment: segmentParam } : {}),
           },
         });
         return;
       }
 
       if (optionId === 'new_pocket') {
-        // Navigate to pocket creation screen
         setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
         setIsSubmitting(false);
         router.push({
@@ -224,14 +229,38 @@ export default function IncomeEntryScreen() {
           params: {
             incomeEventId: surplusPrompt.incomeEventId,
             surplusAmount: String(surplusPrompt.surplusAmount),
+            ...(segmentParam ? { segment: segmentParam } : {}),
           },
         });
         return;
       }
 
-      // Handle main_pocket allocation
+      if (optionId === 'savings') {
+        await incomeApi.allocateSurplus(surplusPrompt.incomeEventId, {
+          target: 'savings',
+          ...(segmentParam ? { segment: segmentParam } : {}),
+        });
+        // Refresh data and navigate to success — business copy: excess → Savings
+        useDataSync.getState().bump();
+        setSurplusPrompt({ visible: false, incomeEventId: '', surplusAmount: 0 });
+        router.replace({
+          pathname: '/(income)/success',
+          params: {
+            amount: String(numericAmount),
+            triggered: 'true',
+            allocations: JSON.stringify([]),
+            totalAllocated: String(surplusPrompt.surplusAmount),
+            unallocated: '0',
+            segment: segmentParam || '',
+          },
+        });
+        return;
+      }
+
+      // Handle main_pocket allocation — segment-aware so MSME surplus distributes across business pockets
       await incomeApi.allocateSurplus(surplusPrompt.incomeEventId, {
         target: 'main_pocket',
+        ...(segmentParam ? { segment: segmentParam } : {}),
       });
 
       // Refresh data and navigate to success
@@ -246,6 +275,7 @@ export default function IncomeEntryScreen() {
           allocations: JSON.stringify([]),
           totalAllocated: String(surplusPrompt.surplusAmount),
           unallocated: '0',
+          segment: segmentParam || '',
         },
       });
     } catch (error: any) {
@@ -267,6 +297,7 @@ export default function IncomeEntryScreen() {
         allocations: JSON.stringify([]),
         totalAllocated: '0',
         unallocated: String(surplusPrompt.surplusAmount),
+        segment: segmentParam || '',
       },
     });
   };
@@ -508,9 +539,23 @@ export default function IncomeEntryScreen() {
       
       <MoneyAllocationPrompt
         visible={surplusPrompt.visible}
-        title="You have extra income!"
-        message="This amount is more than your expected income. How would you like to allocate the surplus?"
+        title={segmentParam === 'msme' ? 'Excess revenue' : 'You have extra income!'}
+        message={
+          segmentParam === 'msme'
+            ? `This is above your monthly revenue. Move excess ${formatMoney(surplusPrompt.surplusAmount)} to Savings? [Confirm]`
+            : 'This amount is more than your expected income. How would you like to allocate the surplus?'
+        }
         amount={surplusPrompt.surplusAmount}
+        options={
+          segmentParam === 'msme'
+            ? ([
+                { id: 'savings', label: 'Move to Savings', description: 'Direct excess to your Savings pocket', icon: PiggyBank },
+                { id: 'main_pocket', label: 'Distribute across business pockets', description: 'Follow your business plan allocation', icon: Wallet },
+                { id: 'pocket', label: 'Choose a pocket', description: 'Pick a specific business pocket', icon: Building2 },
+                { id: 'new_pocket', label: 'Create new pocket', description: 'Set up a new business pocket', icon: Plus },
+              ] as any)
+            : undefined
+        }
         onSelectOption={handleSurplusAllocation}
         onCancel={handleSurplusCancel}
         loading={isSubmitting}

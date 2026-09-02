@@ -1,5 +1,8 @@
 import type {
   OnboardingInput,
+  MsmeOnboardingInput,
+  BusinessStage,
+  Segment,
   PlanAssignReason,
   PlanName,
   PlanType,
@@ -14,6 +17,9 @@ import type {
 import { IncomeIntervalDaysByBand, SavingsGoalTimeframeMonths, SavingsGoalLockDays } from '@financial-hub/shared';
 
 export interface PlanAssignment {
+  // Which segment this assignment is for ('msme' on the MSME branch, absent
+  // on the individual branch for backward compat).
+  segment?: Segment;
   plan: PlanName;
   planType: PlanType;
   incomePattern: IncomePattern;
@@ -515,6 +521,120 @@ export function validateOnboardingInput(input: OnboardingInput): string[] {
   // treated as a fixed monthly cycle and doesn't need this.
   if (input.incomePattern === 'freelancer' && !input.incomeIntervalBand) {
     errors.push('incomeIntervalBand is required when incomePattern is freelancer');
+  }
+
+  return errors;
+}
+
+// ============================================================================
+// MSME plan assignment (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2)
+// ============================================================================
+
+function businessStageLabel(stage?: BusinessStage): string {
+  const byStage: Record<BusinessStage, string> = {
+    starting: 'just starting out',
+    stable: 'established and stable',
+    growing: 'in a growth phase',
+  };
+  return stage ? byStage[stage] : 'running month to month';
+}
+
+/**
+ * MSME always maps to structured-style allocation — no daily caps; business
+ * cash flow is monthly, not daily (§6.2). Savings still respects the
+ * MIN_SAVINGS_RATE 10% floor via calculateSavingsTarget.
+ */
+export function assignMsmePlan(input: MsmeOnboardingInput): PlanAssignment {
+  const { monthlyRevenue, fixedTotal } = input;
+
+  const remainingAfterFixed = monthlyRevenue - fixedTotal;
+  if (remainingAfterFixed <= 0) {
+    throw new Error('Fixed expenses exceed income — cannot assign a plan');
+  }
+
+  const needsRatio = computeNeedsRatio(monthlyRevenue, fixedTotal);
+  const needsBand = classifyNeedsBand(needsRatio);
+
+  const savingsTargetResult = calculateSavingsTarget(
+    monthlyRevenue,
+    fixedTotal,
+    undefined,
+    input.savingsGoal,
+  );
+  const { savingsTarget, savingsLockDays, goalShortfall } = savingsTargetResult;
+  const spendableAmount = remainingAfterFixed - savingsTarget;
+
+  const reasons: PlanAssignReason[] = [
+    {
+      rule: 'msme_income_business_revenue',
+      reason: `Your business revenue arrives on a monthly cycle (KES ${monthlyRevenue.toLocaleString()}) — we budget it as regular monthly cash flow, like a structured plan, rather than daily caps.`,
+      needsRatio,
+      needsBand,
+    },
+    {
+      rule: 'msme_structured_stable',
+      reason: `${input.businessName} (${businessStageLabel(input.businessStage)}) — monthly revenue is earmarked into business pockets: rent, salaries, stock, taxes and suppliers first, then savings and profit.`,
+      needsRatio,
+      needsBand,
+    },
+  ];
+
+  if (input.savingsGoal?.goalAmount) {
+    const label = goalDisplayLabel(input.savingsGoal);
+    if (goalShortfall) {
+      reasons.push({
+        rule: 'savings_goal_capacity_shortfall',
+        reason: `Hitting ${label} on your stated timeline would take about ${Math.round(goalShortfall.goalRequiredSharePercent)}% of what's left after fixed costs — more than we'd recommend committing at once, so we've capped it. At this rate the goal would take roughly ${Math.ceil(goalShortfall.goalMonthsNeeded)} months — want to adjust the goal, the timeline, or the rate?`,
+        goalMonthsNeeded: goalShortfall.goalMonthsNeeded,
+        goalRequiredSharePercent: goalShortfall.goalRequiredSharePercent,
+      });
+    } else {
+      reasons.push({
+        rule: 'savings_goal_on_track',
+        reason: `We derived your savings rate from ${label} and your stated timeline — this pace should get you there on schedule.`,
+      });
+    }
+  }
+
+  if (input.hasEmployees === true) {
+    reasons.push({
+      rule: 'msme_has_employees',
+      reason: 'You have employees — payroll (salaries) is earmarked as a fixed first-priority pocket.',
+    });
+  }
+
+  return {
+    segment: 'msme',
+    plan: 'Business — Structured',
+    planType: 'structured',
+    incomePattern: 'salaried',
+    reasons,
+    remainingAfterFixed,
+    savingsTarget,
+    savingsLockDays,
+    spendableAmount,
+    needsRatio,
+    needsBand,
+  };
+}
+
+export function validateMsmeOnboardingInput(input: MsmeOnboardingInput): string[] {
+  const errors: string[] = [];
+
+  if (input.monthlyRevenue <= 0) {
+    errors.push('Monthly revenue must be positive');
+  }
+
+  if (input.fixedTotal < 0) {
+    errors.push('Fixed total cannot be negative');
+  }
+
+  if (input.fixedTotal >= input.monthlyRevenue) {
+    errors.push('Fixed expenses cannot exceed or equal monthly revenue');
+  }
+
+  if (input.customPockets && input.customPockets.length > 6) {
+    errors.push('Custom pockets cannot exceed 6');
   }
 
   return errors;

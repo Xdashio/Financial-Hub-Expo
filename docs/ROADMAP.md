@@ -117,10 +117,10 @@ All screens in the original sequencing list are now wired — kept below as a hi
 - [ ] Discipline score refinement — validate with real/test users whether the numeric score framing lands well or needs to change (flagged as open question in PRD)
 
 ## Phase 3 — MSME segment
-- [ ] Discovery pass specifically for MSME needs (categories, multi-user visibility, tax/stock-style pockets) — do not assume it's "Individual with different labels" without checking
-- [ ] MSME onboarding + plan variant
-- [ ] MSME-specific Insights (cash flow patterns differ significantly from personal spending patterns)
-- [ ] Event planner / ticketing money-management sub-case (vendor-escrow-style pockets, ticket revenue allocation) — evaluate as one MSME vertical among others, not a default template; needs its own scoping, not carried over unchanged from earlier exploration
+- [x] Discovery pass specifically for MSME needs (categories, multi-user visibility, tax/stock-style pockets) — completed (ADR-001)
+- [x] MSME onboarding + plan variant — completed (Phase 1–2)
+- [x] MSME-specific Insights (funding velocity, tier discipline, contract values) — completed (Phase 6)
+- [x] Event planner / catering money-management project cascade (Priorities/Needs/Wants funding cascade engine, spending controls, excess resolution) — completed (Phase 3–6)
 
 ## Phase 4 — Embeddable layer (post-funding)
 - [ ] Define the SDK/embedding contract (what a host app calls, what gets rendered, theming hooks for partner branding)

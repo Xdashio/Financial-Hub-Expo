@@ -23,6 +23,11 @@ export class SpendCheckDto {
   @MaxLength(128)
   idempotency_key?: string;
 
+  /** Which segment's pocket this spend targets (ADR-001 §5.1). Defaults to 'individual' for backward compat. */
+  @IsOptional()
+  @IsEnum(['individual', 'msme'])
+  segment?: 'individual' | 'msme';
+
   /**
    * Set only on a resubmission after the client showed the user a
    * `block_reason: 'insufficient_funds'` response and they chose "spend

@@ -46,4 +46,27 @@ export class OnboardingController {
     const userId = req.user.id;
     return this.onboardingService.commit(input, userId);
   }
+
+  // --- MSME segment onboarding (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2) ---
+
+  @Post('msme/assign')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Preview MSME plan assignment from business answers (no persistence)' })
+  @ApiBody({ description: 'MSME onboarding answers', required: true })
+  @ApiResponse({ status: 200, description: 'MSME plan assignment preview with reasons' })
+  @ApiResponse({ status: 400, description: 'Invalid MSME onboarding input' })
+  assignMsme(@Body() input: unknown): OnboardingAssignResult {
+    return this.onboardingService.assignMsme(input);
+  }
+
+  @Post('msme/commit')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Commit MSME plan assignment — creates a segment-scoped plan and MSME pockets' })
+  @ApiBody({ description: 'MSME onboarding answers', required: true })
+  @ApiResponse({ status: 201, description: 'MSME plan committed with created pockets' })
+  @ApiResponse({ status: 400, description: 'Invalid MSME onboarding input' })
+  async commitMsme(@Body() input: unknown, @Request() req: any): Promise<OnboardingCommitResult> {
+    const userId = req.user.id;
+    return this.onboardingService.commitMsme(input, userId);
+  }
 }

@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { EmergencyUnlockService } from './emergency-unlock.service';
-import { SpendingAnalysisService } from '../insights/spending-analysis.service';
+import type { SpendingAnalysisService } from '../insights/spending-analysis.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { Pocket, Plan, FixedExpense } from '../../database/database.types';
 
@@ -67,6 +67,7 @@ const TRANSPORT_POCKET: Pocket = {
 const FREELANCER_DAILY_PLAN: Plan = {
   id: 'plan-1',
   user_id: 'user-1',
+  segment: 'individual',
   type: 'daily',
   income_pattern: 'freelancer',
   income_interval_days: 30,
@@ -93,6 +94,7 @@ const FIXED_EXPENSES: FixedExpense[] = [
     carry_forward: false,
     funded_at: null,
     notification_day_offset: 1,
+    segment: 'individual',
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
   },
@@ -108,6 +110,7 @@ const FIXED_EXPENSES: FixedExpense[] = [
     carry_forward: false,
     funded_at: null,
     notification_day_offset: 1,
+    segment: 'individual',
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
   },

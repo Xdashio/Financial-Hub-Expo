@@ -1,11 +1,13 @@
 import { BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
 import { OnboardingService } from './onboarding.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
-import type { OnboardingInput } from '@financial-hub/shared';
+import type { OnboardingInput, MsmeOnboardingInput } from '@financial-hub/shared';
+import { MIN_SAVINGS_RATE } from './rules-engine';
 
 function makeRepository(overrides: Partial<jest.Mocked<SupabaseRepository>> = {}) {
   return {
     deactivateUserPlans: jest.fn().mockResolvedValue(undefined),
+    deactivateUserPlansBySegment: jest.fn().mockResolvedValue(undefined),
     deactivateUserPlansExcept: jest.fn().mockResolvedValue(undefined),
     createPlan: jest.fn().mockImplementation((plan) => ({ ...plan })),
     updatePlan: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
@@ -178,8 +180,8 @@ describe('OnboardingService.commit', () => {
   it('deactivates existing plans before creating the new one', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    expect(repository.deactivateUserPlans).toHaveBeenCalledWith('user-1');
-    expect(repository.deactivateUserPlans.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'individual');
+    expect(repository.deactivateUserPlansBySegment.mock.invocationCallOrder[0]).toBeLessThan(
       repository.createPlan.mock.invocationCallOrder[0]
     );
   });
@@ -320,7 +322,7 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1');
+    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1', 'individual');
     // Delete must happen before the new rows are inserted, not after.
     const deleteOrder = (repository.deleteFixedExpensesByUserId as jest.Mock).mock.invocationCallOrder[0];
     const createOrder = (repository.createFixedExpense as jest.Mock).mock.invocationCallOrder[0];
@@ -332,7 +334,7 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1');
+    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1', 'individual');
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 
@@ -458,7 +460,7 @@ describe('OnboardingService.retake', () => {
     expect(credited).toBeCloseTo(1600);
     expect(debited).toBeCloseTo(1600);
 
-    expect(repository.deactivateUserPlans).toHaveBeenCalledWith('user-1');
+    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'individual');
     expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: 'user-1', type: 'plan_retaken' }),
     );
@@ -494,5 +496,148 @@ describe('OnboardingService.retake', () => {
       nextRetakeAvailableOn: null,
       lastRetakenAt: null,
     });
+  });
+});
+
+// ============================================================================
+// MSME segment onboarding (ADR-001 / MSME_PHASED_BUILD_PLAN §6.2)
+// ============================================================================
+
+const MSME_INPUT: MsmeOnboardingInput = {
+  segment: 'msme',
+  businessName: 'Duka Kool',
+  monthlyRevenue: 100000,
+  fixedTotal: 30000, // remaining 70000, savings floor 10% of gross = 10000
+  hasEmployees: true,
+};
+
+describe('OnboardingService.assignMsme', () => {
+  let service: OnboardingService;
+
+  beforeEach(() => {
+    service = new OnboardingService(makeRepository());
+  });
+
+  it('returns a structured plan flagged with segment msme', () => {
+    const result = service.assignMsme(MSME_INPUT);
+
+    expect(result.segment).toBe('msme');
+    expect(result.plan).toBe('Business — Structured');
+    expect(result.planType).toBe('structured');
+    expect(result.incomePattern).toBe('salaried');
+    expect(result.remainingAfterFixed).toBe(70000);
+  });
+
+  it('applies the MIN_SAVINGS_RATE 10% floor against gross monthly revenue', () => {
+    const result = service.assignMsme(MSME_INPUT);
+
+    expect(result.savingsTarget).toBeCloseTo(MSME_INPUT.monthlyRevenue * MIN_SAVINGS_RATE);
+    expect(result.spendableAmount).toBeCloseTo(70000 - 10000);
+  });
+
+  it('rejects fixed total >= monthly revenue', () => {
+    expect(() =>
+      service.assignMsme({ ...MSME_INPUT, fixedTotal: 100000 })
+    ).toThrow(BadRequestException);
+  });
+
+  it('rejects non-positive monthly revenue', () => {
+    expect(() =>
+      service.assignMsme({ ...MSME_INPUT, monthlyRevenue: 0 })
+    ).toThrow(BadRequestException);
+  });
+});
+
+describe('OnboardingService.commitMsme', () => {
+  let repository: ReturnType<typeof makeRepository>;
+  let service: OnboardingService;
+
+  beforeEach(() => {
+    repository = makeRepository();
+    service = new OnboardingService(repository);
+  });
+
+  it('creates the plan with a *segment-scoped* deactivation (leaves the individual plan untouched)', async () => {
+    await service.commitMsme(MSME_INPUT, 'user-1');
+
+    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'msme');
+    expect(repository.deactivateUserPlans).not.toHaveBeenCalled();
+    expect(repository.createPlan).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: 'user-1',
+        segment: 'msme',
+        type: 'structured',
+        income_pattern: 'salaried',
+        expected_income_amount: 100000,
+        status: 'active',
+      })
+    );
+  });
+
+  it('builds the MSME pocket set: fixed expenses (itemized) + locked Savings + spendable custom pockets', async () => {
+    const input: MsmeOnboardingInput = {
+      ...MSME_INPUT,
+      fixedTotal: 30000,
+      customPockets: [
+        { name: 'Stock', category: 'stock' },
+        { name: 'Suppliers', category: 'supplier' },
+        { name: 'Licences', category: 'licence' },
+        { name: 'Profit', category: 'profit' },
+      ],
+    };
+
+    await service.commitMsme(input, 'user-1');
+
+    const pockets = repository.createPockets.mock.calls[0][0];
+    const kinds = pockets.map((p: any) => p.kind);
+    expect(kinds).toEqual(['fixed', 'savings', 'spendable', 'spendable', 'spendable', 'spendable']);
+
+    const lumpFixed = pockets.find((p: any) => p.kind === 'fixed');
+    expect(lumpFixed!.name).toBe('Fixed Expenses');
+    expect(lumpFixed!.monthly_allocation).toBe(30000);
+
+    const savingsPocket = pockets.find((p: any) => p.kind === 'savings');
+    expect(savingsPocket!.is_time_locked).toBe(true);
+    expect(savingsPocket!.monthly_allocation).toBeCloseTo(10000);
+
+    const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
+    expect(spendablePockets.map((p: any) => p.category).sort()).toEqual(['licence', 'profit', 'stock', 'supplier']);
+    const total = spendablePockets.reduce((s: number, p: any) => s + p.monthly_allocation, 0);
+    expect(total).toBeCloseTo(60000);
+    // Even split across the four custom pockets.
+    expect(spendablePockets[0].monthly_allocation).toBeCloseTo(15000);
+  });
+
+  it('accepts business fixed-expense categories in itemized fixed pockets', async () => {
+    const input: MsmeOnboardingInput = {
+      ...MSME_INPUT,
+      fixedExpenses: [
+        { name: 'Rent', amount: 15000, dueDay: 1, category: 'rent' },
+        { name: 'Salaries', amount: 15000, dueDay: 28, category: 'salary' },
+      ],
+      customPockets: [{ name: 'Stock', category: 'stock' }],
+    };
+
+    await service.commitMsme(input, 'user-1');
+
+    const pockets = repository.createPockets.mock.calls[0][0];
+    const fixed = pockets.filter((p: any) => p.kind === 'fixed');
+    expect(fixed.map((p: any) => p.category).sort()).toEqual(['rent', 'salary']);
+    expect(fixed.every((p: any) => p.is_time_locked === true)).toBe(true);
+  });
+
+  it('rejects more than 6 custom pockets even though the schema already caps it', async () => {
+    const input: MsmeOnboardingInput = {
+      ...MSME_INPUT,
+      customPockets: Array.from({ length: 7 }, (_, i) => ({ name: `Pocket ${i}`, category: 'operations' })),
+    };
+
+    await expect(service.commitMsme(input, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
+    expect(repository.createPlan).not.toHaveBeenCalled();
+  });
+
+  it('does not deactivate the individual plan when committing MSME (two concurrent active plans)', async () => {
+    await service.commitMsme(MSME_INPUT, 'user-1');
+    expect(repository.deactivateUserPlans).not.toHaveBeenCalled();
   });
 });

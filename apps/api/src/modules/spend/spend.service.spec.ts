@@ -524,8 +524,8 @@ describe('SpendService.commitSpend', () => {
       const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       repository.getIncomeEventsByUserId.mockResolvedValue([
-        { date: sixDaysAgo },
-        { date: fifteenDaysAgo },
+        { date: sixDaysAgo, user_id: 'user-1', amount: 10000, source: 'client', segment: 'individual' },
+        { date: fifteenDaysAgo, user_id: 'user-1', amount: 10000, source: 'client', segment: 'individual' },
       ] as any);
 
       const result = await service.commitSpend(
@@ -596,8 +596,8 @@ describe('SpendService.commitSpend', () => {
       const sixDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       const fifteenDaysAgo = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
       repository.getIncomeEventsByUserId.mockResolvedValue([
-        { date: sixDaysAgo },
-        { date: fifteenDaysAgo },
+        { date: sixDaysAgo, user_id: 'user-1', amount: 10000, source: 'client', segment: 'individual' },
+        { date: fifteenDaysAgo, user_id: 'user-1', amount: 10000, source: 'client', segment: 'individual' },
       ] as any);
       repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 5000 }));
       repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map());

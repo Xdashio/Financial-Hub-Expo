@@ -18,6 +18,12 @@ import {
   NotificationDeliveryInsert,
   IdempotencyRecord, IdempotencyRecordInsert, IdempotencyScope,
   EmergencyUnlockRow, EmergencyUnlockRowInsert,
+  MsmeProject, MsmeProjectInsert, MsmeProjectUpdate,
+  MsmeProjectTier, MsmeProjectTierInsert, MsmeProjectTierUpdate,
+  MsmeProjectIncomeEvent, MsmeProjectIncomeEventInsert,
+  MsmeProjectAllocation, MsmeProjectAllocationInsert,
+  MsmeProjectSpend, MsmeProjectSpendInsert,
+  MsmeProjectExcessPrompt, MsmeProjectExcessPromptInsert, MsmeProjectExcessPromptUpdate,
 } from '../database/database.types';
 import { sumMoney, netMoney } from '@financial-hub/shared';
 
@@ -80,17 +86,27 @@ export class SupabaseRepository {
     return data;
   }
 
-  async getActivePlanByUserId(userId: string): Promise<Plan | null> {
+  async getActivePlanByUserId(userId: string, segment: 'individual' | 'msme' = 'individual'): Promise<Plan | null> {
     const { data, error } = await this.supabase
       .from('plans')
       .select('*')
       .eq('user_id', userId)
       .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-    if (error && error.code !== 'PGRST116') throw error;
+      .eq('segment', segment)
+      .maybeSingle();
+    if (error) throw error;
     return data;
+  }
+
+  /** All active plans for the user (both segments). Used by cold-start routing to decide hasPlan. */
+  async getActivePlansByUserId(userId: string): Promise<Plan[]> {
+    const { data, error } = await this.supabase
+      .from('plans')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('status', 'active');
+    if (error) throw error;
+    return data || [];
   }
 
   async getPlanById(id: string): Promise<Plan | null> {
@@ -163,6 +179,19 @@ export class SupabaseRepository {
       .update({ status: 'inactive' })
       .eq('user_id', userId)
       .eq('status', 'active');
+    if (error) throw error;
+  }
+
+  /** Deactivate every active plan for the user in one segment, leaving the
+   *  other segment's active plan untouched (ADR-001 D1 — two active plans,
+   *  one per segment, can coexist). */
+  async deactivateUserPlansBySegment(userId: string, segment: 'individual' | 'msme'): Promise<void> {
+    const { error } = await this.supabase
+      .from('plans')
+      .update({ status: 'inactive' })
+      .eq('user_id', userId)
+      .eq('status', 'active')
+      .eq('segment', segment);
     if (error) throw error;
   }
 
@@ -278,6 +307,31 @@ export class SupabaseRepository {
     return data;
   }
 
+  // ------------------------------------------------------------------------
+  // Pre-016 segment fallback helpers (see 016_msme_phase2_segment_isolation.sql)
+  // ------------------------------------------------------------------------
+
+  /**
+   * True only when the error is PostgREST/Postgres telling us the segment
+   * column doesn't exist yet (DB hasn't run 016):
+   * - 42703  = Postgres `undefined_column` (column filter on .eq())
+   * - PGRST204 = PostgREST schema-cache miss on INSERT payload key
+   * Require the message to mention "segment" too so we never swallow an
+   * unrelated 42703/PGRST204 (e.g. a different column drifting).
+   */
+  private isMissingSegmentColumn(error: unknown): boolean {
+    const err = error as { code?: string; message?: unknown };
+    const codeOk = err?.code === '42703' || err?.code === 'PGRST204';
+    const msg = typeof err?.message === 'string' ? err.message : '';
+    return codeOk && /segment/i.test(msg);
+  }
+
+  /** Drop the segment key from an insert payload (016 pre-migration retry). */
+  private stripSegment<T extends object>(payload: T): Omit<T, 'segment'> {
+    const { segment: _seg, ...rest } = payload as T & { segment?: unknown };
+    return rest;
+  }
+
   // Fixed Expenses
   async createFixedExpense(expense: FixedExpenseInsert): Promise<FixedExpense | null> {
     const { data, error } = await this.supabase
@@ -285,17 +339,45 @@ export class SupabaseRepository {
       .insert(expense)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      if (this.isMissingSegmentColumn(error)) {
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('fixed_expenses')
+          .insert(this.stripSegment(expense))
+          .select()
+          .single();
+        if (fallbackErr) throw fallbackErr;
+        return fallback;
+      }
+      throw error;
+    }
     return data;
   }
 
-  async getFixedExpensesByUserId(userId: string): Promise<FixedExpense[]> {
-    const { data, error } = await this.supabase
+  async getFixedExpensesByUserId(
+    userId: string,
+    segment?: 'individual' | 'msme',
+  ): Promise<FixedExpense[]> {
+    let query = this.supabase
       .from('fixed_expenses')
       .select('*')
-      .eq('user_id', userId)
-      .order('due_day', { ascending: true });
-    if (error) throw error;
+      .eq('user_id', userId);
+    if (segment) {
+      query = query.eq('segment', segment);
+    }
+    const { data, error } = await query.order('due_day', { ascending: true });
+    if (error) {
+      if (this.isMissingSegmentColumn(error)) {
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('fixed_expenses')
+          .select('*')
+          .eq('user_id', userId)
+          .order('due_day', { ascending: true });
+        if (fallbackErr) throw fallbackErr;
+        return fallback || [];
+      }
+      throw error;
+    }
     return data || [];
   }
 
@@ -356,12 +438,29 @@ export class SupabaseRepository {
   // full-replace semantics instead of appending on top of whatever was
   // already there — see BACKEND_FRONTEND_AUDIT.md-style note in
   // onboarding.service.ts commit().
-  async deleteFixedExpensesByUserId(userId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from('fixed_expenses')
-      .delete()
-      .eq('user_id', userId);
-    if (error) throw error;
+  // Phase 2: optionally scoped to one segment so Individual and MSME
+  // onboarding do not wipe each other's bills.
+  async deleteFixedExpensesByUserId(
+    userId: string,
+    segment?: 'individual' | 'msme',
+  ): Promise<void> {
+    let query = this.supabase.from('fixed_expenses').delete().eq('user_id', userId);
+    if (segment) {
+      query = query.eq('segment', segment);
+    }
+    const { error } = await query;
+    if (error) {
+      if (segment && this.isMissingSegmentColumn(error)) {
+        // Pre-migration fallback — delete unfiltered (old behaviour)
+        const { error: fallbackErr } = await this.supabase
+          .from('fixed_expenses')
+          .delete()
+          .eq('user_id', userId);
+        if (fallbackErr) throw fallbackErr;
+        return;
+      }
+      throw error;
+    }
   }
 
   // Income Events
@@ -371,17 +470,45 @@ export class SupabaseRepository {
       .insert(event)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      if (this.isMissingSegmentColumn(error)) {
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('income_events')
+          .insert(this.stripSegment(event))
+          .select()
+          .single();
+        if (fallbackErr) throw fallbackErr;
+        return fallback;
+      }
+      throw error;
+    }
     return data;
   }
 
-  async getIncomeEventsByUserId(userId: string): Promise<IncomeEvent[]> {
-    const { data, error } = await this.supabase
+  async getIncomeEventsByUserId(
+    userId: string,
+    segment?: 'individual' | 'msme',
+  ): Promise<IncomeEvent[]> {
+    let query = this.supabase
       .from('income_events')
       .select('*')
-      .eq('user_id', userId)
-      .order('date', { ascending: false });
-    if (error) throw error;
+      .eq('user_id', userId);
+    if (segment) {
+      query = query.eq('segment', segment);
+    }
+    const { data, error } = await query.order('date', { ascending: false });
+    if (error) {
+      if (this.isMissingSegmentColumn(error)) {
+        const { data: fallback, error: fallbackErr } = await this.supabase
+          .from('income_events')
+          .select('*')
+          .eq('user_id', userId)
+          .order('date', { ascending: false });
+        if (fallbackErr) throw fallbackErr;
+        return fallback || [];
+      }
+      throw error;
+    }
     return data || [];
   }
 
@@ -1388,6 +1515,241 @@ export class SupabaseRepository {
       if (error.code === '23505') return null;
       throw error;
     }
+    return data;
+  }
+
+  // ========================================================================
+  // MSME Project Funding Cascade (Phase 3 - 017_msme_projects.sql)
+  // ========================================================================
+
+  async createMsmeProject(project: MsmeProjectInsert): Promise<MsmeProject | null> {
+    const { data, error } = await this.supabase
+      .from('msme_projects')
+      .insert(project)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectById(id: string): Promise<MsmeProject | null> {
+    const { data, error } = await this.supabase
+      .from('msme_projects')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectsByUserId(userId: string): Promise<MsmeProject[]> {
+    const { data, error } = await this.supabase
+      .from('msme_projects')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getActiveCascadeByUserId(userId: string): Promise<MsmeProject | null> {
+    const { data, error } = await this.supabase
+      .from('msme_projects')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_active_cascade', true)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async updateMsmeProject(id: string, updates: MsmeProjectUpdate): Promise<MsmeProject | null> {
+    const { data, error } = await this.supabase
+      .from('msme_projects')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Tiers
+  async createMsmeProjectTier(tier: MsmeProjectTierInsert): Promise<MsmeProjectTier | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_tiers')
+      .insert(tier)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectTierById(id: string): Promise<MsmeProjectTier | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_tiers')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectTiersByProjectId(projectId: string): Promise<MsmeProjectTier[]> {
+    const { data, error } = await this.supabase
+      .from('msme_project_tiers')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateMsmeProjectTier(id: string, updates: MsmeProjectTierUpdate): Promise<MsmeProjectTier | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_tiers')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  // Income Events
+  async createMsmeProjectIncomeEvent(event: MsmeProjectIncomeEventInsert): Promise<MsmeProjectIncomeEvent | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_income_events')
+      .insert(event)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectIncomeEventsByProjectId(projectId: string): Promise<MsmeProjectIncomeEvent[]> {
+    const { data, error } = await this.supabase
+      .from('msme_project_income_events')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('date', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Allocations
+  async createMsmeProjectAllocation(allocation: MsmeProjectAllocationInsert): Promise<MsmeProjectAllocation | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_allocations')
+      .insert(allocation)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectAllocationsByProjectId(projectId: string): Promise<MsmeProjectAllocation[]> {
+    const { data, error } = await this.supabase
+      .from('msme_project_allocations')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getMsmeProjectAllocationsByIncomeEventId(incomeEventId: string): Promise<MsmeProjectAllocation[]> {
+    const { data, error } = await this.supabase
+      .from('msme_project_allocations')
+      .select('*')
+      .eq('income_event_id', incomeEventId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Spends
+  async createMsmeProjectSpend(spend: MsmeProjectSpendInsert): Promise<MsmeProjectSpend | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_spends')
+      .insert(spend)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectSpendsByProjectId(projectId: string): Promise<MsmeProjectSpend[]> {
+    const { data, error } = await this.supabase
+      .from('msme_project_spends')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  async getMsmeProjectSpendsByTierId(tierId: string): Promise<MsmeProjectSpend[]> {
+    const { data, error } = await this.supabase
+      .from('msme_project_spends')
+      .select('*')
+      .eq('tier_id', tierId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  }
+
+  // Excess Prompts
+  async createMsmeProjectExcessPrompt(prompt: MsmeProjectExcessPromptInsert): Promise<MsmeProjectExcessPrompt | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_excess_prompts')
+      .insert(prompt)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectExcessPromptById(id: string): Promise<MsmeProjectExcessPrompt | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_excess_prompts')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async getMsmeProjectExcessPromptsByProjectId(
+    projectId: string,
+    status?: 'pending' | 'resolved' | 'dismissed'
+  ): Promise<MsmeProjectExcessPrompt[]> {
+    let query = this.supabase
+      .from('msme_project_excess_prompts')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  }
+
+  async updateMsmeProjectExcessPrompt(
+    id: string,
+    updates: MsmeProjectExcessPromptUpdate
+  ): Promise<MsmeProjectExcessPrompt | null> {
+    const { data, error } = await this.supabase
+      .from('msme_project_excess_prompts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
     return data;
   }
 }

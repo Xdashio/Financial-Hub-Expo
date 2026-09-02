@@ -18,6 +18,7 @@ export interface Database {
           email: string | null
           full_name: string | null
           biometric_enabled: boolean
+          feature_flags: Record<string, boolean> | null
           created_at: string
           updated_at: string
         }
@@ -26,6 +27,7 @@ export interface Database {
           email?: string | null
           full_name?: string | null
           biometric_enabled?: boolean
+          feature_flags?: Record<string, boolean> | null
           created_at?: string
           updated_at?: string
         }
@@ -34,6 +36,7 @@ export interface Database {
           email?: string | null
           full_name?: string | null
           biometric_enabled?: boolean
+          feature_flags?: Record<string, boolean> | null
           created_at?: string
           updated_at?: string
         }
@@ -43,6 +46,10 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          // Segment discriminator (014_msme_segment.sql / ADR-001 D1).
+          // Defaults to 'individual'; existing rows without it read as
+          // individual.
+          segment: 'individual' | 'msme'
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
           income_interval_days: number | null
@@ -59,6 +66,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          segment?: 'individual' | 'msme'
           type: 'structured' | 'daily'
           income_pattern: 'salaried' | 'freelancer'
           income_interval_days?: number | null
@@ -74,6 +82,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          segment?: 'individual' | 'msme'
           type?: 'structured' | 'daily'
           income_pattern?: 'salaried' | 'freelancer'
           income_interval_days?: number | null
@@ -94,7 +103,7 @@ export interface Database {
           plan_id: string
           name: string
           kind: 'savings' | 'fixed' | 'spendable' | 'loan'
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other' | null
           is_time_locked: boolean
           lock_until: string | null
           monthly_allocation: number
@@ -122,7 +131,7 @@ export interface Database {
           plan_id: string
           name: string
           kind: 'savings' | 'fixed' | 'spendable' | 'loan'
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation: number
@@ -141,7 +150,7 @@ export interface Database {
           plan_id?: string
           name?: string
           kind?: 'savings' | 'fixed' | 'spendable' | 'loan'
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other' | null
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other' | null
           is_time_locked?: boolean
           lock_until?: string | null
           monthly_allocation?: number
@@ -164,13 +173,16 @@ export interface Database {
           name: string
           amount: number
           due_day: number
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other'
           status: 'active' | 'inactive'
           // Reserve obligation tracking (migration 013)
           funded_amount: number
           carry_forward: boolean
           funded_at: string | null
           notification_day_offset: number
+          // Segment discriminator (016_msme_phase2_segment_isolation.sql) —
+          // NOT NULL DEFAULT 'individual' in DB, so always present after migration.
+          segment: 'individual' | 'msme'
           created_at: string
           updated_at: string
         }
@@ -180,12 +192,13 @@ export interface Database {
           name: string
           amount: number
           due_day: number
-          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
+          category: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other'
           status?: 'active' | 'inactive'
           funded_amount?: number
           carry_forward?: boolean
           funded_at?: string | null
           notification_day_offset?: number
+          segment?: 'individual' | 'msme'
           created_at?: string
           updated_at?: string
         }
@@ -195,12 +208,13 @@ export interface Database {
           name?: string
           amount?: number
           due_day?: number
-          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
+          category?: 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' | 'healthcare' | 'education' | 'housing' | 'family' | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent' | 'operations' | 'profit' | 'owner_draw' | 'growth' | 'marketing' | 'equipment' | 'other'
           status?: 'active' | 'inactive'
           funded_amount?: number
           carry_forward?: boolean
           funded_at?: string | null
           notification_day_offset?: number
+          segment?: 'individual' | 'msme'
           created_at?: string
           updated_at?: string
         }
@@ -217,6 +231,7 @@ export interface Database {
           run_allocation: boolean
           unallocated_surplus: number | null
           surplus_allocation_status: 'pending' | 'allocated' | 'skipped' | null
+          segment: 'individual' | 'msme'
           created_at: string
         }
         Insert: {
@@ -229,6 +244,7 @@ export interface Database {
           run_allocation?: boolean
           unallocated_surplus?: number | null
           surplus_allocation_status?: 'pending' | 'allocated' | 'skipped' | null
+          segment?: 'individual' | 'msme'
           created_at?: string
         }
         Update: {
@@ -241,6 +257,7 @@ export interface Database {
           run_allocation?: boolean
           unallocated_surplus?: number | null
           surplus_allocation_status?: 'pending' | 'allocated' | 'skipped' | null
+          segment?: 'individual' | 'msme'
           created_at?: string
         }
         Relationships: []
@@ -595,7 +612,9 @@ export interface NotificationDeliveryInsert {
   sent_at?: string;
 }
 
-export type IdempotencyScope = 'income' | 'spend' | 'loan_reminder';
+// Segment-aware scopes (e.g., 'income:individual', 'income:msme') prevent cross-segment
+// replay when the same idempotency key is used in different segments.
+export type IdempotencyScope = `income:${'individual' | 'msme'}` | `spend:${'individual' | 'msme'}` | 'loan_reminder';
 
 export interface IdempotencyRecord {
   id: string;
@@ -644,3 +663,187 @@ export interface EmergencyUnlockInsert {
 
 export type EmergencyUnlockRow = Database['public']['Tables']['emergency_unlocks']['Row'];
 export type EmergencyUnlockRowInsert = Database['public']['Tables']['emergency_unlocks']['Insert'];
+
+// MSME Project Funding Cascade (Phase 3 - 017_msme_projects.sql)
+export interface MsmeProject {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  name: string;
+  kind: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other';
+  contract_value: number;
+  status: 'draft' | 'active' | 'completed' | 'cancelled';
+  is_active_cascade: boolean;
+  // Phase 5 spending controls (§20:500) — JSONB with defaults; always present after 018.
+  spending_controls: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean };
+  completion_resolved_at: string | null;
+  completion_resolved_to: 'savings' | 'keep' | null;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  cancelled_at: string | null;
+}
+
+export interface MsmeProjectInsert {
+  id?: string;
+  user_id: string;
+  plan_id: string;
+  name: string;
+  kind: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other';
+  contract_value: number;
+  status?: 'draft' | 'active' | 'completed' | 'cancelled';
+  is_active_cascade?: boolean;
+  spending_controls?: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean };
+  completion_resolved_at?: string | null;
+  completion_resolved_to?: 'savings' | 'keep' | null;
+  created_at?: string;
+  updated_at?: string;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+}
+
+export interface MsmeProjectUpdate {
+  id?: string;
+  user_id?: string;
+  plan_id?: string;
+  name?: string;
+  kind?: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other';
+  contract_value?: number;
+  status?: 'draft' | 'active' | 'completed' | 'cancelled';
+  is_active_cascade?: boolean;
+  spending_controls?: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean };
+  completion_resolved_at?: string | null;
+  completion_resolved_to?: 'savings' | 'keep' | null;
+  updated_at?: string;
+  completed_at?: string | null;
+  cancelled_at?: string | null;
+}
+
+export interface MsmeProjectTier {
+  id: string;
+  project_id: string;
+  tier: 'priorities' | 'needs' | 'wants';
+  sort_order: number;
+  target_amount: number;
+  allocated_amount: number;
+  spent_amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MsmeProjectTierInsert {
+  id?: string;
+  project_id: string;
+  tier: 'priorities' | 'needs' | 'wants';
+  sort_order: number;
+  target_amount: number;
+  allocated_amount?: number;
+  spent_amount?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface MsmeProjectTierUpdate {
+  id?: string;
+  project_id?: string;
+  tier?: 'priorities' | 'needs' | 'wants';
+  sort_order?: number;
+  target_amount?: number;
+  allocated_amount?: number;
+  spent_amount?: number;
+  updated_at?: string;
+}
+
+export interface MsmeProjectIncomeEvent {
+  id: string;
+  project_id: string;
+  user_id: string;
+  amount: number;
+  source: string;
+  label: string | null;
+  date: string;
+  created_at: string;
+}
+
+export interface MsmeProjectIncomeEventInsert {
+  id?: string;
+  project_id: string;
+  user_id: string;
+  amount: number;
+  source: string;
+  label?: string | null;
+  date: string;
+  created_at?: string;
+}
+
+export interface MsmeProjectAllocation {
+  id: string;
+  project_id: string;
+  tier_id: string;
+  income_event_id: string;
+  amount: number;
+  created_at: string;
+}
+
+export interface MsmeProjectAllocationInsert {
+  id?: string;
+  project_id: string;
+  tier_id: string;
+  income_event_id: string;
+  amount: number;
+  created_at?: string;
+}
+
+export interface MsmeProjectSpend {
+  id: string;
+  tier_id: string;
+  project_id: string;
+  amount: number;
+  merchant: string | null;
+  category: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+export interface MsmeProjectSpendInsert {
+  id?: string;
+  tier_id: string;
+  project_id: string;
+  amount: number;
+  merchant?: string | null;
+  category?: string | null;
+  note?: string | null;
+  created_at?: string;
+}
+
+export interface MsmeProjectExcessPrompt {
+  id: string;
+  project_id: string;
+  income_event_id: string;
+  excess_amount: number;
+  chosen_target: 'needs' | 'wants' | 'savings' | 'keep' | null;
+  status: 'pending' | 'resolved' | 'dismissed';
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface MsmeProjectExcessPromptInsert {
+  id?: string;
+  project_id: string;
+  income_event_id: string;
+  excess_amount: number;
+  chosen_target?: 'needs' | 'wants' | 'savings' | 'keep' | null;
+  status?: 'pending' | 'resolved' | 'dismissed';
+  created_at?: string;
+  resolved_at?: string | null;
+}
+
+export interface MsmeProjectExcessPromptUpdate {
+  id?: string;
+  project_id?: string;
+  income_event_id?: string;
+  excess_amount?: number;
+  chosen_target?: 'needs' | 'wants' | 'savings' | 'keep' | null;
+  status?: 'pending' | 'resolved' | 'dismissed';
+  resolved_at?: string | null;
+}

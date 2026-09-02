@@ -23,6 +23,7 @@ type SuccessParams = {
   allocations?: string; // JSON-stringified ProjectedAllocation[]
   totalAllocated?: string;
   unallocated?: string;
+  segment?: string;
 };
 
 function formatCurrency(amount: number) {
@@ -49,7 +50,7 @@ export default function IncomeSuccessScreen() {
   const handleDone = () => {
     useDataSync.getState().bump();
     refreshData();
-    router.replace('/(tabs)');
+    router.replace(params.segment === 'msme' ? ('/(msme)' as any) : '/(tabs)');
   };
 
   const styles = {

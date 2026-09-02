@@ -45,6 +45,7 @@ export interface User {
   biometricEnabled: boolean;
   createdAt: string;
   email?: string;
+  featureFlags?: Record<string, boolean> | null;
 }
 
 export interface AuthState {
@@ -88,6 +89,17 @@ function setBiometricEnabled(enabled: boolean): Promise<void> {
   return storageAdapter.setItem('biometricEnabled', enabled.toString());
 }
 
+export function getLastHomeSegment(): Promise<'individual' | 'msme' | null> {
+  return storageAdapter.getItem('last_home_segment').then((v) => {
+    if (v === 'individual' || v === 'msme') return v;
+    return null;
+  });
+}
+
+export function setLastHomeSegment(segment: 'individual' | 'msme'): Promise<void> {
+  return storageAdapter.setItem('last_home_segment', segment);
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -98,14 +110,14 @@ export const useAuthStore = create<AuthState>()(
       hasPlan: false,
       isCheckingPlan: false,
 
-      // Calls GET /api/profile/plan with the current session token.
-      // Sets hasPlan=true when an active plan exists (onboarding completed).
-      // Sets isCheckingPlan while the request is in flight so index.tsx can show a spinner
-      // instead of briefly flashing the wrong route.
+      // Calls GET /api/profile/plans with the current session token (Phase 2:
+      // segment-aware — checks both individual and msme). Falls back to
+      // GET /profile/plan for backward compat with pre-016 deploys.
+      // Sets hasPlan=true when an active plan exists in *any* segment.
+      // Sets isCheckingPlan while the request is in flight so index.tsx can show a spinner.
       //
       // Important: only set hasPlan=false after a confirmed "no plan" response.
-      // Network / 5xx / auth blips must NOT demote existing users into onboarding —
-      // that was sending returning users back through income/habits every launch.
+      // Network / 5xx / auth blips must NOT demote existing users into onboarding.
       checkHasPlan: async () => {
         set({ isCheckingPlan: true });
         try {
@@ -115,54 +127,65 @@ export const useAuthStore = create<AuthState>()(
             return;
           }
 
-          // Short retry for post-commit races (plan row not visible yet).
           const maxRetries = 5;
           const retryDelay = 200;
-          // null = never got a conclusive 200; true/false = last conclusive result
           let lastKnown: boolean | null = null;
 
           for (let i = 0; i < maxRetries; i++) {
             try {
-              const res = await fetch(`${API_BASE_URL}/profile/plan`, {
+              // Prefer the segment-aware /profile/plans (returns array)
+              let hasActivePlan = false;
+              const resPlans = await fetch(`${API_BASE_URL}/profile/plans`, {
                 headers: {
                   Authorization: `Bearer ${session.access_token}`,
                   'ngrok-skip-browser-warning': 'true',
                 },
               });
-
-              if (!res.ok) {
-                // 401/5xx — inconclusive, keep trying / fall through to preserve cache
-              } else {
-                const plan = await res.json();
-                const hasActivePlan =
-                  plan != null && typeof plan === 'object' && typeof plan.id === 'string';
-
+              if (resPlans.ok) {
+                const plans = await resPlans.json();
+                hasActivePlan = Array.isArray(plans) && plans.length > 0;
                 if (hasActivePlan) {
+                  // Persist the segment of the first plan (used for cold-start routing)
+                  const firstPlanSegment = (plans[0]?.segment === 'msme' ? 'msme' : 'individual');
+                  await setLastHomeSegment(firstPlanSegment);
                   set({ hasPlan: true, isCheckingPlan: false });
                   return;
                 }
-
                 lastKnown = false;
+              } else if (resPlans.status === 404) {
+                // Old backend without /profile/plans — fall back to single-plan
+                const res = await fetch(`${API_BASE_URL}/profile/plan`, {
+                  headers: {
+                    Authorization: `Bearer ${session.access_token}`,
+                    'ngrok-skip-browser-warning': 'true',
+                  },
+                });
+                if (res.ok) {
+                  const plan = await res.json();
+                  hasActivePlan =
+                    plan != null && typeof plan === 'object' && typeof plan.id === 'string';
+                  if (hasActivePlan) {
+                    set({ hasPlan: true, isCheckingPlan: false });
+                    return;
+                  }
+                  lastKnown = false;
+                }
+              } else {
+                // 401/5xx — inconclusive
               }
             } catch {
               // Network error — inconclusive
             }
-
             if (i < maxRetries - 1) {
               await new Promise<void>((resolve) => setTimeout(resolve, retryDelay * (i + 1)));
             }
           }
 
           if (lastKnown === false) {
-            // Conclusive response: user has no plan
-            // This is correct for new users who haven't completed onboarding
             set({ hasPlan: false, isCheckingPlan: false });
             return;
           }
 
-          // No conclusive response — preserve cached hasPlan so a flaky hop
-          // doesn't bounce existing users into onboarding
-          // If hasPlan was never set, default to false (new user case)
           const currentHasPlan = get().hasPlan;
           set({ hasPlan: currentHasPlan, isCheckingPlan: false });
         } catch {

@@ -26,10 +26,11 @@ export class RunwayService {
       return { applicable: false };
     }
 
-    const events = await this.repo.getIncomeEventsByUserId(userId);
+    const events = await this.repo.getIncomeEventsByUserId(userId, 'individual');
     
-    // Get fixed obligations for this user
-    const fixedExpenses = await this.repo.getFixedExpensesByUserId(userId);
+    // Get fixed obligations for this user — segment-scoped so MSME bills don't
+    // inflate the Individual runway's obligations (016 isolation)
+    const fixedExpenses = await this.repo.getFixedExpensesByUserId(userId, 'individual');
     const activeFixedExpenses = fixedExpenses.filter(f => f.status === 'active');
     const totalFixedObligations = activeFixedExpenses.reduce(
       (sum, f) => sum + Number(f.amount), 

@@ -33,7 +33,11 @@ export class LoansService {
    * - Creates system-created Repayment sub-pocket
    * - Returns the complete loan detail with sub-pockets
    */
-  async createLoan(userId: string, input: unknown): Promise<any> {
+  async createLoan(
+    userId: string,
+    input: unknown,
+    segment: 'individual' | 'msme' = 'individual',
+  ): Promise<any> {
     const result = LoanCreateInputSchema.safeParse(input);
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
@@ -44,10 +48,10 @@ export class LoansService {
     const schedule = this.buildRepaymentSchedule(parsed);
     this.validateRepaymentSchedule(schedule);
 
-    // Get user's active plan
-    const plan = await this.repository.getActivePlanByUserId(userId);
+    // Get user's active plan — segment-aware for MSME Loan Plan (§10)
+    const plan = await this.repository.getActivePlanByUserId(userId, segment);
     if (!plan) {
-      throw new BadRequestException('User must have an active plan to create a loan');
+      throw new BadRequestException(`User must have an active ${segment} plan to create a loan`);
     }
 
     // Create loan pocket
@@ -94,10 +98,14 @@ export class LoansService {
   }
 
   /**
-   * Gets all loans for a user
+   * Gets all loans for a user — segment-aware so MSME loans do not leak into
+   * Individual queries and vice-versa (§10).
    */
-  async getLoansForUser(userId: string): Promise<any[]> {
-    const plan = await this.repository.getActivePlanByUserId(userId);
+  async getLoansForUser(
+    userId: string,
+    segment: 'individual' | 'msme' = 'individual',
+  ): Promise<any[]> {
+    const plan = await this.repository.getActivePlanByUserId(userId, segment);
     if (!plan) {
       return [];
     }
