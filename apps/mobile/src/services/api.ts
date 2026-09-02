@@ -395,6 +395,7 @@ export const insightsApi = {
   getActivityHeatmapDay: (date: string) =>
     api.get<any[]>(`/insights/activity-heatmap/day?date=${date}`),
   getMsmeInsights: () => api.get<any>('/insights/msme'),
+  getMsmeOperational: () => api.get<any>('/insights/msme/operational'),
 };
 
 export const rolloverApi = {

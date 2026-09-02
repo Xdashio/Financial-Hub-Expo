@@ -1,6 +1,6 @@
 import { Controller, Get, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
-import { InsightsService, DisciplineScoreResult, PaginatedBehaviorEvents, HeatmapDay, MsmeProjectInsights } from './insights.service';
+import { InsightsService, DisciplineScoreResult, PaginatedBehaviorEvents, HeatmapDay, MsmeProjectInsights, MsmeOperationalInsights } from './insights.service';
 import { BehaviorEvent } from '../../database/database.types';
 import type { NudgeItem } from '../nudges/nudge.calculator';
 
@@ -91,5 +91,12 @@ export class InsightsController {
   @ApiResponse({ status: 200, description: 'Returns null if user does not have MSME segment active' })
   getMsmeInsights(@Request() req: any): Promise<MsmeProjectInsights | null> {
     return this.insightsService.getMsmeInsights(req.user.id);
+  }
+
+  @Get('msme/operational')
+  @ApiOperation({ summary: 'MSME operational insights — invoices + projects aggregates (020)' })
+  @ApiResponse({ status: 200, description: 'Collection rate, outstanding/overdue, funding percent, alerts' })
+  getMsmeOperational(@Request() req: any): Promise<MsmeOperationalInsights | null> {
+    return this.insightsService.getMsmeOperationalInsights(req.user.id);
   }
 }

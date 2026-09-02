@@ -61,6 +61,38 @@ export interface MsmeProjectInsights {
   totalSpent: number;
 }
 
+// Operational insights (020 invoices + projects) — real aggregates, no mocks
+export interface MsmeInvoiceStats {
+  total: number;
+  draft: number;
+  sent: number;
+  paid: number;
+  voidCount: number;
+  overdue: number;
+  outstanding: number;
+  overdueAmount: number;
+  paidAmount: number;
+  collectionRate: number; // 0..100
+}
+
+export interface MsmeProjectStats {
+  total: number;
+  active: number;
+  draft: number;
+  completed: number;
+  totalContractValue: number;
+  totalAllocated: number;
+  totalSpent: number;
+  fundingPercent: number;
+}
+
+export interface MsmeOperationalInsights {
+  invoices: MsmeInvoiceStats;
+  projects: MsmeProjectStats;
+  fundingVelocityDays: number | null;
+  alerts: Array<{ type: 'overdue_receivables' | 'funding_stalled' | 'wants_discipline' | 'no_data'; message: string; severity: 'info' | 'warn' | 'critical' }>;
+}
+
 @Injectable()
 export class InsightsService {
   constructor(
@@ -370,6 +402,76 @@ export class InsightsService {
       totalAllocated,
       totalSpent,
     };
+  }
+
+  /**
+   * Operational insights (020 invoices + 017 projects) — real aggregates.
+   * Returns null if user has no MSME plan; otherwise computes collectionRate,
+   * fundingPercent, overdue alerts from live rows.
+   */
+  async getMsmeOperationalInsights(userId: string): Promise<MsmeOperationalInsights | null> {
+    const plan = await this.supabaseRepo.getActivePlanByUserId(userId, 'msme');
+    if (!plan) return null;
+
+    // Invoices (020) — rely on repository's overdueOnly filter (derived, not stored)
+    const allInvoices = await this.supabaseRepo.getMsmeInvoicesByUserId(userId);
+    const today = new Date().toISOString().slice(0, 10);
+    const isOverdue = (r: any) => r.due_date < today && (r.status === 'draft' || r.status === 'sent');
+    const overdueInvoices = allInvoices.filter(isOverdue);
+    const total = allInvoices.length;
+    const draft = allInvoices.filter(i => i.status === 'draft').length;
+    const sent = allInvoices.filter(i => i.status === 'sent').length;
+    const paid = allInvoices.filter(i => i.status === 'paid').length;
+    const voidCount = allInvoices.filter(i => i.status === 'void').length;
+    const overdue = overdueInvoices.length;
+    const outstanding = allInvoices.filter(i => i.status === 'draft' || i.status === 'sent').reduce((s, i) => s + Number(i.amount), 0);
+    const overdueAmount = overdueInvoices.reduce((s, i) => s + Number(i.amount), 0);
+    const paidAmount = allInvoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.amount), 0);
+    const collectionRate = total > 0 ? Math.round((paid / total) * 100) : 0;
+
+    const invoices: MsmeInvoiceStats = {
+      total, draft, sent, paid, voidCount, overdue,
+      outstanding: Math.round(outstanding * 100) / 100,
+      overdueAmount: Math.round(overdueAmount * 100) / 100,
+      paidAmount: Math.round(paidAmount * 100) / 100,
+      collectionRate,
+    };
+
+    // Projects (017)
+    const projects = await this.supabaseRepo.getMsmeProjectsByUserId(userId);
+    const active = projects.filter(p => p.status === 'active').length;
+    const draftP = projects.filter(p => p.status === 'draft').length;
+    const completed = projects.filter(p => p.status === 'completed').length;
+    const totalContractValue = projects.reduce((s, p) => s + Number(p.contract_value), 0);
+    let totalAllocated = 0;
+    let totalSpent = 0;
+    for (const p of projects) {
+      const tiers = await this.supabaseRepo.getMsmeProjectTiersByProjectId(p.id);
+      totalAllocated += tiers.reduce((s, t) => s + Number(t.allocated_amount), 0);
+      totalSpent += tiers.reduce((s, t) => s + Number(t.spent_amount), 0);
+    }
+    const fundingPercent = totalContractValue > 0 ? Math.round((totalAllocated / totalContractValue) * 100) : 0;
+
+    const projectsStats: MsmeProjectStats = {
+      total: projects.length, active, draft: draftP, completed, totalContractValue, totalAllocated, totalSpent, fundingPercent,
+    };
+
+    // Funding velocity: reuse avg from getMsmeInsights (completed projects duration)
+    let fundingVelocityDays: number | null = null;
+    if (projects.length > 0) {
+      const base = await this.getMsmeInsights(userId);
+      fundingVelocityDays = base?.avgFundingVelocity ?? null;
+    }
+
+    const alerts: MsmeOperationalInsights['alerts'] = [];
+    if (total === 0 && projects.length === 0) {
+      alerts.push({ type: 'no_data', message: 'Create an invoice or project to see operational health.', severity: 'info' });
+    } else {
+      if (overdue > 0) alerts.push({ type: 'overdue_receivables', message: `${overdue} invoice(s) overdue — KES ${Math.round(overdueAmount).toLocaleString('en-KE')} past due. Follow up or mark paid.`, severity: 'critical' });
+      if (projectsStats.total > 0 && fundingPercent < 30 && projectsStats.active > 0) alerts.push({ type: 'funding_stalled', message: `Funding at ${fundingPercent}% — record income on active cascade to fill Priorities first.`, severity: 'warn' });
+    }
+
+    return { invoices, projects: projectsStats, fundingVelocityDays, alerts };
   }
 
   private getEmptyMsmeInsights(): MsmeProjectInsights {
