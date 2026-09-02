@@ -22,6 +22,7 @@ import { PlanningCycleModule } from './modules/planning-cycle/planning-cycle.mod
 import { BehavioralRecommendationsModule } from './modules/behavioral-recommendations/behavioral-recommendations.module';
 import { MsmeProjectsModule } from './modules/msme-projects/msme-projects.module';
 import { MsmeInvoicesModule } from './modules/msme-invoices/msme-invoices.module';
+import { MsmeStockModule } from './modules/msme-stock/msme-stock.module';
 import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
 
 @Module({
@@ -59,6 +60,7 @@ import { SupabaseAuthGuard } from './auth/supabase-auth.guard';
     BehavioralRecommendationsModule,
     MsmeProjectsModule,
     MsmeInvoicesModule,
+    MsmeStockModule,
   ],
   providers: [
     // Authenticated-by-default: new controllers are locked unless marked @Public().

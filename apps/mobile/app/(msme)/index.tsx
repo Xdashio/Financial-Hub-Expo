@@ -7,7 +7,7 @@ import { ScreenContainer, LoadingState, ErrorState, SearchBar } from '@/componen
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { pocketsApi, incomeApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
-import { Plus, Store, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Plus, Store, Package, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
 import { getCategoryIcon } from '@/utils/categoryIcons';
 import { BUSINESS_CATEGORIES } from '@/services/onboarding-store';
@@ -323,6 +323,22 @@ export default function MsmeHomeScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ ...typography.heading, color: colors.ink }}>Invoices — Receivables</Text>
               <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Draft → Sent → Paid. KRA PIN validated, overdue flagged, paid allocates to MSME pockets.</Text>
+            </View>
+          </Pressable>
+
+          {/* Stock — Inventory tracker (021) — qty ledger */}
+          <Pressable
+            onPress={() => router.push('/msme-stock' as any)}
+            style={({ pressed }) => [{ marginTop: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open stock — Inventory"
+          >
+            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Package size={18} color={colors.emeraldDeep} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.heading, color: colors.ink }}>Stock — Inventory</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Qty on hand, low-stock alerts, in/out ledger. Out guards negative.</Text>
             </View>
           </Pressable>
 

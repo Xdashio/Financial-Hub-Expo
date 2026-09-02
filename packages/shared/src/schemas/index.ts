@@ -695,6 +695,74 @@ export const MsmeOperationalInsightsSchema = z.object({
 });
 export type MsmeOperationalInsights = z.infer<typeof MsmeOperationalInsightsSchema>;
 
+// ============================================================================
+// MSME Stock & Inventory (021_msme_stock.sql)
+// ============================================================================
+
+export const StockItemCreateInputSchema = z.object({
+  name: z.string().min(1).max(100),
+  sku: z.string().min(1).max(30).optional().nullable(),
+  qtyOnHand: z.number().nonnegative().optional(),
+  unitCost: z.number().nonnegative(),
+  unitPrice: z.number().nonnegative(),
+  lowStockThreshold: z.number().nonnegative().optional(),
+  location: z.string().max(100).optional().nullable(),
+});
+export type StockItemCreateInput = z.infer<typeof StockItemCreateInputSchema>;
+
+export const StockItemUpdateInputSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  sku: z.string().min(1).max(30).optional().nullable(),
+  unitCost: z.number().nonnegative().optional(),
+  unitPrice: z.number().nonnegative().optional(),
+  lowStockThreshold: z.number().nonnegative().optional(),
+  location: z.string().max(100).optional().nullable(),
+});
+export type StockItemUpdateInput = z.infer<typeof StockItemUpdateInputSchema>;
+
+export const StockMovementTypeSchema = z.enum(['in', 'out', 'adjust']);
+export type StockMovementType = z.infer<typeof StockMovementTypeSchema>;
+
+export const StockMovementCreateInputSchema = z.object({
+  type: StockMovementTypeSchema,
+  qty: z.number().positive(),
+  unitCost: z.number().nonnegative().optional().nullable(),
+  note: z.string().max(200).optional().nullable(),
+  pocketId: z.string().uuid().optional().nullable(),
+});
+export type StockMovementCreateInput = z.infer<typeof StockMovementCreateInputSchema>;
+
+export const StockItemSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  planId: z.string().uuid(),
+  name: z.string().min(1).max(100),
+  sku: z.string().max(30).nullable().optional(),
+  qtyOnHand: z.number().nonnegative(),
+  unitCost: z.number().nonnegative(),
+  unitPrice: z.number().nonnegative(),
+  lowStockThreshold: z.number().nonnegative(),
+  location: z.string().max(100).nullable().optional(),
+  isLowStock: z.boolean().optional(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type StockItem = z.infer<typeof StockItemSchema>;
+
+export const StockMovementSchema = z.object({
+  id: z.string().uuid(),
+  itemId: z.string().uuid(),
+  userId: z.string().uuid(),
+  type: StockMovementTypeSchema,
+  qty: z.number().positive(),
+  unitCost: z.number().nonnegative().nullable().optional(),
+  totalCost: z.number().nonnegative(),
+  note: z.string().max(200).nullable().optional(),
+  pocketId: z.string().uuid().nullable().optional(),
+  createdAt: z.string().datetime(),
+});
+export type StockMovement = z.infer<typeof StockMovementSchema>;
+
 export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
   reason: z.string(),
@@ -1309,4 +1377,10 @@ export const schemas = {
   MsmeProjectStats: MsmeProjectStatsSchema,
   MsmeAlert: MsmeAlertSchema,
   MsmeOperationalInsights: MsmeOperationalInsightsSchema,
+  StockItemCreateInput: StockItemCreateInputSchema,
+  StockItemUpdateInput: StockItemUpdateInputSchema,
+  StockMovementType: StockMovementTypeSchema,
+  StockMovementCreateInput: StockMovementCreateInputSchema,
+  StockItem: StockItemSchema,
+  StockMovement: StockMovementSchema,
 };

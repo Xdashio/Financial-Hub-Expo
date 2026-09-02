@@ -1387,6 +1387,156 @@ export declare const MsmeOperationalInsightsSchema: z.ZodObject<{
     }[];
 }>;
 export type MsmeOperationalInsights = z.infer<typeof MsmeOperationalInsightsSchema>;
+export declare const StockItemCreateInputSchema: z.ZodObject<{
+    name: z.ZodString;
+    sku: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    qtyOnHand: z.ZodOptional<z.ZodNumber>;
+    unitCost: z.ZodNumber;
+    unitPrice: z.ZodNumber;
+    lowStockThreshold: z.ZodOptional<z.ZodNumber>;
+    location: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    unitCost: number;
+    unitPrice: number;
+    sku?: string | null | undefined;
+    qtyOnHand?: number | undefined;
+    lowStockThreshold?: number | undefined;
+    location?: string | null | undefined;
+}, {
+    name: string;
+    unitCost: number;
+    unitPrice: number;
+    sku?: string | null | undefined;
+    qtyOnHand?: number | undefined;
+    lowStockThreshold?: number | undefined;
+    location?: string | null | undefined;
+}>;
+export type StockItemCreateInput = z.infer<typeof StockItemCreateInputSchema>;
+export declare const StockItemUpdateInputSchema: z.ZodObject<{
+    name: z.ZodOptional<z.ZodString>;
+    sku: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    unitCost: z.ZodOptional<z.ZodNumber>;
+    unitPrice: z.ZodOptional<z.ZodNumber>;
+    lowStockThreshold: z.ZodOptional<z.ZodNumber>;
+    location: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    name?: string | undefined;
+    sku?: string | null | undefined;
+    unitCost?: number | undefined;
+    unitPrice?: number | undefined;
+    lowStockThreshold?: number | undefined;
+    location?: string | null | undefined;
+}, {
+    name?: string | undefined;
+    sku?: string | null | undefined;
+    unitCost?: number | undefined;
+    unitPrice?: number | undefined;
+    lowStockThreshold?: number | undefined;
+    location?: string | null | undefined;
+}>;
+export type StockItemUpdateInput = z.infer<typeof StockItemUpdateInputSchema>;
+export declare const StockMovementTypeSchema: z.ZodEnum<["in", "out", "adjust"]>;
+export type StockMovementType = z.infer<typeof StockMovementTypeSchema>;
+export declare const StockMovementCreateInputSchema: z.ZodObject<{
+    type: z.ZodEnum<["in", "out", "adjust"]>;
+    qty: z.ZodNumber;
+    unitCost: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+    note: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    pocketId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+}, "strip", z.ZodTypeAny, {
+    type: "in" | "out" | "adjust";
+    qty: number;
+    note?: string | null | undefined;
+    unitCost?: number | null | undefined;
+    pocketId?: string | null | undefined;
+}, {
+    type: "in" | "out" | "adjust";
+    qty: number;
+    note?: string | null | undefined;
+    unitCost?: number | null | undefined;
+    pocketId?: string | null | undefined;
+}>;
+export type StockMovementCreateInput = z.infer<typeof StockMovementCreateInputSchema>;
+export declare const StockItemSchema: z.ZodObject<{
+    id: z.ZodString;
+    userId: z.ZodString;
+    planId: z.ZodString;
+    name: z.ZodString;
+    sku: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    qtyOnHand: z.ZodNumber;
+    unitCost: z.ZodNumber;
+    unitPrice: z.ZodNumber;
+    lowStockThreshold: z.ZodNumber;
+    location: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    isLowStock: z.ZodOptional<z.ZodBoolean>;
+    createdAt: z.ZodString;
+    updatedAt: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    name: string;
+    id: string;
+    userId: string;
+    planId: string;
+    createdAt: string;
+    updatedAt: string;
+    qtyOnHand: number;
+    unitCost: number;
+    unitPrice: number;
+    lowStockThreshold: number;
+    sku?: string | null | undefined;
+    location?: string | null | undefined;
+    isLowStock?: boolean | undefined;
+}, {
+    name: string;
+    id: string;
+    userId: string;
+    planId: string;
+    createdAt: string;
+    updatedAt: string;
+    qtyOnHand: number;
+    unitCost: number;
+    unitPrice: number;
+    lowStockThreshold: number;
+    sku?: string | null | undefined;
+    location?: string | null | undefined;
+    isLowStock?: boolean | undefined;
+}>;
+export type StockItem = z.infer<typeof StockItemSchema>;
+export declare const StockMovementSchema: z.ZodObject<{
+    id: z.ZodString;
+    itemId: z.ZodString;
+    userId: z.ZodString;
+    type: z.ZodEnum<["in", "out", "adjust"]>;
+    qty: z.ZodNumber;
+    unitCost: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    totalCost: z.ZodNumber;
+    note: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    pocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+    createdAt: z.ZodString;
+}, "strip", z.ZodTypeAny, {
+    type: "in" | "out" | "adjust";
+    id: string;
+    userId: string;
+    createdAt: string;
+    qty: number;
+    itemId: string;
+    totalCost: number;
+    note?: string | null | undefined;
+    unitCost?: number | null | undefined;
+    pocketId?: string | null | undefined;
+}, {
+    type: "in" | "out" | "adjust";
+    id: string;
+    userId: string;
+    createdAt: string;
+    qty: number;
+    itemId: string;
+    totalCost: number;
+    note?: string | null | undefined;
+    unitCost?: number | null | undefined;
+    pocketId?: string | null | undefined;
+}>;
+export type StockMovement = z.infer<typeof StockMovementSchema>;
 export declare const PlanAssignReasonSchema: z.ZodObject<{
     rule: z.ZodString;
     reason: z.ZodString;
@@ -2052,23 +2202,23 @@ export declare const SubPocketRebalanceInputSchema: z.ZodObject<{
         pocketId: z.ZodString;
         splitPercentage: z.ZodNumber;
     }, "strip", z.ZodTypeAny, {
-        splitPercentage: number;
         pocketId: string;
+        splitPercentage: number;
     }, {
-        splitPercentage: number;
         pocketId: string;
+        splitPercentage: number;
     }>, "many">;
     confirmPartial: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
 }, "strip", z.ZodTypeAny, {
     splits: {
-        splitPercentage: number;
         pocketId: string;
+        splitPercentage: number;
     }[];
     confirmPartial: boolean;
 }, {
     splits: {
-        splitPercentage: number;
         pocketId: string;
+        splitPercentage: number;
     }[];
     confirmPartial?: boolean | undefined;
 }>;
@@ -4455,23 +4605,23 @@ export declare const schemas: {
             pocketId: z.ZodString;
             splitPercentage: z.ZodNumber;
         }, "strip", z.ZodTypeAny, {
-            splitPercentage: number;
             pocketId: string;
+            splitPercentage: number;
         }, {
-            splitPercentage: number;
             pocketId: string;
+            splitPercentage: number;
         }>, "many">;
         confirmPartial: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
     }, "strip", z.ZodTypeAny, {
         splits: {
-            splitPercentage: number;
             pocketId: string;
+            splitPercentage: number;
         }[];
         confirmPartial: boolean;
     }, {
         splits: {
-            splitPercentage: number;
             pocketId: string;
+            splitPercentage: number;
         }[];
         confirmPartial?: boolean | undefined;
     }>;
@@ -5575,6 +5725,150 @@ export declare const schemas: {
             type: "overdue_receivables" | "funding_stalled" | "wants_discipline" | "no_data";
             severity: "info" | "warn" | "critical";
         }[];
+    }>;
+    StockItemCreateInput: z.ZodObject<{
+        name: z.ZodString;
+        sku: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        qtyOnHand: z.ZodOptional<z.ZodNumber>;
+        unitCost: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+        lowStockThreshold: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        unitCost: number;
+        unitPrice: number;
+        sku?: string | null | undefined;
+        qtyOnHand?: number | undefined;
+        lowStockThreshold?: number | undefined;
+        location?: string | null | undefined;
+    }, {
+        name: string;
+        unitCost: number;
+        unitPrice: number;
+        sku?: string | null | undefined;
+        qtyOnHand?: number | undefined;
+        lowStockThreshold?: number | undefined;
+        location?: string | null | undefined;
+    }>;
+    StockItemUpdateInput: z.ZodObject<{
+        name: z.ZodOptional<z.ZodString>;
+        sku: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        unitCost: z.ZodOptional<z.ZodNumber>;
+        unitPrice: z.ZodOptional<z.ZodNumber>;
+        lowStockThreshold: z.ZodOptional<z.ZodNumber>;
+        location: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        name?: string | undefined;
+        sku?: string | null | undefined;
+        unitCost?: number | undefined;
+        unitPrice?: number | undefined;
+        lowStockThreshold?: number | undefined;
+        location?: string | null | undefined;
+    }, {
+        name?: string | undefined;
+        sku?: string | null | undefined;
+        unitCost?: number | undefined;
+        unitPrice?: number | undefined;
+        lowStockThreshold?: number | undefined;
+        location?: string | null | undefined;
+    }>;
+    StockMovementType: z.ZodEnum<["in", "out", "adjust"]>;
+    StockMovementCreateInput: z.ZodObject<{
+        type: z.ZodEnum<["in", "out", "adjust"]>;
+        qty: z.ZodNumber;
+        unitCost: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
+        note: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+        pocketId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
+    }, "strip", z.ZodTypeAny, {
+        type: "in" | "out" | "adjust";
+        qty: number;
+        note?: string | null | undefined;
+        unitCost?: number | null | undefined;
+        pocketId?: string | null | undefined;
+    }, {
+        type: "in" | "out" | "adjust";
+        qty: number;
+        note?: string | null | undefined;
+        unitCost?: number | null | undefined;
+        pocketId?: string | null | undefined;
+    }>;
+    StockItem: z.ZodObject<{
+        id: z.ZodString;
+        userId: z.ZodString;
+        planId: z.ZodString;
+        name: z.ZodString;
+        sku: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        qtyOnHand: z.ZodNumber;
+        unitCost: z.ZodNumber;
+        unitPrice: z.ZodNumber;
+        lowStockThreshold: z.ZodNumber;
+        location: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        isLowStock: z.ZodOptional<z.ZodBoolean>;
+        createdAt: z.ZodString;
+        updatedAt: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        name: string;
+        id: string;
+        userId: string;
+        planId: string;
+        createdAt: string;
+        updatedAt: string;
+        qtyOnHand: number;
+        unitCost: number;
+        unitPrice: number;
+        lowStockThreshold: number;
+        sku?: string | null | undefined;
+        location?: string | null | undefined;
+        isLowStock?: boolean | undefined;
+    }, {
+        name: string;
+        id: string;
+        userId: string;
+        planId: string;
+        createdAt: string;
+        updatedAt: string;
+        qtyOnHand: number;
+        unitCost: number;
+        unitPrice: number;
+        lowStockThreshold: number;
+        sku?: string | null | undefined;
+        location?: string | null | undefined;
+        isLowStock?: boolean | undefined;
+    }>;
+    StockMovement: z.ZodObject<{
+        id: z.ZodString;
+        itemId: z.ZodString;
+        userId: z.ZodString;
+        type: z.ZodEnum<["in", "out", "adjust"]>;
+        qty: z.ZodNumber;
+        unitCost: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        totalCost: z.ZodNumber;
+        note: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        pocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
+        createdAt: z.ZodString;
+    }, "strip", z.ZodTypeAny, {
+        type: "in" | "out" | "adjust";
+        id: string;
+        userId: string;
+        createdAt: string;
+        qty: number;
+        itemId: string;
+        totalCost: number;
+        note?: string | null | undefined;
+        unitCost?: number | null | undefined;
+        pocketId?: string | null | undefined;
+    }, {
+        type: "in" | "out" | "adjust";
+        id: string;
+        userId: string;
+        createdAt: string;
+        qty: number;
+        itemId: string;
+        totalCost: number;
+        note?: string | null | undefined;
+        unitCost?: number | null | undefined;
+        pocketId?: string | null | undefined;
     }>;
 };
 //# sourceMappingURL=index.d.ts.map
