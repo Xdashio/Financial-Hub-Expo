@@ -633,7 +633,7 @@ export default function LoanDetailScreen() {
                 key={subPocket.id}
                 subPocket={subPocket}
                 colors={colors}
-                onPress={() => router.push(`/pockets/detail?id=${subPocket.id}`)}
+                onPress={() => router.push({ pathname: '/(pockets)/detail', params: { id: subPocket.id } })}
               />
             ))
           )}

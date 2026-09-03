@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, Pressable } from 'react-native';
+import { View, Text, ScrollView, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer, Button } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { msmeStockApi } from '@/services/api';
+import { ArrowLeft } from 'lucide-react-native';
+import { safeGoBack } from '@/utils/navigation';
 
 export default function CreateStockScreen() {
   const router = useRouter();
@@ -72,23 +74,49 @@ export default function CreateStockScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
-          <Pressable onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}><Text style={{ ...typography.body, color: colors.emeraldDeep }}>Cancel</Text></Pressable>
-          <Text style={{ ...typography.heading, color: colors.ink }}>Add Stock Item</Text>
-          <View style={{ width: 60 }} />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xl }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.lg }}>
+            <Pressable
+              onPress={() => safeGoBack(router, '/msme-stock')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ padding: spacing.xs, marginRight: spacing.sm }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+            </Pressable>
+            <Text style={{ ...typography.heading, color: colors.ink }}>Add Stock Item</Text>
+          </View>
+
+          <Field label="Name *" value={name} onChange={setName} placeholder="e.g. Cement 50kg" error={errors.name} />
+          <Field label="SKU (optional)" value={sku} onChange={setSku} placeholder="CEM50" error={errors.sku} hint="Up to 30 chars, unique per business." />
+          <Field label="Qty on hand" value={qty} onChange={setQty} placeholder="0" keyboard="numeric" error={errors.qty} hint="Initial stock. Movements will adjust this." />
+          <Field label="Unit cost (KES) *" value={unitCost} onChange={setUnitCost} placeholder="500" keyboard="numeric" error={errors.unitCost} />
+          <Field label="Unit price (KES) *" value={unitPrice} onChange={setUnitPrice} placeholder="650" keyboard="numeric" error={errors.unitPrice} />
+          <Field label="Low-stock threshold" value={threshold} onChange={setThreshold} placeholder="5" keyboard="numeric" error={errors.threshold} hint="Flagged when qty ≤ threshold." />
+          <Field label="Location (optional)" value={location} onChange={setLocation} placeholder="Main store" error={errors.location} />
+        </ScrollView>
+
+        <View
+          style={{
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.md,
+            paddingBottom: spacing.lg,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+            backgroundColor: colors.paper,
+          }}
+        >
+          <Button onPress={submit} loading={loading} disabled={loading}>
+            Add Item
+          </Button>
         </View>
-
-        <Field label="Name *" value={name} onChange={setName} placeholder="e.g. Cement 50kg" error={errors.name} />
-        <Field label="SKU (optional)" value={sku} onChange={setSku} placeholder="CEM50" error={errors.sku} hint="Up to 30 chars, unique per business." />
-        <Field label="Qty on hand" value={qty} onChange={setQty} placeholder="0" keyboard="numeric" error={errors.qty} hint="Initial stock. Movements will adjust this." />
-        <Field label="Unit cost (KES) *" value={unitCost} onChange={setUnitCost} placeholder="500" keyboard="numeric" error={errors.unitCost} />
-        <Field label="Unit price (KES) *" value={unitPrice} onChange={setUnitPrice} placeholder="650" keyboard="numeric" error={errors.unitPrice} />
-        <Field label="Low-stock threshold" value={threshold} onChange={setThreshold} placeholder="5" keyboard="numeric" error={errors.threshold} hint="Flagged when qty ≤ threshold." />
-        <Field label="Location (optional)" value={location} onChange={setLocation} placeholder="Main store" error={errors.location} />
-
-        <Button fullWidth onPress={submit} loading={loading} disabled={loading}>Add Item</Button>
-      </ScrollView>
+      </KeyboardAvoidingView>
       {modal}
     </ScreenContainer>
   );

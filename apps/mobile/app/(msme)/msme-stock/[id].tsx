@@ -68,7 +68,15 @@ export default function StockDetailScreen() {
   return (
     <ScreenContainer>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl * 1.2 }} refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={colors.emeraldDeep} />}>
-        <Pressable onPress={() => router.back()} style={{ marginBottom: spacing.md }}><Text style={{ ...typography.body, color: colors.emeraldDeep }}>‹ Back</Text></Pressable>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, padding: spacing.xs, alignSelf: 'flex-start' }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={{ ...typography.body, color: colors.emeraldDeep }}>‹ Back</Text>
+        </Pressable>
 
         <View style={{ backgroundColor: low ? colors.clayTint : colors.surface, borderWidth: 1, borderColor: low ? colors.clay : colors.line, borderRadius: radius.lg, padding: spacing.lg }}>
           <Text style={{ ...typography.title, color: colors.ink }}>{item.name}</Text>
