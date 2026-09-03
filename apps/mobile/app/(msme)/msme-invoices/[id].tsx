@@ -63,7 +63,15 @@ export default function InvoiceDetailScreen() {
   return (
     <ScreenContainer>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.xxl * 1.2 }} refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={colors.emeraldDeep} />}>
-        <Pressable onPress={() => router.back()} style={{ marginBottom: spacing.md }}><Text style={{ ...typography.body, color: colors.emeraldDeep }}>‹ Back</Text></Pressable>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md, padding: spacing.xs, alignSelf: 'flex-start' }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={{ ...typography.body, color: colors.emeraldDeep }}>‹ Back</Text>
+        </Pressable>
 
         <View style={{ backgroundColor: isOverdue ? colors.clayTint : colors.surface, borderWidth: 1, borderColor: isOverdue ? colors.clay : colors.line, borderRadius: radius.lg, padding: spacing.lg }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -92,10 +100,22 @@ export default function InvoiceDetailScreen() {
         </View>
 
         <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
-          {canSend && <Button fullWidth variant="secondary" onPress={() => act(() => msmeInvoicesApi.send(invoice.id), 'send')} loading={acting === 'send'}>Send to Customer</Button>}
-          {canPay && <Button fullWidth onPress={() => act(() => msmeInvoicesApi.pay(invoice.id, createIdempotencyKey('invoice_pay')), 'pay')} loading={acting === 'pay'}>Mark Paid — Allocate to MSME Pockets</Button>}
-          {canVoid && <Button fullWidth variant="ghost" onPress={async () => { const ok = await confirm('Void invoice?', 'This cannot be undone.', { confirmLabel: 'Void', destructive: true }); if (ok) act(() => msmeInvoicesApi.void(invoice.id), 'void'); }} loading={acting === 'void'}>Void</Button>}
-          {invoice.status !== 'paid' && <Button fullWidth variant="ghost" onPress={async () => { const ok = await confirm('Delete?', 'Delete this draft?', { confirmLabel: 'Delete', destructive: true }); if (!ok) return; try { await msmeInvoicesApi.delete(invoice.id); router.replace('/msme-invoices' as any); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } }}>Delete</Button>}
+          {canPay && <Button onPress={() => act(() => msmeInvoicesApi.pay(invoice.id, createIdempotencyKey('invoice_pay')), 'pay')} loading={acting === 'pay'}>Mark Paid — Allocate to MSME Pockets</Button>}
+          {canSend && <Button variant="secondary" onPress={() => act(() => msmeInvoicesApi.send(invoice.id), 'send')} loading={acting === 'send'}>Send to Customer</Button>}
+          {(canVoid || invoice.status !== 'paid') && (
+            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+              {canVoid && (
+                <View style={{ flex: 1 }}>
+                  <Button variant="outline" onPress={async () => { const ok = await confirm('Void invoice?', 'This cannot be undone.', { confirmLabel: 'Void', destructive: true }); if (ok) act(() => msmeInvoicesApi.void(invoice.id), 'void'); }} loading={acting === 'void'}>Void</Button>
+                </View>
+              )}
+              {invoice.status !== 'paid' && (
+                <View style={{ flex: 1 }}>
+                  <Button variant="ghost" onPress={async () => { const ok = await confirm('Delete?', 'Delete this draft?', { confirmLabel: 'Delete', destructive: true }); if (!ok) return; try { await msmeInvoicesApi.delete(invoice.id); router.replace('/msme-invoices' as any); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } }}>Delete</Button>
+                </View>
+              )}
+            </View>
+          )}
         </View>
 
         <View style={{ marginTop: spacing.lg, backgroundColor: colors.emeraldTint, borderRadius: radius.md, padding: spacing.md }}>
