@@ -79,7 +79,7 @@ export default function MsmeStockScreen() {
   };
 
   if (isLoading) {
-    return <ScreenContainer><View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}><Text style={{ ...typography.title, color: colors.ink }}>Stock</Text></View><LoadingState label="Loading stock…" variant="loans" /></ScreenContainer>;
+    return <ScreenContainer><View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}><Text style={{ ...typography.title, color: colors.ink }}>Stock</Text></View><LoadingState label="Loading stock…" variant="stock" /></ScreenContainer>;
   }
 
   const header = (

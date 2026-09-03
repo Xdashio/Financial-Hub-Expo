@@ -1077,12 +1077,20 @@ export default function PocketDetailScreen() {
               <Text style={{ ...typography.caption, color: colors.sage }}>Status</Text>
               <Text style={{ ...typography.caption, color: colors.plum }}>Active</Text>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md }}>
               <Text style={{ ...typography.caption, color: colors.sage }}>Purpose</Text>
               <Text style={{ ...typography.caption, color: colors.ink }}>
                 {pocket.category ? getMerchantCategoryLabel(pocket.category) : 'General purpose'}
               </Text>
             </View>
+            <Pressable
+              onPress={() => router.push({ pathname: '/(loans)/detail', params: { id: pocket.id } })}
+              style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm, borderRadius: radius.md, backgroundColor: colors.plum, opacity: pressed ? 0.85 : 1 }]}
+              accessibilityRole="button"
+              accessibilityLabel="View full loan details"
+            >
+              <Text style={{ ...typography.heading, color: colors.surface, fontSize: 13 }}>View full loan details</Text>
+            </Pressable>
           </View>
         )}
 

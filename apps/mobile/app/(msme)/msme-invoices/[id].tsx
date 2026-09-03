@@ -51,7 +51,7 @@ export default function InvoiceDetailScreen() {
     try { await fn(); await load(); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } finally { setActing(null); }
   };
 
-  if (loading) return <ScreenContainer><LoadingState label="Loading invoice…" variant="loans" /></ScreenContainer>;
+  if (loading) return <ScreenContainer><LoadingState label="Loading invoice…" variant="invoice-detail" /></ScreenContainer>;
   if (error || !invoice) return <ScreenContainer><ErrorState message={error || 'Not found'} onRetry={load} /></ScreenContainer>;
 
   const canSend = invoice.status === 'draft';

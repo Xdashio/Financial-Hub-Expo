@@ -190,7 +190,9 @@ export default function MsmeHomeScreen() {
       ? colors.gold
       : pocket.kind === 'savings'
         ? colors.emeraldDeep
-        : colors.plum;
+        : pocket.kind === 'loan'
+          ? colors.plum
+          : colors.plum;
     const Icon = getCategoryIcon((pocket.category as any) || 'operations');
     const progress = pocket.monthly_allocation > 0
       ? Math.max(0, Math.min(1, pocket.available_balance / pocket.monthly_allocation))
@@ -199,16 +201,24 @@ export default function MsmeHomeScreen() {
     // Avoid duplicate "Rent / Rent" — if label matches name, show kind purpose instead
     const subLabel = label && label.toLowerCase() !== pocket.name.toLowerCase()
       ? label
-      : pocket.kind === 'savings' ? 'Savings' : pocket.kind === 'fixed' ? 'Fixed costs' : 'Business pocket';
-    const status = pocket.available_balance <= 0 ? 'Awaiting income' : pocket.kind === 'savings' ? 'Protected' : pocket.kind === 'fixed' ? 'Funded' : 'Available';
-    const statusBg = status === 'Protected' ? colors.emeraldTint : status === 'Funded' ? colors.goldTint : status === 'Available' ? colors.emeraldTint : colors.lineSoft;
-    const statusColor = status === 'Protected' ? colors.emeraldDeep : status === 'Funded' ? colors.gold : status === 'Available' ? colors.emeraldDeep : colors.sage;
-    const statusBorder = status === 'Protected' ? colors.emeraldDeep + '30' : status === 'Funded' ? colors.gold + '30' : status === 'Available' ? colors.emeraldDeep + '30' : colors.line;
+      : pocket.kind === 'savings' ? 'Savings' : pocket.kind === 'fixed' ? 'Fixed costs' : pocket.kind === 'loan' ? 'Loan' : 'Business pocket';
+    const status = pocket.kind === 'loan'
+      ? 'Loan'
+      : pocket.available_balance <= 0 ? 'Awaiting income' : pocket.kind === 'savings' ? 'Protected' : pocket.kind === 'fixed' ? 'Funded' : 'Available';
+    const statusBg = status === 'Protected' ? colors.emeraldTint : status === 'Funded' ? colors.goldTint : status === 'Loan' ? colors.plumTint : status === 'Available' ? colors.emeraldTint : colors.lineSoft;
+    const statusColor = status === 'Protected' ? colors.emeraldDeep : status === 'Funded' ? colors.gold : status === 'Loan' ? colors.plum : status === 'Available' ? colors.emeraldDeep : colors.sage;
+    const statusBorder = status === 'Protected' ? colors.emeraldDeep + '30' : status === 'Funded' ? colors.gold + '30' : status === 'Loan' ? colors.plum + '30' : status === 'Available' ? colors.emeraldDeep + '30' : colors.line;
     return (
       <Pressable
         key={pocket.id}
         style={({ pressed }) => [{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }, { opacity: pressed ? 0.8 : 1 }]}
-        onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+        onPress={() => {
+          if (pocket.kind === 'loan') {
+            router.push({ pathname: '/(loans)/detail', params: { id: pocket.id } });
+          } else {
+            router.push(`/(pockets)/detail?id=${pocket.id}`);
+          }
+        }}
         accessibilityRole="button"
         accessibilityLabel={`${pocket.name} pocket, ${subLabel}, ${formatMoney(pocket.available_balance)} available, ${status}`}
       >
@@ -244,7 +254,7 @@ export default function MsmeHomeScreen() {
     return (
       <ScreenContainer>
         {renderHeader()}
-        <LoadingState label="Loading your business hub…" variant="home" />
+        <LoadingState label="Loading your business hub…" variant="msme-home" />
       </ScreenContainer>
     );
   }
