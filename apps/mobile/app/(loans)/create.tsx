@@ -114,6 +114,16 @@ export default function CreateLoanScreen() {
     }
   };
 
+  // Disable final Create when the live preview shows a mismatch — mirrors
+  // validateStep(4) so the sticky footer doesn't look tappable while an
+  // alert would be the next thing the user sees.
+  const scheduleMismatch =
+    currentStep === totalSteps &&
+    Boolean(startDate && endDate && repaymentAmount && totalAmount) &&
+    isValidDate(startDate) &&
+    isValidDate(endDate) &&
+    calculateNumberOfPayments(startDate, endDate, cadence) * parseFloat(repaymentAmount || '0') !== parseFloat(totalAmount || '0');
+
   const validateStep = async (step: number): Promise<boolean> => {
     switch (step) {
       case 1:
@@ -446,110 +456,122 @@ export default function CreateLoanScreen() {
 
   return (
     <ScreenContainer>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: spacing.xxl * 2 }}
-      >
-        {/* Header */}
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header */}
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              paddingHorizontal: spacing.lg,
+              paddingTop: spacing.md,
+              paddingBottom: spacing.sm,
+            }}
+          >
+            <Pressable
+              onPress={goBack}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ padding: spacing.xs, marginRight: spacing.sm }}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
+            </Pressable>
+            <Text style={{ ...typography.title, color: colors.ink }}>Create loan</Text>
+          </View>
+
+          {/* Progress Steps — connectors as flex siblings between circles */}
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.lg }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {Array.from({ length: totalSteps }).map((_, index) => {
+                const stepNumber = index + 1;
+                const isCompleted = stepNumber < currentStep;
+                const isCurrent = stepNumber === currentStep;
+                return (
+                  <React.Fragment key={stepNumber}>
+                    <View style={{ alignItems: 'center' }}>
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 16,
+                          backgroundColor: isCompleted ? colors.emeraldDeep : isCurrent ? colors.emeraldDeep : colors.lineSoft,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 2,
+                          borderColor: isCompleted || isCurrent ? colors.emeraldDeep : colors.lineSoft,
+                        }}
+                      >
+                        {isCompleted ? (
+                          <Check size={16} color={colors.surface} strokeWidth={2} />
+                        ) : (
+                          <Text style={{ ...typography.caption, color: isCurrent ? colors.surface : colors.sage, fontSize: 14 }}>
+                            {stepNumber}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    {stepNumber < totalSteps && (
+                      <View
+                        style={{
+                          flex: 1,
+                          height: 2,
+                          backgroundColor: isCompleted ? colors.emeraldDeep : colors.lineSoft,
+                          marginHorizontal: spacing.xs,
+                        }}
+                      />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
+              <Text style={{ ...typography.caption, color: colors.sage }}>
+                Step {currentStep} of {totalSteps}
+              </Text>
+              <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
+                {currentStep === 1 ? 'Loan Details' :
+                 currentStep === 2 ? 'Schedule' :
+                 currentStep === 3 ? 'Payment Settings' : 'Optional Info'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Form */}
+          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
+            {renderStep()}
+          </View>
+        </ScrollView>
+
+        {/* Sticky footer — outside ScrollView so it never scrolls away */}
         <View
           style={{
             flexDirection: 'row',
-            alignItems: 'center',
+            gap: spacing.md,
             paddingHorizontal: spacing.lg,
-            paddingTop: spacing.md,
-            paddingBottom: spacing.sm,
+            paddingVertical: spacing.md,
+            paddingBottom: spacing.lg,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+            backgroundColor: colors.paper,
           }}
         >
-          <Pressable
-            onPress={goBack}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={{ padding: spacing.xs, marginRight: spacing.sm }}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <ArrowLeft size={24} color={colors.ink} strokeWidth={2} />
-          </Pressable>
-          <Text style={{ ...typography.title, color: colors.ink }}>Create loan</Text>
-        </View>
-
-        {/* Progress Steps */}
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.lg }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            {Array.from({ length: totalSteps }).map((_, index) => {
-              const stepNumber = index + 1;
-              const isCompleted = stepNumber < currentStep;
-              const isCurrent = stepNumber === currentStep;
-              return (
-                <View key={stepNumber} style={{ flex: 1, alignItems: 'center' }}>
-                  <View
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: isCompleted ? colors.emeraldDeep : isCurrent ? colors.emeraldDeep : colors.lineSoft,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: 2,
-                      borderColor: isCompleted || isCurrent ? colors.emeraldDeep : colors.lineSoft,
-                    }}
-                  >
-                    {isCompleted ? (
-                      <Check size={16} color={colors.surface} strokeWidth={2} />
-                    ) : (
-                      <Text style={{ ...typography.caption, color: isCurrent ? colors.surface : colors.sage, fontSize: 14 }}>
-                        {stepNumber}
-                      </Text>
-                    )}
-                  </View>
-                  {stepNumber < totalSteps && (
-                    <View style={{ 
-                      flex: 1, 
-                      height: 2, 
-                      backgroundColor: isCompleted ? colors.emeraldDeep : colors.lineSoft,
-                      marginHorizontal: spacing.xs,
-                      marginTop: 15 
-                    }} />
-                  )}
-                </View>
-              );
-            })}
+          <View style={{ flex: 1 }}>
+            <Button variant="outline" onPress={goBack} disabled={isSubmitting}>
+              {currentStep === 1 ? 'Cancel' : 'Back'}
+            </Button>
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
-            <Text style={{ ...typography.caption, color: colors.sage }}>
-              Step {currentStep} of {totalSteps}
-            </Text>
-            <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-              {currentStep === 1 ? 'Loan Details' : 
-               currentStep === 2 ? 'Schedule' :
-               currentStep === 3 ? 'Payment Settings' : 'Optional Info'}
-            </Text>
+          <View style={{ flex: 1 }}>
+            <Button onPress={handleNextStep} loading={isSubmitting} disabled={isSubmitting || (currentStep === totalSteps && scheduleMismatch)}>
+              {currentStep === totalSteps ? 'Create Loan' : 'Next'}
+            </Button>
           </View>
         </View>
-
-        {/* Form */}
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
-          {renderStep()}
-        </View>
-
-        {/* Navigation Buttons */}
-        <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl, flexDirection: 'row', gap: spacing.md }}>
-          <Button
-            fullWidth
-            variant="outline"
-            onPress={goBack}
-            disabled={isSubmitting}
-          >
-            {currentStep === 1 ? 'Cancel' : 'Back'}
-          </Button>
-          <Button
-            fullWidth
-            onPress={handleNextStep}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Creating...' : currentStep === totalSteps ? 'Create Loan' : 'Next'}
-          </Button>
-        </View>
-      </ScrollView>
+      </View>
       
       {/* Date pickers */}
       <DatePickerSheet

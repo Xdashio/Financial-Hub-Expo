@@ -309,13 +309,14 @@ export default function CreateMsmeProjectScreen() {
   return (
     <ScreenContainer>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={90}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: spacing.xxl * 2 }}
+          contentContainerStyle={{ paddingBottom: spacing.xl }}
+          keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
           <View
@@ -339,45 +340,48 @@ export default function CreateMsmeProjectScreen() {
             <Text style={{ ...typography.title, color: colors.ink }}>Create Project</Text>
           </View>
 
-          {/* Progress Steps */}
+          {/* Progress Steps — connectors are siblings, not children of the circle, so they stretch between steps */}
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg, marginBottom: spacing.lg }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               {Array.from({ length: totalSteps }).map((_, index) => {
                 const stepNumber = index + 1;
                 const isCompleted = stepNumber < currentStep;
                 const isCurrent = stepNumber === currentStep;
                 return (
-                  <View key={stepNumber} style={{ flex: 1, alignItems: 'center' }}>
-                    <View
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 16,
-                        backgroundColor: isCompleted ? colors.emeraldDeep : isCurrent ? colors.emeraldDeep : colors.lineSoft,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderWidth: 2,
-                        borderColor: isCompleted || isCurrent ? colors.emeraldDeep : colors.lineSoft,
-                      }}
-                    >
-                      {isCompleted ? (
-                        <Check size={16} color={colors.surface} strokeWidth={2} />
-                      ) : (
-                        <Text style={{ ...typography.caption, color: isCurrent ? colors.surface : colors.sage, fontSize: 14 }}>
-                          {stepNumber}
-                        </Text>
-                      )}
+                  <React.Fragment key={stepNumber}>
+                    <View style={{ alignItems: 'center' }}>
+                      <View
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 16,
+                          backgroundColor: isCompleted ? colors.emeraldDeep : isCurrent ? colors.emeraldDeep : colors.lineSoft,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 2,
+                          borderColor: isCompleted || isCurrent ? colors.emeraldDeep : colors.lineSoft,
+                        }}
+                      >
+                        {isCompleted ? (
+                          <Check size={16} color={colors.surface} strokeWidth={2} />
+                        ) : (
+                          <Text style={{ ...typography.caption, color: isCurrent ? colors.surface : colors.sage, fontSize: 14 }}>
+                            {stepNumber}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                     {stepNumber < totalSteps && (
-                      <View style={{
-                        flex: 1,
-                        height: 2,
-                        backgroundColor: isCompleted ? colors.emeraldDeep : colors.lineSoft,
-                        marginHorizontal: spacing.xs,
-                        marginTop: 15
-                      }} />
+                      <View
+                        style={{
+                          flex: 1,
+                          height: 2,
+                          backgroundColor: isCompleted ? colors.emeraldDeep : colors.lineSoft,
+                          marginHorizontal: spacing.xs,
+                        }}
+                      />
                     )}
-                  </View>
+                  </React.Fragment>
                 );
               })}
             </View>
@@ -395,26 +399,36 @@ export default function CreateMsmeProjectScreen() {
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.lg }}>
             {renderStep()}
           </View>
+        </ScrollView>
 
-          {/* Navigation Buttons */}
-          <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl, flexDirection: 'row', gap: spacing.md }}>
-            <Button
-              fullWidth
-              variant="outline"
-              onPress={goBack}
-              disabled={isSubmitting}
-            >
+        {/* Sticky footer — outside ScrollView so it never scrolls away and respects keyboard */}
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: spacing.md,
+            paddingHorizontal: spacing.lg,
+            paddingVertical: spacing.md,
+            paddingBottom: spacing.lg,
+            borderTopWidth: 1,
+            borderTopColor: colors.line,
+            backgroundColor: colors.paper,
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Button variant="outline" onPress={goBack} disabled={isSubmitting}>
               {currentStep === 1 ? 'Cancel' : 'Back'}
             </Button>
+          </View>
+          <View style={{ flex: 1 }}>
             <Button
-              fullWidth
               onPress={handleNextStep}
-              disabled={isSubmitting}
+              loading={isSubmitting}
+              disabled={isSubmitting || (currentStep === totalSteps && !isSumValid && tierSum > 0)}
             >
-              {isSubmitting ? 'Creating...' : currentStep === totalSteps ? 'Create Project' : 'Next'}
+              {currentStep === totalSteps ? 'Create Project' : 'Next'}
             </Button>
           </View>
-        </ScrollView>
+        </View>
       </KeyboardAvoidingView>
       {modal}
     </ScreenContainer>
