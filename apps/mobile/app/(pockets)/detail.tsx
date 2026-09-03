@@ -697,7 +697,7 @@ export default function PocketDetailScreen() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
           <View
             style={{
-              backgroundColor: colors.ink,
+              backgroundColor: colors.heroBg,
               borderRadius: radius.sm,
               padding: spacing.lg,
               paddingTop: spacing.xl,
@@ -730,7 +730,7 @@ export default function PocketDetailScreen() {
               }}
             />
 
-            <Text style={{ ...typography.caption, color: colors.surface + 'AA', marginTop: spacing.sm }}>
+            <Text style={{ ...typography.caption, color: colors.heroText + 'AA', marginTop: spacing.sm }}>
               {isDailyCapped ? "Left today" : 'Available in this pocket'}
             </Text>
             <Text
@@ -738,20 +738,20 @@ export default function PocketDetailScreen() {
                 ...typography.display,
                 fontSize: 34,
                 lineHeight: 42,
-                color: colors.surface,
+                color: colors.heroText,
                 marginTop: spacing.xs,
                 fontVariant: ['tabular-nums'],
               }}
             >
               {fmt(isDailyCapped ? availableToday : (stat?.available ?? 0))}
             </Text>
-            <Text style={{ ...typography.caption, color: colors.surface + '88', marginTop: 4 }}>
+            <Text style={{ ...typography.caption, color: colors.heroText + '88', marginTop: 4 }}>
               {isDailyCapped
                 ? `of ${fmt(dailyCap)} daily budget · ${Math.round(pctRemaining)}% left today`
                 : `of ${fmt(stat?.monthly_allocation ?? 0)} monthly allocation · ${Math.round(pctRemaining)}% remaining`}
             </Text>
             {isDailyCapped && (
-              <Text style={{ ...typography.caption, fontSize: 11, color: colors.surface + '66', marginTop: 2 }}>
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText + '66', marginTop: 2 }}>
                 {fmt(fullPocketBalance)} total in pocket
               </Text>
             )}
@@ -763,7 +763,7 @@ export default function PocketDetailScreen() {
             <View
               style={{
                 height: 6,
-                backgroundColor: colors.surface + '22',
+                backgroundColor: colors.heroText + '22',
                 borderRadius: radius.pill,
                 marginTop: spacing.lg,
                 overflow: 'hidden',
@@ -786,7 +786,7 @@ export default function PocketDetailScreen() {
                   alignItems: 'center',
                   gap: spacing.xs,
                   marginTop: spacing.md,
-                  backgroundColor: colors.surface + '14',
+                  backgroundColor: colors.heroText + '14',
                   borderRadius: radius.sm,
                   paddingHorizontal: spacing.sm,
                   paddingVertical: spacing.sm - 2,
@@ -802,7 +802,7 @@ export default function PocketDetailScreen() {
                       paceState === 'behind' ? colors.clay : paceState === 'ahead' ? colors.emerald : colors.gold,
                   }}
                 />
-                <Text style={{ ...typography.caption, fontSize: 11, color: colors.surface + 'CC' }}>
+                <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText + 'CC' }}>
                   {paceCopy[paceState]}
                 </Text>
               </View>
@@ -811,22 +811,22 @@ export default function PocketDetailScreen() {
             {/* Stats row */}
             <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.xl }}>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Spent{isDailyCapped ? ' today' : ''}</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Spent{isDailyCapped ? ' today' : ''}</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, fontVariant: ['tabular-nums'] }}>
                   {fmt(isDailyCapped ? Math.max(0, dailyCap - availableToday) : (stat?.spent ?? 0))}
                 </Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Avg/day spend</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Avg/day spend</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, fontVariant: ['tabular-nums'] }}>
                   {fmt(stat?.daily_average_spend ?? 0)}
                 </Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>
                   {isDailyCapped ? 'Resets in' : 'Days left'}
                 </Text>
-                <Text style={{ ...typography.heading, color: colors.surface }}>
+                <Text style={{ ...typography.heading, color: colors.heroText }}>
                   {isDailyCapped ? `${Math.max(0, 24 - hourOfDay)}h` : (stat?.days_remaining ?? '—')}
                 </Text>
               </View>

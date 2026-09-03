@@ -626,24 +626,24 @@ export default function ResultScreen() {
               </View>
 
               {/* Safe to spend pocket card - exact home page structure with highlight */}
-              <View style={{ backgroundColor: colors.ink, borderWidth: 0, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
+              <View style={{ backgroundColor: colors.heroBg, borderWidth: 0, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }}>
                 <View style={{ borderTopWidth: 1.5, borderTopColor: colors.emeraldDeep, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
                 <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: colors.emeraldDeep }} />
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <CategoryIcon category="food" size={14} />
-                    <Text style={{ ...typography.heading, color: colors.surface }}>Safe to spend</Text>
+                    <Text style={{ ...typography.heading, color: colors.heroText }}>Safe to spend</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Text style={{ ...typography.body, color: colors.surface, fontVariant: ['tabular-nums'] }}>KSh {spendableAmount.toLocaleString()}</Text>
+                    <Text style={{ ...typography.body, color: colors.heroText, fontVariant: ['tabular-nums'] }}>KSh {spendableAmount.toLocaleString()}</Text>
                   </View>
                 </View>
-                <View style={{ height: 6, backgroundColor: `${colors.surface}26`, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
+                <View style={{ height: 6, backgroundColor: `${colors.heroText}26`, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
                   <View style={{ height: '100%', borderRadius: radius.pill, backgroundColor: colors.emeraldDeep, width: `${spendablePercentage}%` }} />
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.sm }}>
-                  <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Daily budget</Text>
-                  <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.surface}B3` }}>Available</Text>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.heroText}B3` }}>Daily budget</Text>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: `${colors.heroText}B3` }}>Available</Text>
                 </View>
 
                 <CategorySplitEditor colors={colors} />

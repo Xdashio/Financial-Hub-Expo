@@ -112,18 +112,18 @@ export default function CurrentPlanScreen() {
             style={{
               padding: spacing.xl,
               borderRadius: radius.md,
-              backgroundColor: colors.ink,
+              backgroundColor: colors.heroBg,
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-              <View style={{ width: 40, height: 40, borderRadius: radius.xs, backgroundColor: `${colors.surface}1A`, alignItems: 'center', justifyContent: 'center' }}>
-                <BarChart3 size={18} color={colors.surface} strokeWidth={2} />
+              <View style={{ width: 40, height: 40, borderRadius: radius.xs, backgroundColor: `${colors.heroText}1A`, alignItems: 'center', justifyContent: 'center' }}>
+                <BarChart3 size={18} color={colors.heroText} strokeWidth={2} />
               </View>
               <View>
-                <Text style={{ ...typography.title, color: colors.surface, fontSize: 18 }}>
+                <Text style={{ ...typography.title, color: colors.heroText, fontSize: 18 }}>
                   {plan.type === 'daily' ? 'Daily Budget' : 'Structured Salaried'}
                 </Text>
-                <Text style={{ ...typography.caption, color: `${colors.surface}99`, marginTop: 2 }}>
+                <Text style={{ ...typography.caption, color: `${colors.heroText}99`, marginTop: 2 }}>
                   {plan.income_pattern === 'freelancer' ? 'Freelancer income' : 'Salaried income'}
                 </Text>
               </View>
@@ -131,12 +131,12 @@ export default function CurrentPlanScreen() {
 
             <View style={{ flexDirection: 'row', gap: spacing.xl, marginTop: spacing.lg }}>
               <View>
-                <Text style={{ ...typography.caption, color: `${colors.surface}88` }}>Total allocated</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, marginTop: 2 }}>{fmt(totalAllocated)}</Text>
+                <Text style={{ ...typography.caption, color: `${colors.heroText}88` }}>Total allocated</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, marginTop: 2 }}>{fmt(totalAllocated)}</Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: `${colors.surface}88` }}>Started</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, marginTop: 2 }}>
+                <Text style={{ ...typography.caption, color: `${colors.heroText}88` }}>Started</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, marginTop: 2 }}>
                   {new Date(plan.created_at).toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </Text>
               </View>
