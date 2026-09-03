@@ -24,6 +24,9 @@ describe('MsmeStockService', () => {
       deleteMsmeStockItem: jest.fn().mockResolvedValue(undefined),
       createMsmeStockMovement: jest.fn().mockResolvedValue({ id: 'mov-1', item_id: 'item-1', user_id: userId, type: 'in', qty: 5, unit_cost: 500, total_cost: 2500, created_at: new Date().toISOString() }),
       getMsmeStockMovementsByItemId: jest.fn().mockResolvedValue([]),
+      adjustStockQty: jest.fn().mockImplementation(async (_id: string, delta: number) => ({ ...mockItem, qty_on_hand: Number(mockItem.qty_on_hand) + delta })),
+      getIdempotencyRecord: jest.fn().mockResolvedValue(null),
+      saveIdempotencyRecord: jest.fn().mockResolvedValue(null),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({

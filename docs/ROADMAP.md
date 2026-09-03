@@ -41,7 +41,7 @@ Goal: close the gap between what the code assumes and what the database actually
 >
 > Separately (not a Phase A item, but same session): swept `Alert.alert()`-backed `showAlert`/`showConfirm` calls (device-native dialogs, ignore the app's theme) in favor of the existing `useAlertModal()` hook across the OTP/auth flow (`verify-otp.tsx`, `signup.tsx`, `signin.tsx`) and the reallocation/onboarding flows (`realloc-review.tsx`, `realloc-cooloff.tsx`, `result.tsx`, `fixed.tsx`). `app/(tabs)/profile.tsx`'s sign-out message intentionally still uses the native path — it fires after `router.replace()` unmounts the screen, so a hook-backed modal tied to that screen's own state would never render.
 
-**Phase A Status (2026-08-16):** ✅ **COMPLETE** — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed. The backend foundation is now stable and ready for Phase 1 completion.
+**Phase A Status (2026-08-16):** [DONE] **COMPLETE** — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed. The backend foundation is now stable and ready for Phase 1 completion.
 
 ## Phase 1 — MVP showcase (Individual segment only)
 Goal: a clickable, real (not fake-static) app that demonstrates the core thesis to potential SACCO/bank partners.
@@ -64,7 +64,7 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 
 **Exit criteria:** you can hand a phone to a partner, walk through onboarding → plan → a week of simulated activity → a reallocation → insights, and every number on screen is real, not hardcoded.
 
-**Phase 1 Status (2026-08-16):** 🟡 **NEARLY COMPLETE** — All core screens are wired to real backend APIs. The main remaining work includes:
+**Phase 1 Status (2026-08-16):** [IN PROGRESS] **NEARLY COMPLETE** — All core screens are wired to real backend APIs. The main remaining work includes:
 - Final verification and testing of all implemented features
 - Performance optimization and polish
 - User testing and feedback integration
@@ -75,21 +75,21 @@ Goal: a clickable, real (not fake-static) app that demonstrates the core thesis 
 These features were originally scoped as "spec complete, implementation pending." Two of the three headline items are now shipped; status updated accordingly.
 
 ### 1.5.1 Emergency Unlock Feature
-**Status:** ✅ **IMPLEMENTED** — `apps/api/src/modules/pockets/emergency-unlock.service.ts`, with unit (`emergency-unlock.service.spec.ts`) and integration (`emergency-unlock.integration.spec.ts`) test coverage.
+**Status:** [DONE] **IMPLEMENTED** — `apps/api/src/modules/pockets/emergency-unlock.service.ts`, with unit (`emergency-unlock.service.spec.ts`) and integration (`emergency-unlock.integration.spec.ts`) test coverage.
 
 When all non-savings pockets are depleted, users can unlock funds from their savings pocket as an emergency measure. The feature analyzes their 30-day spending patterns to suggest a safe amount range, limits usage to once per month, and allocates the unlocked amount proportionally to non-savings pockets.
 
 **Remaining:** mobile UI polish (bottom sheet, amount selector, allocation preview) and analytics/A-B testing.
 
 ### 1.5.2 Sub-Pocket Percentage Splits
-**Status:** ✅ **IMPLEMENTED** — schema landed in `010_sub_pocket_split_percentage.sql`, allocation logic in `pockets.service.ts`.
+**Status:** [DONE] **IMPLEMENTED** — schema landed in `010_sub_pocket_split_percentage.sql`, allocation logic in `pockets.service.ts`.
 
 Replaces the earlier flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with sibling-total validation (percentages across children can't exceed 100%) and bulk-adjustment support for a sibling set.
 
 ### 1.5.3 Enhanced Nudges System
-**Status:** 🟡 **PARTIALLY IMPLEMENTED** — Client-side nudges in Home screen
-**Backend Module:** ✅ **EXISTS** — `apps/api/src/modules/nudges/`
-**Implementation:** 🔄 **PENDING** — Server-side persistence and push delivery
+**Status:** [IN PROGRESS] **PARTIALLY IMPLEMENTED** — Client-side nudges in Home screen
+**Backend Module:** [DONE] **EXISTS** — `apps/api/src/modules/nudges/`
+**Implementation:** [PENDING] **PENDING** — Server-side persistence and push delivery
 
 Current implementation uses client-side nudges derived from Home screen data. Future enhancement will include server-side nudges with persistence, dismissal state, and push notification delivery.
 

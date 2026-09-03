@@ -25,6 +25,7 @@ import {
   MsmeProjectExcessPromptUpdate,
   TransactionInsert,
 } from '../../database/database.types';
+import * as Sentry from '@sentry/node';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { FundingCascadeService, TierState, AllocationResult, FundingTier } from './funding-cascade.service';
 import { PushDeliveryService } from '../notifications/push-delivery.service';
@@ -169,15 +170,21 @@ export class ProjectsService {
     return this.buildProjectSummary(project, createdTiers);
   }
 
-  async getProjectsForUser(userId: string): Promise<ProjectSummary[]> {
+  async getProjectsForUser(userId: string, page?: number, limit?: number): Promise<any> {
     const projects = await this.repository.getMsmeProjectsByUserId(userId);
     const summaries: ProjectSummary[] = [];
-
     for (const project of projects) {
       const tiers = await this.repository.getMsmeProjectTiersByProjectId(project.id);
       summaries.push(await this.buildProjectSummary(project, tiers));
     }
-
+    if (page != null || limit != null) {
+      const p = Math.max(1, Number(page) || 1);
+      const l = Math.min(50, Math.max(1, Number(limit) || 20));
+      const total = summaries.length;
+      const totalPages = Math.ceil(total / l);
+      const from = (p - 1) * l;
+      return { data: summaries.slice(from, from + l), total, page: p, totalPages };
+    }
     return summaries;
   }
 
@@ -319,10 +326,12 @@ export class ProjectsService {
 
     if (this.cascade.shouldCreateExcessPrompt(allocationResult)) {
       await this.createExcessPrompt(projectId, incomeEvent.id, allocationResult.excessAmount);
-      // Fire-and-forget push for excess (§21)
+      // Fire-and-forget push for excess (§21) — log + Sentry breadcrumb (B-08)
       if (this.pushDelivery) {
         void this.pushDelivery.notifyProjectExcess(userId, projectId, project.name, allocationResult.excessAmount, incomeEvent.id).catch(err => {
-          this.logger.warn(`project excess push failed: ${err instanceof Error ? err.message : String(err)}`);
+          const msg = err instanceof Error ? err.message : String(err);
+          this.logger.warn(`project excess push failed: ${msg}`);
+          try { Sentry.addBreadcrumb({ category: 'push', level: 'warning', message: `excess push failed ${projectId}`, data: { userId, excessAmount: allocationResult.excessAmount, error: msg } }); } catch {}
         });
       }
     }
@@ -645,12 +654,12 @@ export class ProjectsService {
     const completed = await this.repository.updateMsmeProject(projectId, update);
     if (!completed) throw new BadRequestException('Failed to mark project completed');
 
-    if (this.pushDelivery && requiresResolution) {
+    if (this.pushDelivery) {
       void this.pushDelivery.notifyProjectCompleted(userId, projectId, project.name, totalRemaining).catch(err => {
-        this.logger.warn(`project completed push failed: ${err instanceof Error ? err.message : String(err)}`);
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`project completed push failed: ${msg}`);
+        try { Sentry.addBreadcrumb({ category: 'push', level: 'warning', message: `completed push failed ${projectId}`, data: { userId, totalRemaining, error: msg } }); } catch {}
       });
-    } else if (this.pushDelivery) {
-      void this.pushDelivery.notifyProjectCompleted(userId, projectId, project.name, totalRemaining).catch(() => {});
     }
 
     const summary = await this.buildProjectSummary(completed, tiers);

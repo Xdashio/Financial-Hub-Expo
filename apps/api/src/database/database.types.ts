@@ -612,9 +612,13 @@ export interface NotificationDeliveryInsert {
   sent_at?: string;
 }
 
-// Segment-aware scopes (e.g., 'income:individual', 'income:msme') prevent cross-segment
-// replay when the same idempotency key is used in different segments.
-export type IdempotencyScope = `income:${'individual' | 'msme'}` | `spend:${'individual' | 'msme'}` | 'loan_reminder';
+// Segment-aware scopes prevent cross-segment replay when the same key is used in different segments.
+export type IdempotencyScope =
+  | `income:${'individual' | 'msme'}`
+  | `spend:${'individual' | 'msme'}`
+  | `invoice_pay:${'individual' | 'msme'}`
+  | `stock:${'individual' | 'msme'}`
+  | 'loan_reminder';
 
 export interface IdempotencyRecord {
   id: string;

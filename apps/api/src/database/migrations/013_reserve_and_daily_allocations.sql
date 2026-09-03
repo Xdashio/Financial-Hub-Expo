@@ -1,4 +1,7 @@
 -- ============================================================================
+-- Ensure pgcrypto for gen_random_uuid() on fresh DBs (see 001).
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Reserve logical layer, daily allocation lifecycle, monthly planning cycle
 -- and fixed-expense obligation protection.
 --

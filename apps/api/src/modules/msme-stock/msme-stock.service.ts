@@ -73,9 +73,27 @@ export class MsmeStockService {
     return toDto(row);
   }
 
-  async getItemsForUser(userId: string, query: { search?: string; lowStockOnly?: boolean }) {
+  async getItemsForUser(userId: string, query: { search?: string; lowStockOnly?: boolean; page?: number; limit?: number }) {
     const plan = await this.repo.getActivePlanByUserId(userId, 'msme');
-    if (!plan) return [];
+    if (!plan) {
+      if (query.page != null || query.limit != null) return { data: [], total: 0, page: query.page ?? 1, totalPages: 0 } as any;
+      return [];
+    }
+    if (query.page != null || query.limit != null) {
+      const page = Math.max(1, Number(query.page) || 1);
+      const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+      let rows = await this.repo.getMsmeStockItemsByUserId(userId);
+      if (query.search) {
+        const q = query.search.toLowerCase();
+        rows = rows.filter(r => r.name.toLowerCase().includes(q) || (r.sku && r.sku.toLowerCase().includes(q)) || (r.location && r.location.toLowerCase().includes(q)));
+      }
+      if (query.lowStockOnly) rows = rows.filter(r => Number(r.qty_on_hand) <= Number(r.low_stock_threshold));
+      const sorted = rows.map(toDto).sort((a, b) => a.name.localeCompare(b.name));
+      const total = sorted.length;
+      const totalPages = Math.ceil(total / limit);
+      const from = (page - 1) * limit;
+      return { data: sorted.slice(from, from + limit), total, page, totalPages } as any;
+    }
     let rows = await this.repo.getMsmeStockItemsByUserId(userId);
     if (query.search) {
       const q = query.search.toLowerCase();
@@ -133,7 +151,7 @@ export class MsmeStockService {
     return { deleted: true };
   }
 
-  async recordMovement(itemId: string, userId: string, input: unknown) {
+  async recordMovement(itemId: string, userId: string, input: unknown, idempotencyKey?: string) {
     const parsed = StockMovementCreateInputSchema.safeParse(input);
     if (!parsed.success) throw new BadRequestException(parsed.error.issues.map(i => i.message).join('; '));
     const d = parsed.data;
@@ -141,35 +159,91 @@ export class MsmeStockService {
     if (!item) throw new NotFoundException('Stock item not found');
     if (item.user_id !== userId) throw new ForbiddenException('Access denied');
 
-    const currentQty = Number(item.qty_on_hand);
-    let newQty: number;
-    if (d.type === 'in') {
-      newQty = currentQty + d.qty;
-    } else if (d.type === 'out') {
-      if (d.qty > currentQty) throw new BadRequestException(`Insufficient stock: have ${currentQty}, tried to move ${d.qty}`);
-      newQty = currentQty - d.qty;
-    } else { // adjust — treat as delta add (positive) for MVP; use negative qty not allowed, so adjust adds
-      // For adjust we interpret qty as new absolute if provided via note? Keep simple: adds qty
-      newQty = currentQty + d.qty;
+    // Idempotency guard (B-04): replay returns prior response
+    if (idempotencyKey) {
+      try {
+        const existing = await this.repo.getIdempotencyRecord(userId, `stock:msme` as any, idempotencyKey);
+        if (existing?.response) {
+          return existing.response as any;
+        }
+      } catch (e) {
+        this.logger.warn(`idempotency lookup failed (stock): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
+    // Fast-path guard for out before DB call (nice error message)
+    if (d.type === 'out' && d.qty > Number(item.qty_on_hand)) {
+      throw new BadRequestException(`Insufficient stock: have ${item.qty_on_hand}, tried to move ${d.qty}`);
     }
 
     const unitCost = d.unitCost ?? Number(item.unit_cost);
     const totalCost = round2(d.qty * unitCost);
 
-    const movement = await this.repo.createMsmeStockMovement({
-      item_id: itemId,
-      user_id: userId,
-      type: d.type,
-      qty: d.qty,
-      unit_cost: unitCost,
-      total_cost: totalCost,
-      note: d.note?.trim() || null,
-      pocket_id: d.pocketId ?? null,
-    });
-    if (!movement) throw new BadRequestException('Failed to record movement');
+    // Atomic qty adjust via DB function (B-02). Delta is signed: in/adjust +, out -.
+    const delta = d.type === 'out' ? -d.qty : d.qty;
+    let updatedItem: any;
+    try {
+      updatedItem = await this.repo.adjustStockQty(itemId, delta);
+    } catch (e: any) {
+      // 23514 = check violation (would go negative), P0002 = not found
+      if (e?.code === '23514') {
+        throw new BadRequestException(`Insufficient stock: have ${item.qty_on_hand}, tried to move ${d.qty}`);
+      }
+      // Fallback for DBs without 024 function yet: read-modify-write with CHECK fallback
+      if (/adjust_stock_qty|function.*does not exist/i.test(String(e?.message || ''))) {
+        this.logger.warn('adjust_stock_qty missing — falling back to non-atomic update (apply 024)');
+        const currentQty = Number(item.qty_on_hand);
+        let newQty = d.type === 'out' ? currentQty - d.qty : currentQty + d.qty;
+        if (newQty < 0) throw new BadRequestException(`Insufficient stock: have ${currentQty}, tried to move ${d.qty}`);
+        const movementFallback = await this.repo.createMsmeStockMovement({
+          item_id: itemId,
+          user_id: userId,
+          type: d.type,
+          qty: d.qty,
+          unit_cost: unitCost,
+          total_cost: totalCost,
+          note: d.note?.trim() || null,
+          pocket_id: d.pocketId ?? null,
+        });
+        const updatedFallback = await this.repo.updateMsmeStockItem(itemId, { qty_on_hand: newQty });
+        const resultFallback = { movement: movementFallback, item: updatedFallback ? toDto(updatedFallback) : toDto({ ...item, qty_on_hand: newQty } as any) };
+        if (idempotencyKey) {
+          try {
+            await this.repo.saveIdempotencyRecord({ user_id: userId, scope: 'stock:msme' as any, idempotency_key: idempotencyKey, response: resultFallback as any });
+          } catch {}
+        }
+        return resultFallback;
+      }
+      throw new BadRequestException(e?.message || 'Failed to adjust stock');
+    }
 
-    const updated = await this.repo.updateMsmeStockItem(itemId, { qty_on_hand: newQty });
-    return { movement, item: updated ? toDto(updated) : toDto({ ...item, qty_on_hand: newQty } as any) };
+    // Audit movement after successful qty adjust (if movement fails, revert qty)
+    let movement: any;
+    try {
+      movement = await this.repo.createMsmeStockMovement({
+        item_id: itemId,
+        user_id: userId,
+        type: d.type,
+        qty: d.qty,
+        unit_cost: unitCost,
+        total_cost: totalCost,
+        note: d.note?.trim() || null,
+        pocket_id: d.pocketId ?? null,
+      });
+      if (!movement) throw new Error('no movement');
+    } catch (e) {
+      // Revert qty adjust on movement failure to keep ledger consistent
+      try { await this.repo.adjustStockQty(itemId, -delta); } catch {}
+      throw new BadRequestException(`Failed to record movement: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    const result = { movement, item: toDto(updatedItem) };
+    if (idempotencyKey) {
+      try {
+        await this.repo.saveIdempotencyRecord({ user_id: userId, scope: 'stock:msme' as any, idempotency_key: idempotencyKey, response: result as any });
+      } catch {}
+    }
+    return result;
   }
 
   async getMovements(itemId: string, userId: string) {

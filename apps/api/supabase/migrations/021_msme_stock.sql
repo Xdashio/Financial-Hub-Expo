@@ -4,6 +4,9 @@
 -- Links to pockets via pocket_id on movements (optional) for spend traceability.
 -- ============================================================================
 
+-- Ensure pgcrypto for gen_random_uuid() on fresh DBs (see 001).
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- Feature flag
 ALTER TABLE public.users
   ALTER COLUMN feature_flags SET DEFAULT '{"msme_segment": true, "msme_invoices": true, "msme_stock": true}'::jsonb;
@@ -30,7 +33,9 @@ CREATE TABLE IF NOT EXISTS public.msme_stock_items (
 
 CREATE INDEX IF NOT EXISTS idx_msme_stock_items_user_id ON public.msme_stock_items(user_id);
 CREATE INDEX IF NOT EXISTS idx_msme_stock_items_plan_id ON public.msme_stock_items(plan_id);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_msme_stock_items_user_sku ON public.msme_stock_items(user_id, sku) WHERE sku IS NOT NULL;
+-- Case-insensitive SKU uniqueness per user (D-04). lower() prevents CEM50 vs cem50 dup.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_msme_stock_items_user_sku ON public.msme_stock_items(user_id, lower(sku)) WHERE sku IS NOT NULL;
+-- Prod: CREATE INDEX CONCURRENTLY
 
 DROP TRIGGER IF EXISTS update_msme_stock_items_updated_at ON public.msme_stock_items;
 CREATE TRIGGER update_msme_stock_items_updated_at BEFORE UPDATE ON public.msme_stock_items
@@ -53,8 +58,11 @@ CREATE TABLE IF NOT EXISTS public.msme_stock_movements (
 );
 
 CREATE INDEX IF NOT EXISTS idx_msme_stock_movements_item_id ON public.msme_stock_movements(item_id);
+-- Composite for history pagination (D-07)
+CREATE INDEX IF NOT EXISTS idx_msme_stock_movements_item_created ON public.msme_stock_movements(item_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_msme_stock_movements_user_id ON public.msme_stock_movements(user_id);
 CREATE INDEX IF NOT EXISTS idx_msme_stock_movements_type ON public.msme_stock_movements(type);
+-- Prod: CREATE INDEX CONCURRENTLY
 
 COMMENT ON TABLE public.msme_stock_movements IS 'Stock movements — in (purchase/restock) adds, out (sale) subtracts, adjust is signed correction via qty. Links to pocket spend optionally.';
 

@@ -1895,4 +1895,76 @@ export class SupabaseRepository {
     if (error) throw error;
     return data || [];
   }
+
+  // B-02: atomic adjust via DB function (024_stock_atomic_helpers.sql)
+  async adjustStockQty(itemId: string, delta: number): Promise<MsmeStockItem> {
+    const { data, error } = await (this.supabase as any).rpc('adjust_stock_qty', {
+      p_item_id: itemId,
+      p_delta: delta,
+    });
+    if (error) throw error;
+    // rpc returns single row (TABLE) or object; normalize
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new Error('adjust_stock_qty returned no row');
+    return row as MsmeStockItem;
+  }
+
+  // Paginated helpers for A-02 (server-side pagination, avoids loading entire history)
+  async getMsmeInvoicesByUserIdPaginated(
+    userId: string,
+    page = 1,
+    limit = 20,
+    filters?: { status?: string; overdueOnly?: boolean; search?: string },
+  ): Promise<{ data: MsmeInvoice[]; total: number; totalPages: number }> {
+    let query = (this.supabase as any)
+      .from('msme_invoices')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId);
+    if (filters?.status) query = query.eq('status', filters.status);
+    if (filters?.search) {
+      const s = `%${filters.search}%`;
+      query = query.or(`customer_name.ilike.${s},description.ilike.${s}`);
+    }
+    query = query.order('due_date', { ascending: true });
+    const from = (Math.max(1, page) - 1) * Math.min(50, Math.max(1, limit));
+    const to = from + Math.min(50, Math.max(1, limit)) - 1;
+    query = query.range(from, to);
+    const { data, error, count } = await query;
+    if (error) throw error;
+    let rows = (data || []) as MsmeInvoice[];
+    if (filters?.overdueOnly) {
+      const today = new Date().toISOString().slice(0, 10);
+      rows = rows.filter(r => r.due_date < today && (r.status === 'draft' || r.status === 'sent'));
+    }
+    const total = typeof count === 'number' ? count : rows.length;
+    return { data: rows, total, totalPages: Math.ceil(total / Math.min(50, Math.max(1, limit))) };
+  }
+
+  async getMsmeStockItemsByUserIdPaginated(
+    userId: string,
+    page = 1,
+    limit = 20,
+    filters?: { search?: string; lowStockOnly?: boolean },
+  ): Promise<{ data: MsmeStockItem[]; total: number; totalPages: number }> {
+    let query = (this.supabase as any)
+      .from('msme_stock_items')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId);
+    if (filters?.search) {
+      const s = `%${filters.search}%`;
+      query = query.or(`name.ilike.${s},sku.ilike.${s},location.ilike.${s}`);
+    }
+    query = query.order('created_at', { ascending: false });
+    const from = (Math.max(1, page) - 1) * Math.min(50, Math.max(1, limit));
+    const to = from + Math.min(50, Math.max(1, limit)) - 1;
+    query = query.range(from, to);
+    const { data, error, count } = await query;
+    if (error) throw error;
+    let rows = (data || []) as MsmeStockItem[];
+    if (filters?.lowStockOnly) {
+      rows = rows.filter(r => Number(r.qty_on_hand) <= Number(r.low_stock_threshold));
+    }
+    const total = typeof count === 'number' ? count : rows.length;
+    return { data: rows, total, totalPages: Math.ceil(total / Math.min(50, Math.max(1, limit))) };
+  }
 }

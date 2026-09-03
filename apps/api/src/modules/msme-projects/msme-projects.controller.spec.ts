@@ -116,7 +116,7 @@ describe('MsmeProjectsController', () => {
         kind: 'wedding',
         contractValue: 100000,
       });
-      expect(projectsService.getProjectsForUser).toHaveBeenCalledWith('user-123');
+      expect(projectsService.getProjectsForUser).toHaveBeenCalledWith('user-123', undefined, undefined);
     });
 
     it('returns empty array when user has no projects', async () => {

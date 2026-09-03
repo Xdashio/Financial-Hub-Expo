@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { msmeInvoicesApi } from '@/services/api';
+import { msmeInvoicesApi, createIdempotencyKey } from '@/services/api';
 import { formatMoney } from '@/utils/money';
 
 type Invoice = {
@@ -25,7 +25,7 @@ export default function InvoiceDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const { alert, modal } = useAlertModal();
+  const { alert, confirm, modal } = useAlertModal();
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,9 +93,9 @@ export default function InvoiceDetailScreen() {
 
         <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
           {canSend && <Button fullWidth variant="secondary" onPress={() => act(() => msmeInvoicesApi.send(invoice.id), 'send')} loading={acting === 'send'}>Send to Customer</Button>}
-          {canPay && <Button fullWidth onPress={() => act(() => msmeInvoicesApi.pay(invoice.id), 'pay')} loading={acting === 'pay'}>Mark Paid — Allocate to MSME Pockets</Button>}
-          {canVoid && <Button fullWidth variant="ghost" onPress={() => Alert.alert('Void invoice?', 'This cannot be undone.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Void', style: 'destructive', onPress: () => act(() => msmeInvoicesApi.void(invoice.id), 'void') }])} loading={acting === 'void'}>Void</Button>}
-          {invoice.status !== 'paid' && <Button fullWidth variant="ghost" onPress={() => Alert.alert('Delete?', 'Delete this draft?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => { try { await msmeInvoicesApi.delete(invoice.id); router.replace('/msme-invoices' as any); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } } }])}>Delete</Button>}
+          {canPay && <Button fullWidth onPress={() => act(() => msmeInvoicesApi.pay(invoice.id, createIdempotencyKey('invoice_pay')), 'pay')} loading={acting === 'pay'}>Mark Paid — Allocate to MSME Pockets</Button>}
+          {canVoid && <Button fullWidth variant="ghost" onPress={async () => { const ok = await confirm('Void invoice?', 'This cannot be undone.', { confirmLabel: 'Void', destructive: true }); if (ok) act(() => msmeInvoicesApi.void(invoice.id), 'void'); }} loading={acting === 'void'}>Void</Button>}
+          {invoice.status !== 'paid' && <Button fullWidth variant="ghost" onPress={async () => { const ok = await confirm('Delete?', 'Delete this draft?', { confirmLabel: 'Delete', destructive: true }); if (!ok) return; try { await msmeInvoicesApi.delete(invoice.id); router.replace('/msme-invoices' as any); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } }}>Delete</Button>}
         </View>
 
         <View style={{ marginTop: spacing.lg, backgroundColor: colors.emeraldTint, borderRadius: radius.md, padding: spacing.md }}>

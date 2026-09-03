@@ -1,8 +1,11 @@
 -- ============================================================================
--- Loans Feature: Loan pocket type and repayment schedule support
+-- 022_loans.sql — Loans Feature (renumbered from 008_loans.sql on 2026-09-03)
+-- Loan pocket type and repayment schedule support
 -- ============================================================================
 -- audit_team.md item 9: Loans as a pocket type with repayment schedules
 -- and sub-pockets for repayment vs. purpose allocation.
+-- Renumbered: original 008_loans.sql collided with 008_income_surplus_columns.sql
+-- (duplicate version prefix). Content unchanged; version bump only.
 --
 -- This migration adds:
 -- 1. 'loan' as a valid pocket kind

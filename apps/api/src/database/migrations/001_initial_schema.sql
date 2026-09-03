@@ -6,8 +6,11 @@
 -- Row Level Security (RLS) is enabled for multi-tenant data isolation
 -- ============================================================================
 
--- Enable UUID extension if not already enabled
+-- Enable UUID extensions. 001 uses uuid_generate_v4() (uuid-ossp) but
+-- later migrations (011,013,020,021,022) use gen_random_uuid() (pgcrypto).
+-- Enable both so a fresh DB can apply all migrations without 42883.
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================================
 -- Users Table (extends Supabase Auth)

@@ -59,7 +59,7 @@ Two-step, deliberately frictioned:
 1. **Pick pockets** — choose source and destination. Locked/time-locked pockets (e.g. Savings under time-lock) are visibly disabled as a source.
 2. **Review & confirm** — shows the from/to/amount, requires a stated reason (chip selection), surfaces a warning if this is an unusually frequent reallocation for that pocket, and requires secure confirmation to complete. For the MVP, this is a standard confirmation dialog; future versions will support device biometrics where available.
 
-> **Cooling-off timer (settled decision).** A cooling-off delay applies to **essential → discretionary-leisure** reallocations only (Rent/Food → Entertainment/Leisure). Duration is **1–2 hours** (configurable; default 1h). It is **skippable at a discipline-score cost** (5 points). Framing is supportive, never punitive — "This move can wait an hour", not a countdown threat. This is **not** a re-adoption of the old blanket "24-hour cooling-off on all essential pockets" rule. ✅ Implemented in `apps/api/src/modules/reallocations/reallocations.service.ts` (with test coverage in `reallocations.service.spec.ts`).
+> **Cooling-off timer (settled decision).** A cooling-off delay applies to **essential → discretionary-leisure** reallocations only (Rent/Food → Entertainment/Leisure). Duration is **1–2 hours** (configurable; default 1h). It is **skippable at a discipline-score cost** (5 points). Framing is supportive, never punitive — "This move can wait an hour", not a countdown threat. This is **not** a re-adoption of the old blanket "24-hour cooling-off on all essential pockets" rule. [DONE] Implemented in `apps/api/src/modules/reallocations/reallocations.service.ts` (with test coverage in `reallocations.service.spec.ts`).
 
 ### 3.5 Merchant categorization & spend blocking (future capability)
 
@@ -151,7 +151,7 @@ Since the revenue model itself is unresolved (§5), the SOM revenue figure speci
 ## 8. New Features (Implementation Status)
 
 ### 8.1 Emergency Unlock Feature
-**Status:** ✅ Implemented — `apps/api/src/modules/pockets/emergency-unlock.service.ts`, with unit and integration test coverage.
+**Status:** [DONE] Implemented — `apps/api/src/modules/pockets/emergency-unlock.service.ts`, with unit and integration test coverage.
 
 When all non-savings pockets are depleted, users can unlock funds from their savings pocket as an emergency measure. The feature analyzes their 30-day spending patterns to suggest a safe amount range, limits usage to once per month, and allocates the unlocked amount proportionally to non-savings pockets.
 
@@ -165,7 +165,7 @@ When all non-savings pockets are depleted, users can unlock funds from their sav
 **Remaining work:** mobile UI polish (bottom sheet, amount selector, allocation preview) and analytics/A-B testing — the backend logic and API endpoints are complete and tested.
 
 ### 8.2 Sub-Pocket Percentage Splits
-**Status:** ✅ Implemented — percentage-of-parent allocation model, backed by the `010_sub_pocket_split_percentage.sql` migration.
+**Status:** [DONE] Implemented — percentage-of-parent allocation model, backed by the `010_sub_pocket_split_percentage.sql` migration.
 
 Replaces the earlier flat-amount sub-pocket model with percentage-of-parent allocation. When income is allocated, it automatically splits into sub-pockets based on defined percentages, with sibling-total validation (percentages across a pocket's children cannot exceed 100%) and bulk-adjustment support.
 
@@ -191,19 +191,19 @@ Behavioral prompts that guide users toward better financial decisions. Currently
 **Future Enhancement:** Server-side nudges with persistence and push notification delivery.
 
 ### 8.4 Loans Module
-**Status:** ✅ Core endpoints implemented — `apps/api/src/modules/loans/` (controller, service, spec).
+**Status:** [DONE] Core endpoints implemented — `apps/api/src/modules/loans/` (controller, service, spec).
 
 Framework for lending functionality that allows users to borrow against their disciplined savings behavior, leveraging the behavioral scoring system to inform terms. Implemented endpoints cover listing loans, creating a loan, retrieving a loan by id, creating purpose-tied sub-pockets for a loan, and funding repayment from a pocket.
 
 **Remaining work:** deeper integration with `discipline-score` for creditworthiness-driven terms, and mobile UI.
 
 ### 8.5 Behavioral Recommendations
-**Status:** ✅ Implemented — `apps/api/src/modules/behavioral-recommendations/`.
+**Status:** [DONE] Implemented — `apps/api/src/modules/behavioral-recommendations/`.
 
 Turns a user's spending history into allocation recommendations with confidence levels, which the user can review and apply to update a fixed expense's allocation. Recommendation history (past suggestions and the user's decisions on them) is retained for review.
 
 ### 8.6 Daily Allocation & Monthly Planning Cycle
-**Status:** ✅ Implemented — `apps/api/src/modules/daily-allocation/` and `apps/api/src/modules/planning-cycle/`.
+**Status:** [DONE] Implemented — `apps/api/src/modules/daily-allocation/` and `apps/api/src/modules/planning-cycle/`.
 
 Two cron-driven engines that operationalize the Daily Budget plan types (§3.2 above, `docs/FINANCIAL_HUB_SYSTEM_DOCUMENTATION.md` §11 for full detail):
 - **Daily allocation** — runs at midnight (00:00 EAT), releasing that day's variable-spending budget from the reserve pool, guarded against double-allocation per plan/day.
@@ -212,12 +212,12 @@ Two cron-driven engines that operationalize the Daily Budget plan types (§3.2 a
 ## 9. Open questions to resolve before build
 
 **Resolved (settled) — no longer open:**
-1. **Daily Budget mode** — **per-pocket daily caps** with a rollup hero (settled). Each spendable pocket has its own daily cap; the hero is the sum of the caps. Savings shown separately, fed by daily rollover. (§3.2) ✅ **IMPLEMENTED**
-2. **Reallocation cooling-off timer** — **essential → discretionary-leisure pairs only** (Rent/Food → Entertainment/Leisure), **1–2 hours** (default 1h), **skippable at a 5-point discipline cost**, supportive framing. (§3.4) ✅ **IMPLEMENTED**
-3. **Merchant categorization UX** — **soft block + one-time self-classify prompt**, remembered going forward; blacklisted categories blocked outright from essential pockets, warning from discretionary; "report it" path creates a review record. (§3.5) ✅ **IMPLEMENTED**
-4. **Tech stack** — React Native (Expo) + NestJS + PostgreSQL (Supabase) chosen for MVP showcase ✅ **IMPLEMENTED**
-5. **Fixed-expense detection** — Manual entry for MVP; future versions will integrate account linking ✅ **IMPLEMENTED (manual)**
-6. **Plan reassignment trigger** — Manual retake from Profile implemented ✅ **IMPLEMENTED**
+1. **Daily Budget mode** — **per-pocket daily caps** with a rollup hero (settled). Each spendable pocket has its own daily cap; the hero is the sum of the caps. Savings shown separately, fed by daily rollover. (§3.2) [DONE] **IMPLEMENTED**
+2. **Reallocation cooling-off timer** — **essential → discretionary-leisure pairs only** (Rent/Food → Entertainment/Leisure), **1–2 hours** (default 1h), **skippable at a 5-point discipline cost**, supportive framing. (§3.4) [DONE] **IMPLEMENTED**
+3. **Merchant categorization UX** — **soft block + one-time self-classify prompt**, remembered going forward; blacklisted categories blocked outright from essential pockets, warning from discretionary; "report it" path creates a review record. (§3.5) [DONE] **IMPLEMENTED**
+4. **Tech stack** — React Native (Expo) + NestJS + PostgreSQL (Supabase) chosen for MVP showcase [DONE] **IMPLEMENTED**
+5. **Fixed-expense detection** — Manual entry for MVP; future versions will integrate account linking [DONE] **IMPLEMENTED (manual)**
+6. **Plan reassignment trigger** — Manual retake from Profile implemented [DONE] **IMPLEMENTED**
 
 **Still open:**
 7. **Revenue model** — not agreed; needs a dedicated decision pass before it's referenced in any build plan. (§6)

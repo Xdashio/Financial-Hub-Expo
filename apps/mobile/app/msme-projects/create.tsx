@@ -14,20 +14,20 @@ import { useTheme } from '@/theme/ThemeContext';
 import { msmeProjectsApi } from '@/services/api';
 import { ScreenContainer, Button, Input } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { ArrowLeft, Calculator, AlertTriangle, Check } from 'lucide-react-native';
+import { ArrowLeft, Calculator, AlertTriangle, Check, Utensils, Heart, Plane, Bus, FileText, HardHat, Sprout, Package } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
 import { ProjectKind } from '@financial-hub/shared';
 
-const PROJECT_KINDS: { value: ProjectKind; label: string; icon: string }[] = [
-  { value: 'catering', label: 'Catering', icon: '🍽️' },
-  { value: 'wedding', label: 'Wedding', icon: '💍' },
-  { value: 'trip', label: 'Trip / Travel', icon: '✈️' },
-  { value: 'tour', label: 'Tour', icon: '🚌' },
-  { value: 'contract', label: 'Contract', icon: '📋' },
-  { value: 'construction', label: 'Construction', icon: '🏗️' },
-  { value: 'agri', label: 'Agriculture', icon: '🌾' },
-  { value: 'other', label: 'Other', icon: '📦' },
+const PROJECT_KINDS: { value: ProjectKind; label: string; Icon: React.ComponentType<any> }[] = [
+  { value: 'catering', label: 'Catering', Icon: Utensils },
+  { value: 'wedding', label: 'Wedding', Icon: Heart },
+  { value: 'trip', label: 'Trip / Travel', Icon: Plane },
+  { value: 'tour', label: 'Tour', Icon: Bus },
+  { value: 'contract', label: 'Contract', Icon: FileText },
+  { value: 'construction', label: 'Construction', Icon: HardHat },
+  { value: 'agri', label: 'Agriculture', Icon: Sprout },
+  { value: 'other', label: 'Other', Icon: Package },
 ];
 
 const TIER_LABELS = {
@@ -181,7 +181,7 @@ export default function CreateMsmeProjectScreen() {
                         borderColor: selected ? colors.emeraldDeep : colors.line,
                       }}
                     >
-                      <Text style={{ ...typography.caption, color: selected ? colors.surface : colors.ink }}>{k.icon}</Text>
+                      <k.Icon size={14} color={selected ? colors.surface : colors.ink} strokeWidth={2} />
                       <Text style={{ ...typography.caption, color: selected ? colors.surface : colors.ink }}>{k.label}</Text>
                     </Pressable>
                   );
@@ -294,7 +294,7 @@ export default function CreateMsmeProjectScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.sm, backgroundColor: colors.emeraldTint, padding: spacing.sm, borderRadius: radius.sm }}>
                   <Check size={14} color={colors.emeraldDeep} strokeWidth={2} />
                   <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-                    Targets match contract value ✓
+                    Targets match contract value
                   </Text>
                 </View>
               )}

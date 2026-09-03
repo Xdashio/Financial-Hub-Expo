@@ -9,11 +9,24 @@ export class MsmeStockController {
   constructor(private readonly stock: MsmeStockService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List stock items (search, low-stock filter)' })
+  @ApiOperation({ summary: 'List stock items (search, low-stock filter) — paginated' })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'lowStock', required: false, type: Boolean })
-  async list(@Request() req: any, @Query('search') search?: string, @Query('lowStock') lowStock?: string) {
-    return this.stock.getItemsForUser(req.user.id, { search, lowStockOnly: lowStock === 'true' });
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  async list(
+    @Request() req: any,
+    @Query('search') search?: string,
+    @Query('lowStock') lowStock?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.stock.getItemsForUser(req.user.id, {
+      search,
+      lowStockOnly: lowStock === 'true',
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    } as any);
   }
 
   @Get('stats')
@@ -53,8 +66,9 @@ export class MsmeStockController {
   }
 
   @Post(':id/movements')
-  @ApiOperation({ summary: 'Record movement (in/out/adjust) — out guards qty' })
+  @ApiOperation({ summary: 'Record movement (in/out/adjust) — out guards qty, atomic via adjust_stock_qty, idempotent via Idempotency-Key' })
   async move(@Param('id') id: string, @Body() body: unknown, @Request() req: any) {
-    return this.stock.recordMovement(id, req.user.id, body);
+    const key = (req.headers['idempotency-key'] as string) || (req.headers['x-idempotency-key'] as string) || undefined;
+    return this.stock.recordMovement(id, req.user.id, body, key);
   }
 }

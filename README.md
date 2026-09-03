@@ -151,33 +151,33 @@ Financial-Hub-Expo/
 
 ## Current implementation status
 
-**Phase A (Stabilize):** ✅ Complete — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed.
+**Phase A (Stabilize):** [DONE] Complete — All schema drift issues resolved, test coverage gaps closed, runtime-breaking bugs fixed.
 
-**Phase 1 (MVP Showcase):** 🟡 Nearly Complete — Core screens wired to real backend API, with advanced features implemented.
+**Phase 1 (MVP Showcase):** [IN PROGRESS] Nearly Complete — Core screens wired to real backend API, with advanced features implemented.
 
 ### Implemented features
 
-- ✅ Auth (Supabase phone-OTP)
-- ✅ Onboarding flow with rules-engine plan assignment
-- ✅ Daily Budget & Structured plan variants
-- ✅ Home screen with real pocket data
-- ✅ Pocket detail with transactions
-- ✅ Manual income entry
-- ✅ Merchant categorization and spend blocking
-- ✅ Reallocation flow with cooling-off timer
-- ✅ Insights screen with behavioral scoring
-- ✅ Profile management and fixed expenses
-- ✅ Notifications settings
-- ✅ Time-lock with biometric confirmation
-- ✅ Home screen nudges (behavioral prompts, client-derived from Home data)
-- ✅ Emergency unlock (`pockets/emergency-unlock.service.ts`, unit + integration test coverage)
-- ✅ Sub-pocket percentage splits (parent/child pockets with `splitPercentage`, sibling-total validation, bulk adjustment)
-- ✅ Loans module (income/repayment endpoints, purpose sub-pockets, fund-repayment flow)
-- ✅ Behavioral recommendations (allocation suggestions from spending history, with accept/apply flow)
-- ✅ Daily allocation engine (midnight cron; releases the day's variable-spending budget from the reserve pool)
-- ✅ Monthly planning cycle (recurring re-plan of fixed obligations, carry-forward of shortfalls, and recommendation generation)
-- ✅ Freelancer runway dashboard (tab shown only for Freelancer/Gig Daily Budget plans)
-- ✅ Offline queue (queues mutations when network is unavailable, replays on reconnect)
+- [DONE] Auth (Supabase phone-OTP)
+- [DONE] Onboarding flow with rules-engine plan assignment
+- [DONE] Daily Budget & Structured plan variants
+- [DONE] Home screen with real pocket data
+- [DONE] Pocket detail with transactions
+- [DONE] Manual income entry
+- [DONE] Merchant categorization and spend blocking
+- [DONE] Reallocation flow with cooling-off timer
+- [DONE] Insights screen with behavioral scoring
+- [DONE] Profile management and fixed expenses
+- [DONE] Notifications settings
+- [DONE] Time-lock with biometric confirmation
+- [DONE] Home screen nudges (behavioral prompts, client-derived from Home data)
+- [DONE] Emergency unlock (`pockets/emergency-unlock.service.ts`, unit + integration test coverage)
+- [DONE] Sub-pocket percentage splits (parent/child pockets with `splitPercentage`, sibling-total validation, bulk adjustment)
+- [DONE] Loans module (income/repayment endpoints, purpose sub-pockets, fund-repayment flow)
+- [DONE] Behavioral recommendations (allocation suggestions from spending history, with accept/apply flow)
+- [DONE] Daily allocation engine (midnight cron; releases the day's variable-spending budget from the reserve pool)
+- [DONE] Monthly planning cycle (recurring re-plan of fixed obligations, carry-forward of shortfalls, and recommendation generation)
+- [DONE] Freelancer runway dashboard (tab shown only for Freelancer/Gig Daily Budget plans)
+- [DONE] Offline queue (queues mutations when network is unavailable, replays on reconnect)
 
 ### Backend architecture
 

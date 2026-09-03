@@ -1,7 +1,7 @@
-/* eslint-disable -- MSME sheet reset pattern is intentional; replace with key-prop remount before GA */
+/* eslint-disable react-hooks/set-state-in-effect -- F-04 reset on open: parent should use key before GA */
 import React, { useState, useEffect } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
-import { Check, PiggyBank, Pause, AlertTriangle } from 'lucide-react-native';
+import { View, Text, Pressable } from 'react-native';
+import { Check, PiggyBank, Pause } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography, borderWidth } from '@/theme';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
@@ -35,7 +35,6 @@ export function ProjectCompleteSheet({ visible, onClose, projectId, project, com
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-   
   useEffect(() => {
     if (visible) {
       setTarget(null);
@@ -129,6 +128,9 @@ export function ProjectCompleteSheet({ visible, onClose, projectId, project, com
               <Pressable
                 key={opt.id}
                 onPress={() => handleChoose(opt.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`${opt.label}: ${opt.sub}${isSelected ? ' selected' : ''}`}
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',

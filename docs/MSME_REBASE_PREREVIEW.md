@@ -10,7 +10,7 @@
 * `git diff --stat origin/main..fix/msme-rebase` = 104 files, +1705/-? (no duplicate 012/013; see `ls apps/api/src/database/migrations/*.sql` → `014..019` clean).
 * `apps/api/src/app.module.ts:20,23,56,59` retains `DailyAllocationModule`, `PlanningCycleModule`, `BehavioralRecommendationsModule` and adds `MsmeProjectsModule`.
 * `apps/api/src/modules/onboarding/pocket-provisioning.ts:184` preserves `isDailyOrRegularExpense` (transport not time-locked, 5019944) + `buildMsmePocketInputs:62`.
-* `pnpm --filter shared build` ✅, `pnpm --filter shared/api/mobile typecheck` ✅ (all 3), `pnpm --filter shared test` 49 ✅, `pnpm --filter api test` 573 ✅ (see below), `pnpm --filter api/mobile lint` 0 errors (mobile 128 warnings, api 604 warnings) ✅.
+* `pnpm --filter shared build` [DONE], `pnpm --filter shared/api/mobile typecheck` [DONE] (all 3), `pnpm --filter shared test` 49 [DONE], `pnpm --filter api test` 573 [DONE] (see below), `pnpm --filter api/mobile lint` 0 errors (mobile 128 warnings, api 604 warnings) [DONE].
 
 ## Checks
 

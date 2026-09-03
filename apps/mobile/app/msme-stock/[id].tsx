@@ -1,11 +1,11 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, RefreshControl, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { msmeStockApi } from '@/services/api';
+import { msmeStockApi, createIdempotencyKey } from '@/services/api';
 import { formatMoney } from '@/utils/money';
 
 type Item = {
@@ -17,7 +17,7 @@ export default function StockDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
-  const { alert, modal } = useAlertModal();
+  const { alert, confirm, modal } = useAlertModal();
 
   const [item, setItem] = useState<Item | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -48,7 +48,8 @@ export default function StockDetailScreen() {
     if (type === 'out' && item && n > item.qtyOnHand) { await alert('Insufficient stock', `Have ${item.qtyOnHand}, tried ${n}`); return; }
     setActing(type);
     try {
-      const res = await msmeStockApi.move(id!, { type, qty: n, note: note.trim() || undefined } as any);
+      const key = createIdempotencyKey(`stock_${type}`);
+      const res = await msmeStockApi.move(id!, { type, qty: n, note: note.trim() || undefined } as any, key);
       setItem(res.item as Item);
       setMovements(await msmeStockApi.getMovements(id!) as Movement[]);
       setQty(''); setNote('');
@@ -126,7 +127,7 @@ export default function StockDetailScreen() {
         </View>
 
         <View style={{ marginTop: spacing.lg }}>
-          <Button fullWidth variant="ghost" onPress={() => Alert.alert('Delete item?', 'Only if qty is 0. This deletes movements too.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete', style: 'destructive', onPress: async () => { try { await msmeStockApi.delete(item.id); router.replace('/msme-stock' as any); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } } }])}>Delete Item</Button>
+          <Button fullWidth variant="ghost" onPress={async () => { const ok = await confirm('Delete item?', 'Only if qty is 0. This deletes movements too.', { confirmLabel: 'Delete', destructive: true }); if (!ok) return; try { await msmeStockApi.delete(item.id); router.replace('/msme-stock' as any); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } }}>Delete Item</Button>
         </View>
       </ScrollView>
       {modal}

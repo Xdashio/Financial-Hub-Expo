@@ -30,6 +30,8 @@ import {
   X,
   ChevronRight,
   AlertTriangle,
+  Circle,
+  CircleDot,
 } from 'lucide-react-native';
 import { useDataSync } from '@/services/data-sync';
 
@@ -92,13 +94,13 @@ function tierColor(tier: FundingTier, colors: any): string {
 }
 
 function statusBadgeConfig(status: string, colors: any) {
-  const map: Record<string, { bg: string; text: string; icon: string }> = {
-    active: { bg: colors.emeraldTint, text: colors.emeraldDeep, icon: '●' },
-    draft: { bg: colors.goldTint, text: colors.gold, icon: '○' },
-    completed: { bg: colors.plumTint, text: colors.plum, icon: '✓' },
-    cancelled: { bg: colors.clayTint, text: colors.clay, icon: '✕' },
+  const map: Record<string, { bg: string; text: string; Icon: React.ComponentType<any> }> = {
+    active: { bg: colors.emeraldTint, text: colors.emeraldDeep, Icon: CircleDot },
+    draft: { bg: colors.goldTint, text: colors.gold, Icon: Circle },
+    completed: { bg: colors.plumTint, text: colors.plum, Icon: Check },
+    cancelled: { bg: colors.clayTint, text: colors.clay, Icon: X },
   };
-  return map[status] ?? { bg: colors.lineSoft, text: colors.sage, icon: '?' };
+  return map[status] ?? { bg: colors.lineSoft, text: colors.sage, Icon: Circle };
 }
 
 function fmtDate(iso: string): string {
@@ -143,8 +145,9 @@ function TierCard({
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c }} />
           <Text style={{ ...typography.eyebrow, color: c, letterSpacing: 0.6 }}>{tierLabel(tier.tier).toUpperCase()}</Text>
           {isNext && (
-            <View style={{ backgroundColor: c + '18', borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2, borderWidth: 1, borderColor: c + '35' }}>
-              <Text style={{ ...typography.caption, fontSize: 10, color: c }}>● Next payment goes here</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: c + '18', borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 2, borderWidth: 1, borderColor: c + '35' }}>
+              <CircleDot size={8} color={c} strokeWidth={2} />
+              <Text style={{ ...typography.caption, fontSize: 10, color: c }}>Next payment goes here</Text>
             </View>
           )}
         </View>
@@ -470,7 +473,7 @@ export default function MsmeProjectDetailScreen() {
         {/* Status row */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, marginBottom: spacing.sm }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: statusCfg.bg, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
-            <Text style={{ ...typography.caption, fontSize: 10, color: statusCfg.text }}>{statusCfg.icon}</Text>
+            <statusCfg.Icon size={10} color={statusCfg.text} strokeWidth={2} />
             <Text style={{ ...typography.caption, fontSize: 10, color: statusCfg.text, textTransform: 'capitalize' }}>{project.status}</Text>
           </View>
           {project.isActiveCascade ? (

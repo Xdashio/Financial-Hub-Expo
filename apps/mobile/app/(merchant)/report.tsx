@@ -12,6 +12,7 @@ import {
   Check,
   LucideIcon,
   History,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 
@@ -212,12 +213,16 @@ export default function ReportMerchantScreen() {
         {/* Privacy Notice */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <View style={{ 
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: spacing.sm,
             padding: spacing.md, 
             borderRadius: radius.xs, 
             backgroundColor: colors.emeraldTint 
           }}>
-            <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-              🔒 Your report is private and will only be used to improve our classification system. We will not share your personal information.
+            <ShieldCheck size={16} color={colors.emeraldDeep} strokeWidth={2} style={{ marginTop: 2 }} />
+            <Text style={{ ...typography.caption, color: colors.emeraldDeep, flex: 1, lineHeight: 16 }}>
+              Your report is private and will only be used to improve our classification system. We will not share your personal information.
             </Text>
           </View>
         </View>

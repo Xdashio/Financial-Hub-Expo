@@ -8,7 +8,14 @@
 CREATE TABLE IF NOT EXISTS public.idempotency_records (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  scope TEXT NOT NULL CHECK (scope IN ('income', 'spend')),
+  -- Scoped per user+operation+segment so retries in one segment cannot collide
+  -- with another. Pre-023 values 'income'/'spend' are kept for migration compat.
+  scope TEXT NOT NULL CHECK (
+    scope IN ('income', 'spend', 'loan_reminder')
+    OR scope ~ '^(income|spend):(individual|msme)$'
+    OR scope ~ '^invoice_pay:(individual|msme)$'
+    OR scope ~ '^stock:(individual|msme)$'
+  ),
   idempotency_key TEXT NOT NULL,
   resource_id UUID,
   response JSONB NOT NULL DEFAULT '{}'::jsonb,
