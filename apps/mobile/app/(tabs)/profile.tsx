@@ -49,7 +49,9 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = React.useState(false);
 
   const [plan, setPlan] = React.useState<any>(null);
+  const [msmePlan, setMsmePlan] = React.useState<any>(null);
   const [fixedExpenseCount, setFixedExpenseCount] = React.useState<number | null>(null);
+  const [msmeFixedExpenseCount, setMsmeFixedExpenseCount] = React.useState<number | null>(null);
   const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
   const [timeLockActive, setTimeLockActive] = React.useState<boolean | null>(null);
   const [notificationsOn, setNotificationsOn] = React.useState<boolean | null>(null);
@@ -60,15 +62,20 @@ export default function ProfileScreen() {
   } | null>(null);
 
   const loadProfileMeta = React.useCallback(async () => {
-    const [planRes, expensesRes, eligibility, notifRes, pocketsRes] = await Promise.all([
+    const [planRes, msmePlanRes, expensesRes, msmeExpensesRes, eligibility, notifRes, pocketsRes, msmePocketsRes] = await Promise.all([
       profileApi.getPlan().catch(() => null),
+      profileApi.getPlan('msme').catch(() => null),
       profileApi.getFixedExpenses().catch(() => []),
+      profileApi.getFixedExpenses('msme').catch(() => []),
       profileApi.getRetakeEligibility().catch(() => null),
       notificationsApi.getSettings().catch(() => null),
       pocketsApi.getAll().catch(() => []),
+      pocketsApi.getAll('msme').catch(() => []),
     ]);
     setPlan(planRes);
+    setMsmePlan(msmePlanRes);
     setFixedExpenseCount(Array.isArray(expensesRes) ? expensesRes.length : null);
+    setMsmeFixedExpenseCount(Array.isArray(msmeExpensesRes) ? msmeExpensesRes.length : null);
     setRetakeEligibility(eligibility);
     const prefs = notifRes?.preferences as NotificationPreferences | undefined;
     if (prefs) {
@@ -83,7 +90,7 @@ export default function ProfileScreen() {
     } else {
       setNotificationsOn(null);
     }
-    const pockets = Array.isArray(pocketsRes) ? pocketsRes : [];
+    const pockets = [...(Array.isArray(pocketsRes) ? pocketsRes : []), ...(Array.isArray(msmePocketsRes) ? msmePocketsRes : [])];
     setTimeLockActive(
       pockets.some((p: any) => p.kind === 'savings' && (p.is_time_locked || p.isTimeLocked)),
     );
@@ -136,6 +143,14 @@ export default function ProfileScreen() {
     if (incomePattern === 'freelancer') return `Freelancer — ${typeLabel}`;
     if (incomePattern === 'salaried') return `Salaried — ${typeLabel}`;
     return typeLabel;
+  })();
+
+  const msmePlanLabel = (() => {
+    const type = msmePlan?.type;
+    if (!msmePlan) return null;
+    if (!type) return 'Business';
+    const typeLabel = type === 'daily' ? 'Daily Budget' : 'Business';
+    return `${typeLabel} · Business`;
   })();
 
   const themeOptions = [
@@ -225,7 +240,18 @@ export default function ProfileScreen() {
     {
       label: 'Plan',
       items: [
-        { icon: BarChart3, title: 'Current plan', desc: planLabel, trailing: '', onPress: handleCurrentPlanPress },
+        { icon: BarChart3, title: 'Current plan', desc: planLabel, trailing: 'Personal', onPress: handleCurrentPlanPress },
+        ...(msmePlan
+          ? [
+              {
+                icon: BarChart3,
+                title: 'Business plan',
+                desc: msmePlanLabel ?? 'Business',
+                trailing: msmeFixedExpenseCount !== null ? `${msmeFixedExpenseCount} items` : '',
+                onPress: () => router.push('/(msme)' as any),
+              } as SettingsItem,
+            ]
+          : []),
         {
           icon: RefreshCw,
           title: 'Retake behavior check-in',
@@ -291,13 +317,20 @@ export default function ProfileScreen() {
           </View>
           <Text style={{ ...typography.title, fontSize: 20, color: colors.ink, marginTop: spacing.md }}>{user?.fullName || '—'}</Text>
           <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.xs }}>{user?.phone || user?.email || '—'}</Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: spacing.sm, marginTop: spacing.md, flexWrap: 'wrap' }}>
             {isLoadingPlan ? (
               <PocketLoader size={20} color={colors.emeraldDeep} />
             ) : (
-              <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.emeraldTint }}>
-                <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldDeep }}>{planLabel}</Text>
-              </View>
+              <>
+                <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.emeraldTint }}>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldDeep }}>{planLabel} · Personal</Text>
+                </View>
+                {msmePlan && (
+                  <View style={{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: colors.goldTint, borderWidth: 1, borderColor: colors.gold + '30' }}>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.gold }}>{msmePlanLabel} · Business</Text>
+                  </View>
+                )}
+              </>
             )}
           </View>
         </View>
