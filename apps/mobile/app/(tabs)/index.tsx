@@ -20,6 +20,7 @@ import { deriveNudges } from '@/services/nudges';
 import { formatMoney } from '@/utils/money';
 import { pocketGlyphKind } from '@/utils/pocketGlyph';
 import { getEnhancedErrorMessage } from '@/utils/errorMessages';
+import { useOnboardingStore } from '@/services/onboarding-store';
 
 export default function HomeScreen() {
   const { colors } = useTheme();
@@ -197,7 +198,10 @@ export default function HomeScreen() {
                 paddingVertical: spacing.md,
                 paddingHorizontal: spacing.xl,
               }, { opacity: pressed ? 0.7 : 1 }]}
-              onPress={() => router.push('/(onboarding)/income')}
+              onPress={() => {
+                useOnboardingStore.getState().setSegment('individual');
+                router.push('/(onboarding)/income');
+              }}
               accessibilityLabel="Start onboarding"
               accessibilityRole="button"
             >

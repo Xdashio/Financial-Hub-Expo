@@ -10,7 +10,7 @@ import { useAuthStore } from '@/services/auth';
 import { Plus, Store, Package, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
 import { getCategoryIcon } from '@/utils/categoryIcons';
-import { BUSINESS_CATEGORIES } from '@/services/onboarding-store';
+import { BUSINESS_CATEGORIES, useOnboardingStore } from '@/services/onboarding-store';
 
 interface MsmePocket {
   id: string;
@@ -140,7 +140,14 @@ export default function MsmeHomeScreen() {
         </Text>
         <Pressable
           style={({ pressed }) => [{ marginTop: spacing.lg, backgroundColor: colors.emeraldDeep, borderRadius: radius.md, paddingVertical: spacing.md, paddingHorizontal: spacing.xl }, { opacity: pressed ? 0.7 : 1 }]}
-          onPress={() => router.push(/(onboarding)\/income/ as any)}
+          onPress={() => {
+            // Preselect the correct segment so income step opens on the
+            // right form (Business vs Personal) without requiring the user
+            // to toggle manually. Guard in (onboarding)/_layout now allows
+            // creating the missing segment when the user has only one plan.
+            useOnboardingStore.getState().setSegment(isMsmeOnly ? 'msme' : 'individual');
+            router.push('/(onboarding)/income' as any);
+          }}
           accessibilityLabel={isMsmeOnly ? 'Start business onboarding' : 'Start onboarding'}
           accessibilityRole="button"
         >
