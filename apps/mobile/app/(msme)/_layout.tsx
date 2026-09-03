@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Store, Receipt, Package, Briefcase } from 'lucide-react-native';
+import { Store, Receipt, Package, Briefcase, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../src/theme/ThemeContext';
 import { typography, spacing } from '../../src/theme';
@@ -16,9 +16,9 @@ export default function MsmeTabsLayout() {
   const insets = useSafeAreaInsets();
 
   // Same height math as (tabs)/_layout.tsx (see the comment there for why
-  // this is 76 rather than an exact-fit 64) — keep both tab bars
+  // this is 84 rather than an exact-fit 64/76) — keep both tab bars
   // pixel-identical so switching segments doesn't shift the chrome.
-  const tabBarHeight = 76 + insets.bottom;
+  const tabBarHeight = 84 + insets.bottom;
 
   return (
     <Tabs
@@ -38,12 +38,14 @@ export default function MsmeTabsLayout() {
         tabBarLabelStyle: {
           fontFamily: typography.caption.fontFamily,
           fontSize: typography.caption.fontSize,
-          lineHeight: typography.caption.lineHeight,
+          lineHeight: 14,
           includeFontPadding: false,
-          marginTop: spacing.xs,
+          marginTop: 2,
+          textAlign: 'center',
         },
         tabBarItemStyle: {
           paddingVertical: spacing.xs,
+          justifyContent: 'center',
         },
       }}
     >
@@ -77,6 +79,14 @@ export default function MsmeTabsLayout() {
           title: 'Projects',
           tabBarLabel: 'Projects',
           tabBarIcon: ({ color, size }) => <Briefcase color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: 'Profile',
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, size }) => <User color={color} size={size} />,
         }}
       />
     </Tabs>

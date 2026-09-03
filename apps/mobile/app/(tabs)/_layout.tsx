@@ -22,10 +22,13 @@ export default function TabsLayout() {
   // component adds between the icon and the label — so on real devices
   // that margin pushes the label past the available height and it gets
   // clipped out entirely rather than just looking cramped. 76 (up from
-  // the previous exact-fit 64) leaves real headroom instead of another
-  // pixel-perfect guess. Add the bottom inset so gesture nav (34) and
-  // 3-button nav (0) both get enough room.
-  const tabBarHeight = 76 + insets.bottom;
+  // the previous exact-fit 64) helped but still left labels half-clipped
+  // on some devices because PlusJakartaSans's ascenders exceed the 16px
+  // lineHeight box + the internal gap. 84 leaves 8px extra headroom above
+  // the theoretical minimum (68) so the label's descenders never hit the
+  // bottom edge. Add the bottom inset so gesture nav (34) and 3-button
+  // nav (0) both get enough room.
+  const tabBarHeight = 84 + insets.bottom;
 
   return (
     <Tabs
@@ -45,15 +48,29 @@ export default function TabsLayout() {
         tabBarLabelStyle: {
           fontFamily: typography.caption.fontFamily,
           fontSize: typography.caption.fontSize,
-          lineHeight: typography.caption.lineHeight,
+          // Keep the token's fontSize but tighten lineHeight to 14 (instead
+          // of typography.caption.lineHeight 16). At 16 the glyph box + the
+          // 4px marginTop already pushed the label's descenders past the
+          // item's bottom padding on devices where the font's ascenders run
+          // tall, producing the "halfway truncated" look. 14 still reads
+          // identically for a 12px label but guarantees the descenders sit
+          // fully inside the 84-height budget.
+          lineHeight: 14,
           includeFontPadding: false,
           // Pin this explicitly instead of relying on the library's
           // internal default gap between icon and label — that default is
           // exactly what the old exact-fit height math didn't budget for.
-          marginTop: spacing.xs,
+          marginTop: 2,
+          // Prevent horizontal ellipsis on longer labels like "Insights"
+          // when the item width is tight (90dp on 360dp screens).
+          textAlign: 'center',
         },
         tabBarItemStyle: {
           paddingVertical: spacing.xs,
+          // Center icon+label inside the extra 8px slack so the label
+          // doesn't sit flush against the bottom edge and get visually
+          // sliced by the tabBar's overflow.
+          justifyContent: 'center',
         },
       }}
     >
