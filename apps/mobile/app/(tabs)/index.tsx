@@ -240,7 +240,13 @@ export default function HomeScreen() {
       <Pressable
         key={pocket.id}
         style={({ pressed }) => [{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }, { opacity: pressed ? 0.8 : 1 }]}
-        onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
+        onPress={() => {
+          if (pocket.kind === 'loan') {
+            router.push({ pathname: '/(loans)/detail', params: { id: pocket.id } });
+          } else {
+            router.push(`/(pockets)/detail?id=${pocket.id}`);
+          }
+        }}
         accessibilityRole="button"
         accessibilityLabel={`${pocket.name} pocket, ${purpose}, ${formatCurrency(pocket.availableBalance)} available, ${status}`}
       >

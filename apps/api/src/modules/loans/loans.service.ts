@@ -134,7 +134,7 @@ export class LoansService {
       throw new NotFoundException('Loan not found');
     }
     
-    if (loan.kind !== 'loan') {
+    if (loan.kind !== 'loan' || (loan as any).parent_pocket_id) {
       throw new BadRequestException('Pocket is not a loan');
     }
 

@@ -418,7 +418,7 @@ export default function MsmeProjectDetailScreen() {
  </Pressable>
  <Text style={{ ...typography.title, color: colors.ink }}>Project</Text>
  </View>
- <LoadingState label="Loading project…" variant="loans" />
+  <LoadingState label="Loading project…" variant="project-detail" />
  </ScreenContainer>
  );
  }

@@ -59,7 +59,7 @@ export default function StockDetailScreen() {
     } finally { setActing(null); }
   };
 
-  if (loading) return <ScreenContainer><LoadingState label="Loading item…" variant="loans" /></ScreenContainer>;
+  if (loading) return <ScreenContainer><LoadingState label="Loading item…" variant="stock-detail" /></ScreenContainer>;
   if (error || !item) return <ScreenContainer><ErrorState message={error || 'Not found'} onRetry={load} /></ScreenContainer>;
 
   const low = item.isLowStock || item.qtyOnHand <= item.lowStockThreshold;

@@ -3,7 +3,22 @@ import { View, Text, Pressable } from 'react-native';
 import { RefreshCw } from 'lucide-react-native';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, touchTarget } from '@/theme';
-import { CardSkeleton, ListItemSkeleton, PocketSkeleton, HomeSkeleton, PocketDetailSkeleton, LoansSkeleton, InsightsSkeleton } from './Skeleton';
+import {
+  CardSkeleton,
+  ListItemSkeleton,
+  PocketSkeleton,
+  HomeSkeleton,
+  MsmeHomeSkeleton,
+  PocketDetailSkeleton,
+  ProjectDetailSkeleton,
+  LoansSkeleton,
+  ProjectsSkeleton,
+  InvoicesSkeleton,
+  InvoiceDetailSkeleton,
+  StockSkeleton,
+  StockDetailSkeleton,
+  InsightsSkeleton,
+} from './Skeleton';
 import { PocketLoader } from './PocketLoader';
 import { EmptyIllustration } from './EmptyIllustration';
 
@@ -13,7 +28,28 @@ import { EmptyIllustration } from './EmptyIllustration';
  * slightly different sizing, color, and copy. Using this everywhere keeps
  * every "screen is loading" moment in the app looking and feeling the same.
  */
-export function LoadingState({ label, variant = 'spinner' }: { label?: string; variant?: 'spinner' | 'cards' | 'list' | 'pockets' | 'home' | 'pocket-detail' | 'loans' | 'insights' }) {
+export function LoadingState({
+  label,
+  variant = 'spinner',
+}: {
+  label?: string;
+  variant?:
+    | 'spinner'
+    | 'cards'
+    | 'list'
+    | 'pockets'
+    | 'home'
+    | 'msme-home'
+    | 'pocket-detail'
+    | 'project-detail'
+    | 'loans'
+    | 'projects'
+    | 'invoices'
+    | 'invoice-detail'
+    | 'stock'
+    | 'stock-detail'
+    | 'insights';
+}) {
   const { colors } = useTheme();
 
   if (variant === 'spinner') {
@@ -66,6 +102,14 @@ export function LoadingState({ label, variant = 'spinner' }: { label?: string; v
     );
   }
 
+  if (variant === 'msme-home') {
+    return (
+      <View style={{ flex: 1 }}>
+        <MsmeHomeSkeleton />
+      </View>
+    );
+  }
+
   if (variant === 'pocket-detail') {
     return (
       <View style={{ flex: 1 }}>
@@ -74,10 +118,58 @@ export function LoadingState({ label, variant = 'spinner' }: { label?: string; v
     );
   }
 
+  if (variant === 'project-detail') {
+    return (
+      <View style={{ flex: 1 }}>
+        <ProjectDetailSkeleton />
+      </View>
+    );
+  }
+
   if (variant === 'loans') {
     return (
       <View style={{ flex: 1 }}>
         <LoansSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'projects') {
+    return (
+      <View style={{ flex: 1 }}>
+        <ProjectsSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'invoices') {
+    return (
+      <View style={{ flex: 1 }}>
+        <InvoicesSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'stock') {
+    return (
+      <View style={{ flex: 1 }}>
+        <StockSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'invoice-detail') {
+    return (
+      <View style={{ flex: 1 }}>
+        <InvoiceDetailSkeleton />
+      </View>
+    );
+  }
+
+  if (variant === 'stock-detail') {
+    return (
+      <View style={{ flex: 1 }}>
+        <StockDetailSkeleton />
       </View>
     );
   }

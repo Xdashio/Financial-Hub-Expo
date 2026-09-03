@@ -145,7 +145,7 @@ export default function MsmeInvoicesScreen() {
     return (
       <ScreenContainer>
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}><Text style={{ ...typography.title, color: colors.ink }}>Invoices</Text></View>
-        <LoadingState label="Loading invoices…" variant="loans" />
+        <LoadingState label="Loading invoices…" variant="invoices" />
       </ScreenContainer>
     );
   }

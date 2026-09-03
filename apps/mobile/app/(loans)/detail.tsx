@@ -156,18 +156,29 @@ export default function LoanDetailScreen() {
     try {
       setError(null);
       const data = await loansApi.getById(id);
+      // Defensive: backend should have rejected non-loans, but if a sub-pocket
+      // (kind loan but has parent) slips through, treat it as not a top-level loan
+      if ((data as any)?.parent_pocket_id || (data as any)?.parentPocketId) {
+        throw new Error('Pocket is not a loan');
+      }
       setLoan(data);
     } catch (e) {
       console.error('Loan detail load error:', e);
       const errorMessage = e instanceof Error ? e.message : 'Failed to load loan details';
-      // Provide a more helpful error message if it's a pocket vs loan issue
       if (errorMessage.includes('not a loan') || errorMessage.includes('Pocket is not a loan')) {
-        setError('This is not a loan pocket. Please navigate to the pocket detail screen instead.');
-      } else {
-        setError(errorMessage);
+        // Broken gap fix: normal pockets were landing here via stale links / deep links.
+        // Auto-redirect to the correct pocket detail instead of leaving a dead error screen.
+        // Use replace so back goes to loans list, not back to this error.
+        try {
+          router.replace({ pathname: '/(pockets)/detail', params: { id: id as string } });
+        } catch {
+          setError('This is not a loan pocket. Opening pocket detail instead…');
+        }
+        return;
       }
+      setError(errorMessage);
     }
-  }, [id]);
+  }, [id, router]);
 
   // Initial load
   React.useEffect(() => {
