@@ -21,14 +21,14 @@ function CategoryChips({
 }) {
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, width: '100%' }}>
       {BUSINESS_CATEGORIES.map((option) => {
         const isSelected = selected.includes(option.id);
         return (
           <Pressable
             key={option.id}
             style={({ pressed }) => [
-              { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight, alignItems: 'center', justifyContent: 'center' },
+              { paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2, borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surface, minHeight: touchTarget.minHeight, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start', flexShrink: 0, maxWidth: '100%' },
               isSelected && { borderColor: colors.emeraldDeep, backgroundColor: colors.emeraldDeep },
               { opacity: pressed ? 0.7 : 1 },
             ]}
@@ -38,7 +38,7 @@ function CategoryChips({
             accessibilityLabel={option.label}
           >
             <Text style={[
-              { ...typography.caption, color: colors.ink },
+              { ...typography.caption, color: colors.ink, flexShrink: 1 },
               isSelected && { color: colors.surface },
             ]}>{option.label}</Text>
           </Pressable>
@@ -230,13 +230,11 @@ export default function MsmeFixedScreen() {
         <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md }}>
           <Input label="Pocket name" value={pocketName} onChangeText={setPocketName} placeholder="e.g. Stock & Inventory" accessible accessibilityLabel="Business pocket name" />
           <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage }}>Category</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
-            <CategoryChips
-              multiple={false}
-              selected={[pocketCategory]}
-              onSelect={setPocketCategory}
-            />
-          </View>
+          <CategoryChips
+            multiple={false}
+            selected={[pocketCategory]}
+            onSelect={setPocketCategory}
+          />
           <Pressable
             style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, paddingVertical: spacing.sm + 2, borderRadius: radius.pill, backgroundColor: colors.emeraldTint, opacity: msmeCustomPockets.length >= 6 ? 0.4 : (pressed ? 0.7 : 1) }]}
             onPress={handleAddPocket}
