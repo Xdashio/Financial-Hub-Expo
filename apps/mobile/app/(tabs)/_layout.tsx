@@ -16,11 +16,12 @@ export default function TabsLayout() {
   // this check.
   const isFreelancerDaily = useIsFreelancerDaily();
 
-  // Explicit height/inset tuning tied to the same `spacing` primitive used
-  // everywhere else, instead of leaving the bar to React Navigation's
-  // per-platform defaults — those don't line up with our own touch-target
-  // and spacing scale, especially on devices with a large bottom inset.
-  const tabBarHeight = spacing.xxxl + spacing.lg + insets.bottom;
+  // 64 = icon(24) + gap(4) + label(16) + breathing(8) + item padding(12)
+  // is the minimum inner height for a labeled tab. Add the bottom inset
+  // so gesture nav (34) and 3-button nav (0) both get enough room.
+  // Previously 48+inset -> inner 32-40 clipped the label (4-12px), so
+  // 3-button devices (inset 0) hid the label entirely.
+  const tabBarHeight = 64 + insets.bottom;
 
   return (
     <Tabs
@@ -29,6 +30,7 @@ export default function TabsLayout() {
         tabBarShowLabel: true,
         tabBarActiveTintColor: colors.emerald,
         tabBarInactiveTintColor: colors.sage,
+        tabBarAllowFontScaling: false,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
@@ -40,7 +42,7 @@ export default function TabsLayout() {
           fontFamily: typography.caption.fontFamily,
           fontSize: typography.caption.fontSize,
           lineHeight: typography.caption.lineHeight,
-          color: colors.sage,
+          includeFontPadding: false,
         },
         tabBarItemStyle: {
           paddingVertical: spacing.xs,
