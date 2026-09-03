@@ -16,12 +16,16 @@ export default function TabsLayout() {
   // this check.
   const isFreelancerDaily = useIsFreelancerDaily();
 
-  // 64 = icon(24) + gap(4) + label(16) + breathing(8) + item padding(12)
-  // is the minimum inner height for a labeled tab. Add the bottom inset
-  // so gesture nav (34) and 3-button nav (0) both get enough room.
-  // Previously 48+inset -> inner 32-40 clipped the label (4-12px), so
-  // 3-button devices (inset 0) hid the label entirely.
-  const tabBarHeight = 64 + insets.bottom;
+  // icon(24) + label(16) + bar paddingTop/paddingBottom(8+8) + item
+  // paddingVertical(4+4) leaves exactly 40px for icon+label with zero
+  // slack for the ~2-4px marginTop React Navigation's internal label
+  // component adds between the icon and the label — so on real devices
+  // that margin pushes the label past the available height and it gets
+  // clipped out entirely rather than just looking cramped. 76 (up from
+  // the previous exact-fit 64) leaves real headroom instead of another
+  // pixel-perfect guess. Add the bottom inset so gesture nav (34) and
+  // 3-button nav (0) both get enough room.
+  const tabBarHeight = 76 + insets.bottom;
 
   return (
     <Tabs
@@ -43,6 +47,10 @@ export default function TabsLayout() {
           fontSize: typography.caption.fontSize,
           lineHeight: typography.caption.lineHeight,
           includeFontPadding: false,
+          // Pin this explicitly instead of relying on the library's
+          // internal default gap between icon and label — that default is
+          // exactly what the old exact-fit height math didn't budget for.
+          marginTop: spacing.xs,
         },
         tabBarItemStyle: {
           paddingVertical: spacing.xs,

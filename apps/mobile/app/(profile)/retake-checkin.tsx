@@ -464,14 +464,14 @@ export default function RetakeCheckinScreen() {
 
       {!showForm && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>
-          <View style={{ padding: spacing.xl, borderRadius: radius.md, backgroundColor: colors.ink, alignItems: 'center' }}>
-            <View style={{ width: 48, height: 48, borderRadius: radius.md, backgroundColor: `${colors.surface}1A`, alignItems: 'center', justifyContent: 'center' }}>
-              <RefreshCw size={22} color={colors.surface} strokeWidth={2} />
+          <View style={{ padding: spacing.xl, borderRadius: radius.md, backgroundColor: colors.heroBg, alignItems: 'center' }}>
+            <View style={{ width: 48, height: 48, borderRadius: radius.md, backgroundColor: `${colors.heroText}1A`, alignItems: 'center', justifyContent: 'center' }}>
+              <RefreshCw size={22} color={colors.heroText} strokeWidth={2} />
             </View>
-            <Text style={{ ...typography.title, color: colors.surface, fontSize: 18, marginTop: spacing.md, textAlign: 'center' }}>
+            <Text style={{ ...typography.title, color: colors.heroText, fontSize: 18, marginTop: spacing.md, textAlign: 'center' }}>
               Update your plan
             </Text>
-            <Text style={{ ...typography.body, color: `${colors.surface}99`, marginTop: spacing.xs, textAlign: 'center' }}>
+            <Text style={{ ...typography.body, color: `${colors.heroText}99`, marginTop: spacing.xs, textAlign: 'center' }}>
               A quick check-in updates your plan right here — no need to redo onboarding from scratch.
             </Text>
           </View>

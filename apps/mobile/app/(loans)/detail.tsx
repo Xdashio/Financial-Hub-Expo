@@ -411,7 +411,7 @@ export default function LoanDetailScreen() {
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
           <View
             style={{
-              backgroundColor: colors.ink,
+              backgroundColor: colors.heroBg,
               borderRadius: radius.sm,
               padding: spacing.lg,
               paddingTop: spacing.xl,
@@ -419,7 +419,7 @@ export default function LoanDetailScreen() {
               ...shadow.elevated,
             }}
           >
-            <Text style={{ ...typography.caption, color: colors.surface + 'AA', marginTop: spacing.sm }}>
+            <Text style={{ ...typography.caption, color: colors.heroText + 'AA', marginTop: spacing.sm }}>
               Total Loan Amount
             </Text>
             <Text
@@ -427,14 +427,14 @@ export default function LoanDetailScreen() {
                 ...typography.display,
                 fontSize: 34,
                 lineHeight: 42,
-                color: colors.surface,
+                color: colors.heroText,
                 marginTop: spacing.xs,
                 fontVariant: ['tabular-nums'],
               }}
             >
               {fmt(repayment_schedule.totalAmount)}
             </Text>
-            <Text style={{ ...typography.caption, color: colors.surface + '88', marginTop: 4 }}>
+            <Text style={{ ...typography.caption, color: colors.heroText + '88', marginTop: 4 }}>
               {fmt(repayment_schedule.repaymentAmount)} per {getCadenceLabel(repayment_schedule.cadence)}
             </Text>
 
@@ -442,7 +442,7 @@ export default function LoanDetailScreen() {
             <View
               style={{
                 height: 6,
-                backgroundColor: colors.surface + '22',
+                backgroundColor: colors.heroText + '22',
                 borderRadius: radius.pill,
                 marginTop: spacing.lg,
                 overflow: 'hidden',
@@ -461,20 +461,20 @@ export default function LoanDetailScreen() {
             {/* Stats row */}
             <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.xl }}>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Paid</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Paid</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, fontVariant: ['tabular-nums'] }}>
                   {fmt(progress.amountPaid)}
                 </Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Remaining</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Remaining</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, fontVariant: ['tabular-nums'] }}>
                   {fmt(progress.amountRemaining)}
                 </Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Progress</Text>
-                <Text style={{ ...typography.heading, color: colors.surface }}>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Progress</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText }}>
                   {Math.round(progress.percentagePaid)}%
                 </Text>
               </View>

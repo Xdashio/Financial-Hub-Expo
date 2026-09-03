@@ -253,7 +253,7 @@ export function PocketDetailSkeleton() {
       {/* Hero card */}
       <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
         <View style={{ 
-          backgroundColor: colors.ink, 
+          backgroundColor: colors.heroBg, 
           borderRadius: radius.sm, 
           padding: spacing.lg, 
           paddingTop: spacing.xl,
