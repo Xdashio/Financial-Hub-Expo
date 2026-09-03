@@ -14,6 +14,15 @@ import {
   Clock,
   Shield,
   ShieldCheck,
+  ShoppingCart,
+  Home,
+  Lightbulb,
+  Car,
+  HeartPulse,
+  GraduationCap,
+  Film,
+  Sparkles,
+  Package,
 } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
@@ -110,19 +119,18 @@ export default function ClassificationHistoryScreen() {
   };
 
   const getCategoryIcon = (category: string) => {
-    // Simple mapping based on common categories
-    const iconMap: Record<string, string> = {
-      grocery: '🛒',
-      landlord_rent: '🏠',
-      utility: '💡',
-      transport: '🚗',
-      healthcare: '🏥',
-      education: '📚',
-      entertainment: '🎬',
-      personal_care: '💅',
-      other: '📦',
+    const iconMap: Record<string, React.ComponentType<any>> = {
+      grocery: ShoppingCart,
+      landlord_rent: Home,
+      utility: Lightbulb,
+      transport: Car,
+      healthcare: HeartPulse,
+      education: GraduationCap,
+      entertainment: Film,
+      personal_care: Sparkles,
+      other: Package,
     };
-    return iconMap[category] || '📦';
+    return iconMap[category] || Package;
   };
 
   return (
@@ -223,18 +231,23 @@ export default function ClassificationHistoryScreen() {
                 >
                   {/* Header Row */}
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md }}>
-                    <View
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: radius.md,
-                        backgroundColor: colors.goldTint,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      <Text style={{ fontSize: 20 }}>{getCategoryIcon(classification.category)}</Text>
-                    </View>
+                    {(() => {
+                      const Icon = getCategoryIcon(classification.category);
+                      return (
+                        <View
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: radius.md,
+                            backgroundColor: colors.goldTint,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          <Icon size={20} color={colors.ink} strokeWidth={2} />
+                        </View>
+                      );
+                    })()}
                     <View style={{ marginLeft: spacing.md, flex: 1 }}>
                       <Text style={{ ...typography.heading, color: colors.ink }}>
                         {classification.recipient_key}

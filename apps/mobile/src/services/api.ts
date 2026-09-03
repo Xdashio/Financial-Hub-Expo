@@ -70,10 +70,12 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
 export const api = {
   get: <T>(endpoint: string) => fetchApi<T>(endpoint, { method: 'GET' }),
-  post: <T>(endpoint: string, body: unknown) => fetchApi<T>(endpoint, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  }),
+  post: <T>(endpoint: string, body: unknown, extraHeaders?: Record<string, string>) =>
+    fetchApi<T>(endpoint, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: extraHeaders,
+    }),
   put: <T>(endpoint: string, body: unknown) => fetchApi<T>(endpoint, {
     method: 'PUT',
     body: JSON.stringify(body),
@@ -271,31 +273,36 @@ export const loansApi = {
 };
 
 export const msmeInvoicesApi = {
-  getAll: (params?: { status?: string; overdue?: boolean; search?: string }) => {
+  getAll: (params?: { status?: string; overdue?: boolean; search?: string; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.status) q.set('status', params.status);
     if (params?.overdue) q.set('overdue', 'true');
     if (params?.search) q.set('search', params.search);
+    if (params?.page != null) q.set('page', String(params.page));
+    if (params?.limit != null) q.set('limit', String(params.limit));
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return api.get<Invoice[]>(`/msme/invoices${qs}`);
+    return api.get<any>(`/msme/invoices${qs}`);
   },
   getStats: () => api.get<{ total: number; draft: number; sent: number; paid: number; voidCount: number; overdue: number; outstanding: number; overdueAmount: number; paidAmount: number }>('/msme/invoices/stats'),
   getById: (id: string) => api.get<Invoice>(`/msme/invoices/${id}`),
   create: (data: InvoiceCreateInput) => api.post<Invoice>('/msme/invoices', data),
   update: (id: string, data: InvoiceUpdateInput) => api.patch<Invoice>(`/msme/invoices/${id}`, data),
   send: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/send`, {}),
-  pay: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/pay`, {}),
+  pay: (id: string, idempotencyKey?: string) =>
+    api.post<Invoice>(`/msme/invoices/${id}/pay`, {}, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),
   void: (id: string) => api.post<Invoice>(`/msme/invoices/${id}/void`, {}),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/msme/invoices/${id}`),
 };
 
 export const msmeStockApi = {
-  getAll: (params?: { search?: string; lowStock?: boolean }) => {
+  getAll: (params?: { search?: string; lowStock?: boolean; page?: number; limit?: number }) => {
     const q = new URLSearchParams();
     if (params?.search) q.set('search', params.search);
     if (params?.lowStock) q.set('lowStock', 'true');
+    if (params?.page != null) q.set('page', String(params.page));
+    if (params?.limit != null) q.set('limit', String(params.limit));
     const qs = q.toString() ? `?${q.toString()}` : '';
-    return api.get<StockItem[]>(`/msme/stock${qs}`);
+    return api.get<any>(`/msme/stock${qs}`);
   },
   getStats: () => api.get<{ totalItems: number; lowStock: number; outOfStock: number; totalValueCost: number; totalValuePrice: number; potentialMargin: number }>('/msme/stock/stats'),
   getById: (id: string) => api.get<StockItem>(`/msme/stock/${id}`),
@@ -303,7 +310,8 @@ export const msmeStockApi = {
   update: (id: string, data: StockItemUpdateInput) => api.patch<StockItem>(`/msme/stock/${id}`, data),
   delete: (id: string) => api.delete<{ deleted: boolean }>(`/msme/stock/${id}`),
   getMovements: (id: string) => api.get<StockMovement[]>(`/msme/stock/${id}/movements`),
-  move: (id: string, data: StockMovementCreateInput) => api.post<{ movement: StockMovement; item: StockItem }>(`/msme/stock/${id}/movements`, data),
+  move: (id: string, data: StockMovementCreateInput, idempotencyKey?: string) =>
+    api.post<{ movement: StockMovement; item: StockItem }>(`/msme/stock/${id}/movements`, data, idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined),
 };
 
 export const msmeProjectsApi = {

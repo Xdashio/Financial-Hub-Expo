@@ -2,13 +2,16 @@
 node_modules/
 .pnpm-store/
 
-# Build outputs
+# Build outputs (keep workspace shared/dist for sandbox CI, but document intent)
 dist/
 build/
 .next/
 out/
 .turbo/
 apk/
+# O-03: packages/shared/dist is intentionally tracked for sandbox CI until GA.
+# Before GA, replace with !packages/shared/dist exception or switch CI to always build.
+!packages/shared/dist/
 #graphify
 
 graphify-out/

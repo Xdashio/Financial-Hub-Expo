@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe, Logger, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/nestjs';
@@ -45,7 +45,15 @@ async function bootstrap() {
       contentSecurityPolicy: false,
     }),
   );
+  // API lives under /api. Versioning is URI-based (/api/v1/...) with a default
+  // of v1 so existing clients calling /api/... keep working (backward compat).
+  // New clients should prefer /api/v1/... explicitly. See review A-01.
   app.setGlobalPrefix('api');
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+    prefix: 'v',
+  });
 
   const staticOrigins = corsOrigins();
 

@@ -355,12 +355,16 @@ export default function BlockedSpendScreen() {
         {/* Help Text */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl }}>
           <View style={{ 
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            gap: spacing.sm,
             padding: spacing.md, 
             borderRadius: radius.xs, 
             backgroundColor: colors.emeraldTint 
           }}>
-            <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>
-              💡 These block rules help you protect your essential spending and stay on track with your financial goals. You can see exactly what each pocket allows and blocks from its pocket detail screen.
+            <Info size={16} color={colors.emeraldDeep} strokeWidth={2} style={{ marginTop: 2 }} />
+            <Text style={{ ...typography.caption, color: colors.emeraldDeep, flex: 1, lineHeight: 16 }}>
+              These block rules help you protect your essential spending and stay on track with your financial goals. You can see exactly what each pocket allows and blocks from its pocket detail screen.
             </Text>
           </View>
         </View>

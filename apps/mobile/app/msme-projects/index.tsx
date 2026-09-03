@@ -15,7 +15,7 @@ import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { msmeProjectsApi } from '@/services/api';
 import { formatMoney } from '@/utils/money';
-import { Plus, RefreshCw, ChevronRight, Store } from 'lucide-react-native';
+import { Plus, RefreshCw, ChevronRight, Store, Circle, CircleDot, Check, X, Search } from 'lucide-react-native';
 
 interface ProjectSummary {
   id: string;
@@ -88,13 +88,13 @@ export default function MsmeProjectsScreen() {
   });
 
   const getStatusBadge = (status: string) => {
-    const config = {
-      active: { bg: colors.emeraldTint, text: colors.emeraldDeep, icon: '●' },
-      draft: { bg: colors.goldTint, text: colors.gold, icon: '○' },
-      completed: { bg: colors.plumTint, text: colors.plum, icon: '✓' },
-      cancelled: { bg: colors.clayTint, text: colors.clay, icon: '✕' },
+    const config: Record<string, { bg: string; text: string; Icon: React.ComponentType<any> }> = {
+      active: { bg: colors.emeraldTint, text: colors.emeraldDeep, Icon: CircleDot },
+      draft: { bg: colors.goldTint, text: colors.gold, Icon: Circle },
+      completed: { bg: colors.plumTint, text: colors.plum, Icon: Check },
+      cancelled: { bg: colors.clayTint, text: colors.clay, Icon: X },
     };
-    return config[status as keyof typeof config] || { bg: colors.lineSoft, text: colors.sage, icon: '?' };
+    return (config as any)[status] || { bg: colors.lineSoft, text: colors.sage, Icon: Circle };
   };
 
   const getNextIncomeBadge = (tier: 'priorities' | 'needs' | 'wants' | null) => {
@@ -143,7 +143,7 @@ export default function MsmeProjectsScreen() {
             </Text>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: statusConfig.bg, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: radius.pill }}>
-            <Text style={{ ...typography.caption, fontSize: 10, color: statusConfig.text }}>{statusConfig.icon}</Text>
+            <statusConfig.Icon size={10} color={statusConfig.text} strokeWidth={2} />
             <Text style={{ ...typography.caption, fontSize: 10, color: statusConfig.text, textTransform: 'capitalize' }}>{project.status}</Text>
           </View>
         </View>
@@ -231,9 +231,7 @@ export default function MsmeProjectsScreen() {
         {/* Search */}
         <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, paddingHorizontal: spacing.md }}>
-            <Pressable onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ color: colors.sage }}>🔍</Text>
-            </Pressable>
+            <Search size={18} color={colors.sage} strokeWidth={2} />
             <TextInput
               style={{ flex: 1, ...typography.body, color: colors.ink, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm }}
               placeholder="Search projects..."

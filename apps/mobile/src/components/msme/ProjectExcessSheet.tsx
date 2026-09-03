@@ -1,4 +1,4 @@
-/* eslint-disable -- MSME sheet reset pattern is intentional; replace with key-prop remount before GA */
+/* eslint-disable react-hooks/set-state-in-effect -- F-04 reset on open: parent should use key before GA */
 import React, { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { AlertTriangle, ArrowRight, PiggyBank, Package, Star, Pause } from 'lucide-react-native';
@@ -35,8 +35,6 @@ export function ProjectExcessSheet({ visible, onClose, projectId, projectName, p
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // reset when sheet opens/closes or prompt changes
-   
   React.useEffect(() => {
     if (visible) {
       setSelected(null);
@@ -133,6 +131,9 @@ export function ProjectExcessSheet({ visible, onClose, projectId, projectName, p
             <Pressable
               key={opt.id}
               onPress={() => handleChoose(opt.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: isSelected }}
+              accessibilityLabel={`${opt.label}: ${opt.sub}${isSelected ? ' selected' : ''}`}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',

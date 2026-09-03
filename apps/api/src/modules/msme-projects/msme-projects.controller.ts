@@ -9,10 +9,12 @@ export class MsmeProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
 
   @Get()
-  @ApiOperation({ summary: "List the current user's MSME projects" })
-  @ApiResponse({ status: 200, description: 'List of projects with tier summaries' })
-  async getAll(@Request() req: any): Promise<ProjectSummary[]> {
-    return this.projectsService.getProjectsForUser(req.user.id);
+  @ApiOperation({ summary: "List the current user's MSME projects — paginated" })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Array (no pagination) or {data,total,page,totalPages} when page/limit set' })
+  async getAll(@Request() req: any, @Query('page') page?: string, @Query('limit') limit?: string): Promise<any> {
+    return this.projectsService.getProjectsForUser(req.user.id, page ? Number(page) : undefined, limit ? Number(limit) : undefined);
   }
 
   @Post()

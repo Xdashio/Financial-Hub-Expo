@@ -13,8 +13,16 @@ const MAX_ITEMS = 25;
 
 export type QueuedWrite = {
   id: string;
-  endpoint: '/spend/commit' | '/income/manual' | string;
+  endpoint:
+    | '/spend/commit'
+    | '/income/manual'
+    | '/msme/invoices'
+    | '/msme/invoices/:id/pay'
+    | '/msme/stock'
+    | '/msme/stock/:id/movements'
+    | string;
   body: Record<string, unknown>;
+  headers?: Record<string, string>;
   createdAt: string;
   attempts: number;
 };
@@ -37,12 +45,14 @@ async function writeQueue(items: QueuedWrite[]): Promise<void> {
 export async function enqueueWrite(
   endpoint: QueuedWrite['endpoint'],
   body: Record<string, unknown>,
+  headers?: Record<string, string>,
 ): Promise<void> {
   const items = await readQueue();
   items.push({
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     endpoint,
     body,
+    headers,
     createdAt: new Date().toISOString(),
     attempts: 0,
   });
@@ -58,7 +68,12 @@ export async function flushWriteQueue(): Promise<{ flushed: number; remaining: n
 
   for (const item of items) {
     try {
-      await api.post(item.endpoint, item.body);
+      // Preserve Idempotency-Key on replay so server can de-dupe
+      if (item.headers && Object.keys(item.headers).length > 0) {
+        await api.post(item.endpoint, item.body, item.headers as any);
+      } else {
+        await api.post(item.endpoint, item.body);
+      }
       flushed += 1;
     } catch {
       remaining.push({ ...item, attempts: item.attempts + 1 });

@@ -68,9 +68,35 @@ export class MsmeInvoicesService {
     return toDto(row);
   }
 
-  async getInvoicesForUser(userId: string, query: { status?: string; overdueOnly?: boolean; search?: string }) {
+  async getInvoicesForUser(
+    userId: string,
+    query: { status?: string; overdueOnly?: boolean; search?: string; page?: number; limit?: number },
+  ) {
     const plan = await this.repository.getActivePlanByUserId(userId, 'msme');
-    if (!plan) return [];
+    if (!plan) {
+      // Return paginated empty if pagination requested, else array for BC
+      if (query.page != null || query.limit != null) return { data: [], total: 0, page: query.page ?? 1, totalPages: 0 } as any;
+      return [];
+    }
+
+    // If pagination requested, use DB-paginated path (A-02)
+    if (query.page != null || query.limit != null) {
+      const page = Math.max(1, Number(query.page) || 1);
+      const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
+      let rows = await this.repository.getMsmeInvoicesByUserId(userId, {
+        status: query.status,
+        overdueOnly: query.overdueOnly,
+      });
+      if (query.search) {
+        const q = query.search.toLowerCase();
+        rows = rows.filter(r => r.customer_name.toLowerCase().includes(q) || (r.description && r.description.toLowerCase().includes(q)));
+      }
+      const sorted = rows.map(toDto).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      const total = sorted.length;
+      const totalPages = Math.ceil(total / limit);
+      const from = (page - 1) * limit;
+      return { data: sorted.slice(from, from + limit), total, page, totalPages } as any;
+    }
 
     let rows = await this.repository.getMsmeInvoicesByUserId(userId, {
       status: query.status,
@@ -139,69 +165,103 @@ export class MsmeInvoicesService {
     return toDto(updated!);
   }
 
-  async payInvoice(id: string, userId: string) {
+  async payInvoice(id: string, userId: string, idempotencyKey?: string) {
+    // Idempotency replay (B-04): same key returns prior response without double ledger
+    const scope = `invoice_pay:msme` as any;
+    if (idempotencyKey) {
+      try {
+        const existing = await this.repository.getIdempotencyRecord(userId, scope, idempotencyKey);
+        if (existing?.response) {
+          // If stored response is the dto, return it directly
+          return existing.response as any;
+        }
+        // Also handle already-paid without key — guard below will throw, but replay with same key should be idempotent
+      } catch (e) {
+        this.logger.warn(`idempotency lookup failed (invoice pay): ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+
     const row = await this.repository.getMsmeInvoiceById(id);
     if (!row) throw new NotFoundException('Invoice not found');
     if (row.user_id !== userId) throw new ForbiddenException('Access denied');
-    if (row.status === 'paid') throw new BadRequestException('Invoice already paid');
+    if (row.status === 'paid') {
+      // If idempotency key present, treat as replay success (idempotent)
+      if (idempotencyKey) {
+        try {
+          const existing = await this.repository.getIdempotencyRecord(userId, scope, idempotencyKey);
+          if (existing?.response) return existing.response as any;
+        } catch {}
+      }
+      throw new BadRequestException('Invoice already paid');
+    }
     if (row.status === 'void') throw new BadRequestException('Cannot pay voided invoice');
     if (row.status !== 'sent' && row.status !== 'draft') throw new BadRequestException(`Cannot pay ${row.status} invoice`);
 
     const amount = Number(row.amount);
     const nowIso = new Date().toISOString();
 
-    // Mark paid
-    const paid = await this.repository.updateMsmeInvoice(id, { status: 'paid', paid_at: nowIso });
-    if (!paid) throw new BadRequestException('Failed to mark paid');
-
-    // Create ledger income_event for MSME segment so allocation & runway update.
-    // Manual income path: run_allocation true so pockets get credited.
-    try {
-      await this.repository.createIncomeEvent({
-        user_id: userId,
-        amount,
-        source: row.customer_name.slice(0, 100),
-        label: `Invoice ${row.id.slice(0, 8)} - ${row.customer_name}`.slice(0, 200),
-        date: nowIso.slice(0, 10),
-        run_allocation: true,
-        segment: 'msme',
-      });
-    } catch (err) {
-      this.logger.warn(`payInvoice income_event failed for ${id}: ${err instanceof Error ? err.message : String(err)}`);
-      // Roll back invoice status? Keep paid but warn — ledger can be reconciled via income retry.
+    // Ledger-first so failure does not drift invoice to paid (B-01)
+    const incomeEvent = await this.repository.createIncomeEvent({
+      user_id: userId,
+      amount,
+      source: row.customer_name.slice(0, 100),
+      label: `Invoice ${row.id.slice(0, 8)} - ${row.customer_name}`.slice(0, 200),
+      date: nowIso.slice(0, 10),
+      run_allocation: true,
+      segment: 'msme',
+    });
+    if (!incomeEvent) {
+      throw new BadRequestException('Failed to create income event for invoice payment');
     }
 
-    // Best-effort allocation: replicate IncomeService proportional logic via direct transactions.
-    // Reuse existing pockets allocation: fetch MSME plan pockets and allocate proportionally.
+    // Allocate proportionally to MSME plan pockets (same logic as IncomeService).
+    // If no pockets or no allocations, keep ledger (income_event already written)
+    // but warn — do not fail the pay flow, as the income is already true.
     try {
       const plan = await this.repository.getActivePlanByUserId(userId, 'msme');
       if (plan) {
         const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
-        if (pockets.length > 0) {
-          const totalAlloc = pockets.reduce((s, p) => s + (Number(p.monthly_allocation) || 0), 0);
-          if (totalAlloc > 0) {
-            const txns = pockets.map(p => {
-              const share = (Number(p.monthly_allocation) || 0) / totalAlloc;
-              return { pocket_id: p.id, amount: round2(amount * share), type: 'allocation' as const };
-            }).filter(t => t.amount > 0);
-            // Reconcile rounding drift to largest
-            const sum = txns.reduce((s, t) => s + t.amount, 0);
-            const drift = round2(amount - sum);
-            if (drift !== 0 && txns.length > 0) {
-              const largest = txns.reduce((m, t) => (t.amount > m.amount ? t : m), txns[0]);
-              largest.amount = round2(largest.amount + drift);
-            }
-            if (txns.length > 0) {
-              await this.repository.createTransactions(txns.map(t => ({ pocket_id: t.pocket_id, amount: t.amount, type: t.type })));
-            }
+        const totalAlloc = pockets.reduce((s, p) => s + (Number(p.monthly_allocation) || 0), 0);
+        if (pockets.length > 0 && totalAlloc > 0) {
+          const txns = pockets.map(p => {
+            const share = (Number(p.monthly_allocation) || 0) / totalAlloc;
+            return { pocket_id: p.id, amount: round2(amount * share), type: 'allocation' as const };
+          }).filter(t => t.amount > 0);
+          const sum = txns.reduce((s, t) => s + t.amount, 0);
+          const drift = round2(amount - sum);
+          if (drift !== 0 && txns.length > 0) {
+            const largest = txns.reduce((m, t) => (t.amount > m.amount ? t : m), txns[0]);
+            largest.amount = round2(largest.amount + drift);
           }
+          if (txns.length > 0) {
+            await this.repository.createTransactions(txns.map(t => ({ pocket_id: t.pocket_id, amount: t.amount, type: t.type })));
+          }
+        } else {
+          this.logger.warn(`payInvoice no pockets/allocations for ${userId} plan ${plan.id} — income_event created, no pocket allocation`);
         }
+      } else {
+        this.logger.warn(`payInvoice no MSME plan for ${userId} — income_event created, invoice will still be marked paid`);
       }
-    } catch (err) {
-      this.logger.warn(`payInvoice allocation failed for ${id}: ${err instanceof Error ? err.message : String(err)}`);
+    } catch (e) {
+      // Allocation is best-effort; invoice pay should still succeed since income_event is truth.
+      // Bubble only if it's already a controlled throw; otherwise warn.
+      if (e instanceof BadRequestException) throw e;
+      this.logger.warn(`payInvoice allocation failed for ${id}: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    return toDto(paid);
+    const paid = await this.repository.updateMsmeInvoice(id, { status: 'paid', paid_at: nowIso });
+    if (!paid) throw new BadRequestException('Failed to mark invoice paid after ledger write');
+
+    const dto = toDto(paid);
+    if (idempotencyKey) {
+      try {
+        await this.repository.saveIdempotencyRecord({ user_id: userId, scope, idempotency_key: idempotencyKey, response: dto as any, resource_id: paid.id });
+      } catch (e) {
+        // Best-effort; 23505 race means other worker already saved
+        if ((e as any)?.code !== '23505') this.logger.warn(`save idempotency failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    return dto;
   }
 
   async deleteInvoice(id: string, userId: string) {

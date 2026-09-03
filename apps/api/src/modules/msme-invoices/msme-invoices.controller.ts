@@ -9,13 +9,29 @@ export class MsmeInvoicesController {
   constructor(private readonly invoices: MsmeInvoicesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List MSME invoices (filter by status, overdue, search)' })
+  @ApiOperation({ summary: 'List MSME invoices (filter by status, overdue, search) — paginated' })
   @ApiQuery({ name: 'status', required: false, enum: ['draft', 'sent', 'paid', 'void'] })
   @ApiQuery({ name: 'overdue', required: false, type: Boolean })
   @ApiQuery({ name: 'search', required: false, type: String })
-  async list(@Request() req: any, @Query('status') status?: string, @Query('overdue') overdue?: string, @Query('search') search?: string) {
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiResponse({ status: 200, description: 'Array (no pagination) or {data,total,page,totalPages} when page/limit set' })
+  async list(
+    @Request() req: any,
+    @Query('status') status?: string,
+    @Query('overdue') overdue?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     const overdueOnly = overdue === 'true';
-    return this.invoices.getInvoicesForUser(req.user.id, { status, overdueOnly, search });
+    return this.invoices.getInvoicesForUser(req.user.id, {
+      status,
+      overdueOnly,
+      search,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    } as any);
   }
 
   @Get('stats')
@@ -49,9 +65,11 @@ export class MsmeInvoicesController {
   }
 
   @Post(':id/pay')
-  @ApiOperation({ summary: 'Mark sent invoice as paid → creates MSME income + allocation' })
+  @ApiOperation({ summary: 'Mark sent invoice as paid → creates MSME income + allocation (idempotent via Idempotency-Key)' })
+  @ApiResponse({ status: 200, description: 'Paid invoice dto; replay returns same dto' })
   async pay(@Param('id') id: string, @Request() req: any) {
-    return this.invoices.payInvoice(id, req.user.id);
+    const key = (req.headers['idempotency-key'] as string) || (req.headers['x-idempotency-key'] as string) || undefined;
+    return this.invoices.payInvoice(id, req.user.id, key);
   }
 
   @Post(':id/void')

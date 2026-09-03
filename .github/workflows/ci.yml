@@ -8,7 +8,8 @@ on:
 
 env:
   PNPM_VERSION: 9.0.0
-  NODE_VERSION: 20.x
+  # Node 22 matches Dockerfile + supabase-js ws requirement (see O-01).
+  NODE_VERSION: 22.x
 
 jobs:
   lint-and-typecheck:
@@ -167,6 +168,8 @@ jobs:
       - name: Build packages
         run: pnpm build
 
-      # TODO: Add API extraction and comparison step here when needed
-      # This would use something like api-extractor or a custom script
-      # to detect breaking changes in the shared package exports
+      - name: Verify migrations byte-identity (schema-sync guard)
+        run: SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter api test -- schema-sync.spec.ts
+
+      - name: OpenAPI breaking-change check (placeholder)
+        run: echo "TODO: wire openapi-diff when @nestjs/swagger json is emitted"

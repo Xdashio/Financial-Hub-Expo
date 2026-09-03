@@ -13,6 +13,9 @@ UPDATE public.users
 SET feature_flags = feature_flags || '{"msme_invoices": true}'::jsonb
 WHERE NOT (feature_flags ? 'msme_invoices');
 
+-- Ensure pgcrypto for gen_random_uuid() on fresh DBs (see 001).
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
 -- 2. Invoices table
 CREATE TABLE IF NOT EXISTS public.msme_invoices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -44,7 +47,10 @@ CREATE INDEX IF NOT EXISTS idx_msme_invoices_user_id ON public.msme_invoices(use
 CREATE INDEX IF NOT EXISTS idx_msme_invoices_plan_id ON public.msme_invoices(plan_id);
 CREATE INDEX IF NOT EXISTS idx_msme_invoices_status ON public.msme_invoices(status);
 CREATE INDEX IF NOT EXISTS idx_msme_invoices_due_date ON public.msme_invoices(due_date);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_msme_invoices_user_customer_due ON public.msme_invoices(user_id, customer_name, due_date, amount);
+-- NOTE: intentionally NOT UNIQUE — two legitimate invoices can have same customer+due+amount
+-- (see review D-03). Use an application-level idempotency key if dedup is needed.
+CREATE INDEX IF NOT EXISTS idx_msme_invoices_user_customer_due ON public.msme_invoices(user_id, customer_name, due_date, amount);
+-- Prod: CREATE INDEX CONCURRENTLY
 
 -- updated_at trigger (reuse existing function from 001)
 DROP TRIGGER IF EXISTS update_msme_invoices_updated_at ON public.msme_invoices;
