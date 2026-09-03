@@ -48,6 +48,20 @@ export interface ColorPalette {
   errorTint: string;
   info: string;
   infoTint: string;
+
+  // Fixed "hero card" pair — a deliberately dark card with light text used
+  // for stat/summary panels (pocket detail, loan detail, plan summary,
+  // onboarding result, etc). This is a fixed design accent, not a
+  // theme-reactive surface, so unlike every other token above it must stay
+  // IDENTICAL in both palettes. `ink`/`surface` swap meaning between light
+  // and dark mode (ink is dark-on-light but flips to white-on-dark), so
+  // components that used `colors.ink` for the card fill and `colors.surface`
+  // for the text — assuming "ink is always dark, surface is always light" —
+  // rendered correctly in light mode but inverted into a near-white card
+  // with low-contrast gray text in dark mode. Use heroBg/heroText instead
+  // of ink/surface for this specific pattern.
+  heroBg: string;
+  heroText: string;
 }
 
 export const lightColors: ColorPalette = {
@@ -82,6 +96,9 @@ export const lightColors: ColorPalette = {
   errorTint: '#F7E7DD',
   info: '#7A5F9D', // Darker for better contrast
   infoTint: '#EEE8F6',
+
+  heroBg: '#0A1A13',
+  heroText: '#FFFFFF',
 };
 
 // Dark palette mirrors the light one's *relationships* (surfaces lighter
@@ -120,4 +137,9 @@ export const darkColors: ColorPalette = {
   errorTint: '#332019',
   info: '#D4B8F0', // Much brighter
   infoTint: '#2A2436',
+
+  // Same fixed values as the light palette — see the comment on
+  // ColorPalette.heroBg above for why this pair must not flip with theme.
+  heroBg: '#0A1A13',
+  heroText: '#FFFFFF',
 };
