@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, Text, ScrollView, RefreshControl, Pressable, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { radius, spacing, typography, touchTarget } from '@/theme';
+import { radius, spacing, typography, touchTarget, shadow } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer, LoadingState, ErrorState, SearchBar } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { pocketsApi, incomeApi } from '@/services/api';
+import { pocketsApi } from '@/services/api';
 import { useAuthStore } from '@/services/auth';
-import { Plus, Store, Package, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Plus, Store, Package, ChevronDown, ChevronUp, Receipt } from 'lucide-react-native';
 import { formatMoney } from '@/utils/money';
 import { getCategoryIcon } from '@/utils/categoryIcons';
 import { BUSINESS_CATEGORIES, useOnboardingStore } from '@/services/onboarding-store';
@@ -93,16 +93,32 @@ export default function MsmeHomeScreen() {
   };
 
   const renderHeader = () => (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing.sm }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
-        <Image
-          source={require('../../assets/icon.png')}
-          style={{ width: 26, height: 26 }}
-          resizeMode="contain"
-        />
-        <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }} numberOfLines={1}>Financial Hub</Text>
+    <>
+      {/* Top brand row — mirrors (tabs)/index.tsx:309 */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: spacing.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={{ width: 26, height: 26 }}
+            resizeMode="contain"
+          />
+          <Text style={{ ...typography.heading, color: colors.ink, letterSpacing: -0.18 }}>Financial Hub</Text>
+        </View>
       </View>
-      <View style={{ flexDirection: 'row', gap: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.pill, padding: 3 }}>
+      {/* Segment toggle — below header, left-aligned pill like (tabs)/index.tsx:344 (not crammed into header row) */}
+      <View
+        style={{
+          marginTop: spacing.md,
+          flexDirection: 'row',
+          gap: spacing.xs,
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.line,
+          borderRadius: radius.pill,
+          padding: 3,
+          alignSelf: 'flex-start',
+        }}
+      >
         <Pressable
           onPress={() => router.replace('/(tabs)')}
           style={({ pressed }) => [{ paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill }, { opacity: pressed ? 0.7 : 1 }]}
@@ -120,7 +136,7 @@ export default function MsmeHomeScreen() {
           <Text style={{ ...typography.caption, color: colors.surface }}>Business</Text>
         </Pressable>
       </View>
-    </View>
+    </>
   );
 
   const renderEmpty = () => {
@@ -180,33 +196,46 @@ export default function MsmeHomeScreen() {
       ? Math.max(0, Math.min(1, pocket.available_balance / pocket.monthly_allocation))
       : 0;
     const label = categoryLabel(pocket.category);
+    // Avoid duplicate "Rent / Rent" — if label matches name, show kind purpose instead
+    const subLabel = label && label.toLowerCase() !== pocket.name.toLowerCase()
+      ? label
+      : pocket.kind === 'savings' ? 'Savings' : pocket.kind === 'fixed' ? 'Fixed costs' : 'Business pocket';
+    const status = pocket.available_balance <= 0 ? 'Awaiting income' : pocket.kind === 'savings' ? 'Protected' : pocket.kind === 'fixed' ? 'Funded' : 'Available';
+    const statusBg = status === 'Protected' ? colors.emeraldTint : status === 'Funded' ? colors.goldTint : status === 'Available' ? colors.emeraldTint : colors.lineSoft;
+    const statusColor = status === 'Protected' ? colors.emeraldDeep : status === 'Funded' ? colors.gold : status === 'Available' ? colors.emeraldDeep : colors.sage;
+    const statusBorder = status === 'Protected' ? colors.emeraldDeep + '30' : status === 'Funded' ? colors.gold + '30' : status === 'Available' ? colors.emeraldDeep + '30' : colors.line;
     return (
       <Pressable
         key={pocket.id}
-        style={({ pressed }) => [{ flex: 1, minWidth: '46%', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, marginBottom: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
+        style={({ pressed }) => [{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, padding: spacing.lg, marginBottom: spacing.md, ...shadow.default }, { opacity: pressed ? 0.8 : 1 }]}
         onPress={() => router.push(`/(pockets)/detail?id=${pocket.id}`)}
         accessibilityRole="button"
-        accessibilityLabel={`${pocket.name} pocket, ${formatMoney(pocket.available_balance)} available`}
+        accessibilityLabel={`${pocket.name} pocket, ${subLabel}, ${formatMoney(pocket.available_balance)} available, ${status}`}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-          <View style={{ width: 36, height: 36, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
-            <Icon size={16} color={colors.ink} strokeWidth={2} />
+        {/* dashed top + tab — identical to (tabs)/index.tsx pocket card */}
+        <View style={{ borderTopWidth: 1.5, borderTopColor: color, borderStyle: 'dashed', marginTop: -spacing.xs, paddingTop: spacing.md }} />
+        <View style={{ position: 'absolute', top: -4, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: color }} />
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs, gap: spacing.sm }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1, paddingRight: spacing.sm }}>
+            <View style={{ width: 28, height: 28, borderRadius: radius.xs, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon size={16} color={colors.ink} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>{pocket.name}</Text>
+              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }} numberOfLines={1}>{subLabel}</Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ ...typography.heading, fontSize: 14, color: colors.ink }} numberOfLines={1}>{pocket.name}</Text>
-            {label ? (
-              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }} numberOfLines={1}>{label}</Text>
-            ) : null}
+          <View style={{ alignItems: 'flex-end', flexShrink: 0, gap: 4 }}>
+            <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatMoney(pocket.available_balance)}</Text>
+            <View style={{ backgroundColor: statusBg, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: statusBorder, minHeight: 20, justifyContent: 'center' }}>
+              <Text style={{ ...typography.caption, fontSize: 10, color: statusColor, lineHeight: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.3 }}>{status}</Text>
+            </View>
           </View>
-        </View>
-        <View style={{ height: 1, borderTopWidth: 1.5, borderTopColor: color, borderStyle: 'dashed', marginTop: spacing.md }} />
-        <View style={{ marginTop: spacing.md }}>
-          <Text style={{ ...typography.heading, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatMoney(pocket.available_balance)}</Text>
-          <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 2 }}>of {formatMoney(pocket.monthly_allocation)} monthly</Text>
         </View>
         <View style={{ height: 6, backgroundColor: colors.lineSoft, borderRadius: radius.pill, marginTop: spacing.md, overflow: 'hidden' }}>
           <View style={{ height: '100%', borderRadius: radius.pill, backgroundColor: color, width: `${progress * 100}%` }} />
         </View>
+        <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }}>{formatMoney(pocket.available_balance)} of {formatMoney(pocket.monthly_allocation)} monthly</Text>
       </Pressable>
     );
   };
@@ -274,6 +303,10 @@ export default function MsmeHomeScreen() {
   const visiblePockets = showAllPockets ? filteredPockets : filteredPockets.slice(0, MSME_POCKET_COLLAPSE_AT);
   const hiddenCount = Math.max(0, filteredPockets.length - MSME_POCKET_COLLAPSE_AT);
 
+  // ── Aligned hero + stats — mirrors (tabs)/index.tsx information hierarchy
+  const totalBusinessBalance = allPockets.reduce((s, p) => s + (p.available_balance || 0), 0);
+  const totalMonthlyAllocation = allPockets.reduce((s, p) => s + (p.monthly_allocation || 0), 0);
+
   return (
     <ScreenContainer>
       <View style={{ flex: 1, position: 'relative' }}>
@@ -286,88 +319,119 @@ export default function MsmeHomeScreen() {
         >
           {renderHeader()}
 
-          <View style={{ marginTop: spacing.xl, flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
-              <Store size={20} color={colors.gold} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...typography.eyebrow, color: colors.sage, letterSpacing: 0.36 }}>Business pockets</Text>
-              <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>Split from your monthly revenue</Text>
-            </View>
-            <Text style={{ ...typography.caption, color: colors.sage }}>{view.pockets.length} pockets</Text>
+          {/* Hero — same level and spacing as Individual's Safe to spend block (tabs/index.tsx:363) */}
+          <View style={{ marginTop: spacing.xl }}>
+            <Text style={{ ...typography.caption, color: colors.sage, letterSpacing: 0.36 }}>Total in business pockets</Text>
+            <Text style={{ ...typography.display, color: colors.emeraldDeep, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>
+              {formatMoney(totalBusinessBalance)}
+            </Text>
+            <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }} numberOfLines={2}>
+              Across {view.pockets.length} business pockets · {formatMoney(totalMonthlyAllocation)} monthly allocation
+            </Text>
           </View>
 
-          <View style={{ marginTop: spacing.xl, flexDirection: 'row', gap: spacing.sm }}>
-            <Pressable
-              style={({ pressed }) => [{ flex: 1, minHeight: touchTarget.minHeight, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
-              onPress={() => router.push('/(income)/entry?segment=msme' as any)}
-              accessibilityLabel="Add business income"
-              accessibilityRole="button"
-            >
-              <Plus size={18} color={colors.emerald} strokeWidth={2} />
-              <Text style={{ ...typography.caption, color: colors.ink }}>Add income</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [{ flex: 1, minHeight: touchTarget.minHeight, backgroundColor: colors.heroBg, borderWidth: 1, borderColor: colors.heroBg, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
-              onPress={() => router.push('/msme-projects' as any)}
-              accessibilityLabel="View projects"
-              accessibilityRole="button"
-            >
-              <Store size={18} color={colors.heroText} strokeWidth={2} />
-              <Text style={{ ...typography.caption, color: colors.heroText }}>Projects</Text>
-            </Pressable>
+          <View
+            style={{
+              marginTop: spacing.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderTopWidth: 1,
+              borderTopColor: colors.lineSoft,
+              paddingTop: spacing.md,
+            }}
+          >
+            <Text style={{ ...typography.caption, color: colors.sage }}>Monthly allocation</Text>
+            <Text style={{ ...typography.body, color: colors.inkSoft, fontVariant: ['tabular-nums'] }}>{formatMoney(totalMonthlyAllocation)}</Text>
           </View>
-          {/* Invoices — Receivables ledger (020) — eTIMS-ready */}
-          <Pressable
-            onPress={() => router.push('/msme-invoices' as any)}
-            style={({ pressed }) => [{ marginTop: spacing.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Open invoices — Receivables"
+
+          <View
+            style={{
+              marginTop: spacing.md,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+              backgroundColor: colors.emeraldTint,
+              borderRadius: radius.sm,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.sm,
+            }}
           >
-            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
-              <Store size={18} color={colors.gold} strokeWidth={2} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Store size={14} color={colors.emeraldDeep} strokeWidth={2} style={{ marginRight: 4 }} />
+              <Text style={{ ...typography.caption, color: colors.emeraldDeep, flexShrink: 1 }}>Business pockets stay on purpose until you move money</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...typography.heading, color: colors.ink }}>Invoices — Receivables</Text>
-              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Draft → Sent → Paid. KRA PIN validated, overdue flagged, paid allocates to MSME pockets.</Text>
-            </View>
+          </View>
+
+          {/* Action row — 3 balanced buttons like Individual's Log spend/Add income/Move (tabs/index.tsx:406) */}
+          <View style={{ marginTop: spacing.lg, flexDirection: 'row', gap: spacing.sm }}>
+            {[
+              { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry?segment=msme' as const, color: colors.emerald },
+              { id: 'invoices', label: 'Invoices', icon: Receipt, route: '/msme-invoices' as const, color: colors.gold },
+              { id: 'stock', label: 'Stock', icon: Package, route: '/msme-stock' as const, color: colors.plum },
+            ].map((action) => {
+              const Icon = action.icon;
+              return (
+                <Pressable
+                  key={action.id}
+                  style={({ pressed }) => [
+                    {
+                      flex: 1,
+                      minHeight: touchTarget.minHeight,
+                      backgroundColor: colors.surface,
+                      borderWidth: 1,
+                      borderColor: colors.line,
+                      borderRadius: radius.sm,
+                      paddingVertical: spacing.md,
+                      paddingHorizontal: spacing.sm,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: spacing.xs,
+                    },
+                    { opacity: pressed ? 0.8 : 1 },
+                  ]}
+                  onPress={() => router.push(action.route as any)}
+                  accessibilityLabel={action.label}
+                  accessibilityRole="button"
+                >
+                  <Icon size={18} color={action.color} strokeWidth={2} />
+                  <Text style={{ ...typography.caption, color: colors.ink, textAlign: 'center' }}>{action.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Pressable
+            style={({ pressed }) => [{ marginTop: spacing.sm, alignItems: 'center' }, { opacity: pressed ? 0.7 : 1 }]}
+            onPress={() => router.push('/msme-projects/create' as any)}
+            accessibilityLabel="Create new project"
+            accessibilityRole="button"
+          >
+            <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>New project · Funding Cascade</Text>
           </Pressable>
 
-          {/* Stock — Inventory tracker (021) — qty ledger */}
+          {/* Business pockets — single-column cards like Individual, collapsible with eyebrow */}
           <Pressable
-            onPress={() => router.push('/msme-stock' as any)}
-            style={({ pressed }) => [{ marginTop: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
+            onPress={() => setShowAllPockets(v => !v)}
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing.xxl, marginBottom: spacing.md, gap: spacing.sm }}
             accessibilityRole="button"
-            accessibilityLabel="Open stock — Inventory"
+            accessibilityLabel="Toggle business pockets section"
           >
-            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
-              <Package size={18} color={colors.emeraldDeep} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...typography.heading, color: colors.ink }}>Stock — Inventory</Text>
-              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Qty on hand, low-stock alerts, in/out ledger. Out guards negative.</Text>
-            </View>
+            <Text style={{ ...typography.eyebrow, color: colors.ink }}>Business pockets</Text>
+            {allPockets.length > 3 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                <View style={{ backgroundColor: colors.lineSoft, paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, minHeight: 22, justifyContent: 'center' }}>
+                  <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, lineHeight: 12, fontWeight: '700' }}>
+                    {showAllPockets ? 'Show less' : `${Math.min(MSME_POCKET_COLLAPSE_AT, filteredPockets.length)} of ${filteredPockets.length}`}
+                  </Text>
+                </View>
+                {showAllPockets ? <ChevronUp size={16} color={colors.sage} /> : <ChevronDown size={16} color={colors.sage} />}
+              </View>
+            )}
           </Pressable>
 
-          {/* Phase 4 entry point — Projects Funding Cascade (§11–§19) */}
-          <Pressable
-            onPress={() => router.push('/msme-projects' as any)}
-            style={({ pressed }) => [{ marginTop: spacing.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md }, { opacity: pressed ? 0.8 : 1 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Open projects — Funding Cascade"
-          >
-            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
-              <Store size={18} color={colors.emeraldDeep} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...typography.heading, color: colors.ink }}>Projects — Funding Cascade</Text>
-              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Priorities → Needs → Wants · Create a project (e.g. Catering KES 500k) and track Funding vs Spending vs Remaining cash.</Text>
-            </View>
-          </Pressable>
-
-          {/* Search — visible when pocket count warrants it (avoids empty-state noise for 1-2 pockets) */}
+          {/* Search — above the list like Individual's pocket search */}
           {allPockets.length > 3 && (
-            <View style={{ marginTop: spacing.lg }}>
+            <View style={{ marginBottom: spacing.md }}>
               <SearchBar
                 value={pocketSearch}
                 onChangeText={(v) => {
@@ -381,7 +445,16 @@ export default function MsmeHomeScreen() {
           )}
 
           {filteredPockets.length === 0 ? (
-            <View style={{ paddingVertical: spacing.xl, alignItems: 'center', marginTop: spacing.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md }}>
+            <View
+              style={{
+                paddingVertical: spacing.xl,
+                alignItems: 'center',
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.line,
+                borderRadius: radius.md,
+              }}
+            >
               <Store size={28} color={colors.sage} strokeWidth={2} />
               <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>No pockets match “{pocketSearch}”</Text>
               <Pressable onPress={() => setPocketSearch('')} style={{ marginTop: spacing.sm }} accessibilityRole="button">
@@ -389,23 +462,83 @@ export default function MsmeHomeScreen() {
               </Pressable>
             </View>
           ) : (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg }}>
+            <View style={{ gap: 0 }}>
               {visiblePockets.map(renderPocketCard)}
             </View>
           )}
-          {filteredPockets.length > MSME_POCKET_COLLAPSE_AT && (
+          {filteredPockets.length > MSME_POCKET_COLLAPSE_AT && !showAllPockets && (
             <Pressable
-              onPress={() => setShowAllPockets(v => !v)}
-              style={({ pressed }) => [{ marginTop: spacing.md, paddingVertical: spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.paper }, { opacity: pressed ? 0.7 : 1 }]}
+              onPress={() => setShowAllPockets(true)}
+              style={({ pressed }) => [
+                { marginTop: spacing.md, paddingVertical: spacing.sm, alignItems: 'center', borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, backgroundColor: colors.paper },
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
               accessibilityRole="button"
-              accessibilityLabel={showAllPockets ? 'Show less pockets' : `Show ${hiddenCount} more pockets`}
+              accessibilityLabel={`Show ${hiddenCount} more pockets`}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                {showAllPockets ? <ChevronUp size={14} color={colors.emeraldDeep} strokeWidth={2} /> : <ChevronDown size={14} color={colors.emeraldDeep} strokeWidth={2} />}
-                <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>{showAllPockets ? 'Show less' : `Show ${hiddenCount} more`}</Text>
+                <ChevronDown size={14} color={colors.emeraldDeep} strokeWidth={2} />
+                <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>{`Show ${hiddenCount} more`}</Text>
               </View>
             </Pressable>
           )}
+
+          {/* Operations — distinct section below pockets, like Individual's Fixed/Savings sections */}
+          <Text style={{ ...typography.eyebrow, color: colors.ink, marginTop: spacing.xxl, marginBottom: spacing.md }}>Operations</Text>
+
+          <Pressable
+            onPress={() => router.push('/msme-invoices' as any)}
+            style={({ pressed }) => [
+              { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Open invoices — Receivables"
+          >
+            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.goldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Receipt size={18} color={colors.gold} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.heading, color: colors.ink }}>Invoices — Receivables</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Draft → Sent → Paid. KRA PIN validated, overdue flagged, paid allocates to MSME pockets.</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/msme-stock' as any)}
+            style={({ pressed }) => [
+              { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Open stock — Inventory"
+          >
+            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.emeraldTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Package size={18} color={colors.emeraldDeep} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.heading, color: colors.ink }}>Stock — Inventory</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Qty on hand, low-stock alerts, in/out ledger. Out guards negative.</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push('/msme-projects' as any)}
+            style={({ pressed }) => [
+              { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, padding: spacing.lg, flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+              { opacity: pressed ? 0.8 : 1 },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Open projects — Funding Cascade"
+          >
+            <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.plumTint, alignItems: 'center', justifyContent: 'center' }}>
+              <Store size={18} color={colors.plum} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...typography.heading, color: colors.ink }}>Projects — Funding Cascade</Text>
+              <Text style={{ ...typography.caption, color: colors.sage, marginTop: 2, lineHeight: 16 }}>Priorities → Needs → Wants · Track Funding vs Spending vs Remaining cash.</Text>
+            </View>
+          </Pressable>
         </ScrollView>
       </View>
       {modal}
