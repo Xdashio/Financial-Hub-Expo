@@ -308,13 +308,13 @@ export default function MsmeHomeScreen() {
               <Text style={{ ...typography.caption, color: colors.ink }}>Add income</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [{ flex: 1, minHeight: touchTarget.minHeight, backgroundColor: colors.ink, borderWidth: 1, borderColor: colors.ink, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
+              style={({ pressed }) => [{ flex: 1, minHeight: touchTarget.minHeight, backgroundColor: colors.heroBg, borderWidth: 1, borderColor: colors.heroBg, borderRadius: radius.sm, paddingVertical: spacing.md, alignItems: 'center', justifyContent: 'center', gap: spacing.xs }, { opacity: pressed ? 0.8 : 1 }]}
               onPress={() => router.push('/msme-projects' as any)}
               accessibilityLabel="View projects"
               accessibilityRole="button"
             >
-              <Store size={18} color={colors.surface} strokeWidth={2} />
-              <Text style={{ ...typography.caption, color: colors.surface }}>Projects</Text>
+              <Store size={18} color={colors.heroText} strokeWidth={2} />
+              <Text style={{ ...typography.caption, color: colors.heroText }}>Projects</Text>
             </Pressable>
           </View>
           {/* Invoices — Receivables ledger (020) — eTIMS-ready */}

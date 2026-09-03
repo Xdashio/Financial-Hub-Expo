@@ -15,9 +15,10 @@ export default function MsmeTabsLayout() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Same 64 + inset math as (tabs)/_layout.tsx — keep both tab bars
+  // Same height math as (tabs)/_layout.tsx (see the comment there for why
+  // this is 76 rather than an exact-fit 64) — keep both tab bars
   // pixel-identical so switching segments doesn't shift the chrome.
-  const tabBarHeight = 64 + insets.bottom;
+  const tabBarHeight = 76 + insets.bottom;
 
   return (
     <Tabs
@@ -39,6 +40,7 @@ export default function MsmeTabsLayout() {
           fontSize: typography.caption.fontSize,
           lineHeight: typography.caption.lineHeight,
           includeFontPadding: false,
+          marginTop: spacing.xs,
         },
         tabBarItemStyle: {
           paddingVertical: spacing.xs,

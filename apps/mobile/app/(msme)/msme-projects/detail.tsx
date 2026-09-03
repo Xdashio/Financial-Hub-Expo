@@ -541,66 +541,66 @@ export default function MsmeProjectDetailScreen() {
 
         {/* ── Hero card — overall funding (dark, like pocket detail hero) ── */}
         <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.sm }}>
-          <View style={{ backgroundColor: colors.ink, borderRadius: radius.sm, padding: spacing.lg, paddingTop: spacing.xl, overflow: 'hidden', ...shadow.elevated }}>
+          <View style={{ backgroundColor: colors.heroBg, borderRadius: radius.sm, padding: spacing.lg, paddingTop: spacing.xl, overflow: 'hidden', ...shadow.elevated }}>
             <View style={{ borderTopWidth: 1.5, borderTopColor: colors.emeraldDeep, borderStyle: 'dashed', position: 'absolute', top: 14, left: 0, right: 0 }} />
             <View style={{ position: 'absolute', top: 0, left: 16, width: 34, height: 8, borderTopLeftRadius: 4, borderTopRightRadius: 4, backgroundColor: colors.emeraldDeep }} />
 
-            <Text style={{ ...typography.caption, color: colors.surface + 'AA', marginTop: spacing.sm }}>Total allocated of contract</Text>
-            <Text style={{ ...typography.display, fontSize: 34, lineHeight: 42, color: colors.surface, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>
+            <Text style={{ ...typography.caption, color: colors.heroText + 'AA', marginTop: spacing.sm }}>Total allocated of contract</Text>
+            <Text style={{ ...typography.display, fontSize: 34, lineHeight: 42, color: colors.heroText, marginTop: spacing.xs, fontVariant: ['tabular-nums'] }}>
               {formatMoney(project.totalAllocated)}
             </Text>
-            <Text style={{ ...typography.caption, color: colors.surface + '88', marginTop: 4 }}>
+            <Text style={{ ...typography.caption, color: colors.heroText + '88', marginTop: 4 }}>
               of {formatMoney(project.contractValue)} · {overallPct}% funded · {formatMoney(project.totalRemaining)} cash left
             </Text>
 
-            <View style={{ height: 6, backgroundColor: colors.surface + '22', borderRadius: radius.pill, marginTop: spacing.lg, overflow: 'hidden' }}>
+            <View style={{ height: 6, backgroundColor: colors.heroText + '22', borderRadius: radius.pill, marginTop: spacing.lg, overflow: 'hidden' }}>
               <View style={{ height: '100%', width: `${overallPct}%`, backgroundColor: colors.emeraldDeep, borderRadius: radius.pill }} />
             </View>
 
             {/* mini 3-bar visual — §19 PROJECT FUNDING */}
             <View style={{ marginTop: spacing.lg, gap: spacing.xs }}>
-              <Text style={{ ...typography.caption, fontSize: 10, color: colors.surface + '88', letterSpacing: 0.6 }}>PROJECT FUNDING</Text>
+              <Text style={{ ...typography.caption, fontSize: 10, color: colors.heroText + '88', letterSpacing: 0.6 }}>PROJECT FUNDING</Text>
               {project.tiers.map(t => {
                 const c = tierColor(t.tier as FundingTier, colors);
                 return (
                   <View key={t.tier} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                     <Text style={{ ...typography.caption, fontSize: 11, color: c, width: 74 }}>{tierLabel(t.tier as FundingTier)}</Text>
-                    <View style={{ flex: 1, height: 4, backgroundColor: colors.surface + '18', borderRadius: radius.pill, overflow: 'hidden' }}>
+                    <View style={{ flex: 1, height: 4, backgroundColor: colors.heroText + '18', borderRadius: radius.pill, overflow: 'hidden' }}>
                       <View style={{ height: '100%', width: `${Math.min(100, t.fundingPercent)}%`, backgroundColor: c, borderRadius: radius.pill }} />
                     </View>
-                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.surface + 'CC', width: 32, textAlign: 'right' }}>{Math.round(t.fundingPercent)}%</Text>
+                    <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText + 'CC', width: 32, textAlign: 'right' }}>{Math.round(t.fundingPercent)}%</Text>
                   </View>
                 );
               })}
             </View>
 
             {project.nextIncomeGoesTo && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, backgroundColor: colors.surface + '14', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm - 2, alignSelf: 'flex-start' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, backgroundColor: colors.heroText + '14', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm - 2, alignSelf: 'flex-start' }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tierColor(project.nextIncomeGoesTo as FundingTier, colors) }} />
-                <Text style={{ ...typography.caption, fontSize: 11, color: colors.surface + 'CC' }}>
+                <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText + 'CC' }}>
                   Next payment goes to {tierLabel(project.nextIncomeGoesTo as FundingTier)} · Funding Status: {project.tiers.find(t => t.tier === project.nextIncomeGoesTo)?.fundingStatus === 'complete' ? 'Complete' : 'In Progress'}
                 </Text>
               </View>
             )}
             {!project.nextIncomeGoesTo && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.md, backgroundColor: colors.emeraldDeep + '40', borderRadius: radius.sm, paddingHorizontal: spacing.sm, paddingVertical: spacing.sm - 2, alignSelf: 'flex-start' }}>
-                <Check size={12} color={colors.surface} strokeWidth={2} />
-                <Text style={{ ...typography.caption, fontSize: 11, color: colors.surface }}>All tiers funded</Text>
+                <Check size={12} color={colors.heroText} strokeWidth={2} />
+                <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText }}>All tiers funded</Text>
               </View>
             )}
 
             <View style={{ flexDirection: 'row', marginTop: spacing.md, gap: spacing.xl }}>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Total spent</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>{formatMoney(project.totalSpent)}</Text>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Total spent</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, fontVariant: ['tabular-nums'] }}>{formatMoney(project.totalSpent)}</Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Cash left</Text>
-                <Text style={{ ...typography.heading, color: colors.surface, fontVariant: ['tabular-nums'] }}>{formatMoney(project.totalRemaining)}</Text>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Cash left</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText, fontVariant: ['tabular-nums'] }}>{formatMoney(project.totalRemaining)}</Text>
               </View>
               <View>
-                <Text style={{ ...typography.caption, color: colors.surface + '88' }}>Tiers</Text>
-                <Text style={{ ...typography.heading, color: colors.surface }}>{project.tiers.filter(t => t.fundingStatus === 'complete').length}/3 funded</Text>
+                <Text style={{ ...typography.caption, color: colors.heroText + '88' }}>Tiers</Text>
+                <Text style={{ ...typography.heading, color: colors.heroText }}>{project.tiers.filter(t => t.fundingStatus === 'complete').length}/3 funded</Text>
               </View>
             </View>
           </View>
