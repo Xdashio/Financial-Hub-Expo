@@ -3,8 +3,9 @@ import { View, Text, ScrollView, Pressable, Modal, RefreshControl } from 'react-
 import { PocketLoader, ScreenContainer } from '@/components/ui';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography, shadow } from '@/theme';
 import { useTheme, ThemeMode } from '@/theme/ThemeContext';
+import * as LocalAuthentication from 'expo-local-authentication';
 import {
   Lock,
   Timer,
@@ -20,6 +21,9 @@ import {
   X,
   Check,
   LucideIcon,
+  ScanFace,
+  Fingerprint,
+  ChevronRight,
 } from 'lucide-react-native';
 import { useAuthStore } from '@/services/auth';
 import { profileApi, notificationsApi, pocketsApi, type NotificationPreferences } from '@/services/api';
@@ -55,11 +59,37 @@ export default function ProfileScreen() {
   const [isLoadingPlan, setIsLoadingPlan] = React.useState(true);
   const [timeLockActive, setTimeLockActive] = React.useState<boolean | null>(null);
   const [notificationsOn, setNotificationsOn] = React.useState<boolean | null>(null);
+  const [biometricType, setBiometricType] = React.useState<'face' | 'fingerprint' | null>(null);
+  const [biometricAvailable, setBiometricAvailable] = React.useState<boolean | null>(null);
   const [retakeEligibility, setRetakeEligibility] = React.useState<{
     allowed: boolean;
     nextRetakeAvailableOn: string | null;
     message?: string;
   } | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      LocalAuthentication.hasHardwareAsync(),
+      LocalAuthentication.isEnrolledAsync(),
+      LocalAuthentication.supportedAuthenticationTypesAsync(),
+    ])
+      .then(([hasHardware, isEnrolled, types]) => {
+        if (cancelled) return;
+        setBiometricAvailable(hasHardware && isEnrolled);
+        if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+          setBiometricType('face');
+        } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+          setBiometricType('fingerprint');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setBiometricAvailable(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadProfileMeta = React.useCallback(async () => {
     const [planRes, msmePlanRes, expensesRes, msmeExpensesRes, eligibility, notifRes, pocketsRes, msmePocketsRes] = await Promise.all([
@@ -104,9 +134,10 @@ export default function ProfileScreen() {
 
   React.useEffect(() => {
     let isMounted = true;
-    loadProfileMeta().finally(() => {
+    void (async () => {
+      await loadProfileMeta();
       if (isMounted) setIsLoadingPlan(false);
-    });
+    })();
     return () => {
       isMounted = false;
     };
@@ -208,17 +239,23 @@ export default function ProfileScreen() {
       label: 'Security',
       items: [
         {
-          icon: Lock,
+          icon: biometricType === 'face' ? ScanFace : biometricType === 'fingerprint' ? Fingerprint : Lock,
           title: 'Biometric unlock',
-          desc: 'Require Face ID to open app',
-          trailing: user?.biometricEnabled ? 'On' : 'Off',
+          desc: biometricAvailable === false
+            ? 'Not enrolled on device'
+            : biometricType === 'face'
+            ? 'Require Face ID to open app'
+            : biometricType === 'fingerprint'
+            ? 'Require fingerprint to open app'
+            : 'Require biometric unlock',
+          trailing: biometricAvailable === false ? 'Off' : user?.biometricEnabled ? 'On' : 'Off',
           onPress: handleBiometricPress,
         },
         {
           icon: Timer,
           title: 'Savings time-lock',
           desc: '7-day delay on withdrawals',
-          trailing: timeLockActive === null ? '…' : timeLockActive ? 'Active' : 'Off',
+          trailing: timeLockActive === null ? '...' : timeLockActive ? 'Active' : 'Off',
           onPress: handleTimeLockPress,
         },
       ],
@@ -231,7 +268,7 @@ export default function ProfileScreen() {
           icon: Bell,
           title: 'Notifications',
           desc: 'Push and in-app alerts',
-          trailing: notificationsOn === null ? '…' : notificationsOn ? 'On' : 'Off',
+          trailing: notificationsOn === null ? '...' : notificationsOn ? 'On' : 'Off',
           onPress: handleNotificationsPress,
         },
         { icon: Moon, title: 'Appearance', desc: 'Light / Dark / System', trailing: mode.charAt(0).toUpperCase() + mode.slice(1), onPress: handleThemePress },
@@ -361,7 +398,7 @@ export default function ProfileScreen() {
                 {item.trailing ? (
                   <Text style={{ ...typography.caption, color: colors.sage }}>{item.trailing}</Text>
                 ) : null}
-                {item.onPress ? <Text style={{ marginLeft: 'auto', color: colors.sage }}>›</Text> : null}
+                {item.onPress ? <ChevronRight size={18} color={colors.sage} /> : null}
               </Pressable>
             ))}
           </View>

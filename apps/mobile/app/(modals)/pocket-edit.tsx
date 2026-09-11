@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';

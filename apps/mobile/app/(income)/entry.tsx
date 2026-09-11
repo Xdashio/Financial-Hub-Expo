@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography, shadow } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { incomeApi, createIdempotencyKey } from '@/services/api';
@@ -467,7 +467,7 @@ export default function IncomeEntryScreen() {
                 }}
               >
                 <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginBottom: spacing.sm }}>
-                  {isPreviewLoading ? 'Calculating…' : 'If allocated now'}
+                  {isPreviewLoading ? 'Calculating...' : 'If allocated now'}
                 </Text>
                 {preview && preview.projected_allocations.length > 0 ? (
                   <>
@@ -529,7 +529,7 @@ export default function IncomeEntryScreen() {
             }}
           >
             <Text style={{ ...typography.heading, color: colors.surface }}>
-              {isSubmitting ? 'Adding…' : 'Add income'}
+              {isSubmitting ? 'Adding...' : 'Add income'}
             </Text>
             {!isSubmitting && <Plus size={16} color={colors.surface} strokeWidth={2} />}
           </Pressable>

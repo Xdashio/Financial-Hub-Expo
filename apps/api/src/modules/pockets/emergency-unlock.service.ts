@@ -10,6 +10,7 @@ import {
   DiscretionaryRunway,
 } from '@financial-hub/shared';
 import { SpendingAnalysisService } from '../insights/spending-analysis.service';
+import { randomUUID } from 'crypto';
 import { sumMoney, toCents, fromCents } from '@financial-hub/shared';
 
 const MINIMUM_HISTORY_DAYS = 7;
@@ -17,11 +18,7 @@ const MAX_EMERGENCY_PERCENTAGE = 0.5; // Max 50% of discretionary runway
 const MIN_RUNWAY_DAYS = 3; // Floor from runway calculator
 
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  return randomUUID();
 }
 
 function round2(n: number): number {

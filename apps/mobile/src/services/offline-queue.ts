@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '@/services/api';
+import { useDataSync } from '@/services/data-sync';
 
 /**
  * Minimal offline write queue for money-moving POSTs that fail on a dropped
@@ -75,11 +76,19 @@ export async function flushWriteQueue(): Promise<{ flushed: number; remaining: n
         await api.post(item.endpoint, item.body);
       }
       flushed += 1;
-    } catch {
+    } catch (err: any) {
+      const status = err?.status;
+      // Do not retry permanent 4xx client validation errors
+      if (status && status >= 400 && status < 500) {
+        continue;
+      }
       remaining.push({ ...item, attempts: item.attempts + 1 });
     }
   }
 
   await writeQueue(remaining.filter((i) => i.attempts < 5));
+  if (flushed > 0) {
+    useDataSync.getState().bump();
+  }
   return { flushed, remaining: remaining.length };
 }

@@ -7,7 +7,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
+import { radius, spacing, typography, shadow, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, Button } from '@/components/ui';
@@ -247,7 +247,7 @@ export default function LoansScreen() {
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>Loans</Text>
         </View>
-        <LoadingState label="Loading loans…" variant="loans" />
+        <LoadingState label="Loading loans..." variant="loans" />
       </ScreenContainer>
     );
   }

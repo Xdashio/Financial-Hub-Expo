@@ -254,7 +254,7 @@ export default function MsmeHomeScreen() {
     return (
       <ScreenContainer>
         {renderHeader()}
-        <LoadingState label="Loading your business hub…" variant="msme-home" />
+        <LoadingState label="Loading your business hub..." variant="msme-home" />
       </ScreenContainer>
     );
   }
@@ -448,7 +448,7 @@ export default function MsmeHomeScreen() {
                   setPocketSearch(v);
                   if (v.length === 1) setShowAllPockets(true);
                 }}
-                placeholder="Search pockets…"
+                placeholder="Search pockets..."
                 onClear={() => setPocketSearch('')}
               />
             </View>

@@ -250,7 +250,7 @@ function CategorySplitEditor({ colors }: { colors: ReturnType<typeof useTheme>['
             accessibilityRole="button"
           >
             <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldTint }}>
-              {isSaving ? 'Saving…' : 'Save split'}
+              {isSaving ? 'Saving...' : 'Save split'}
             </Text>
           </Pressable>
         )}

@@ -37,7 +37,7 @@ export default function Index() {
     setIsResolvingSegment(true);
     profileApi
       .getPlans()
-      .then((plans: any[]) => {
+      .then(async (plans: any[]) => {
         if (cancelled) return;
         const hasIndividual = Array.isArray(plans) && plans.some((p) => p.segment === 'individual');
         const hasMsme = Array.isArray(plans) && plans.some((p) => p.segment === 'msme');
@@ -45,11 +45,10 @@ export default function Index() {
           setSegmentRoute('msme');
         } else if (hasIndividual && hasMsme) {
           // Both plans exist — use persisted last segment, default to individual
-          getLastHomeSegment().then((lastSegment) => {
-            if (!cancelled) {
-              setSegmentRoute(lastSegment ?? 'individual');
-            }
-          });
+          const lastSegment = await getLastHomeSegment();
+          if (!cancelled) {
+            setSegmentRoute(lastSegment ?? 'individual');
+          }
         } else if (hasIndividual) {
           setSegmentRoute('individual');
         } else if (Array.isArray(plans) && plans.length === 0) {

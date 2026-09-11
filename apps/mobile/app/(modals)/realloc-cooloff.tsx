@@ -31,7 +31,7 @@ function formatCurrency(amount: number) {
 }
 
 function formatRemaining(ms: number): string {
-  if (ms <= 0) return 'Landing now…';
+  if (ms <= 0) return 'Landing now...';
   const totalMinutes = Math.ceil(ms / 60000);
   if (totalMinutes >= 60) {
     const hours = Math.floor(totalMinutes / 60);

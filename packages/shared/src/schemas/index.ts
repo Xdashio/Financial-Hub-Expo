@@ -751,11 +751,16 @@ export type StockMovementType = z.infer<typeof StockMovementTypeSchema>;
 
 export const StockMovementCreateInputSchema = z.object({
   type: StockMovementTypeSchema,
-  qty: z.number().positive(),
+  qty: z.number().refine((n) => n !== 0, { message: 'Quantity cannot be zero' }),
   unitCost: z.number().nonnegative().optional().nullable(),
   note: z.string().max(200).optional().nullable(),
   pocketId: z.string().uuid().optional().nullable(),
-});
+}).refine((data) => {
+  if ((data.type === 'in' || data.type === 'out') && data.qty <= 0) {
+    return false;
+  }
+  return true;
+}, { message: 'Quantity must be positive for in and out movements', path: ['qty'] });
 export type StockMovementCreateInput = z.infer<typeof StockMovementCreateInputSchema>;
 
 export const StockItemSchema = z.object({

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer, LoadingState, ErrorState } from '@/components/ui';
 import { profileApi, pocketsApi } from '@/services/api';
@@ -101,7 +101,7 @@ export default function CurrentPlanScreen() {
       </View>
 
       {isLoading ? (
-        <LoadingState label="Loading your plan…" />
+        <LoadingState label="Loading your plan..." />
       ) : loadError ? (
         <ErrorState message={loadError} onRetry={load} />
       ) : !plan ? (

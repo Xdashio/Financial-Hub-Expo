@@ -218,8 +218,27 @@ export class IncomeService {
     };
 
     if (dto.run_allocation) {
+      // Query current balances for fixed pockets so multi-deposit pacing does not overfund them
+      const pocketBalances = new Map<string, number>();
+      for (const p of pockets) {
+        if (p.kind === 'fixed') {
+          try {
+            const summary = await this.repository.getPocketSummary(p.id);
+            if (summary) {
+              pocketBalances.set(p.id, summary.available);
+            }
+          } catch {
+            // If summary fails, proceed without balance cap
+          }
+        }
+      }
+
       // Allocate only the normal amount (expected income), not the surplus
-      const baseAllocations = this.calculateAllocationsBasedOnProportions(normalAllocationAmount, pockets);
+      const baseAllocations = this.calculateAllocationsBasedOnProportions(
+        normalAllocationAmount,
+        pockets,
+        pocketBalances,
+      );
       const allocations = await this.applySubPocketSplits(baseAllocations, dto.sub_split_overrides);
 
       // Write allocation transactions to the ledger. Balance everywhere in
@@ -457,9 +476,10 @@ export class IncomeService {
     return result;
   }
 
-  private calculateAllocationsBasedOnProportions(
+  calculateAllocationsBasedOnProportions(
     totalAmount: number,
-    pockets: Pocket[]
+    pockets: Pocket[],
+    pocketBalances?: Map<string, number>,
   ): Array<{
     pocket_id: string;
     pocket_name: string;
@@ -482,13 +502,17 @@ export class IncomeService {
       return { pocket, amount: totalAmount * proportion, is_capped: false };
     });
 
-    // Cap fixed pockets at their monthly_allocation - they should not receive
-    // more than their allocated amount regardless of income size. Any excess
+    // Cap fixed pockets at their monthly capacity:
+    // If pocketBalances is provided, cap at remaining requirement: Math.max(0, monthly_allocation - current_balance).
+    // They should not receive more than what is needed to fund their monthly obligation. Any excess
     // is redistributed to spendable and savings pockets.
     const fixedRows = raw.filter(r => r.pocket.kind === 'fixed');
     let fixedExcess = 0;
     for (const row of fixedRows) {
-      const maxAmount = row.pocket.monthly_allocation || 0;
+      const target = row.pocket.monthly_allocation || 0;
+      const currentBalance = pocketBalances?.get(row.pocket.id) ?? 0;
+      const remainingNeed = Math.max(0, target - currentBalance);
+      const maxAmount = pocketBalances ? remainingNeed : target;
       if (row.amount > maxAmount) {
         const excess = row.amount - maxAmount;
         fixedExcess += excess;

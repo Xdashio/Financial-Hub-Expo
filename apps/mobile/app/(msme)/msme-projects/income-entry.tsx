@@ -307,7 +307,7 @@ export default function MsmeProjectIncomeEntryScreen() {
  }}
  >
  <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginBottom: spacing.sm, letterSpacing: 0.4 }}>
- {isPreviewLoading ? 'Calculating cascade…' : preview ? 'Cascade preview — where this payment will go' : 'Cascade preview'}
+ {isPreviewLoading ? 'Calculating cascade...' : preview ? 'Cascade preview — where this payment will go' : 'Cascade preview'}
  </Text>
  {preview && preview.allocations.length > 0 ? (
  <>
@@ -373,7 +373,7 @@ export default function MsmeProjectIncomeEntryScreen() {
  }}
  >
  <CircleDollarSign size={18} color={colors.surface} strokeWidth={2} />
- <Text style={{ ...typography.heading, color: colors.surface }}>{isSubmitting ? 'Recording…' : 'Record income & run cascade'}</Text>
+ <Text style={{ ...typography.heading, color: colors.surface }}>{isSubmitting ? 'Recording...' : 'Record income & run cascade'}</Text>
  </Pressable>
  </View>
  </KeyboardAvoidingView>

@@ -90,7 +90,7 @@ export function FreelancerDashboard() {
       <View style={styles.loadingContainer}>
         <PocketLoader size={48} color={colors.emeraldDeep} />
         <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>
-          Loading your freelancer dashboard…
+          Loading your freelancer dashboard...
         </Text>
       </View>
     );

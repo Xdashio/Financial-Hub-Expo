@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
-import { radius, spacing, typography, borderWidth } from '../../src/theme';
+import { radius, spacing, typography, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
@@ -200,7 +200,7 @@ export default function PocketCreateModal() {
             {loadingAlloc ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs }}>
                 <PocketLoader size={20} color={colors.sage} />
-                <Text style={{ ...typography.caption, color: colors.sage }}>Loading plan…</Text>
+                <Text style={{ ...typography.caption, color: colors.sage }}>Loading plan...</Text>
               </View>
             ) : income != null ? (
               <View style={{ marginTop: spacing.sm, gap: spacing.xs }}>

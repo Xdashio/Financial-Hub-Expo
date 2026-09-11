@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography, shadow } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer, Card, LoadingState, ErrorState } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
@@ -191,7 +191,7 @@ export default function TimeLockScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading lock status…" />
+        <LoadingState label="Loading lock status..." />
       </ScreenContainer>
     );
   }

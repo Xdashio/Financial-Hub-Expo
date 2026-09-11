@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
@@ -86,7 +86,7 @@ export default function PocketsManageModal() {
   if (loading) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading pockets…" variant="pockets" />
+        <LoadingState label="Loading pockets..." variant="pockets" />
       </ScreenContainer>
     );
   }

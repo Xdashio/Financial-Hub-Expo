@@ -145,7 +145,7 @@ export default function MsmeInvoicesScreen() {
     return (
       <ScreenContainer>
         <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}><Text style={{ ...typography.title, color: colors.ink }}>Invoices</Text></View>
-        <LoadingState label="Loading invoices…" variant="invoices" />
+        <LoadingState label="Loading invoices..." variant="invoices" />
       </ScreenContainer>
     );
   }
@@ -173,7 +173,7 @@ export default function MsmeInvoicesScreen() {
       )}
 
       <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search customer…" onClear={() => setSearchQuery('')} />
+        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search customer..." onClear={() => setSearchQuery('')} />
       </View>
 
       <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
@@ -237,7 +237,7 @@ export default function MsmeInvoicesScreen() {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         ListHeaderComponent={header}
-        ListFooterComponent={hasMore ? <View style={{ padding: spacing.lg, alignItems: 'center' }}><Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>{loadingMore ? 'Loading…' : `${invoices.length} invoices`}</Text>{hasMore && <Button variant="ghost" onPress={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more'}</Button>}</View> : null}
+        ListFooterComponent={hasMore ? <View style={{ padding: spacing.lg, alignItems: 'center' }}><Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>{loadingMore ? 'Loading...' : `${invoices.length} invoices`}</Text>{hasMore && <Button variant="ghost" onPress={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading...' : 'Load more'}</Button>}</View> : null}
         contentContainerStyle={{ paddingBottom: spacing.xxl * 2 }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.emeraldDeep} />}
         onEndReached={loadMore}

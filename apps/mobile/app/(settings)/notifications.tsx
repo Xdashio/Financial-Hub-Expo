@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
-import { spacing, typography } from '../../src/theme';
+import { spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ArrowLeft, Bell } from 'lucide-react-native';
 import { ScreenContainer, Card, useMakeStyles, LoadingState, ErrorState, ToggleRow } from '@/components/ui';
@@ -141,7 +141,7 @@ export default function NotificationsScreen() {
             Notifications
           </Text>
         </View>
-        <LoadingState label="Loading your preferences…" />
+        <LoadingState label="Loading your preferences..." />
       </ScreenContainer>
     );
   }

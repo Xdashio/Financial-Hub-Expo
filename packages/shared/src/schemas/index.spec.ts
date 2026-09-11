@@ -767,6 +767,14 @@ describe('Shared Schemas - Pack 1', () => {
       it('rejects invalid type', () => {
         expect(() => StockMovementCreateInputSchema.parse({ type: 'bad', qty: 5 } as any)).toThrow();
       });
+      it('allows negative and positive qty for adjust', () => {
+        expect(() => StockMovementCreateInputSchema.parse({ type: 'adjust', qty: -3 })).not.toThrow();
+        expect(() => StockMovementCreateInputSchema.parse({ type: 'adjust', qty: 3 })).not.toThrow();
+      });
+      it('rejects negative qty for in and out', () => {
+        expect(() => StockMovementCreateInputSchema.parse({ type: 'in', qty: -5 })).toThrow();
+        expect(() => StockMovementCreateInputSchema.parse({ type: 'out', qty: -5 })).toThrow();
+      });
     });
     describe('StockItemSchema', () => {
       it('validates stock item', () => {

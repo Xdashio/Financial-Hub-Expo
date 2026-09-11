@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ScreenContainer } from '@/components/ui';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography, shadow } from '../../src/theme';
+import { radius, spacing, typography, shadow } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { spendApi } from '@/services/api';

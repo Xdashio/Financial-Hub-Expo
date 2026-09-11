@@ -895,8 +895,16 @@ export class PocketsService {
     }
 
     const daysRemaining = Math.ceil((lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-    // Goal-reached waiver: no discipline cost if user has reached their savings goal
-    const disciplineCost = body.goal_reached ? 0 : Math.ceil(daysRemaining * 0.5); // 0.5 points per day
+    
+    // Server-side goal-reached verification (SEC-04): Verify against current ledger balance
+    const summary = typeof this.repository.getPocketSummary === 'function'
+      ? await this.repository.getPocketSummary(pocketId)
+      : { available: 0 };
+    const hasTarget = pocket.monthly_allocation != null && pocket.monthly_allocation > 0;
+    const isGoalReached = Boolean(
+      body.goal_reached && hasTarget && summary.available >= pocket.monthly_allocation,
+    );
+    const disciplineCost = isGoalReached ? 0 : Math.ceil(daysRemaining * 0.5); // 0.5 points per day
 
     // Unlock the pocket
     const updatedPocket = await this.repository.updatePocket(pocketId, {
@@ -911,13 +919,13 @@ export class PocketsService {
     // Create behavior event for the Insights activity log
     await this.repository.createBehaviorEvent({
       user_id: userId,
-      type: body.goal_reached ? 'goal_reached_unlock' : 'early_unlock',
+      type: isGoalReached ? 'goal_reached_unlock' : 'early_unlock',
       payload: {
         pocket_id: pocketId,
         days_remaining: daysRemaining,
         points_deducted: disciplineCost,
         reason: body.reason,
-        goal_reached: body.goal_reached,
+        goal_reached: isGoalReached,
       },
     });
 

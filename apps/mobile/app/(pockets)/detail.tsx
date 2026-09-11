@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
+import { radius, spacing, typography, shadow, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
@@ -604,7 +604,7 @@ export default function PocketDetailScreen() {
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>Pocket</Text>
         </View>
-        <LoadingState label="Loading pocket…" variant="pocket-detail" />
+        <LoadingState label="Loading pocket..." variant="pocket-detail" />
       </ScreenContainer>
     );
   }
@@ -1221,7 +1221,7 @@ export default function PocketDetailScreen() {
                           // Reset collapse when user starts searching so results are visible
                           if (v.length === 1) setShowAllSubPockets(true);
                         }}
-                        placeholder="Search sub-pockets…"
+                        placeholder="Search sub-pockets..."
                         onClear={() => setSubPocketSearch('')}
                       />
                     </View>

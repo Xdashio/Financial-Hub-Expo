@@ -57,6 +57,9 @@ export class FundingCascadeService {
    * Capped at 100% for display purposes.
    */
   getFundingPercent(tier: TierState): number {
+    if (!tier.targetAmount || tier.targetAmount <= 0) {
+      return 0;
+    }
     const percent = (tier.allocatedAmount / tier.targetAmount) * 100;
     return Math.min(100, Math.max(0, Math.round(percent * 100) / 100));
   }

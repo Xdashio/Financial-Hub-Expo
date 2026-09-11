@@ -98,7 +98,7 @@ export function PlanningCycleScreen() {
           <View style={styles.triggeringBanner}>
             <PocketLoader size={16} color={colors.emeraldDeep} />
             <Text style={{ ...typography.caption, color: colors.emeraldDeep, marginLeft: spacing.sm }}>
-              Running planning cycle…
+              Running planning cycle...
             </Text>
           </View>
         )}

@@ -7,7 +7,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, Button, Input, DatePickerSheet } from '@/components/ui';

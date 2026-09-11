@@ -304,11 +304,12 @@ export const useAuthStore = create<AuthState>()(
             }
           }
 
+          const storedBiometricEnabled = await getBiometricEnabled();
           const user: User = {
             id: authUser.id,
             phone: authUser.phone || phone,
             fullName: authUser.user_metadata?.full_name || '',
-            biometricEnabled: false,
+            biometricEnabled: storedBiometricEnabled,
             createdAt: authUser.created_at,
             email: authUser.email,
           };

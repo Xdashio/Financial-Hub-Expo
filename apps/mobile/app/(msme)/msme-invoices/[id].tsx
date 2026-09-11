@@ -51,7 +51,7 @@ export default function InvoiceDetailScreen() {
     try { await fn(); await load(); } catch (e) { await alert('Failed', e instanceof Error ? e.message : String(e)); } finally { setActing(null); }
   };
 
-  if (loading) return <ScreenContainer><LoadingState label="Loading invoice…" variant="invoice-detail" /></ScreenContainer>;
+  if (loading) return <ScreenContainer><LoadingState label="Loading invoice..." variant="invoice-detail" /></ScreenContainer>;
   if (error || !invoice) return <ScreenContainer><ErrorState message={error || 'Not found'} onRetry={load} /></ScreenContainer>;
 
   const canSend = invoice.status === 'draft';
@@ -95,7 +95,7 @@ export default function InvoiceDetailScreen() {
           <View style={{ gap: spacing.sm }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ ...typography.caption, color: colors.sage }}>KRA PIN</Text><Text style={{ ...typography.caption, color: colors.ink }}>{invoice.customerPin || '—'}</Text></View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ ...typography.caption, color: colors.sage }}>eTIMS</Text><Text style={{ ...typography.caption, color: colors.ink }}>{invoice.etimsStatus || '—'}</Text></View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ ...typography.caption, color: colors.sage }}>ID</Text><Text style={{ ...typography.caption, color: colors.sage, fontSize: 11 }}>{invoice.id.slice(0, 8)}…</Text></View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}><Text style={{ ...typography.caption, color: colors.sage }}>ID</Text><Text style={{ ...typography.caption, color: colors.sage, fontSize: 11 }}>{invoice.id.slice(0, 8)}...</Text></View>
           </View>
         </View>
 
