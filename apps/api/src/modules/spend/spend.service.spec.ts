@@ -23,20 +23,6 @@ const SPENDABLE_POCKET: any = {
   updated_at: '2026-01-01T00:00:00.000Z',
 };
 
-const SUB_POCKET: any = {
-  ...SPENDABLE_POCKET,
-  id: 'sub-pocket-1',
-  name: 'Snacks',
-  parent_pocket_id: 'pocket-1',
-  split_percentage: 20,
-};
-
-const PARENT_WITH_SUBS: any = {
-  ...SPENDABLE_POCKET,
-  id: 'pocket-1',
-  name: 'Food & Groceries',
-};
-
 const FIXED_POCKET: any = {
   ...SPENDABLE_POCKET,
   id: 'pocket-fixed',
