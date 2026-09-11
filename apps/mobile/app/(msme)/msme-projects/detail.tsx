@@ -48,6 +48,15 @@ interface TierSummary {
  remainingCash: number;
  fundingStatus: 'in_progress' | 'complete';
  fundingPercent: number;
+ subPockets?: Array<{
+   id: string;
+   name: string;
+   targetAmount: number;
+   allocatedAmount: number;
+   spentAmount: number;
+   remainingCash: number;
+   fundingPercent: number;
+ }>;
 }
 
 interface ProjectSummary {
@@ -205,14 +214,75 @@ function TierCard({
   <Text style={{ ...typography.caption, color: colors.sage }}>Cash Left</Text>
   <Text style={{ ...typography.heading, color: colors.emeraldDeep, fontVariant: ['tabular-nums'] }}>{formatMoney(tier.remainingCash)}</Text>
   </View>
- {isComplete && tier.remainingCash === 0 && tier.spentAmount > 0 && (
- <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }}>
- Funding stays Complete even when Cash Left is 0 — spending never reopens the target.
- </Text>
- )}
- </View>
- </View>
- );
+  {isComplete && tier.remainingCash === 0 && tier.spentAmount > 0 && (
+  <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs }}>
+  Funding stays Complete even when Cash Left is 0 — spending never reopens the target.
+  </Text>
+  )}
+  </View>
+
+  {/* Sub-pockets section */}
+  {tier.subPockets && tier.subPockets.length > 0 && (
+    <>
+      <View style={{ height: 1, backgroundColor: colors.lineSoft, marginVertical: spacing.lg }} />
+      <View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm }}>
+          <Text style={{ ...typography.caption, color: colors.sage, letterSpacing: 0.4 }}>
+            SUB-POCKETS ({tier.subPockets.length})
+          </Text>
+          <Text style={{ ...typography.caption, color: colors.sage, fontSize: 10 }}>
+            Proportional Allocation
+          </Text>
+        </View>
+        <View style={{ gap: spacing.sm }}>
+          {tier.subPockets.map(sp => {
+            const spBarWidth = Math.min(100, Math.max(0, sp.fundingPercent));
+            return (
+              <View
+                key={sp.id}
+                style={{
+                  backgroundColor: colors.surfaceHover || colors.paper,
+                  borderRadius: radius.md,
+                  padding: spacing.md,
+                  borderWidth: 1,
+                  borderColor: colors.lineSoft,
+                }}
+              >
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+                  <Text style={{ ...typography.body, fontWeight: '600', color: colors.ink }}>
+                    {sp.name}
+                  </Text>
+                  <Text style={{ ...typography.caption, color: c, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
+                    {sp.fundingPercent.toFixed(sp.fundingPercent % 1 === 0 ? 0 : 1)}%
+                  </Text>
+                </View>
+
+                <View style={{ height: 5, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden', marginVertical: spacing.xs }}>
+                  <View style={{ height: '100%', width: `${spBarWidth}%`, backgroundColor: c, borderRadius: radius.pill }} />
+                </View>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs }}>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage }}>
+                    Alloc: {formatMoney(sp.allocatedAmount)} / {formatMoney(sp.targetAmount)}
+                  </Text>
+                  <Text style={{ ...typography.caption, fontSize: 11, color: colors.emeraldDeep, fontWeight: '600', fontVariant: ['tabular-nums'] }}>
+                    Cash: {formatMoney(sp.remainingCash)}
+                  </Text>
+                </View>
+                {sp.spentAmount > 0 && (
+                  <Text style={{ ...typography.caption, fontSize: 10, color: colors.clay, marginTop: 2, fontVariant: ['tabular-nums'] }}>
+                    Spent: {formatMoney(sp.spentAmount)}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    </>
+  )}
+  </View>
+  );
 }
 
 // ─── Transaction row ───────────────────────────────────────────────────────

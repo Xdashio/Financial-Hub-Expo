@@ -14,7 +14,7 @@ import { useTheme } from '@/theme/ThemeContext';
 import { msmeProjectsApi } from '@/services/api';
 import { ScreenContainer, Button, Input } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { ArrowLeft, Calculator, AlertTriangle, Check, Utensils, Heart, Plane, Bus, FileText, HardHat, Sprout, Package } from 'lucide-react-native';
+import { ArrowLeft, Calculator, AlertTriangle, Check, Utensils, Heart, Plane, Bus, FileText, HardHat, Sprout, Package, Plus, Trash2, Layers } from 'lucide-react-native';
 import { safeGoBack } from '@/utils/navigation';
 import { formatMoney } from '@/utils/money';
 import { ProjectKind } from '@financial-hub/shared';
@@ -36,6 +36,12 @@ const TIER_LABELS = {
   wants: { label: 'Wants', desc: 'Nice-to-have upgrades (decor, extras)', color: 'plum' },
 } as const;
 
+interface SubPocketDraft {
+  id: string;
+  name: string;
+  targetAmount: string;
+}
+
 export default function CreateMsmeProjectScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -49,10 +55,58 @@ export default function CreateMsmeProjectScreen() {
     needs: '',
     wants: '',
   });
+  const [subPockets, setSubPockets] = useState<{
+    priorities: SubPocketDraft[];
+    needs: SubPocketDraft[];
+    wants: SubPocketDraft[];
+  }>({
+    priorities: [],
+    needs: [],
+    wants: [],
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 3;
+
+  const addSubPocket = (tier: 'priorities' | 'needs' | 'wants') => {
+    const newSp: SubPocketDraft = {
+      id: `sp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: '',
+      targetAmount: '',
+    };
+    setSubPockets(prev => ({
+      ...prev,
+      [tier]: [...prev[tier], newSp],
+    }));
+  };
+
+  const updateSubPocket = (
+    tier: 'priorities' | 'needs' | 'wants',
+    id: string,
+    field: 'name' | 'targetAmount',
+    value: string
+  ) => {
+    setSubPockets(prev => {
+      const updated = prev[tier].map(sp =>
+        sp.id === id ? { ...sp, [field]: value } : sp
+      );
+      const sum = updated.reduce((acc, curr) => acc + (parseFloat(curr.targetAmount) || 0), 0);
+      setTiers(t => ({ ...t, [tier]: sum > 0 ? sum.toString() : '' }));
+      return { ...prev, [tier]: updated };
+    });
+  };
+
+  const removeSubPocket = (tier: 'priorities' | 'needs' | 'wants', id: string) => {
+    setSubPockets(prev => {
+      const updated = prev[tier].filter(sp => sp.id !== id);
+      if (updated.length > 0) {
+        const sum = updated.reduce((acc, curr) => acc + (parseFloat(curr.targetAmount) || 0), 0);
+        setTiers(t => ({ ...t, [tier]: sum > 0 ? sum.toString() : '' }));
+      }
+      return { ...prev, [tier]: updated };
+    });
+  };
 
   const goBack = () => {
     if (currentStep > 1) {
@@ -86,6 +140,19 @@ export default function CreateMsmeProjectScreen() {
         if (!contractValue || contractVal <= 0) {
           await alert('Invalid Amount', 'Please enter a valid contract value');
           return false;
+        }
+        for (const [tierName, spList] of Object.entries(subPockets)) {
+          for (const sp of spList) {
+            if (!sp.name.trim()) {
+              await alert('Missing Sub-pocket Name', `Please provide a name for each sub-pocket in ${tierName}`);
+              return false;
+            }
+            const amt = parseFloat(sp.targetAmount);
+            if (isNaN(amt) || amt <= 0) {
+              await alert('Invalid Sub-pocket Amount', `Please enter a valid amount for "${sp.name}" in ${tierName}`);
+              return false;
+            }
+          }
         }
         if (!tiers.priorities || parseFloat(tiers.priorities) <= 0) {
           await alert('Invalid Amount', 'Please enter a valid Priorities target');
@@ -124,6 +191,11 @@ export default function CreateMsmeProjectScreen() {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      const hasSubPockets =
+        subPockets.priorities.length > 0 ||
+        subPockets.needs.length > 0 ||
+        subPockets.wants.length > 0;
+
       await msmeProjectsApi.create({
         name: name.trim(),
         kind,
@@ -133,6 +205,25 @@ export default function CreateMsmeProjectScreen() {
           needs: parseFloat(tiers.needs) || 0,
           wants: parseFloat(tiers.wants) || 0,
         },
+        subPockets: hasSubPockets
+          ? {
+              priorities: subPockets.priorities.map(sp => ({
+                id: sp.id,
+                name: sp.name.trim(),
+                targetAmount: parseFloat(sp.targetAmount) || 0,
+              })),
+              needs: subPockets.needs.map(sp => ({
+                id: sp.id,
+                name: sp.name.trim(),
+                targetAmount: parseFloat(sp.targetAmount) || 0,
+              })),
+              wants: subPockets.wants.map(sp => ({
+                id: sp.id,
+                name: sp.name.trim(),
+                targetAmount: parseFloat(sp.targetAmount) || 0,
+              })),
+            }
+          : undefined,
       });
 
       await alert('Project Created', 'Your project has been created. Activate the cascade when ready to start receiving income.');
@@ -213,27 +304,137 @@ export default function CreateMsmeProjectScreen() {
                 const tier = tierKey as 'priorities' | 'needs' | 'wants';
                 const config = TIER_LABELS[tier];
                 const tierColor = colors[config.color as keyof typeof colors] || colors.ink;
+                const tierSubPockets = subPockets[tier];
+                const hasSub = tierSubPockets.length > 0;
+
                 return (
-                  <View key={tier} style={{ marginBottom: spacing.md }}>
+                  <View key={tier} style={{ marginBottom: spacing.lg }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.xs }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
                         <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: tierColor }} />
-                        <Text style={{ ...typography.caption, color: colors.ink }}>{config.label}</Text>
+                        <Text style={{ ...typography.caption, color: colors.ink, fontWeight: '600' }}>{config.label}</Text>
                       </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, paddingHorizontal: spacing.md }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.md, paddingHorizontal: spacing.md, paddingVertical: 2 }}>
                         <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>
                           KES {tiers[tier] || '0'}
                         </Text>
                       </View>
                     </View>
-                    <Input
-                      placeholder="0"
-                      keyboardType="numeric"
-                      value={tiers[tier]}
-                      onChangeText={v => setTiers({ ...tiers, [tier]: v })}
-                      helperText={config.desc}
-                      leftElement={<Calculator size={18} color={tierColor} strokeWidth={2} />}
-                    />
+
+                    {hasSub ? (
+                      <View style={{ marginTop: spacing.xs }}>
+                        <Text style={{ ...typography.caption, color: colors.sage, fontSize: 11, marginBottom: spacing.sm }}>
+                          Auto-summed from {tierSubPockets.length} sub-pocket{tierSubPockets.length > 1 ? 's' : ''}:
+                        </Text>
+                        <View style={{ gap: spacing.sm }}>
+                          {tierSubPockets.map((sp) => (
+                            <View
+                              key={sp.id}
+                              style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: spacing.sm,
+                                backgroundColor: colors.surface,
+                                borderWidth: 1,
+                                borderColor: colors.line,
+                                borderRadius: radius.md,
+                                padding: spacing.sm,
+                              }}
+                            >
+                              <TextInput
+                                placeholder="Sub-pocket name"
+                                placeholderTextColor={colors.sage}
+                                value={sp.name}
+                                onChangeText={(v) => updateSubPocket(tier, sp.id, 'name', v)}
+                                style={{
+                                  flex: 1,
+                                  ...typography.body,
+                                  color: colors.ink,
+                                  paddingVertical: spacing.xs,
+                                  paddingHorizontal: spacing.xs,
+                                }}
+                              />
+                              <View
+                                style={{
+                                  flexDirection: 'row',
+                                  alignItems: 'center',
+                                  backgroundColor: colors.surface,
+                                  borderWidth: 1,
+                                  borderColor: colors.lineSoft,
+                                  borderRadius: radius.sm,
+                                  paddingHorizontal: spacing.sm,
+                                  width: 110,
+                                }}
+                              >
+                                <TextInput
+                                  placeholder="KES"
+                                  placeholderTextColor={colors.sage}
+                                  keyboardType="numeric"
+                                  value={sp.targetAmount}
+                                  onChangeText={(v) => updateSubPocket(tier, sp.id, 'targetAmount', v)}
+                                  style={{
+                                    flex: 1,
+                                    ...typography.caption,
+                                    color: colors.ink,
+                                    paddingVertical: spacing.xs,
+                                    textAlign: 'right',
+                                  }}
+                                />
+                              </View>
+                              <Pressable
+                                onPress={() => removeSubPocket(tier, sp.id)}
+                                hitSlop={8}
+                                style={{ padding: spacing.xs }}
+                                accessibilityLabel="Remove sub-pocket"
+                              >
+                                <Trash2 size={16} color={colors.clay} strokeWidth={2} />
+                              </Pressable>
+                            </View>
+                          ))}
+                        </View>
+                        <Pressable
+                          onPress={() => addSubPocket(tier)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: spacing.xs,
+                            paddingVertical: spacing.sm,
+                            marginTop: spacing.xs,
+                          }}
+                        >
+                          <Plus size={14} color={tierColor} strokeWidth={2} />
+                          <Text style={{ ...typography.caption, color: tierColor, fontWeight: '600' }}>
+                            Add another sub-pocket to {config.label}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ) : (
+                      <>
+                        <Input
+                          placeholder="0"
+                          keyboardType="numeric"
+                          value={tiers[tier]}
+                          onChangeText={(v) => setTiers({ ...tiers, [tier]: v })}
+                          helperText={config.desc}
+                          leftElement={<Calculator size={18} color={tierColor} strokeWidth={2} />}
+                        />
+                        <Pressable
+                          onPress={() => addSubPocket(tier)}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: spacing.xs,
+                            marginTop: -spacing.xs,
+                            marginBottom: spacing.xs,
+                          }}
+                        >
+                          <Layers size={13} color={colors.sage} strokeWidth={2} />
+                          <Text style={{ ...typography.caption, color: colors.sage, fontSize: 11 }}>
+                            + Add sub-pockets (optional)
+                          </Text>
+                        </Pressable>
+                      </>
+                    )}
                   </View>
                 );
               })}
@@ -267,13 +468,29 @@ export default function CreateMsmeProjectScreen() {
                 const config = TIER_LABELS[tier];
                 const tierColor = colors[config.color as keyof typeof colors] || colors.ink;
                 const val = parseFloat(tiers[tier]) || 0;
+                const tierSubPockets = subPockets[tier];
+
                 return (
-                  <View key={tier} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.xs }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tierColor }} />
-                      <Text style={{ ...typography.caption, color: tierColor }}>{config.label}</Text>
+                  <View key={tier} style={{ marginBottom: spacing.xs }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: tierColor }} />
+                        <Text style={{ ...typography.caption, color: tierColor }}>{config.label}</Text>
+                      </View>
+                      <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatMoney(val)}</Text>
                     </View>
-                    <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatMoney(val)}</Text>
+                    {tierSubPockets.length > 0 && (
+                      <View style={{ paddingLeft: spacing.md, marginTop: 2, marginBottom: spacing.xs }}>
+                        {tierSubPockets.map((sp) => (
+                          <View key={sp.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 1 }}>
+                            <Text style={{ ...typography.caption, color: colors.sage, fontSize: 11 }}>• {sp.name}</Text>
+                            <Text style={{ ...typography.caption, color: colors.sage, fontSize: 11, fontVariant: ['tabular-nums'] }}>
+                              {formatMoney(parseFloat(sp.targetAmount) || 0)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                   </View>
                 );
               })}

@@ -1,0 +1,18 @@
+# Root EAS ignore — mirrors apps/mobile/.easignore for workspace-wide builds
+node_modules
+.pnpm-store
+.git
+graphify-out
+**/graphify-out
+marketing
+docs
+.expo
+dist
+build
+.next
+out
+.turbo
+coverage
+supabase/.temp
+*.log
+.DS_Store

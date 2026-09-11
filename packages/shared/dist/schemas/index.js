@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExcessPromptTargetSchema = exports.ExcessPromptStatusSchema = exports.MsmeProjectSpendSchema = exports.MsmeProjectAllocationSchema = exports.MsmeProjectIncomeEventSchema = exports.MsmeProjectTierSchema = exports.MsmeProjectSchema = exports.ProjectSummarySchema = exports.SpendingControlsSchema = exports.TierSummarySchema = exports.ProjectIncomeInputSchema = exports.ProjectCreateInputSchema = exports.ProjectStatusSchema = exports.FundingStatusSchema = exports.FundingTierSchema = exports.ProjectKindSchema = exports.MsmeOnboardingInputSchema = exports.MsmePocketInputSchema = exports.BusinessStageSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.MSME_SPENDABLE_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.BusinessPocketCategorySchema = exports.PocketKindSchema = exports.SegmentSchema = exports.PlanTypeSchema = void 0;
-exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.StockMovementSchema = exports.StockItemSchema = exports.StockMovementCreateInputSchema = exports.StockMovementTypeSchema = exports.StockItemUpdateInputSchema = exports.StockItemCreateInputSchema = exports.MsmeOperationalInsightsSchema = exports.MsmeAlertSchema = exports.MsmeProjectStatsSchema = exports.MsmeInvoiceStatsSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = void 0;
-exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = void 0;
+exports.MsmeProjectSpendSchema = exports.MsmeProjectAllocationSchema = exports.MsmeProjectIncomeEventSchema = exports.MsmeProjectTierSchema = exports.MsmeProjectSchema = exports.ProjectSummarySchema = exports.SpendingControlsSchema = exports.TierSummarySchema = exports.ProjectIncomeInputSchema = exports.ProjectCreateInputSchema = exports.TierSubPocketSummarySchema = exports.TierSubPocketInputSchema = exports.ProjectStatusSchema = exports.FundingStatusSchema = exports.FundingTierSchema = exports.ProjectKindSchema = exports.MsmeOnboardingInputSchema = exports.MsmePocketInputSchema = exports.BusinessStageSchema = exports.OnboardingInputSchema = exports.FixedExpenseInputSchema = exports.SavingsGoalInputSchema = exports.SavingsGoalLockDays = exports.SavingsGoalTimeframeMonths = exports.SavingsGoalTimeframeSchema = exports.SavingsGoalTypeSchema = exports.CategoryPercentagesSchema = exports.SPENDABLE_CATEGORY_LABELS = exports.MSME_SPENDABLE_LABELS = exports.SpendableCategorySchema = exports.NeedsBandSchema = exports.MoneyPersonalitySchema = exports.EmergencyBufferSchema = exports.LifeStageSchema = exports.PlanStatusSchema = exports.MerchantCategorySchema = exports.ReallocationReasonSchema = exports.ReallocationStatusSchema = exports.TransactionTypeSchema = exports.IncomeConcentrationSchema = exports.PlanNameSchema = exports.SpendingHabitSchema = exports.IncomeIntervalDaysByBand = exports.IncomeIntervalBandSchema = exports.IncomePatternSchema = exports.PocketCategorySchema = exports.BusinessPocketCategorySchema = exports.PocketKindSchema = exports.SegmentSchema = exports.PlanTypeSchema = void 0;
+exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.StockMovementSchema = exports.StockItemSchema = exports.StockMovementCreateInputSchema = exports.StockMovementTypeSchema = exports.StockItemUpdateInputSchema = exports.StockItemCreateInputSchema = exports.MsmeOperationalInsightsSchema = exports.MsmeAlertSchema = exports.MsmeProjectStatsSchema = exports.MsmeInvoiceStatsSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = exports.ExcessPromptTargetSchema = exports.ExcessPromptStatusSchema = void 0;
+exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = void 0;
 const zod_1 = require("zod");
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -308,6 +308,7 @@ exports.BusinessStageSchema = zod_1.z.enum(['starting', 'stable', 'growing']);
 exports.MsmePocketInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     category: exports.PocketCategorySchema,
+    percentage: zod_1.z.number().min(0).max(100).optional(),
 });
 exports.MsmeOnboardingInputSchema = zod_1.z.object({
     segment: zod_1.z.literal('msme'),
@@ -330,15 +331,34 @@ exports.ProjectKindSchema = zod_1.z.enum(['catering', 'wedding', 'trip', 'tour',
 exports.FundingTierSchema = zod_1.z.enum(['priorities', 'needs', 'wants']); // exactly 3, §12:231
 exports.FundingStatusSchema = zod_1.z.enum(['in_progress', 'complete']);
 exports.ProjectStatusSchema = zod_1.z.enum(['draft', 'active', 'completed', 'cancelled']);
+exports.TierSubPocketInputSchema = zod_1.z.object({
+    id: zod_1.z.string().optional(),
+    name: zod_1.z.string().min(1).max(100),
+    targetAmount: zod_1.z.number().positive(),
+});
+exports.TierSubPocketSummarySchema = zod_1.z.object({
+    id: zod_1.z.string(),
+    name: zod_1.z.string().min(1).max(100),
+    targetAmount: zod_1.z.number().positive(),
+    allocatedAmount: zod_1.z.number().nonnegative(),
+    spentAmount: zod_1.z.number().nonnegative(),
+    remainingCash: zod_1.z.number().nonnegative(),
+    fundingPercent: zod_1.z.number().min(0).max(100),
+});
 exports.ProjectCreateInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     kind: exports.ProjectKindSchema,
     contractValue: zod_1.z.number().positive(),
     tiers: zod_1.z.object({
-        priorities: zod_1.z.number().positive(), // target amounts
-        needs: zod_1.z.number().positive(),
-        wants: zod_1.z.number().positive(),
+        priorities: zod_1.z.number().nonnegative(), // target amounts
+        needs: zod_1.z.number().nonnegative(),
+        wants: zod_1.z.number().nonnegative(),
     }).refine(v => v.priorities + v.needs + v.wants > 0, { message: 'At least one tier target required' }),
+    subPockets: zod_1.z.object({
+        priorities: zod_1.z.array(exports.TierSubPocketInputSchema).optional(),
+        needs: zod_1.z.array(exports.TierSubPocketInputSchema).optional(),
+        wants: zod_1.z.array(exports.TierSubPocketInputSchema).optional(),
+    }).optional(),
     // optional: allow wants=0 for lean projects — service normalizes
 }).refine(v => Math.abs((v.tiers.priorities + v.tiers.needs + v.tiers.wants) - v.contractValue) < 0.01, { message: 'Tier targets must sum to contract value', path: ['contractValue'] });
 exports.ProjectIncomeInputSchema = zod_1.z.object({
@@ -357,6 +377,7 @@ exports.TierSummarySchema = zod_1.z.object({
     remainingCash: zod_1.z.number().nonnegative(), // allocated - spent
     fundingStatus: exports.FundingStatusSchema,
     fundingPercent: zod_1.z.number().min(0).max(100),
+    subPockets: zod_1.z.array(exports.TierSubPocketSummarySchema).optional(),
 });
 exports.SpendingControlsSchema = zod_1.z.object({
     lockWantsUntilPrioritiesAndNeedsFunded: zod_1.z.boolean().default(false),
@@ -475,6 +496,7 @@ exports.ProjectCompletionResolveInputSchema = zod_1.z.object({
 });
 exports.ProjectSpendInputSchema = zod_1.z.object({
     tierId: zod_1.z.string().uuid(),
+    subPocketId: zod_1.z.string().optional(),
     amount: zod_1.z.number().positive(),
     merchant: zod_1.z.string().min(1).max(100).optional(),
     category: zod_1.z.string().max(100).optional(),

@@ -1,4 +1,75 @@
+# EAS Build — monorepo-aware ignores
+# Without this, having a local .easignore overrides .gitignore and EAS uploads 1.3G node_modules + 24M graphify-out as 119MB tarball (your 2m23s).
+# Keep upload ~5-12 MB: source + assets only. Dependencies are cached on EAS builders.
+
+# Dependencies — cached remotely, never upload
 node_modules
-.git/
+../node_modules
+.pnpm-store
+../.pnpm-store
+.pnpm-debug.log
+../.pnpm-debug.log
+
+# VCS
+.git
+../.git
+.gitignore
+
+# Expo / build outputs
+.expo
+../.expo
+dist
+../dist
+build
+../build
+.next
+../.next
+out
+../out
+.turbo
+../.turbo
+web-build
+../web-build
+expo-env.d.ts
+../expo-env.d.ts
+
+# Graphify — 24M at root, not needed for build
+graphify-out
+../graphify-out
+**/graphify-out
+
+# Docs / marketing / workspace extras (not needed for mobile binary)
+marketing
+../marketing
+docs
+../docs
+supabase/.temp
+../supabase/.temp
+coverage
+../coverage
+.nyc_output
+../.nyc_output
+logs
+../logs
+.devin
+../.devin
+
+# Native / secrets
+ios
+../ios
+android
+../android
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.kotlin
+../.kotlin
+
+# OS / logs
 .DS_Store
+../.DS_Store
 *.log
+npm-debug.*
+../npm-debug.*

@@ -76,9 +76,11 @@ export default function MsmeFixedScreen() {
   const [formCategory, setFormCategory] = React.useState<BusinessPocketCategory>('rent');
   const [pocketName, setPocketName] = React.useState('');
   const [pocketCategory, setPocketCategory] = React.useState<BusinessPocketCategory>('stock');
+  const [pocketPercent, setPocketPercent] = React.useState('');
 
   const totalFixed = fixedExpenses.reduce((sum, e) => sum + e.amount, 0);
   const displayName = msmeInput.businessName || '';
+  const totalPocketPercent = msmeCustomPockets.reduce((sum, p) => sum + (p.percentage ?? 0), 0);
 
   const formatAmount = (text: string) => {
     const cleaned = text.replace(/[^\d]/g, '');
@@ -117,11 +119,29 @@ export default function MsmeFixedScreen() {
       alert('Error', 'Please name the pocket');
       return;
     }
-    addCustomPocket({ name: pocketName.trim(), category: pocketCategory });
+    const pct = parseFloat(pocketPercent.replace(/[^\d.]/g, ''));
+    if (isNaN(pct) || pct <= 0 || pct > 100) {
+      alert('Invalid Percentage', 'Please enter a valid percentage between 1% and 100% (e.g. 50% for Restocking).');
+      return;
+    }
+    if (totalPocketPercent + pct > 100) {
+      alert('Exceeds 100%', `Total allocation cannot exceed 100%. Currently allocated: ${totalPocketPercent}%. Adding ${pct}% would reach ${totalPocketPercent + pct}%.`);
+      return;
+    }
+    addCustomPocket({ name: pocketName.trim(), category: pocketCategory, percentage: pct });
     setPocketName('');
+    setPocketPercent('');
   };
 
   const handleContinue = async () => {
+    if (msmeCustomPockets.length > 0 && Math.abs(totalPocketPercent - 100) > 0.01) {
+      await alert(
+        'Allocation must equal 100%',
+        `Your business pockets currently total ${totalPocketPercent}%. Please adjust pocket percentages or add another pocket so they equal exactly 100%.`
+      );
+      return;
+    }
+
     setIsLoading(true);
     try {
       await previewMsmePlan();
@@ -198,9 +218,43 @@ export default function MsmeFixedScreen() {
         </Text>
 
         <SectionTitle>Business pockets ({msmeCustomPockets.length}/6)</SectionTitle>
-        <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage, marginBottom: spacing.md, lineHeight: 18 }}>
-          These become the pockets your revenue gets split into each month. Leave empty to use a single “Business spending” pocket.
+        <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage, marginBottom: spacing.sm, lineHeight: 18 }}>
+          Name your spendable business pockets and assign what percentage of your spendable revenue goes into each.
         </Text>
+
+        {/* Live percentage allocation meter */}
+        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.md, marginBottom: spacing.md }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs }}>
+            <Text style={{ ...typography.caption, color: colors.sage }}>Spendable revenue allocation</Text>
+            <View style={{
+              backgroundColor: Math.abs(totalPocketPercent - 100) < 0.01 ? colors.emeraldTint : totalPocketPercent > 100 ? colors.clayTint : colors.goldTint,
+              borderRadius: radius.pill,
+              paddingHorizontal: spacing.sm,
+              paddingVertical: 3,
+            }}>
+              <Text style={{
+                ...typography.caption,
+                fontSize: 11,
+                fontWeight: '700',
+                color: Math.abs(totalPocketPercent - 100) < 0.01 ? colors.emeraldDeep : totalPocketPercent > 100 ? colors.error : colors.gold,
+              }}>
+                {Math.abs(totalPocketPercent - 100) < 0.01
+                  ? '100% Allocated'
+                  : totalPocketPercent > 100
+                  ? `${totalPocketPercent}% (+${totalPocketPercent - 100}% over)`
+                  : `${totalPocketPercent}% / 100% (${100 - totalPocketPercent}% left)`}
+              </Text>
+            </View>
+          </View>
+          <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden', marginTop: spacing.xs }}>
+            <View style={{
+              height: '100%',
+              width: `${Math.min(100, totalPocketPercent)}%`,
+              backgroundColor: Math.abs(totalPocketPercent - 100) < 0.01 ? colors.emeraldDeep : totalPocketPercent > 100 ? colors.error : colors.gold,
+              borderRadius: radius.pill,
+            }} />
+          </View>
+        </View>
 
         {msmeCustomPockets.length > 0 && (
           <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.sm, marginBottom: spacing.md }}>
@@ -217,6 +271,11 @@ export default function MsmeFixedScreen() {
                       <Text style={{ ...typography.body, color: colors.ink }} numberOfLines={1}>{pocket.name}</Text>
                       <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage }}>{label}</Text>
                     </View>
+                    <View style={{ backgroundColor: colors.emeraldTint, borderRadius: radius.pill, paddingHorizontal: spacing.sm, paddingVertical: 4, marginRight: spacing.xs }}>
+                      <Text style={{ ...typography.caption, fontSize: 12, color: colors.emeraldDeep, fontWeight: '700' }}>
+                        {pocket.percentage != null ? `${pocket.percentage}%` : '—'}
+                      </Text>
+                    </View>
                     <Pressable onPress={() => removeCustomPocket(pocket.id)} hitSlop={8} accessibilityLabel={`Delete ${pocket.name}`} accessibilityRole="button">
                       <Trash2 size={16} color={colors.error} strokeWidth={2} />
                     </Pressable>
@@ -228,7 +287,16 @@ export default function MsmeFixedScreen() {
         )}
 
         <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: radius.lg, padding: spacing.lg, gap: spacing.md }}>
-          <Input label="Pocket name" value={pocketName} onChangeText={setPocketName} placeholder="e.g. Stock & Inventory" accessible accessibilityLabel="Business pocket name" />
+          <Input label="Pocket name" value={pocketName} onChangeText={setPocketName} placeholder="e.g. Restocking & Inventory" accessible accessibilityLabel="Business pocket name" />
+          <Input
+            label="Percentage of spendable pool (%)"
+            value={pocketPercent}
+            onChangeText={setPocketPercent}
+            placeholder={totalPocketPercent < 100 ? `e.g. ${100 - totalPocketPercent}` : 'e.g. 50'}
+            keyboardType="numeric"
+            accessible
+            accessibilityLabel="Pocket allocation percentage"
+          />
           <Text style={{ ...typography.caption, fontSize: 12, color: colors.sage }}>Category</Text>
           <CategoryChips
             multiple={false}

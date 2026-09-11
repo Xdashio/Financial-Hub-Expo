@@ -326,6 +326,11 @@ export const msmeProjectsApi = {
       needs: number;
       wants: number;
     };
+    subPockets?: {
+      priorities?: Array<{ id?: string; name: string; targetAmount: number }>;
+      needs?: Array<{ id?: string; name: string; targetAmount: number }>;
+      wants?: Array<{ id?: string; name: string; targetAmount: number }>;
+    };
   }) => api.post<ProjectSummary>('/msme/projects', data),
   updateStatus: (id: string, status: 'draft' | 'active' | 'completed' | 'cancelled') =>
     api.put<ProjectSummary>(`/msme/projects/${id}/status`, { status }),
@@ -350,6 +355,7 @@ export const msmeProjectsApi = {
     ),
   recordSpend: (id: string, data: {
     tierId: string;
+    subPocketId?: string;
     amount: number;
     merchant?: string;
     category?: string;
