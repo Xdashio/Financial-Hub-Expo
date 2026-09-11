@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { RunwaySummary, Plan } from '@financial-hub/shared';
+import { RunwaySummary } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { computeRunway } from './runway.calculator';
 
