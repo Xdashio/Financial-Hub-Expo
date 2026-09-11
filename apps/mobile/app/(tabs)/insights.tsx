@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { CalendarCheck, ArrowLeftRight, Timer, TrendingUp, TrendingDown, PieChart, Briefcase, Target, Clock, Shield } from 'lucide-react-native';
-import { radius, spacing, typography, shadow, categoryColors } from '../../src/theme';
+import { radius, spacing, typography, shadow, categoryColors } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { insightsApi, reallocationsApi, pocketsApi } from '@/services/api';
 import { useDataSync } from '@/services/data-sync';
@@ -328,7 +328,7 @@ export default function InsightsScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading insights…" variant="insights" />
+        <LoadingState label="Loading insights..." variant="insights" />
       </ScreenContainer>
     );
   }

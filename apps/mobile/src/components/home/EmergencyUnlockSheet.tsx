@@ -176,7 +176,7 @@ export function EmergencyUnlockSheet({ visible, onClose, onUnlock, isLoading, po
       <BottomSheetModal visible={visible} onClose={onClose} title="Emergency Unlock from Savings" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.xxl, alignItems: 'center', gap: spacing.md }}>
           <PocketLoader size={36} color={colors.emeraldDeep} />
-          <Text style={{ ...typography.body, color: colors.sage }}>Checking eligibility…</Text>
+          <Text style={{ ...typography.body, color: colors.sage }}>Checking eligibility...</Text>
         </View>
       </BottomSheetModal>
     );

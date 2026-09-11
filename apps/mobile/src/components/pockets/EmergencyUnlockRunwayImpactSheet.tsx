@@ -139,7 +139,7 @@ export function EmergencyUnlockRunwayImpactSheet({
       <BottomSheetModal visible={visible} onClose={handleClose} title="Emergency Allocation" headerGlyph={<PocketGlyph kind="emergency" size={16} color={colors.emeraldDeep} />}>
         <View style={{ paddingVertical: spacing.xxl, alignItems: 'center', gap: spacing.md }}>
           <PocketLoader size={36} color={colors.emeraldDeep} />
-          <Text style={{ ...typography.body, color: colors.sage }}>Calculating spending runway impact…</Text>
+          <Text style={{ ...typography.body, color: colors.sage }}>Calculating spending runway impact...</Text>
         </View>
       </BottomSheetModal>
     );

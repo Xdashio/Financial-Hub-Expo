@@ -1,8 +1,8 @@
 import { Tabs } from 'expo-router';
 import { Store, Receipt, Package, Briefcase, User } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../src/theme/ThemeContext';
-import { typography, spacing } from '../../src/theme';
+import { useTheme } from '@/theme/ThemeContext';
+import { typography, spacing } from '@/theme';
 
 // Mirrors (tabs)/_layout.tsx exactly (same height math, colors, and label
 // styling) so the business/MSME dashboard has the same persistent bottom

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, Pressable, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { ScreenContainer, Button, Input, LoadingState, SectionTitle, ProgressIndicator } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
@@ -499,7 +499,7 @@ export default function RetakeCheckinScreen() {
         </ScrollView>
       )}
 
-      {showForm && isPrefilling && <LoadingState label="Loading your current plan…" />}
+      {showForm && isPrefilling && <LoadingState label="Loading your current plan..." />}
 
       {showForm && !isPrefilling && formStep === 1 && (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl }}>

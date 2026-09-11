@@ -652,6 +652,33 @@ describe('IncomeService.createManualIncome', () => {
       expect(savingsAllocation?.amount).toBeGreaterThan(1500);
       expect(foodAllocation?.amount).toBeGreaterThan(4500);
     });
+
+    it('caps fixed pocket taking into account existing balance from prior deposits', async () => {
+      const POCKETS_WITH_FIXED = [
+        { id: 'pocket-savings', plan_id: 'plan-1', name: 'Savings', kind: 'savings', category: null, is_time_locked: true, lock_until: null, monthly_allocation: 1000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-rent', plan_id: 'plan-1', name: 'Rent', kind: 'fixed', category: 'housing', is_time_locked: true, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+        { id: 'pocket-food', plan_id: 'plan-1', name: 'Food & Groceries', kind: 'spendable', category: 'food', is_time_locked: false, lock_until: null, monthly_allocation: 3000, daily_cap: null, created_at: 'x', updated_at: 'x' },
+      ];
+      // Rent already has 2500 funded from a prior deposit (out of 3000 target)
+      const repository = makeRepository({
+        getActivePlanByUserId: jest.fn().mockResolvedValue({ ...PLAN, expected_income_amount: 10000 }),
+        getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS_WITH_FIXED.map(p => ({ ...p }))),
+        getPocketSummary: jest.fn().mockImplementation(async (id: string) => {
+          if (id === 'pocket-rent') return { available: 2500, allocated: 2500, spent: 0 };
+          return { available: 500, allocated: 500, spent: 0 };
+        }),
+      } as any);
+      const service = new IncomeService(repository, makeRunway(), makePush());
+
+      // Deposit 7000: proportional share for rent would be ~3000, but only 500 is needed to hit 3000 cap!
+      const result = await service.createManualIncome({ ...BASE_DTO, amount: 7000 }, 'user-1');
+      const rentAllocation = result.allocation.allocations.find(a => a.pocket_id === 'pocket-rent');
+
+      // Rent should receive only 500 (3000 target - 2500 existing)
+      expect(rentAllocation?.amount).toBe(500);
+      expect(rentAllocation?.is_capped).toBe(true);
+      expect(result.allocation.total_allocated).toBe(7000);
+    });
   });
 });
 

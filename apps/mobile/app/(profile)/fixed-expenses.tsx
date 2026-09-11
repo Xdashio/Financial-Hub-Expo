@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
-import { radius, spacing, typography, shadow, touchTarget } from '../../src/theme';
+import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { useFixedExpensesStore, getFixedPocketBalance } from '@/services/fixed-expenses-store';
@@ -157,7 +157,7 @@ export default function FixedExpensesScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading fixed expenses…" />
+        <LoadingState label="Loading fixed expenses..." />
       </ScreenContainer>
     );
   }

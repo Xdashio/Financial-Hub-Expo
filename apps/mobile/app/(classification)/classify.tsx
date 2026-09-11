@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ScreenContainer } from '@/components/ui';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { merchantApi, pocketsApi } from '@/services/api';
@@ -307,7 +307,7 @@ export default function ClassificationScreen() {
           </Text>
           {isLoadingPockets && (
             <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
-              Loading pockets…
+              Loading pockets...
             </Text>
           )}
           {!isLoadingPockets && selectedCategory && selectablePockets.length === 0 && (

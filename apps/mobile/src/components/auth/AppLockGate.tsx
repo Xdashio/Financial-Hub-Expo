@@ -100,16 +100,11 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
         setIsLocked(false);
         return;
       }
-      const result = await Promise.race([
-        LocalAuthentication.authenticateAsync({
-          promptMessage: 'Unlock Financial Hub',
-          fallbackLabel: 'Use passcode',
-          cancelLabel: 'Cancel',
-        }),
-        new Promise<{ success: false }>((resolve) =>
-          setTimeout(() => resolve({ success: false }), 15_000),
-        ),
-      ]);
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Unlock Financial Hub',
+        fallbackLabel: 'Use passcode',
+        cancelLabel: 'Cancel',
+      });
       if (result.success) {
         setIsLocked(false);
       } else {
@@ -229,7 +224,7 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
               <BiometricIcon size={18} color={colors.surface} strokeWidth={2} />
             )}
             <Text style={{ ...typography.heading, color: colors.surface }}>
-              {isAuthenticating ? 'Confirming…' : `Unlock with ${label}`}
+              {isAuthenticating ? 'Confirming...' : `Unlock with ${label}`}
             </Text>
           </Pressable>
         </View>

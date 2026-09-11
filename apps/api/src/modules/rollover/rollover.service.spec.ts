@@ -234,4 +234,31 @@ describe('RolloverService.runForUser', () => {
     expect(repository.createTransactions).toHaveBeenCalled();
     expect(result.latestAmount).toBeGreaterThan(0);
   });
+
+  it('skips rollover gracefully when no savings pocket exists instead of crashing', async () => {
+    repository.getPocketsByPlanId.mockResolvedValue([FOOD]); // Food only, no savings
+    repository.hasRolloverLedgerRowsForDate.mockResolvedValue(false);
+
+    const result = await service.runForUser('user-1', new Date('2026-08-10T18:00:00.000Z'));
+
+    expect(result).toBeDefined();
+    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(result.days.some(d => d.skipped && d.skipReason === 'no_savings_pocket')).toBe(true);
+  });
+
+  it('records zero-amount success event so zero-roll days are not repeatedly re-evaluated', async () => {
+    // Spent matches daily cap exactly (500 - 500 = 0 to roll)
+    repository.getSpendTotalsByPocketBetween.mockResolvedValue(new Map([[FOOD.id, 500]]));
+    repository.hasRolloverLedgerRowsForDate.mockResolvedValue(false);
+
+    const result = await service.runForUser('user-1', new Date('2026-08-10T18:00:00.000Z'));
+
+    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: EVENT_DAILY_ROLLOVER_SUCCESS,
+        payload: expect.objectContaining({ amount: 0 }),
+      }),
+    );
+  });
 });

@@ -212,7 +212,7 @@ export default function MsmeProjectsScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm }}>
           <Text style={{ ...typography.title, color: colors.ink }}>Projects</Text>
         </View>
-        <LoadingState label="Loading projects…" variant="projects" />
+        <LoadingState label="Loading projects..." variant="projects" />
       </ScreenContainer>
     );
   }

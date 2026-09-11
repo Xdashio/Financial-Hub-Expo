@@ -1,9 +1,9 @@
 import { Tabs } from 'expo-router';
 import { Home, LineChart, User, Zap } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../src/theme/ThemeContext';
-import { typography, spacing } from '../../src/theme';
-import { useIsFreelancerDaily } from '../../src/hooks/useFreelancer';
+import { useTheme } from '@/theme/ThemeContext';
+import { typography, spacing } from '@/theme';
+import { useIsFreelancerDaily } from '@/hooks/useFreelancer';
 
 export default function TabsLayout() {
   const { colors } = useTheme();

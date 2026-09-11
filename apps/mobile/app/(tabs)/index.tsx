@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, Image, ScrollView, RefreshControl, Pressable } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { radius, spacing, typography, shadow, touchTarget, categoryColors } from '../../src/theme';
+import { radius, spacing, typography, shadow, touchTarget, categoryColors } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import {
   Shield, RefreshCw, Lock,
@@ -165,7 +165,7 @@ export default function HomeScreen() {
   if (isLoading && pockets.length === 0) {
     return (
       <ScreenContainer>
-        <LoadingState label="Loading your financial hub…" variant="home" />
+        <LoadingState label="Loading your financial hub..." variant="home" />
       </ScreenContainer>
     );
   }

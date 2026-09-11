@@ -171,35 +171,36 @@ export class MsmeStockService {
       }
     }
 
-    // Fast-path guard for out before DB call (nice error message)
-    if (d.type === 'out' && d.qty > Number(item.qty_on_hand)) {
-      throw new BadRequestException(`Insufficient stock: have ${item.qty_on_hand}, tried to move ${d.qty}`);
+    // Atomic qty adjust via DB function (B-02). Delta is signed: in/adjust +, out -, adjust can be negative.
+    const delta = d.type === 'out' ? -Math.abs(d.qty) : (d.type === 'adjust' ? d.qty : Math.abs(d.qty));
+
+    // Fast-path guard for negative deltas before DB call (nice error message)
+    if (delta < 0 && Math.abs(delta) > Number(item.qty_on_hand)) {
+      throw new BadRequestException(`Insufficient stock: have ${item.qty_on_hand}, tried to ${d.type === 'out' ? 'move' : 'adjust'} ${Math.abs(delta)}`);
     }
 
     const unitCost = d.unitCost ?? Number(item.unit_cost);
-    const totalCost = round2(d.qty * unitCost);
+    const totalCost = round2(Math.abs(d.qty) * unitCost);
 
-    // Atomic qty adjust via DB function (B-02). Delta is signed: in/adjust +, out -.
-    const delta = d.type === 'out' ? -d.qty : d.qty;
     let updatedItem: any;
     try {
       updatedItem = await this.repo.adjustStockQty(itemId, delta);
     } catch (e: any) {
       // 23514 = check violation (would go negative), P0002 = not found
       if (e?.code === '23514') {
-        throw new BadRequestException(`Insufficient stock: have ${item.qty_on_hand}, tried to move ${d.qty}`);
+        throw new BadRequestException(`Insufficient stock: have ${item.qty_on_hand}, tried to ${d.type === 'out' ? 'move' : 'adjust'} ${Math.abs(delta)}`);
       }
       // Fallback for DBs without 024 function yet: read-modify-write with CHECK fallback
       if (/adjust_stock_qty|function.*does not exist/i.test(String(e?.message || ''))) {
         this.logger.warn('adjust_stock_qty missing — falling back to non-atomic update (apply 024)');
         const currentQty = Number(item.qty_on_hand);
-        let newQty = d.type === 'out' ? currentQty - d.qty : currentQty + d.qty;
-        if (newQty < 0) throw new BadRequestException(`Insufficient stock: have ${currentQty}, tried to move ${d.qty}`);
+        const newQty = currentQty + delta;
+        if (newQty < 0) throw new BadRequestException(`Insufficient stock: have ${currentQty}, tried to ${d.type === 'out' ? 'move' : 'adjust'} ${Math.abs(delta)}`);
         const movementFallback = await this.repo.createMsmeStockMovement({
           item_id: itemId,
           user_id: userId,
           type: d.type,
-          qty: d.qty,
+          qty: Math.abs(d.qty),
           unit_cost: unitCost,
           total_cost: totalCost,
           note: d.note?.trim() || null,
@@ -224,7 +225,7 @@ export class MsmeStockService {
         item_id: itemId,
         user_id: userId,
         type: d.type,
-        qty: d.qty,
+        qty: Math.abs(d.qty),
         unit_cost: unitCost,
         total_cost: totalCost,
         note: d.note?.trim() || null,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ScreenContainer, LoadingState } from '@/components/ui';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { merchantReportApi } from '@/services/api';

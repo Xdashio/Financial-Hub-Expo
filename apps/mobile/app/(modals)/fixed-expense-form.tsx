@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { radius, spacing, typography } from '../../src/theme';
+import { radius, spacing, typography } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { useFixedExpensesStore } from '@/services/fixed-expenses-store';
@@ -92,11 +92,22 @@ export default function FixedExpenseFormScreen() {
     // Validate form
     let isValid = true;
     
-    if (!formData.name.trim()) {
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
       setNameError('Name is required');
       isValid = false;
     } else {
-      setNameError(null);
+      const isDuplicate = expenses.some(
+        (e: FixedExpense) =>
+          e.name.trim().toLowerCase() === trimmedName.toLowerCase() &&
+          (mode === 'edit' ? e.id !== expenseId : true),
+      );
+      if (isDuplicate) {
+        setNameError('A fixed expense with this name already exists');
+        isValid = false;
+      } else {
+        setNameError(null);
+      }
     }
     
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
@@ -203,41 +214,49 @@ export default function FixedExpenseFormScreen() {
           </View>
 
           {/* Quick Suggestions */}
-          <View style={{ marginBottom: spacing.lg }}>
-            <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick add</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {suggestions.map((suggestion) => {
-                const IconComponent = getIconFor(suggestion.name, suggestion.category);
-                return (
-                  <Pressable
-                    key={suggestion.name}
-                    style={{
-                      marginRight: spacing.sm,
-                      padding: spacing.md,
-                      borderRadius: radius.md,
-                      backgroundColor: colors.surface,
-                      borderWidth: 1,
-                      borderColor: colors.line,
-                      minWidth: 120,
-                    }}
-                    onPress={() => handleUseSuggestion(suggestion)}
-                    accessibilityLabel={`Add ${suggestion.name} suggestion`}
-                    accessibilityRole="button"
-                  >
-                    <View style={{ alignItems: 'center' }}>
-                      <IconComponent size={18} color={colors.sage} strokeWidth={2} />
-                      <Text style={{ ...typography.heading, color: colors.ink, marginTop: spacing.xs }}>
-                        {suggestion.name}
-                      </Text>
-                      <Text style={{ ...typography.caption, color: colors.sage }}>
-                        {formatCurrency(suggestion.amount)}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+          {(() => {
+            const availableSuggestions = suggestions.filter(
+              (s) => !expenses.some((e: FixedExpense) => e.name.trim().toLowerCase() === s.name.trim().toLowerCase())
+            );
+            if (availableSuggestions.length === 0) return null;
+            return (
+              <View style={{ marginBottom: spacing.lg }}>
+                <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.md }}>Quick add</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {availableSuggestions.map((suggestion) => {
+                    const IconComponent = getIconFor(suggestion.name, suggestion.category);
+                    return (
+                      <Pressable
+                        key={suggestion.name}
+                        style={{
+                          marginRight: spacing.sm,
+                          padding: spacing.md,
+                          borderRadius: radius.md,
+                          backgroundColor: colors.surface,
+                          borderWidth: 1,
+                          borderColor: colors.line,
+                          minWidth: 120,
+                        }}
+                        onPress={() => handleUseSuggestion(suggestion)}
+                        accessibilityLabel={`Add ${suggestion.name} suggestion`}
+                        accessibilityRole="button"
+                      >
+                        <View style={{ alignItems: 'center' }}>
+                          <IconComponent size={18} color={colors.sage} strokeWidth={2} />
+                          <Text style={{ ...typography.heading, color: colors.ink, marginTop: spacing.xs }}>
+                            {suggestion.name}
+                          </Text>
+                          <Text style={{ ...typography.caption, color: colors.sage }}>
+                            {formatCurrency(suggestion.amount)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            );
+          })()}
 
           {/* Form Fields */}
           <View style={{ marginBottom: spacing.md }}>
@@ -375,7 +394,7 @@ export default function FixedExpenseFormScreen() {
           >
             <Check size={20} color={colors.surface} strokeWidth={2} />
             <Text style={{ ...typography.heading, color: colors.surface, marginLeft: spacing.sm }}>
-              {isSubmitting ? 'Saving…' : (mode === 'edit' ? 'Update Expense' : 'Add Expense')}
+              {isSubmitting ? 'Saving...' : (mode === 'edit' ? 'Update Expense' : 'Add Expense')}
             </Text>
           </Pressable>
         </ScrollView>

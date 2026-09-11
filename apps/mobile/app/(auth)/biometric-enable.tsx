@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Animated } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -21,26 +21,26 @@ export default function BiometricEnableScreen() {
     useAuthStore();
 
   const fromSignup = params?.fromSignup === 'true';
-  const [isEnabled, setIsEnabled] = React.useState(!!user?.biometricEnabled);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [biometricType, setBiometricType] = React.useState<'face' | 'fingerprint' | null>(null);
-  const [biometricAvailable, setBiometricAvailable] = React.useState(false);
-  const [isReady, setIsReady] = React.useState(false);
-  const [isUnlocked, setIsUnlocked] = React.useState(fromSignup || !user?.biometricEnabled);
+  const isEnabled = !!user?.biometricEnabled;
+  const [isLoading, setIsLoading] = useState(false);
+  const [biometricType, setBiometricType] = useState<'face' | 'fingerprint' | null>(null);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [isUnlocked, setIsUnlocked] = useState(fromSignup || !user?.biometricEnabled);
+  const [isAuthenticatingEntry, setIsAuthenticatingEntry] = useState(false);
   const confirmingRef = useRef(false);
 
   const biometricLabel = biometricType === 'face' ? 'Face ID' : 'fingerprint';
   const biometricTitle = biometricType === 'face' ? 'Face ID' : 'Fingerprint';
 
-  // Drives the switch track/thumb so toggling animates smoothly instead of
-  // snapping instantly — the instant snap plus the icon popping in/out was
-  // part of what read as "glitchy" alongside the re-prompt bug fixed above.
-  const toggleAnim = useRef(new Animated.Value(isEnabled ? 1 : 0)).current;
+  // React 19: initialize Animated.Value in lazy state to avoid accessing ref in render
+  const [toggleAnim] = useState(() => new Animated.Value(isEnabled ? 1 : 0));
+
   useEffect(() => {
     Animated.timing(toggleAnim, {
       toValue: isEnabled ? 1 : 0,
       duration: 180,
-      useNativeDriver: false, // animating backgroundColor requires the JS driver
+      useNativeDriver: false,
     }).start();
   }, [isEnabled, toggleAnim]);
 
@@ -62,79 +62,55 @@ export default function BiometricEnableScreen() {
     checkBiometrics();
   }, [checkBiometricAvailability]);
 
-  // Keep local toggle in sync with store when returning to this screen.
-  useEffect(() => {
-    setIsEnabled(!!user?.biometricEnabled);
-  }, [user?.biometricEnabled]);
+  const confirmAccess = useCallback(async () => {
+    if (confirmingRef.current) return;
+    confirmingRef.current = true;
+    setIsAuthenticatingEntry(true);
+    try {
+      const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const isFace = supportedTypes.includes(
+        LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
+      );
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: `Confirm ${isFace ? 'Face ID' : 'fingerprint'} to manage biometric unlock`,
+        fallbackLabel: 'Use passcode',
+        cancelLabel: 'Cancel',
+      });
+      if (result.success) {
+        setIsUnlocked(true);
+      }
+    } catch {
+      // User cancelled or authentication failed; user can tap retry button
+    } finally {
+      confirmingRef.current = false;
+      setIsAuthenticatingEntry(false);
+    }
+  }, []);
 
-  // The focus-gate below must only re-run when the screen is actually
-  // re-entered (navigated back to), never as a side effect of the toggle
-  // on this same screen changing `user.biometricEnabled` mid-visit — that
-  // was the cause of the "confirm, then immediately asked again" glitch:
-  // enabling/disabling biometrics updated the store, which used to sit in
-  // this effect's own dependency array, so a successful toggle re-armed
-  // and re-fired the exact same re-authentication prompt it had just
-  // satisfied. Read the enabled flag from a ref instead so toggling this
-  // screen's own switch can't retrigger it.
-  const biometricEnabledRef = useRef(!!user?.biometricEnabled);
-  useEffect(() => {
-    biometricEnabledRef.current = !!user?.biometricEnabled;
-  }, [user?.biometricEnabled]);
-
-  // When biometrics are already on and this screen is opened again (Settings),
-  // require a successful biometric confirmation before showing controls.
+  // When biometrics are on and opening from Settings, confirm identity before revealing controls
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       if (fromSignup || !isReady || !biometricAvailable) return;
-      if (!biometricEnabledRef.current) {
+      if (!user?.biometricEnabled) {
         setIsUnlocked(true);
         return;
       }
-
-      let cancelled = false;
-
-      const confirmAccess = async () => {
-        if (confirmingRef.current) return;
-        confirmingRef.current = true;
-        setIsUnlocked(false);
-        try {
-          const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-          const isFace = supportedTypes.includes(
-            LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
-          );
-          const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: `Confirm ${isFace ? 'Face ID' : 'fingerprint'} to manage biometric unlock`,
-            fallbackLabel: 'Use passcode',
-            cancelLabel: 'Cancel',
-          });
-          if (cancelled) return;
-          if (result.success) {
-            setIsUnlocked(true);
-          } else {
-            safeGoBack(router, '/(tabs)/profile');
-          }
-        } catch {
-          if (!cancelled) safeGoBack(router, '/(tabs)/profile');
-        } finally {
-          confirmingRef.current = false;
-        }
-      };
-
-      confirmAccess();
-      return () => {
-        cancelled = true;
-      };
-      // Intentionally excludes `user?.biometricEnabled` — see comment above.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fromSignup, isReady, biometricAvailable, router])
+      if (!isUnlocked) {
+        confirmAccess();
+      }
+    }, [fromSignup, isReady, biometricAvailable, user?.biometricEnabled, isUnlocked, confirmAccess])
   );
 
-  // Auto-skip only applies to the signup flow.
+  // Auto-skip only applies to the signup flow when device has no biometrics
   useEffect(() => {
     if (fromSignup && isReady && !biometricAvailable) {
       const handleSkip = async () => {
-        await checkHasPlan();
-        await new Promise<void>((resolve) => setTimeout(resolve, 100));
+        try {
+          await checkHasPlan();
+        } catch {
+          // Fall through
+        }
+        await new Promise<void>((resolve) => setTimeout(resolve, 50));
         router.replace('/');
       };
       handleSkip();
@@ -149,37 +125,50 @@ export default function BiometricEnableScreen() {
     });
   };
 
+  const handleContinue = async () => {
+    if (!fromSignup) {
+      safeGoBack(router, '/(tabs)/profile');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await checkHasPlan();
+    } catch {
+      // Fall through to index router on error
+    } finally {
+      setIsLoading(false);
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+    router.replace('/');
+  };
+
   const toggleBiometric = async () => {
     if (!biometricAvailable || isLoading) return;
 
     setIsLoading(true);
     try {
       if (isEnabled) {
-        const result = await promptBiometric(`Confirm ${biometricLabel} to turn off biometric unlock`);
-        if (!result.success) return;
+        // If coming from Settings without entering via gate, confirm first.
+        // If already passed entry gate, disable cleanly without redundant prompt.
+        if (!isUnlocked && !fromSignup) {
+          const result = await promptBiometric(`Confirm ${biometricLabel} to turn off biometric unlock`);
+          if (!result.success) return;
+        }
         await disableBiometrics();
-        setIsEnabled(false);
       } else {
         const result = await promptBiometric(`Enable ${biometricTitle} for Financial Hub`);
         if (!result.success) return;
         await enableBiometrics();
-        setIsEnabled(true);
+        if (fromSignup) {
+          await handleContinue();
+          return;
+        }
       }
     } catch {
       // User cancelled or authentication failed
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleContinue = async () => {
-    if (!fromSignup) {
-      safeGoBack(router, '/(tabs)/profile');
-      return;
-    }
-    await checkHasPlan();
-    await new Promise<void>((resolve) => setTimeout(resolve, 100));
-    router.replace('/');
   };
 
   const BiometricIcon = biometricType === 'face' ? ScanFace : Fingerprint;
@@ -234,7 +223,7 @@ export default function BiometricEnableScreen() {
                 lineHeight: 22,
               }}
             >
-              This device doesn&apos;t have Face ID or a fingerprint enrolled. Set one up in your
+              This device does not have Face ID or a fingerprint enrolled. Set one up in your
               device settings, then come back here to turn it on for Financial Hub.
             </Text>
           </View>
@@ -261,11 +250,45 @@ export default function BiometricEnableScreen() {
             Biometric unlock
           </Text>
         </View>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md }}>
-          <PocketLoader size={40} color={colors.emeraldDeep} />
-          <Text style={{ ...typography.caption, color: colors.sage }}>
-            Confirm {biometricLabel} to continue
-          </Text>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl, gap: spacing.lg }}>
+          <View
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: radius.md,
+              backgroundColor: colors.lineSoft,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <BiometricIcon size={28} color={colors.ink} strokeWidth={2} />
+          </View>
+          <View style={{ alignItems: 'center', gap: spacing.xs }}>
+            <Text style={{ ...typography.heading, color: colors.ink, textAlign: 'center' }}>
+              Authentication required
+            </Text>
+            <Text style={{ ...typography.body, color: colors.sage, textAlign: 'center', lineHeight: 22 }}>
+              Confirm {biometricLabel} to view and change security settings.
+            </Text>
+          </View>
+          <View style={{ width: '100%', gap: spacing.sm, marginTop: spacing.md }}>
+            <Button
+              fullWidth
+              size="lg"
+              loading={isAuthenticatingEntry}
+              onPress={confirmAccess}
+              leftIcon={<BiometricIcon size={18} color={colors.surface} strokeWidth={2} />}
+            >
+              Unlock with {biometricTitle}
+            </Button>
+            <Button
+              fullWidth
+              variant="ghost"
+              onPress={() => safeGoBack(router, '/(tabs)/profile')}
+            >
+              Back to Settings
+            </Button>
+          </View>
         </View>
       </ScreenContainer>
     );
@@ -294,7 +317,7 @@ export default function BiometricEnableScreen() {
         {fromSignup && (
           <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.lg }}>
             <Text style={{ ...typography.body, color: colors.sage, lineHeight: 22 }}>
-              Turn on {biometricLabel} so only you can open Financial Hub — even if someone else
+              Turn on {biometricLabel} so only you can open Financial Hub -- even if someone else
               picks up your phone.
             </Text>
           </View>
@@ -395,7 +418,7 @@ export default function BiometricEnableScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm }}>
               <Shield size={15} color={colors.emeraldDeep} strokeWidth={2} style={{ marginTop: 2 }} />
               <Text style={{ ...typography.caption, color: colors.emeraldDeep, flex: 1 }}>
-                Biometrics stay on your device — Financial Hub never stores your fingerprint or face
+                Biometrics stay on your device -- Financial Hub never stores your fingerprint or face
                 data.
               </Text>
             </View>
@@ -404,11 +427,17 @@ export default function BiometricEnableScreen() {
 
         {fromSignup && (
           <View style={{ paddingHorizontal: spacing.lg, marginTop: spacing.xl, gap: spacing.md }}>
-            <Button fullWidth size="lg" loading={isLoading} onPress={handleContinue}>
-              Continue
+            <Button
+              fullWidth
+              size="lg"
+              loading={isLoading}
+              onPress={isEnabled ? handleContinue : toggleBiometric}
+              leftIcon={!isEnabled ? <BiometricIcon size={18} color={colors.surface} strokeWidth={2} /> : undefined}
+            >
+              {isEnabled ? 'Continue' : `Enable ${biometricTitle}`}
             </Button>
             <Button variant="ghost" onPress={handleContinue}>
-              Not now
+              {isEnabled ? 'Skip for now' : 'Not now'}
             </Button>
           </View>
         )}

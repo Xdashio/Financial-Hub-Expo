@@ -79,7 +79,7 @@ export default function MsmeStockScreen() {
   };
 
   if (isLoading) {
-    return <ScreenContainer><View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}><Text style={{ ...typography.title, color: colors.ink }}>Stock</Text></View><LoadingState label="Loading stock…" variant="stock" /></ScreenContainer>;
+    return <ScreenContainer><View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.md }}><Text style={{ ...typography.title, color: colors.ink }}>Stock</Text></View><LoadingState label="Loading stock..." variant="stock" /></ScreenContainer>;
   }
 
   const header = (
@@ -105,7 +105,7 @@ export default function MsmeStockScreen() {
       )}
 
       <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md, gap: spacing.sm }}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search name, SKU…" onClear={() => setSearchQuery('')} />
+        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search name, SKU..." onClear={() => setSearchQuery('')} />
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
           <Pressable onPress={() => setLowOnly(v => !v)} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.pill, backgroundColor: lowOnly ? colors.clay : colors.surface, borderWidth: 1, borderColor: lowOnly ? colors.clay : colors.line }} accessibilityRole="button" accessibilityState={{ selected: lowOnly }} accessibilityLabel={lowOnly ? 'Showing low stock only' : 'Show low stock only'}>
             {lowOnly ? <Check size={12} color={colors.surface} strokeWidth={2} /> : null}
@@ -162,7 +162,7 @@ export default function MsmeStockScreen() {
         keyExtractor={item => item.id}
         renderItem={renderItem}
         ListHeaderComponent={header}
-        ListFooterComponent={hasMore ? <View style={{ padding: spacing.lg, alignItems: 'center' }}><Button variant="ghost" onPress={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading…' : 'Load more'}</Button></View> : null}
+        ListFooterComponent={hasMore ? <View style={{ padding: spacing.lg, alignItems: 'center' }}><Button variant="ghost" onPress={loadMore} disabled={loadingMore}>{loadingMore ? 'Loading...' : 'Load more'}</Button></View> : null}
         contentContainerStyle={{ paddingBottom: spacing.xxl * 2 }}
         refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.emeraldDeep} />}
         onEndReached={loadMore}

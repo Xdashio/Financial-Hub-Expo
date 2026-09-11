@@ -61,6 +61,10 @@ class InMemoryRepository {
     return { id: 'plan-1', user_id: 'user-1', income_pattern: 'freelancer', type: 'daily', reserve_balance: this.reserveBalance };
   }
 
+  async getActivePlanByUserId(): Promise<any> {
+    return this.getPlanById();
+  }
+
   async getTopLevelPocketsByPlanId(): Promise<Pocket[]> {
     return Array.from(this.pockets.values()).filter((p) => !p.parent_pocket_id);
   }

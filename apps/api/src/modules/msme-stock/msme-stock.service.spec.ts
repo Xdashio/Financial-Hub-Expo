@@ -61,6 +61,25 @@ describe('MsmeStockService', () => {
     expect(res.item.qtyOnHand).toBe(5);
   });
 
+  it('allows downward adjustment for shrinkage/damage', async () => {
+    const res = await service.recordMovement('item-1', userId, { type: 'adjust', qty: -3, note: 'Spoilage' });
+    expect(res.item.qtyOnHand).toBe(7);
+    expect(repo.createMsmeStockMovement).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'adjust',
+      qty: 3,
+      note: 'Spoilage',
+    }));
+  });
+
+  it('guards downward adjustment beyond available qty', async () => {
+    await expect(service.recordMovement('item-1', userId, { type: 'adjust', qty: -15 })).rejects.toThrow('Insufficient stock');
+  });
+
+  it('allows upward adjustment', async () => {
+    const res = await service.recordMovement('item-1', userId, { type: 'adjust', qty: 4, note: 'Audit surplus' });
+    expect(res.item.qtyOnHand).toBe(14);
+  });
+
   it('prevents delete with stock', async () => {
     await expect(service.deleteItem('item-1', userId)).rejects.toThrow('Cannot delete');
   });

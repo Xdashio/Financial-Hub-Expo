@@ -129,9 +129,10 @@ function TierCard({
  isNext: boolean;
  colors: any;
 }) {
- const c = tierColor(tier.tier, colors);
- const isComplete = tier.fundingStatus === 'complete';
- const barWidth = Math.min(100, Math.max(0, tier.fundingPercent));
+  const c = tierColor(tier.tier, colors);
+  const isComplete = tier.fundingStatus === 'complete';
+  const safeFundingPercent = Number.isFinite(tier.fundingPercent) ? tier.fundingPercent : 0;
+  const barWidth = Math.min(100, Math.max(0, safeFundingPercent));
 
   return (
   <View
@@ -187,7 +188,7 @@ function TierCard({
   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md }}>
   <Text style={{ ...typography.caption, color: colors.sage }}>Progress</Text>
   <Text style={{ ...typography.caption, color: isComplete ? colors.emeraldDeep : colors.ink, fontVariant: ['tabular-nums'] }}>
-  {tier.fundingPercent.toFixed(tier.fundingPercent % 1 === 0 ? 0 : 1)}%
+  {safeFundingPercent.toFixed(safeFundingPercent % 1 === 0 ? 0 : 1)}%
   </Text>
   </View>
 
@@ -195,8 +196,8 @@ function TierCard({
   <View style={{ height: 8, backgroundColor: colors.lineSoft, borderRadius: radius.pill, overflow: 'hidden' }}>
   <View style={{ height: '100%', width: `${barWidth}%`, backgroundColor: c, borderRadius: radius.pill }} />
   </View>
-  <Text style={{ ...typography.caption, fontSize: 10, color: colors.sage, marginTop: spacing.sm, lineHeight: 14 }}>
-  {formatMoney(tier.allocatedAmount)} / {formatMoney(tier.targetAmount)} · {tier.fundingPercent}% · Status: {isComplete ? 'Complete' : 'In Progress'}
+  <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: spacing.xs, textAlign: 'right' }}>
+  {formatMoney(tier.allocatedAmount)} / {formatMoney(tier.targetAmount)} · {Math.round(safeFundingPercent)}% · Status: {isComplete ? 'Complete' : 'In Progress'}
   </Text>
   </View>
 
@@ -236,7 +237,8 @@ function TierCard({
         </View>
         <View style={{ gap: spacing.sm }}>
           {tier.subPockets.map(sp => {
-            const spBarWidth = Math.min(100, Math.max(0, sp.fundingPercent));
+            const safeSpPercent = Number.isFinite(sp.fundingPercent) ? sp.fundingPercent : 0;
+            const spBarWidth = Math.min(100, Math.max(0, safeSpPercent));
             return (
               <View
                 key={sp.id}
@@ -253,7 +255,7 @@ function TierCard({
                     {sp.name}
                   </Text>
                   <Text style={{ ...typography.caption, color: c, fontWeight: '700', fontVariant: ['tabular-nums'] }}>
-                    {sp.fundingPercent.toFixed(sp.fundingPercent % 1 === 0 ? 0 : 1)}%
+                    {safeSpPercent.toFixed(safeSpPercent % 1 === 0 ? 0 : 1)}%
                   </Text>
                 </View>
 
@@ -488,7 +490,7 @@ export default function MsmeProjectDetailScreen() {
  </Pressable>
  <Text style={{ ...typography.title, color: colors.ink }}>Project</Text>
  </View>
-  <LoadingState label="Loading project…" variant="project-detail" />
+  <LoadingState label="Loading project..." variant="project-detail" />
  </ScreenContainer>
  );
  }
@@ -629,13 +631,14 @@ export default function MsmeProjectDetailScreen() {
   <Text style={{ ...typography.eyebrow, fontSize: 10, color: colors.heroText + '88', letterSpacing: 0.6 }}>PROJECT FUNDING</Text>
   {project.tiers.map(t => {
   const c = tierColor(t.tier as FundingTier, colors);
+  const safeTPercent = Number.isFinite(t.fundingPercent) ? t.fundingPercent : 0;
   return (
   <View key={t.tier} style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
   <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText + 'E6', width: 74, fontWeight: '600', letterSpacing: 0.2 }}>{tierLabel(t.tier as FundingTier)}</Text>
   <View style={{ flex: 1, height: 5, backgroundColor: colors.heroText + '18', borderRadius: radius.pill, overflow: 'hidden' }}>
-  <View style={{ height: '100%', width: `${Math.min(100, t.fundingPercent)}%`, backgroundColor: c, borderRadius: radius.pill }} />
+  <View style={{ height: '100%', width: `${Math.min(100, safeTPercent)}%`, backgroundColor: c, borderRadius: radius.pill }} />
   </View>
-  <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText, width: 36, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{Math.round(t.fundingPercent)}%</Text>
+  <Text style={{ ...typography.caption, fontSize: 11, color: colors.heroText, width: 36, textAlign: 'right', fontVariant: ['tabular-nums'] }}>{Math.round(safeTPercent)}%</Text>
   </View>
   );
   })}
@@ -824,7 +827,7 @@ export default function MsmeProjectDetailScreen() {
  disabled={loadingMore}
  style={{ marginTop: spacing.md, paddingVertical: spacing.sm, alignItems: 'center', opacity: loadingMore ? 0.6 : 1 }}
  >
- <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>{loadingMore ? 'Loading…' : 'Load more'}</Text>
+ <Text style={{ ...typography.caption, color: colors.emeraldDeep }}>{loadingMore ? 'Loading...' : 'Load more'}</Text>
  </Pressable>
  )}
  </>

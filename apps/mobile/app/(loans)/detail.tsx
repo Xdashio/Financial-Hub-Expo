@@ -8,7 +8,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { radius, spacing, typography, shadow, borderWidth } from '../../src/theme';
+import { radius, spacing, typography, shadow, borderWidth } from '@/theme';
 import { useTheme } from '@/theme/ThemeContext';
 import { loansApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, Button, Input } from '@/components/ui';
@@ -172,7 +172,7 @@ export default function LoanDetailScreen() {
         try {
           router.replace({ pathname: '/(pockets)/detail', params: { id: id as string } });
         } catch {
-          setError('This is not a loan pocket. Opening pocket detail instead…');
+          setError('This is not a loan pocket. Opening pocket detail instead...');
         }
         return;
       }
@@ -314,7 +314,7 @@ export default function LoanDetailScreen() {
           </Pressable>
           <Text style={{ ...typography.title, color: colors.ink }}>Loan details</Text>
         </View>
-        <LoadingState label="Loading loan details…" variant="cards" />
+        <LoadingState label="Loading loan details..." variant="cards" />
       </ScreenContainer>
     );
   }

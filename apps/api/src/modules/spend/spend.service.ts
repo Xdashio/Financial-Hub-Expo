@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
@@ -23,6 +23,7 @@ import { utcDayBounds, effectiveDailyCap, previewDailyCapAfterSpend } from '../r
 
 @Injectable()
 export class SpendService {
+  private static readonly activeSpends = new Set<string>();
   private readonly logger = new Logger(SpendService.name);
 
   constructor(
@@ -361,7 +362,14 @@ export class SpendService {
       }
     }
 
-    const result = await this.checkSpend(dto, userId);
+    const spendLockKey = `${userId}:${dto.pocket_id}`;
+    if (SpendService.activeSpends.has(spendLockKey)) {
+      throw new ConflictException('A spend transaction is already in progress for this pocket. Please try again.');
+    }
+    SpendService.activeSpends.add(spendLockKey);
+
+    try {
+      const result = await this.checkSpend(dto, userId);
 
     // audit_team.md item 4/5: `insufficient_funds` is a soft block — the
     // client shows "adjust allocation" / "cancel" / "spend anyway" instead
@@ -504,7 +512,10 @@ export class SpendService {
       }
     }
 
-    return response;
+      return response;
+    } finally {
+      SpendService.activeSpends.delete(spendLockKey);
+    }
   }
 
   /**

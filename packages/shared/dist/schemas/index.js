@@ -608,11 +608,16 @@ exports.StockItemUpdateInputSchema = zod_1.z.object({
 exports.StockMovementTypeSchema = zod_1.z.enum(['in', 'out', 'adjust']);
 exports.StockMovementCreateInputSchema = zod_1.z.object({
     type: exports.StockMovementTypeSchema,
-    qty: zod_1.z.number().positive(),
+    qty: zod_1.z.number().refine((n) => n !== 0, { message: 'Quantity cannot be zero' }),
     unitCost: zod_1.z.number().nonnegative().optional().nullable(),
     note: zod_1.z.string().max(200).optional().nullable(),
     pocketId: zod_1.z.string().uuid().optional().nullable(),
-});
+}).refine((data) => {
+    if ((data.type === 'in' || data.type === 'out') && data.qty <= 0) {
+        return false;
+    }
+    return true;
+}, { message: 'Quantity must be positive for in and out movements', path: ['qty'] });
 exports.StockItemSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(),

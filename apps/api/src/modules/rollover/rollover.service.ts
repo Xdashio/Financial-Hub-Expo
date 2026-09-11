@@ -60,6 +60,7 @@ export interface RolloverRunResult {
 @Injectable()
 export class RolloverService {
   private readonly logger = new Logger(RolloverService.name);
+  private static readonly activeUsers = new Set<string>();
 
   constructor(
     private readonly repository: SupabaseRepository,
@@ -68,13 +69,7 @@ export class RolloverService {
   ) {}
 
   async runForUser(userId: string, now = new Date()): Promise<RolloverRunResult> {
-    const plan = await this.repository.getActivePlanByUserId(userId);
-    if (!plan) {
-      throw new NotFoundException('No active plan found');
-    }
-
-    // Only run rollover logic for daily budget plans
-    if (plan.type !== 'daily') {
+    if (RolloverService.activeUsers.has(userId)) {
       return {
         days: [],
         totalAmount: 0,
@@ -83,6 +78,24 @@ export class RolloverService {
         milestoneAwarded: null,
       };
     }
+    RolloverService.activeUsers.add(userId);
+
+    try {
+      const plan = await this.repository.getActivePlanByUserId(userId);
+      if (!plan) {
+        throw new NotFoundException('No active plan found');
+      }
+
+      // Only run rollover logic for daily budget plans
+      if (plan.type !== 'daily') {
+        return {
+          days: [],
+          totalAmount: 0,
+          latestAmount: 0,
+          streak: await this.getStreak(userId, now),
+          milestoneAwarded: null,
+        };
+      }
 
     const pockets = await this.repository.getPocketsByPlanId(plan.id);
     const spendable = pockets.filter((p) => p.kind === 'spendable');
@@ -176,13 +189,16 @@ export class RolloverService {
       },
     );
 
-    return {
-      days: dayResults,
-      totalAmount,
-      latestAmount,
-      streak,
-      milestoneAwarded,
-    };
+      return {
+        days: dayResults,
+        totalAmount,
+        latestAmount,
+        streak,
+        milestoneAwarded,
+      };
+    } finally {
+      RolloverService.activeUsers.delete(userId);
+    }
   }
 
   private async dispatchRolloverPushes(
@@ -350,7 +366,14 @@ export class RolloverService {
 
 
     if (dayPlan.totalRollAmount > 0 && !savings) {
-      throw new BadRequestException('No savings pocket to receive daily rollover');
+      return {
+        date: dateIso,
+        skipped: true,
+        skipReason: 'no_savings_pocket',
+        amount: 0,
+        allUnderCap: true,
+        movements: [],
+      };
     }
 
     const movements: RolloverDayResult['movements'] = [];
@@ -424,6 +447,19 @@ export class RolloverService {
           amount: dayPlan.totalRollAmount,
           movements,
           points_added: pointsApplied > 0 ? pointsApplied : 0,
+        },
+      });
+    } else {
+      // Record 0-amount success event so this date is marked as processed and not re-evaluated
+      await this.repository.createBehaviorEvent({
+        user_id: userId,
+        type: EVENT_DAILY_ROLLOVER_SUCCESS,
+        payload: {
+          date: dateIso,
+          amount: 0,
+          movements: [],
+          points_added: 0,
+          note: 'zero_roll_under_cap',
         },
       });
     }

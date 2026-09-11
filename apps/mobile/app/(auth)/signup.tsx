@@ -21,7 +21,7 @@ export default function SignUpScreen() {
 
   const validatePhone = (value: string) => {
     const cleaned = value.replace(/\D/g, '');
-    return cleaned.length === 9 && cleaned.startsWith('7');
+    return cleaned.length === 9 && (cleaned.startsWith('7') || cleaned.startsWith('1'));
   };
 
   const validateName = (value: string) => {
@@ -70,7 +70,7 @@ export default function SignUpScreen() {
     }
 
     if (!validatePhone(phone)) {
-      setPhoneError('Enter a valid Kenyan number starting with 7 (e.g., 712 345 678)');
+      setPhoneError('Enter a valid Kenyan number (e.g., 712 345 678 or 110 123 456)');
       hasError = true;
     }
 

@@ -1813,13 +1813,25 @@ export declare const StockItemUpdateInputSchema: z.ZodObject<{
 export type StockItemUpdateInput = z.infer<typeof StockItemUpdateInputSchema>;
 export declare const StockMovementTypeSchema: z.ZodEnum<["in", "out", "adjust"]>;
 export type StockMovementType = z.infer<typeof StockMovementTypeSchema>;
-export declare const StockMovementCreateInputSchema: z.ZodObject<{
+export declare const StockMovementCreateInputSchema: z.ZodEffects<z.ZodObject<{
     type: z.ZodEnum<["in", "out", "adjust"]>;
-    qty: z.ZodNumber;
+    qty: z.ZodEffects<z.ZodNumber, number, number>;
     unitCost: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
     note: z.ZodNullable<z.ZodOptional<z.ZodString>>;
     pocketId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
 }, "strip", z.ZodTypeAny, {
+    type: "in" | "out" | "adjust";
+    qty: number;
+    note?: string | null | undefined;
+    unitCost?: number | null | undefined;
+    pocketId?: string | null | undefined;
+}, {
+    type: "in" | "out" | "adjust";
+    qty: number;
+    note?: string | null | undefined;
+    unitCost?: number | null | undefined;
+    pocketId?: string | null | undefined;
+}>, {
     type: "in" | "out" | "adjust";
     qty: number;
     note?: string | null | undefined;
@@ -6484,13 +6496,25 @@ export declare const schemas: {
         location?: string | null | undefined;
     }>;
     StockMovementType: z.ZodEnum<["in", "out", "adjust"]>;
-    StockMovementCreateInput: z.ZodObject<{
+    StockMovementCreateInput: z.ZodEffects<z.ZodObject<{
         type: z.ZodEnum<["in", "out", "adjust"]>;
-        qty: z.ZodNumber;
+        qty: z.ZodEffects<z.ZodNumber, number, number>;
         unitCost: z.ZodNullable<z.ZodOptional<z.ZodNumber>>;
         note: z.ZodNullable<z.ZodOptional<z.ZodString>>;
         pocketId: z.ZodNullable<z.ZodOptional<z.ZodString>>;
     }, "strip", z.ZodTypeAny, {
+        type: "in" | "out" | "adjust";
+        qty: number;
+        note?: string | null | undefined;
+        unitCost?: number | null | undefined;
+        pocketId?: string | null | undefined;
+    }, {
+        type: "in" | "out" | "adjust";
+        qty: number;
+        note?: string | null | undefined;
+        unitCost?: number | null | undefined;
+        pocketId?: string | null | undefined;
+    }>, {
         type: "in" | "out" | "adjust";
         qty: number;
         note?: string | null | undefined;

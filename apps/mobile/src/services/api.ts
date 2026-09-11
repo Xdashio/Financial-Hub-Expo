@@ -1,5 +1,6 @@
 import { supabase } from '@/config/supabase.config';
 import { API_BASE_URL } from '@/config/api';
+import { nanoid } from 'nanoid';
 
 // Set EXPO_PUBLIC_API_URL in .env.local (dev) or eas.json (EAS builds).
 
@@ -18,10 +19,10 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 /** Client idempotency key for money-moving writes (income / spend). */
 export function createIdempotencyKey(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+  return `${prefix}_${Date.now()}_${nanoid(12)}`;
 }
 
-async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+async function fetchApi<T>(endpoint: string, options: RequestInit = {}, isRetry = false): Promise<T> {
   const authHeaders = await getAuthHeaders();
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -30,6 +31,17 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
       ...options.headers,
     },
   });
+
+  if (response.status === 401 && !isRetry) {
+    try {
+      const { data: { session }, error: refreshError } = await supabase.auth.refreshSession();
+      if (session?.access_token && !refreshError) {
+        return fetchApi<T>(endpoint, options, true);
+      }
+    } catch {
+      // If refresh fails, fall through to standard error handling
+    }
+  }
 
   if (!response.ok) {
     // Try to get the response text first to see the raw error
