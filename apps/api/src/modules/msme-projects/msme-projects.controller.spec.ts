@@ -325,7 +325,7 @@ describe('MsmeProjectsController', () => {
       expect(result.totalSpent).toBe(20000);
       expect(result.tiers[0].spentAmount).toBe(15000);
       expect(projectsService.recordSpend).toHaveBeenCalledWith(
-        'proj-123', 'user-123', 'tier-1', 5000, 'Catering Co', 'food', 'Food tasting', undefined
+        'proj-123', 'user-123', 'tier-1', 5000, 'Catering Co', 'food', 'Food tasting', undefined, undefined
       );
     });
 

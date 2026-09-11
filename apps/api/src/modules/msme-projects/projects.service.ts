@@ -128,6 +128,17 @@ export class ProjectsService {
       throw new BadRequestException('Tier targets must sum to contract value');
     }
 
+    const subPocketsData: Record<string, Array<{ id: string; name: string; targetAmount: number; spentAmount: number }>> = {};
+    for (const tierKey of ['priorities', 'needs', 'wants'] as const) {
+      const subs = parsed.subPockets?.[tierKey] ?? [];
+      subPocketsData[tierKey] = subs.map((s, idx) => ({
+        id: s.id || `${tierKey}-${idx + 1}-${Date.now().toString(36)}`,
+        name: s.name,
+        targetAmount: Number(s.targetAmount),
+        spentAmount: 0,
+      }));
+    }
+
     const projectInsert: MsmeProjectInsert = {
       user_id: userId,
       plan_id: plan.id,
@@ -136,7 +147,10 @@ export class ProjectsService {
       contract_value: parsed.contractValue,
       status: 'draft',
       is_active_cascade: false,
-      spending_controls: this.defaultSpendingControls(),
+      spending_controls: {
+        ...this.defaultSpendingControls(),
+        subPockets: subPocketsData,
+      } as any,
     };
 
     const project = await this.repository.createMsmeProject(projectInsert);
@@ -349,6 +363,7 @@ export class ProjectsService {
     category?: string,
     note?: string,
     confirmRisky?: boolean,
+    subPocketId?: string,
   ): Promise<ProjectSummary> {
     if (amount <= 0) {
       throw new BadRequestException('Spend amount must be positive');
@@ -411,8 +426,31 @@ export class ProjectsService {
     const newSpent = Number(tier.spent_amount) + amount;
     await this.repository.updateMsmeProjectTier(tierId, { spent_amount: newSpent });
 
+    // If a sub-pocket was targeted, record spend in spending_controls.subPockets
+    let updatedProject = project;
+    if (subPocketId) {
+      const controls: any = (project as any).spending_controls || {};
+      const subPocketsMap = controls.subPockets || {};
+      const tierSubs: any[] = subPocketsMap[tier.tier] || [];
+      const sub = tierSubs.find((s: any) => s.id === subPocketId);
+      if (sub) {
+        sub.spentAmount = (Number(sub.spentAmount) || 0) + amount;
+        const updatedControls = {
+          ...controls,
+          subPockets: {
+            ...subPocketsMap,
+            [tier.tier]: tierSubs,
+          },
+        };
+        const res = await this.repository.updateMsmeProject(projectId, {
+          spending_controls: updatedControls,
+        });
+        if (res) updatedProject = res;
+      }
+    }
+
     const updatedTiers = await this.repository.getMsmeProjectTiersByProjectId(projectId);
-    return this.buildProjectSummary(project, updatedTiers);
+    return this.buildProjectSummary(updatedProject, updatedTiers);
   }
 
   async previewIncome(
@@ -853,16 +891,43 @@ export class ProjectsService {
       tierStates
     );
 
+    const rawControls: any = (project as any).spending_controls || {};
+    const subPocketsMap: Record<string, any[]> = rawControls.subPockets || {};
+
     return {
       ...summary,
       spendingControls: this.parseSpendingControls(project),
       completionResolvedAt: (project as any).completion_resolved_at ?? null,
       completionResolvedTo: (project as any).completion_resolved_to ?? null,
       excessPending,
-      tiers: summary.tiers.map((t, i) => ({
-        ...t,
-        id: tiers[i]?.id || '',
-      })),
+      tiers: summary.tiers.map((t, i) => {
+        const tierEntity = tiers[i];
+        const subs = (subPocketsMap[t.tier] ?? []) as Array<{ id: string; name: string; targetAmount: number; spentAmount?: number }>;
+        const tierTarget = Number(t.targetAmount);
+        const tierAllocated = Number(t.allocatedAmount);
+        const subPocketsSummary = subs.map(s => {
+          const target = Number(s.targetAmount) || 0;
+          const allocated = tierTarget > 0 ? this.round2((target / tierTarget) * tierAllocated) : 0;
+          const spent = Number(s.spentAmount) || 0;
+          const remaining = Math.max(0, this.round2(allocated - spent));
+          const percent = target > 0 ? Math.min(100, Math.round((allocated / target) * 100)) : 0;
+          return {
+            id: s.id,
+            name: s.name,
+            targetAmount: target,
+            allocatedAmount: allocated,
+            spentAmount: spent,
+            remainingCash: remaining,
+            fundingPercent: percent,
+          };
+        });
+
+        return {
+          ...t,
+          id: tierEntity?.id || '',
+          subPockets: subPocketsSummary.length > 0 ? subPocketsSummary : undefined,
+        };
+      }),
     };
   }
 

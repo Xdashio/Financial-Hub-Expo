@@ -33,17 +33,22 @@ export default function MsmeResultScreen() {
   const fixedTotal = fixedExpenses.reduce((sum, e) => sum + e.amount, 0);
   const { savingsTarget, spendableAmount } = assignResult;
 
+  const hasPercentages = msmeCustomPockets.some((p) => p.percentage != null && p.percentage > 0);
+
   const pocketRows = [
-    { name: 'Fixed costs', category: 'rent' as const, amount: fixedTotal, type: 'fixed' as const },
-    { name: 'Savings', category: 'emergency' as const, amount: savingsTarget, type: 'savings' as const },
+    { name: 'Fixed costs', category: 'rent' as const, amount: fixedTotal, type: 'fixed' as const, percentage: null },
+    { name: 'Savings', category: 'emergency' as const, amount: savingsTarget, type: 'savings' as const, percentage: 10 },
     ...msmeCustomPockets.length > 0
       ? msmeCustomPockets.map((p) => ({
           name: p.name,
           category: p.category,
-          amount: msmeCustomPockets.length > 0 ? Math.round(spendableAmount / msmeCustomPockets.length * 100) / 100 : spendableAmount,
+          percentage: p.percentage ?? null,
+          amount: hasPercentages && p.percentage != null
+            ? Math.round(spendableAmount * (p.percentage / 100) * 100) / 100
+            : Math.round(spendableAmount / msmeCustomPockets.length * 100) / 100,
           type: 'spendable' as const,
         }))
-      : [{ name: 'Business spending', category: 'operations' as const, amount: spendableAmount, type: 'spendable' as const }],
+      : [{ name: 'Business spending', category: 'operations' as const, amount: spendableAmount, type: 'spendable' as const, percentage: 100 }],
   ];
 
   const handleEnterPlan = async () => {
@@ -102,8 +107,17 @@ export default function MsmeResultScreen() {
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.xs }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
                   <Icon size={16} color={colors.ink} strokeWidth={2} />
-                  <Text style={{ ...typography.heading, color: colors.ink, flex: 1 }} numberOfLines={1}>{pocket.name}</Text>
-                  {pocket.type === 'savings' && <Lock size={13} color={colors.sage} strokeWidth={2} />}
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
+                      <Text style={{ ...typography.heading, color: colors.ink }} numberOfLines={1}>{pocket.name}</Text>
+                      {pocket.type === 'savings' && <Lock size={13} color={colors.sage} strokeWidth={2} />}
+                    </View>
+                    {pocket.percentage != null && (
+                      <Text style={{ ...typography.caption, fontSize: 11, color: colors.sage, marginTop: 1 }}>
+                        {pocket.type === 'savings' ? '10% revenue floor' : `${pocket.percentage}% of spendable pool`}
+                      </Text>
+                    )}
+                  </View>
                 </View>
                 <Text style={{ ...typography.body, color: colors.ink, fontVariant: ['tabular-nums'] }}>{money(pocket.amount)}</Text>
               </View>

@@ -152,10 +152,19 @@ export function buildMsmePocketInputs(
     return pockets;
   }
 
+  const hasCustomPercentages = custom.some((p) => p.percentage != null && p.percentage > 0);
   const perPocket = round2(assignment.spendableAmount / custom.length);
   let assigned = 0;
   custom.forEach((pocket, i) => {
-    const amount = i === custom.length - 1 ? round2(assignment.spendableAmount - assigned) : perPocket;
+    let amount: number;
+    if (hasCustomPercentages) {
+      const pct = pocket.percentage ?? 0;
+      amount = i === custom.length - 1
+        ? round2(assignment.spendableAmount - assigned)
+        : round2(assignment.spendableAmount * (pct / 100));
+    } else {
+      amount = i === custom.length - 1 ? round2(assignment.spendableAmount - assigned) : perPocket;
+    }
     assigned += amount;
     pockets.push({
       id: uuidv4(),

@@ -15,169 +15,198 @@ import { formatMoney } from '@/utils/money';
 type FundingTier = 'priorities' | 'needs' | 'wants';
 
 interface TierSummary {
- id: string;
- tier: FundingTier;
- sortOrder: number;
- targetAmount: number;
- allocatedAmount: number;
- spentAmount: number;
- remainingCash: number;
- fundingStatus: 'in_progress' | 'complete';
- fundingPercent: number;
+  id: string;
+  tier: FundingTier;
+  sortOrder: number;
+  targetAmount: number;
+  allocatedAmount: number;
+  spentAmount: number;
+  remainingCash: number;
+  fundingStatus: 'in_progress' | 'complete';
+  fundingPercent: number;
+  subPockets?: Array<{
+    id: string;
+    name: string;
+    targetAmount: number;
+    allocatedAmount: number;
+    spentAmount: number;
+    remainingCash: number;
+    fundingPercent: number;
+  }>;
 }
 
 function tierLabel(t: FundingTier): string {
- if (t === 'priorities') return 'Priorities';
- if (t === 'needs') return 'Needs';
- return 'Wants';
+  if (t === 'priorities') return 'Priorities';
+  if (t === 'needs') return 'Needs';
+  return 'Wants';
 }
 
 function tierColor(tier: FundingTier, colors: any): string {
- if (tier === 'priorities') return colors.emeraldDeep;
- if (tier === 'needs') return colors.gold;
- return colors.clay;
+  if (tier === 'priorities') return colors.emeraldDeep;
+  if (tier === 'needs') return colors.gold;
+  return colors.clay;
 }
 
 export default function MsmeProjectLogSpendScreen() {
- const { colors } = useTheme();
- const router = useRouter();
- const { id } = useLocalSearchParams<{ id: string }>();
- const { alert, modal, confirm } = useAlertModal();
+  const { colors } = useTheme();
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { alert, modal, confirm } = useAlertModal();
 
- const [project, setProject] = useState<any>(null);
- const [tiers, setTiers] = useState<TierSummary[]>([]);
- const [selectedTierId, setSelectedTierId] = useState<string>('');
- const [amount, setAmount] = useState('');
- const [merchant, setMerchant] = useState('');
- const [note, setNote] = useState('');
- const [category, setCategory] = useState('');
- const [isSubmitting, setIsSubmitting] = useState(false);
- const [loadError, setLoadError] = useState<string | null>(null);
- const [confirmRisky, setConfirmRisky] = useState(false);
+  const [project, setProject] = useState<any>(null);
+  const [tiers, setTiers] = useState<TierSummary[]>([]);
+  const [selectedTierId, setSelectedTierId] = useState<string>('');
+  const [selectedSubPocketId, setSelectedSubPocketId] = useState<string | null>(null);
+  const [amount, setAmount] = useState('');
+  const [merchant, setMerchant] = useState('');
+  const [note, setNote] = useState('');
+  const [category, setCategory] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [confirmRisky, setConfirmRisky] = useState(false);
 
- const formatAmountInput = (text: string) => {
- const cleaned = text.replace(/[^\d]/g, '');
- if (!cleaned) return '';
- return Number(cleaned).toLocaleString();
- };
- const numericAmount = Number(amount.replace(/,/g, '')) || 0;
+  const formatAmountInput = (text: string) => {
+    const cleaned = text.replace(/[^\d]/g, '');
+    if (!cleaned) return '';
+    return Number(cleaned).toLocaleString();
+  };
+  const numericAmount = Number(amount.replace(/,/g, '')) || 0;
 
- useEffect(() => {
- if (!id) return;
- msmeProjectsApi
- .getById(id)
- .then(p => {
- setProject(p);
- const sorted: TierSummary[] = [...p.tiers].sort((a, b) => a.sortOrder - b.sortOrder);
- setTiers(sorted);
- // auto-select tier with remaining >0, prefer Priorities first with remaining
- const withCash = sorted.find(t => t.remainingCash > 0);
- if (withCash) setSelectedTierId(withCash.id);
- else if (sorted.length) setSelectedTierId(sorted[0].id);
- })
- .catch(e => setLoadError(e instanceof Error ? e.message : 'Failed to load tiers'));
- }, [id]);
+  useEffect(() => {
+    if (!id) return;
+    msmeProjectsApi
+      .getById(id)
+      .then(p => {
+        setProject(p);
+        const sorted: TierSummary[] = [...p.tiers].sort((a, b) => a.sortOrder - b.sortOrder);
+        setTiers(sorted);
+        // auto-select tier with remaining >0, prefer Priorities first with remaining
+        const withCash = sorted.find(t => t.remainingCash > 0);
+        if (withCash) setSelectedTierId(withCash.id);
+        else if (sorted.length) setSelectedTierId(sorted[0].id);
+      })
+      .catch(e => setLoadError(e instanceof Error ? e.message : 'Failed to load tiers'));
+  }, [id]);
 
- const selectedTier = useMemo(() => tiers.find(t => t.id === selectedTierId) ?? null, [tiers, selectedTierId]);
- const availableCash = selectedTier?.remainingCash ?? 0;
- // Phase 5 spending controls helpers
- const controls = project?.spendingControls ?? { lockWantsUntilPrioritiesAndNeedsFunded: false, warnOnLowPrioritySpend: false };
- const higherTiersComplete = React.useMemo(() => {
- const pri = tiers.find(t => t.tier === 'priorities');
- const needs = tiers.find(t => t.tier === 'needs');
- return Boolean(pri && needs && pri.fundingStatus === 'complete' && needs.fundingStatus === 'complete');
- }, [tiers]);
- const isWantsLocked = selectedTier?.tier === 'wants' && controls.lockWantsUntilPrioritiesAndNeedsFunded && !higherTiersComplete;
- const shouldWarnWants = selectedTier?.tier === 'wants' && controls.warnOnLowPrioritySpend && !higherTiersComplete;
+  const selectedTier = useMemo(() => tiers.find(t => t.id === selectedTierId) ?? null, [tiers, selectedTierId]);
+  const availableCash = selectedTier?.remainingCash ?? 0;
+  const selectedSubPocket = useMemo(() => {
+    if (!selectedTier?.subPockets || !selectedSubPocketId) return null;
+    return selectedTier.subPockets.find(sp => sp.id === selectedSubPocketId) ?? null;
+  }, [selectedTier, selectedSubPocketId]);
+  const effectiveAvailableCash = selectedSubPocket ? selectedSubPocket.remainingCash : availableCash;
 
- const handleSubmit = async () => {
- if (!id || !selectedTierId) {
- await alert('Pick a tier', 'Choose which tier this spend belongs to (Priorities / Needs / Wants).');
- return;
- }
- if (!numericAmount || numericAmount <= 0) {
- await alert('Missing amount', 'Enter how much you spent.');
- return;
- }
- if (selectedTier && numericAmount > availableCash) {
- await alert(
- 'Exceeds available cash',
- `${tierLabel(selectedTier.tier)} has ${formatMoney(availableCash)} cash left (Allocated ${formatMoney(selectedTier.allocatedAmount)} − Spent ${formatMoney(selectedTier.spentAmount)}). You tried to log ${formatMoney(numericAmount)}.`,
- );
- return;
- }
- // Phase 5 Wants lock — require explicit confirmRisky
- if (isWantsLocked && !confirmRisky) {
- const ok = await confirm('Wants locked', 'Wants is locked until Priorities and Needs are fully funded. Spending on Wants now is discouraged — continue anyway?');
- if (!ok) return;
- // fall through with confirmRisky true for this attempt
- setConfirmRisky(true);
- }
+  // Phase 5 spending controls helpers
+  const controls = project?.spendingControls ?? { lockWantsUntilPrioritiesAndNeedsFunded: false, warnOnLowPrioritySpend: false };
+  const higherTiersComplete = React.useMemo(() => {
+    const pri = tiers.find(t => t.tier === 'priorities');
+    const needs = tiers.find(t => t.tier === 'needs');
+    return Boolean(pri && needs && pri.fundingStatus === 'complete' && needs.fundingStatus === 'complete');
+  }, [tiers]);
+  const isWantsLocked = selectedTier?.tier === 'wants' && controls.lockWantsUntilPrioritiesAndNeedsFunded && !higherTiersComplete;
+  const shouldWarnWants = selectedTier?.tier === 'wants' && controls.warnOnLowPrioritySpend && !higherTiersComplete;
 
- try {
- setIsSubmitting(true);
- const result = await msmeProjectsApi.recordSpend(id, {
- tierId: selectedTierId,
- amount: numericAmount,
- merchant: merchant || undefined,
- category: category || undefined,
- note: note || undefined,
- confirmRisky: isWantsLocked ? true : undefined,
- });
- useDataSync.getState().bump();
- const tierAfter = result.tiers.find(t => t.id === selectedTierId);
- await alert(
- 'Spend logged',
- tierAfter
- ? `${tierLabel(tierAfter.tier as FundingTier)} now has ${formatMoney(tierAfter.remainingCash)} cash left. Funding stays ${tierAfter.fundingStatus === 'complete' ? 'Complete' : 'In Progress'} even after spending.`
- : 'Spend recorded.',
- );
- safeGoBack(router, `/msme-projects/detail?id=${id}`);
- } catch (e) {
- const msg = e instanceof Error ? e.message : String(e);
- const isNetwork = /network|fetch|timeout|offline/i.test(msg) || (e as any)?.status === undefined;
- if (isNetwork && !msg.includes('Wants locked')) {
- await enqueueWrite(`/msme/projects/${id}/spend`, {
- tierId: selectedTierId,
- amount: numericAmount,
- merchant: merchant || undefined,
- category: category || undefined,
- note: note || undefined,
- confirmRisky: isWantsLocked ? true : undefined,
- });
- await alert('Queued offline', 'No connection — spend entry has been saved offline and will sync when reconnected.');
- safeGoBack(router, `/msme-projects/detail?id=${id}`);
- return;
- }
- // Surface Wants locked error with confirm affordance
- if (msg.includes('Wants locked')) {
- const ok = await confirm('Wants locked', msg + ' Tap Confirm to override with confirmRisky.');
- if (ok) {
- try {
- setConfirmRisky(true);
- const retry = await msmeProjectsApi.recordSpend(id, {
- tierId: selectedTierId,
- amount: numericAmount,
- merchant: merchant || undefined,
- category: category || undefined,
- note: note || undefined,
- confirmRisky: true,
- });
- useDataSync.getState().bump();
- await alert('Spend logged (override)', 'Wants spend recorded with override.');
- safeGoBack(router, `/msme-projects/detail?id=${id}`);
- return;
- } catch (retryErr) {
- await alert('Could not log spend', retryErr instanceof Error ? retryErr.message : 'Please try again.');
- return;
- }
- }
- }
- await alert('Could not log spend', msg);
- } finally {
- setIsSubmitting(false);
- }
- };
+  const handleSubmit = async () => {
+    if (!id || !selectedTierId) {
+      await alert('Pick a tier', 'Choose which tier this spend belongs to (Priorities / Needs / Wants).');
+      return;
+    }
+    if (!numericAmount || numericAmount <= 0) {
+      await alert('Missing amount', 'Enter how much you spent.');
+      return;
+    }
+    if (selectedSubPocket && numericAmount > selectedSubPocket.remainingCash) {
+      await alert(
+        'Exceeds sub-pocket cash',
+        `"${selectedSubPocket.name}" has ${formatMoney(selectedSubPocket.remainingCash)} cash left (Allocated ${formatMoney(selectedSubPocket.allocatedAmount)} − Spent ${formatMoney(selectedSubPocket.spentAmount)}). You tried to log ${formatMoney(numericAmount)}.`,
+      );
+      return;
+    }
+    if (!selectedSubPocket && selectedTier && numericAmount > availableCash) {
+      await alert(
+        'Exceeds available cash',
+        `${tierLabel(selectedTier.tier)} has ${formatMoney(availableCash)} cash left (Allocated ${formatMoney(selectedTier.allocatedAmount)} − Spent ${formatMoney(selectedTier.spentAmount)}). You tried to log ${formatMoney(numericAmount)}.`,
+      );
+      return;
+    }
+    // Phase 5 Wants lock — require explicit confirmRisky
+    if (isWantsLocked && !confirmRisky) {
+      const ok = await confirm('Wants locked', 'Wants is locked until Priorities and Needs are fully funded. Spending on Wants now is discouraged — continue anyway?');
+      if (!ok) return;
+      // fall through with confirmRisky true for this attempt
+      setConfirmRisky(true);
+    }
+
+    try {
+      setIsSubmitting(true);
+      const result = await msmeProjectsApi.recordSpend(id, {
+        tierId: selectedTierId,
+        subPocketId: selectedSubPocketId || undefined,
+        amount: numericAmount,
+        merchant: merchant || undefined,
+        category: category || undefined,
+        note: note || undefined,
+        confirmRisky: isWantsLocked ? true : undefined,
+      });
+      useDataSync.getState().bump();
+      const tierAfter = result.tiers.find(t => t.id === selectedTierId);
+      const subAfter = selectedSubPocketId ? tierAfter?.subPockets?.find(sp => sp.id === selectedSubPocketId) : null;
+      await alert(
+        'Spend logged',
+        subAfter
+          ? `"${subAfter.name}" now has ${formatMoney(subAfter.remainingCash)} cash left in ${tierLabel(tierAfter!.tier as FundingTier)}.`
+          : tierAfter
+          ? `${tierLabel(tierAfter.tier as FundingTier)} now has ${formatMoney(tierAfter.remainingCash)} cash left. Funding stays ${tierAfter.fundingStatus === 'complete' ? 'Complete' : 'In Progress'} even after spending.`
+          : 'Spend recorded.',
+      );
+      safeGoBack(router, `/msme-projects/detail?id=${id}`);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const isNetwork = /network|fetch|timeout|offline/i.test(msg) || (e as any)?.status === undefined;
+      if (isNetwork && !msg.includes('Wants locked')) {
+        await enqueueWrite(`/msme/projects/${id}/spend`, {
+          tierId: selectedTierId,
+          subPocketId: selectedSubPocketId || undefined,
+          amount: numericAmount,
+          merchant: merchant || undefined,
+          category: category || undefined,
+          note: note || undefined,
+          confirmRisky: isWantsLocked ? true : undefined,
+        });
+        await alert('Queued offline', 'No connection — spend entry has been saved offline and will sync when reconnected.');
+        safeGoBack(router, `/msme-projects/detail?id=${id}`);
+        return;
+      }
+      // Surface Wants locked error with confirm affordance
+      if (msg.includes('Wants locked')) {
+        const ok = await confirm('Wants locked', msg + ' Tap Confirm to override with confirmRisky.');
+        if (ok) {
+          try {
+            setConfirmRisky(true);
+            const retry = await msmeProjectsApi.recordSpend(id, {
+              tierId: selectedTierId,
+              subPocketId: selectedSubPocketId || undefined,
+              amount: numericAmount,
+              merchant: merchant || undefined,
+              category: category || undefined,
+              note: note || undefined,
+              confirmRisky: true,
+            });
+            useDataSync.getState().bump();
+            await alert('Spend logged (override)', 'Wants spend recorded with override.');
+            safeGoBack(router, `/msme-projects/detail?id=${id}`);
+            return;
+          } catch (retryErr) {
+            await alert('Could not log spend', retryErr instanceof Error ? retryErr.message : 'Please try again.');
+            return;
+          }
+        }
+      }
+      await alert('Could not log spend', msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
  if (loadError) {
  return (
@@ -226,7 +255,10 @@ export default function MsmeProjectLogSpendScreen() {
  return (
  <Pressable
  key={t.id}
- onPress={() => setSelectedTierId(t.id)}
+ onPress={() => {
+   setSelectedTierId(t.id);
+   setSelectedSubPocketId(null);
+ }}
  style={{
  paddingVertical: spacing.md,
  paddingHorizontal: spacing.md,
@@ -263,6 +295,70 @@ export default function MsmeProjectLogSpendScreen() {
  })}
  </View>
  </View>
+
+  {/* Sub-pocket picker if selectedTier has sub-pockets */}
+  {selectedTier && selectedTier.subPockets && selectedTier.subPockets.length > 0 && (
+    <View style={{ marginTop: spacing.lg }}>
+      <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.xs }}>
+        Sub-pocket (optional)
+      </Text>
+      <Text style={{ ...typography.caption, color: colors.sage, marginBottom: spacing.sm }}>
+        Select a sub-pocket to attribute this spend directly:
+      </Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+        <Pressable
+          onPress={() => setSelectedSubPocketId(null)}
+          style={{
+            paddingVertical: spacing.xs,
+            paddingHorizontal: spacing.md,
+            borderRadius: radius.pill,
+            backgroundColor: selectedSubPocketId === null ? colors.ink : colors.surface,
+            borderWidth: 1,
+            borderColor: selectedSubPocketId === null ? colors.ink : colors.line,
+          }}
+        >
+          <Text
+            style={{
+              ...typography.caption,
+              color: selectedSubPocketId === null ? colors.surface : colors.ink,
+              fontWeight: selectedSubPocketId === null ? '600' : '400',
+            }}
+          >
+            Entire Tier
+          </Text>
+        </Pressable>
+        {selectedTier.subPockets.map(sp => {
+          const isSelected = selectedSubPocketId === sp.id;
+          const tierC = tierColor(selectedTier.tier, colors);
+          return (
+            <Pressable
+              key={sp.id}
+              onPress={() => setSelectedSubPocketId(sp.id)}
+              style={{
+                paddingVertical: spacing.xs,
+                paddingHorizontal: spacing.md,
+                borderRadius: radius.pill,
+                backgroundColor: isSelected ? tierC : colors.surface,
+                borderWidth: 1,
+                borderColor: isSelected ? tierC : colors.line,
+              }}
+            >
+              <Text
+                style={{
+                  ...typography.caption,
+                  color: isSelected ? colors.surface : colors.ink,
+                  fontWeight: isSelected ? '600' : '400',
+                }}
+              >
+                {sp.name} · {formatMoney(sp.remainingCash)} left
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  )}
+
  {/* Phase 5 spending controls hints */}
  {isWantsLocked && (
  <View style={{ marginTop: spacing.md, backgroundColor: colors.clayTint, borderWidth: 1, borderColor: colors.clay + '30', borderRadius: radius.md, padding: spacing.md, flexDirection: 'row', gap: spacing.sm }}>
@@ -289,7 +385,7 @@ export default function MsmeProjectLogSpendScreen() {
  marginTop: spacing.xl,
  backgroundColor: colors.surface,
  borderWidth: 1,
- borderColor: numericAmount > availableCash ? colors.clay : colors.line,
+ borderColor: numericAmount > effectiveAvailableCash ? colors.clay : colors.line,
  borderRadius: radius.md,
  paddingHorizontal: spacing.md,
  paddingVertical: spacing.sm,
@@ -315,15 +411,21 @@ export default function MsmeProjectLogSpendScreen() {
  accessibilityLabel="Spend amount"
  />
  </View>
- {selectedTier && (
- <Text style={{ ...typography.caption, color: numericAmount > availableCash ? colors.clay : colors.sage, marginTop: spacing.xs }}>
+ {selectedSubPocket ? (
+ <Text style={{ ...typography.caption, color: numericAmount > effectiveAvailableCash ? colors.clay : colors.sage, marginTop: spacing.xs }}>
+ "{selectedSubPocket.name}" cash left: {formatMoney(selectedSubPocket.remainingCash)} · Target {formatMoney(selectedSubPocket.targetAmount)} · Allocated {formatMoney(selectedSubPocket.allocatedAmount)}
+ </Text>
+ ) : selectedTier ? (
+ <Text style={{ ...typography.caption, color: numericAmount > effectiveAvailableCash ? colors.clay : colors.sage, marginTop: spacing.xs }}>
  {tierLabel(selectedTier.tier)} cash left: {formatMoney(availableCash)} · Target {formatMoney(selectedTier.targetAmount)} · Allocated {formatMoney(selectedTier.allocatedAmount)}
  </Text>
- )}
- {selectedTier && numericAmount > availableCash && (
+ ) : null}
+ {selectedTier && numericAmount > effectiveAvailableCash && (
  <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs, backgroundColor: colors.clayTint, padding: spacing.sm, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.clay + '30' }}>
  <AlertTriangle size={14} color={colors.clay} strokeWidth={2} />
- <Text style={{ ...typography.caption, color: colors.clay, flex: 1 }}>Exceeds available cash in {selectedTier ? tierLabel(selectedTier.tier) : 'this tier'}. Spend cannot exceed Allocated − Spent.</Text>
+ <Text style={{ ...typography.caption, color: colors.clay, flex: 1 }}>
+   Exceeds available cash in {selectedSubPocket ? `"${selectedSubPocket.name}"` : tierLabel(selectedTier.tier)}. Spend cannot exceed Allocated − Spent.
+ </Text>
  </View>
  )}
 

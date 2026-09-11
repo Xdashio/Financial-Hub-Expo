@@ -33,6 +33,7 @@ export interface MsmeCustomPocketItem {
   id: string;
   name: string;
   category: BusinessPocketCategory;
+  percentage?: number;
 }
 
 export const BUSINESS_CATEGORIES: { id: BusinessPocketCategory; label: string }[] = [
@@ -72,7 +73,11 @@ function buildMsmeInput(
     fixedExpenses: fixedExpenses.length > 0
       ? fixedExpenses.map((e) => ({ name: e.name, amount: e.amount, dueDay: e.dueDay, category: e.category as any }))
       : undefined,
-    customPockets: msmeCustomPockets.map((p) => ({ name: p.name, category: p.category })),
+    customPockets: msmeCustomPockets.map((p) => ({
+      name: p.name,
+      category: p.category,
+      percentage: p.percentage,
+    })),
   };
 }
 
@@ -164,7 +169,8 @@ interface OnboardingState {
   // MSME actions
   setSegment: (segment: Segment) => void;
   setMsmeData: (data: Partial<MsmeOnboardingInput>) => void;
-  addCustomPocket: (pocket: { name: string; category: BusinessPocketCategory }) => void;
+  addCustomPocket: (pocket: { name: string; category: BusinessPocketCategory; percentage?: number }) => void;
+  updateCustomPocket: (id: string, updates: Partial<MsmeCustomPocketItem>) => void;
   removeCustomPocket: (id: string) => void;
   previewMsmePlan: () => Promise<void>;
   commitMsmePlan: () => Promise<void>;
@@ -383,6 +389,12 @@ export const useOnboardingStore = create<OnboardingState>()(
             error: null,
           };
         }),
+
+      updateCustomPocket: (id, updates) =>
+        set((state) => ({
+          msmeCustomPockets: state.msmeCustomPockets.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+          error: null,
+        })),
 
       removeCustomPocket: (id) =>
         set((state) => ({

@@ -140,7 +140,7 @@ export class MsmeProjectsController {
   @ApiResponse({ status: 404, description: 'Project or tier not found' })
   async recordSpend(
     @Param('id') id: string,
-    @Body() body: { tierId: string; amount: number; merchant?: string; category?: string; note?: string; confirmRisky?: boolean },
+    @Body() body: { tierId: string; subPocketId?: string; amount: number; merchant?: string; category?: string; note?: string; confirmRisky?: boolean },
     @Request() req: any,
   ): Promise<ProjectSummary> {
     return this.projectsService.recordSpend(
@@ -152,6 +152,7 @@ export class MsmeProjectsController {
       body.category,
       body.note,
       body.confirmRisky,
+      body.subPocketId,
     );
   }
 

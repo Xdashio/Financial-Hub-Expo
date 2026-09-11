@@ -367,6 +367,7 @@ export type BusinessStage = z.infer<typeof BusinessStageSchema>;
 export const MsmePocketInputSchema = z.object({
   name: z.string().min(1).max(100),
   category: PocketCategorySchema,
+  percentage: z.number().min(0).max(100).optional(),
 });
 export type MsmePocketInput = z.infer<typeof MsmePocketInputSchema>;
 
@@ -402,15 +403,38 @@ export type FundingStatus = z.infer<typeof FundingStatusSchema>;
 export const ProjectStatusSchema = z.enum(['draft', 'active', 'completed', 'cancelled']);
 export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 
+export const TierSubPocketInputSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1).max(100),
+  targetAmount: z.number().positive(),
+});
+export type TierSubPocketInput = z.infer<typeof TierSubPocketInputSchema>;
+
+export const TierSubPocketSummarySchema = z.object({
+  id: z.string(),
+  name: z.string().min(1).max(100),
+  targetAmount: z.number().positive(),
+  allocatedAmount: z.number().nonnegative(),
+  spentAmount: z.number().nonnegative(),
+  remainingCash: z.number().nonnegative(),
+  fundingPercent: z.number().min(0).max(100),
+});
+export type TierSubPocketSummary = z.infer<typeof TierSubPocketSummarySchema>;
+
 export const ProjectCreateInputSchema = z.object({
   name: z.string().min(1).max(100),
   kind: ProjectKindSchema,
   contractValue: z.number().positive(),
   tiers: z.object({
-    priorities: z.number().positive(), // target amounts
-    needs: z.number().positive(),
-    wants: z.number().positive(),
+    priorities: z.number().nonnegative(), // target amounts
+    needs: z.number().nonnegative(),
+    wants: z.number().nonnegative(),
   }).refine(v => v.priorities + v.needs + v.wants > 0, { message: 'At least one tier target required' }),
+  subPockets: z.object({
+    priorities: z.array(TierSubPocketInputSchema).optional(),
+    needs: z.array(TierSubPocketInputSchema).optional(),
+    wants: z.array(TierSubPocketInputSchema).optional(),
+  }).optional(),
   // optional: allow wants=0 for lean projects — service normalizes
 }).refine(v => Math.abs((v.tiers.priorities + v.tiers.needs + v.tiers.wants) - v.contractValue) < 0.01,
   { message: 'Tier targets must sum to contract value', path: ['contractValue'] });
@@ -434,6 +458,7 @@ export const TierSummarySchema = z.object({
   remainingCash: z.number().nonnegative(), // allocated - spent
   fundingStatus: FundingStatusSchema,
   fundingPercent: z.number().min(0).max(100),
+  subPockets: z.array(TierSubPocketSummarySchema).optional(),
 });
 export type TierSummary = z.infer<typeof TierSummarySchema>;
 
@@ -583,6 +608,7 @@ export type ProjectCompletionResolveInput = z.infer<typeof ProjectCompletionReso
 
 export const ProjectSpendInputSchema = z.object({
   tierId: z.string().uuid(),
+  subPocketId: z.string().optional(),
   amount: z.number().positive(),
   merchant: z.string().min(1).max(100).optional(),
   category: z.string().max(100).optional(),
