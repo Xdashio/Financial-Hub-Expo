@@ -7,22 +7,22 @@ import { AppModule } from './app.module';
 
 const logger = new Logger('Bootstrap');
 
-// Comma-separated allowlist, e.g. "https://app.example.com,http://localhost:8081".
-// Falls back to FRONTEND_URL, then to the local Expo dev server.
 function corsOrigins(): string[] {
   const configured = process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:8081';
-  // Always include production Railway URL for web client support
-  const productionUrl = 'https://api-production-8db1.up.railway.app';
   const origins = configured
     .split(',')
     .map(origin => origin.trim())
     .filter(Boolean);
-  
-  // Add production URL if not already in the list
-  if (!origins.includes(productionUrl)) {
-    origins.push(productionUrl);
+
+  // If running on Railway, add the assigned public domain
+  const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_STATIC_URL;
+  if (railwayDomain) {
+    const railwayUrl = railwayDomain.startsWith('http') ? railwayDomain : `https://${railwayDomain}`;
+    if (!origins.includes(railwayUrl)) {
+      origins.push(railwayUrl);
+    }
   }
-  
+
   return origins;
 }
 
@@ -76,9 +76,12 @@ async function bootstrap() {
                         /^https:\/\/[a-zA-Z0-9\-]+\.ngrok-free\.dev$/.test(origin);
         if (isLocalhost || isNgrok) return callback(null, true);
       } else {
-        // In production, allow the production Railway URL
-        const isProductionRailway = /^https:\/\/api-production-8db1\.up\.railway\.app$/.test(origin);
-        if (isProductionRailway) return callback(null, true);
+        // In production, allow the Railway public domain if present
+        const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN || process.env.RAILWAY_STATIC_URL;
+        if (railwayDomain) {
+          const expectedUrl = railwayDomain.startsWith('http') ? railwayDomain : `https://${railwayDomain}`;
+          if (origin === expectedUrl) return callback(null, true);
+        }
       }
 
       callback(new Error(`CORS: origin "${origin}" not allowed`), false);

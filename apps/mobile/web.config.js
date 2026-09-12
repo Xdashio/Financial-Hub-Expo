@@ -6,7 +6,7 @@ module.exports = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: http://localhost:* https:api-production-8db1.up.railway.app *.up.railway.app *.railway.app; img-src 'self' data: blob: https: http://localhost:* https:api-production-8db1.up.railway.app *.up.railway.app *.railway.app; font-src 'self' data: https: http://localhost:* https:api-production-8db1.up.railway.app *.up.railway.app *.railway.app; style-src 'self' 'unsafe-inline' https: http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https: http://localhost:* https:api-production-8db1.up.railway.app *.up.railway.app *.railway.app; connect-src 'self' blob: https: wss: http://localhost:* https:api-production-8db1.up.railway.app *.up.railway.app *.railway.app; worker-src 'self' blob:; frame-src 'self' blob: https: http://localhost:* https:api-production-8db1.up.railway.app *.up.railway.app *.railway.app;"
+            value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: http://localhost:* *.up.railway.app *.railway.app; img-src 'self' data: blob: https: http://localhost:* *.up.railway.app *.railway.app; font-src 'self' data: https: http://localhost:* *.up.railway.app *.railway.app; style-src 'self' 'unsafe-inline' https: http://localhost:*; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https: http://localhost:* *.up.railway.app *.railway.app; connect-src 'self' blob: https: wss: http://localhost:* *.up.railway.app *.railway.app; worker-src 'self' blob:; frame-src 'self' blob: https: http://localhost:* *.up.railway.app *.railway.app;"
           },
           {
             key: 'Access-Control-Allow-Origin',

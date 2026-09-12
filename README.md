@@ -252,7 +252,7 @@ pnpm typecheck
 pnpm test
 ```
 
-**EAS mobile builds** — see `apps/mobile/eas.json` for build profiles (`development`, `preview`, `preview-arm64`, `preview-universal`, `production`). API URL for all profiles is `https://api-production-8db1.up.railway.app/api`.
+**EAS mobile builds** — see `apps/mobile/eas.json` for build profiles (`development`, `preview`, `preview-arm64`, `preview-universal`, `production`). API URL for all profiles is `https://api-production-f91bc.up.railway.app/api`.
 
 **Railway deployment** — configured in `railway.toml`. Dockerfile at `apps/api/Dockerfile`; build context is the monorepo root so `packages/shared` is available. Healthcheck: `GET /api/health`.
 
