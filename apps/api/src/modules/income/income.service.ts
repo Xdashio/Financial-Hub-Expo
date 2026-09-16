@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, Logger } from '@nes
 import { v4 as uuidv4 } from 'uuid';
 import { CreateIncomeDto, AllocatePreviewDto, AllocateSurplusDto } from './dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { IncomeEventInsert, TransactionInsert, Pocket, Plan, PocketInsert, IdempotencyScope } from '../../database/database.types';
+import { IncomeEventInsert, TransactionInsert, Pocket, Plan, IdempotencyScope } from '../../database/database.types';
 import { RunwaySummary } from '@financial-hub/shared';
 import { RunwayService } from '../runway/runway.service';
 import { computeSpendableDailyCaps } from '../runway/runway.calculator';
@@ -671,8 +671,9 @@ export class IncomeService {
           category: null,
         }));
 
-        await this.claimSurplusAllocation(incomeEventId);
-        await this.repository.createTransactions(transactions);
+        await this.commitSurplusAllocation(
+          incomeEventId, userId, transactions.map(({ pocket_id, amount }) => ({ pocket_id, amount })),
+        );
 
         return {
           success: true,
@@ -692,13 +693,8 @@ export class IncomeService {
         if (!pocket || pocket.plan_id !== plan.id) {
           throw new BadRequestException('Invalid pocket');
         }
-        await this.claimSurplusAllocation(incomeEventId);
-        await this.repository.createTransactions([{
-          pocket_id: dto.pocket_id,
-          amount: surplusAmount,
-          type: 'allocation' as const,
-          merchant: null,
-          category: null,
+        await this.commitSurplusAllocation(incomeEventId, userId, [{
+          pocket_id: dto.pocket_id, amount: surplusAmount,
         }]);
         return {
           success: true,
@@ -714,26 +710,13 @@ export class IncomeService {
         if (!dto.new_pocket_name) {
           throw new BadRequestException('new_pocket_name is required when target is "new_pocket"');
         }
-        const newPocket: PocketInsert = {
-          plan_id: plan.id,
-          name: dto.new_pocket_name,
-          kind: 'spendable',
-          category: 'other',
-          is_time_locked: false,
-          monthly_allocation: 0,
-        };
-        const createdPocket = await this.repository.createPocket(newPocket);
+        const allocationResult = await this.commitSurplusAllocation(
+          incomeEventId, userId, [{ amount: surplusAmount }], { plan_id: plan.id, name: dto.new_pocket_name },
+        );
+        const createdPocket = allocationResult.new_pocket;
         if (!createdPocket) {
           throw new BadRequestException('Failed to create new pocket');
         }
-        await this.claimSurplusAllocation(incomeEventId);
-        await this.repository.createTransactions([{
-          pocket_id: createdPocket.id,
-          amount: surplusAmount,
-          type: 'allocation' as const,
-          merchant: null,
-          category: null,
-        }]);
         return {
           success: true,
           allocation: {
@@ -790,8 +773,9 @@ export class IncomeService {
         if (savingsTransactions.length === 0) {
           throw new BadRequestException('No savings allocation computed');
         }
-        await this.claimSurplusAllocation(incomeEventId);
-        await this.repository.createTransactions(savingsTransactions);
+        await this.commitSurplusAllocation(
+          incomeEventId, userId, savingsTransactions.map(({ pocket_id, amount }) => ({ pocket_id, amount })),
+        );
         // Fire-and-forget push for business copy ("Move excess KSh X to Savings? [Confirm]")
         // — mirrors the allocation push but with savings-specific copy. Never blocks the response.
         void this.pushDelivery
@@ -815,12 +799,22 @@ export class IncomeService {
     }
   }
 
-  private async claimSurplusAllocation(incomeEventId: string): Promise<void> {
-    const claimed = await this.repository.claimPendingSurplus(incomeEventId);
-    if (!claimed) {
+  /** Atomically allocate a pending surplus; concurrent losers get a clean 400. */
+  private async commitSurplusAllocation(
+    incomeEventId: string,
+    userId: string,
+    allocations: Array<{ pocket_id?: string; amount: number }>,
+    newPocket?: { plan_id: string; name: string },
+  ): Promise<{ new_pocket: { id: string; name: string } | null }> {
+    const result = newPocket
+      ? await this.repository.allocatePendingSurplusAtomic(incomeEventId, userId, allocations, newPocket)
+      : await this.repository.allocatePendingSurplusAtomic(incomeEventId, userId, allocations);
+    if (!result) {
       throw new BadRequestException('This income event has no pending surplus to allocate');
     }
+    return result;
   }
+
 }
 
 function round2(n: number): number {

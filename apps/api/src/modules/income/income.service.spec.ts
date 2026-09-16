@@ -13,7 +13,7 @@ const POCKETS = [
 ];
 
 function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
-  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord' | 'getSubPocketsByParentId' | 'claimPendingSurplus'
+  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord' | 'getSubPocketsByParentId' | 'allocatePendingSurplusAtomic'
 >>> = {}) {
   return {
     getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN),
@@ -24,7 +24,7 @@ function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
     saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
     updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
     getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
-    claimPendingSurplus: jest.fn().mockResolvedValue({ id: 'evt-1' }),
+    allocatePendingSurplusAtomic: jest.fn().mockResolvedValue({ new_pocket: { id: 'new-pocket', name: 'New pocket' } }),
     ...overrides,
   } as unknown as jest.Mocked<SupabaseRepository>;
 }
@@ -782,10 +782,9 @@ describe('IncomeService allocateSurplus segment-aware (Phase 2)', () => {
     const result = await service.allocateSurplus('evt-1', { target: 'savings', segment: 'msme' }, 'user-1');
 
     expect(repository.getActivePlanByUserId).toHaveBeenCalledWith('user-1', 'msme');
-    expect(repository.createTransactions).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ pocket_id: 'pocket-savings', amount: 5000, type: 'allocation' }),
-      ]),
+    expect(repository.allocatePendingSurplusAtomic).toHaveBeenCalledWith(
+      'evt-1', 'user-1',
+      expect.arrayContaining([expect.objectContaining({ pocket_id: 'pocket-savings', amount: 5000 })]),
     );
     expect(result.allocation).not.toBeNull();
     expect(result.allocation!.pocket_id).toBe('pocket-savings');
@@ -810,7 +809,7 @@ describe('IncomeService allocateSurplus segment-aware (Phase 2)', () => {
 
     const result = await service.allocateSurplus('evt-1', { target: 'savings', segment: 'msme' }, 'user-1');
 
-    const transactions = repository.createTransactions.mock.calls[0][0];
+    const transactions = repository.allocatePendingSurplusAtomic.mock.calls[0][2];
     const savingsA = transactions.find((t: any) => t.pocket_id === 'pocket-savings-a');
     const savingsB = transactions.find((t: any) => t.pocket_id === 'pocket-savings-b');
     expect(savingsA).toBeDefined();
@@ -858,7 +857,7 @@ describe('IncomeService allocateSurplus segment-aware (Phase 2)', () => {
     // Should NOT have been called with individual plan
     expect(repository.getTopLevelPocketsByPlanId).not.toHaveBeenCalledWith('plan-individual');
     // Allocations should only go to MSME pockets
-    const transactions = repository.createTransactions.mock.calls[0][0];
+    const transactions = repository.allocatePendingSurplusAtomic.mock.calls[0][2];
     const pocketIds = transactions.map((t: any) => t.pocket_id);
     expect(pocketIds).toEqual(expect.arrayContaining(['pocket-msme-savings', 'pocket-msme-stock']));
     expect(pocketIds).not.toEqual(expect.arrayContaining(['pocket-ind-savings', 'pocket-ind-food']));

@@ -548,6 +548,29 @@ export class SupabaseRepository {
     return data;
   }
 
+  async allocatePendingSurplusAtomic(
+    incomeEventId: string,
+    userId: string,
+    allocations: Array<{ pocket_id?: string; amount: number }>,
+    newPocket?: { plan_id: string; name: string },
+  ): Promise<{ new_pocket: Pocket | null } | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_allocate_surplus', {
+      p_income_event_id: incomeEventId,
+      p_user_id: userId,
+      p_allocations: allocations,
+      p_new_pocket: newPocket ?? null,
+    });
+    if (error) {
+      // Concurrent allocateSurplus callers race past the soft status check; the
+      // RPC's FOR UPDATE + pending guard is the real CAS. Surface that as null
+      // so the service can return 400 instead of leaking a 500/PostgREST error.
+      const msg = String(error.message ?? error.details ?? '');
+      if (msg.includes('no pending surplus')) return null;
+      throw error;
+    }
+    return data as { new_pocket: Pocket | null };
+  }
+
   // Transactions
   async createTransaction(transaction: TransactionInsert): Promise<Transaction | null> {
     const { data, error } = await this.supabase
