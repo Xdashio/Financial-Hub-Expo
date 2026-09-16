@@ -309,6 +309,41 @@ export class SupabaseRepository {
     return data;
   }
 
+  /** Atomically records one loan repayment and advances the schedule once. */
+  async fundLoanRepaymentAtomic(
+    loanId: string,
+    userId: string,
+    amount: number,
+    repaymentPocketId: string,
+    nextDueDate?: string | null,
+  ): Promise<{
+    payments_made: number;
+    total_payments: number;
+    completed: boolean;
+    previous_next_due_date: string | null;
+    schedule: Record<string, unknown>;
+  } | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_fund_loan_repayment', {
+      p_loan_id: loanId,
+      p_user_id: userId,
+      p_amount: amount,
+      p_repayment_pocket_id: repaymentPocketId,
+      p_next_due_date: nextDueDate ?? null,
+    });
+    if (error) {
+      const msg = String(error.message ?? error.details ?? '');
+      if (msg.includes('already fully repaid')) return null;
+      throw error;
+    }
+    return data as {
+      payments_made: number;
+      total_payments: number;
+      completed: boolean;
+      previous_next_due_date: string | null;
+      schedule: Record<string, unknown>;
+    };
+  }
+
   // ------------------------------------------------------------------------
   // Pre-016 segment fallback helpers (see 016_msme_phase2_segment_isolation.sql)
   // ------------------------------------------------------------------------

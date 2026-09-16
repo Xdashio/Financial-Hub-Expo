@@ -61,6 +61,7 @@ describe('LoansService', () => {
       | 'updatePocket'
       | 'createTransaction'
       | 'createBehaviorEvent'
+      | 'fundLoanRepaymentAtomic'
     >
   >;
   let disciplineScore: jest.Mocked<Pick<DisciplineScoreService, 'applyDelta'>>;
@@ -79,6 +80,13 @@ describe('LoansService', () => {
       updatePocket: jest.fn().mockImplementation((id, updates) => ({ ...LOAN_POCKET, ...updates })),
       createTransaction: jest.fn().mockResolvedValue(undefined),
       createBehaviorEvent: jest.fn().mockResolvedValue(undefined),
+      fundLoanRepaymentAtomic: jest.fn().mockResolvedValue({
+        payments_made: 1,
+        total_payments: 3,
+        completed: false,
+        previous_next_due_date: '2026-02-05',
+        schedule: { ...LOAN_POCKET.repayment_schedule, paymentsMade: 1, nextDueDate: '2026-03-05' },
+      }),
     } as any;
     disciplineScore = { applyDelta: jest.fn() } as any;
     service = new LoansService(repository as unknown as SupabaseRepository, disciplineScore as unknown as DisciplineScoreService);
@@ -91,28 +99,28 @@ describe('LoansService', () => {
     // silently broke "advance due date" and "loan fully repaid" checks,
     // and persisted as `null` once round-tripped through JSON into the
     // JSONB column. These tests pin the fix.
-    it('increments paymentsMade (not payments_made) on the persisted schedule', async () => {
+    it('advances paymentsMade through the atomic repayment claim (not payments_made)', async () => {
       await service.fundRepayment('loan-1', 'user-1', 1000);
 
-      expect(repository.updatePocket).toHaveBeenCalledWith(
+      expect(repository.fundLoanRepaymentAtomic).toHaveBeenCalledWith(
         'loan-1',
-        expect.objectContaining({
-          repayment_schedule: expect.objectContaining({ paymentsMade: 1 }),
-        }),
+        'user-1',
+        1000,
+        'sub-repayment-1',
+        expect.any(String),
       );
-      const [, updates] = repository.updatePocket.mock.calls[0];
-      const persistedSchedule = (updates as any).repayment_schedule;
-      expect(persistedSchedule.payments_made).toBeUndefined();
-      expect(Number.isNaN(persistedSchedule.paymentsMade)).toBe(false);
+      const [, , , , nextDueDate] = repository.fundLoanRepaymentAtomic.mock.calls[0];
+      expect(nextDueDate).not.toBe('2026-02-05');
+      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.updatePocket).not.toHaveBeenCalled();
     });
 
     it('advances nextDueDate after a payment when more payments remain', async () => {
       await service.fundRepayment('loan-1', 'user-1', 1000);
-      const [, updates] = repository.updatePocket.mock.calls[0];
-      const persistedSchedule = (updates as any).repayment_schedule;
+      const [, , , , nextDueDate] = repository.fundLoanRepaymentAtomic.mock.calls[0];
       // Started at 2026-02-05, monthly cadence — should have moved forward,
       // not stayed frozen (the NaN-comparison bug always evaluated false).
-      expect(persistedSchedule.nextDueDate).not.toBe('2026-02-05');
+      expect(nextDueDate).not.toBe('2026-02-05');
     });
 
     it('marks the loan fully repaid once paymentsMade reaches totalPayments', async () => {
@@ -121,13 +129,55 @@ describe('LoansService', () => {
         repayment_schedule: { ...LOAN_POCKET.repayment_schedule, paymentsMade: 2 }, // 1 payment left of 3
       };
       repository.getPocketById.mockResolvedValue(almostDone as any);
+      repository.fundLoanRepaymentAtomic.mockResolvedValue({
+        payments_made: 3,
+        total_payments: 3,
+        completed: true,
+        previous_next_due_date: '2026-04-05',
+        schedule: { ...almostDone.repayment_schedule, paymentsMade: 3, fullyRepaid: true },
+      });
 
       await service.fundRepayment('loan-1', 'user-1', 1000);
 
+      expect(repository.fundLoanRepaymentAtomic).toHaveBeenCalledWith(
+        'loan-1',
+        'user-1',
+        1000,
+        'sub-repayment-1',
+        null,
+      );
       expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
         expect.objectContaining({ type: 'loan_fully_repaid' }),
       );
       expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', 10);
+    });
+
+    it('rejects a second fundRepayment once the loan is already fully repaid (C5)', async () => {
+      const repaid = {
+        ...LOAN_POCKET,
+        repayment_schedule: {
+          ...LOAN_POCKET.repayment_schedule,
+          paymentsMade: 3,
+          fullyRepaid: true,
+        },
+      };
+      repository.getPocketById.mockResolvedValue(repaid as any);
+
+      await expect(service.fundRepayment('loan-1', 'user-1', 1000)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+      expect(repository.fundLoanRepaymentAtomic).not.toHaveBeenCalled();
+      expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the atomic claim loses a concurrent final-payment race (C5)', async () => {
+      repository.fundLoanRepaymentAtomic.mockResolvedValue(null);
+
+      await expect(service.fundRepayment('loan-1', 'user-1', 1000)).rejects.toThrow(
+        /already been fully repaid/,
+      );
+      expect(repository.createBehaviorEvent).not.toHaveBeenCalled();
+      expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
     });
   });
 

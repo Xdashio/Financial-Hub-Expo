@@ -7,7 +7,7 @@ import {
 } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
-import { Pocket, PocketInsert, TransactionInsert } from '../../database/database.types';
+import { Pocket, PocketInsert } from '../../database/database.types';
 
 /**
  * Loans Service - audit_team.md item 9
@@ -301,7 +301,7 @@ export class LoansService {
     if (!schedule) {
       throw new BadRequestException('Loan has no repayment schedule');
     }
-    if (schedule.paymentsMade >= schedule.totalPayments) {
+    if (schedule.fullyRepaid === true || schedule.paymentsMade >= schedule.totalPayments) {
       throw new BadRequestException('This loan has already been fully repaid');
     }
 
@@ -320,41 +320,32 @@ export class LoansService {
       );
     }
 
-    // Record the repayment transaction
-    const transactionInsert: TransactionInsert = {
-      pocket_id: repaymentSubPocket.id,
-      amount: amount, // Credit to repayment sub-pocket
-      type: 'allocation',
-      merchant: 'Loan Repayment',
-      category: 'other',
-    };
+    // Pre-compute the next due date for non-final payments. The RPC locks the
+    // loan, writes the ledger credit, and CAS-advances paymentsMade so two
+    // concurrent fundRepayment calls cannot both credit the pocket or both
+    // fire markLoanFullyRepaid (C5).
+    const provisionalPaymentsMade = schedule.paymentsMade + 1;
+    const nextDueDate =
+      provisionalPaymentsMade < schedule.totalPayments
+        ? this.calculateNextDueDate({ ...schedule, paymentsMade: provisionalPaymentsMade })
+        : null;
 
-    await this.repository.createTransaction(transactionInsert);
-
-    // Update repayment schedule progress. Schedule keys are camelCase
-    // throughout (see RepaymentScheduleSchema / buildRepaymentSchedule) —
-    // using payments_made here previously read/wrote a key that didn't
-    // exist, so paymentsMade never actually advanced (see code review,
-    // 2026-08-13): NaN broke the "is fully repaid" and "advance due date"
-    // checks below, and silently persisted as `null` once round-tripped
-    // through JSON into the JSONB column.
-    const updatedSchedule = {
-      ...schedule,
-      paymentsMade: schedule.paymentsMade + 1,
-    };
-
-    // Calculate next due date
-    if (updatedSchedule.paymentsMade < updatedSchedule.totalPayments) {
-      updatedSchedule.nextDueDate = this.calculateNextDueDate(updatedSchedule);
+    const claim = await this.repository.fundLoanRepaymentAtomic(
+      loanId,
+      userId,
+      amount,
+      repaymentSubPocket.id,
+      nextDueDate,
+    );
+    if (!claim) {
+      throw new BadRequestException('This loan has already been fully repaid');
     }
 
-    await this.repository.updatePocket(loanId, {
-      repayment_schedule: updatedSchedule as any,
-    });
-
-    // Check if repayment is on time or late
+    // Check if repayment is on time or late against the due date that was
+    // current *before* this payment claimed the slot.
     const today = new Date().toISOString().split('T')[0];
-    const isLate = today > schedule.nextDueDate;
+    const dueDate = claim.previous_next_due_date ?? schedule.nextDueDate;
+    const isLate = !!dueDate && today > dueDate;
 
     // Record behavioral event. Single source of truth for the point swing
     // — the payload below and the applyDelta call after it both derive
@@ -371,7 +362,7 @@ export class LoansService {
         loan_id: loanId,
         loan_name: loan.name,
         amount: amount,
-        due_date: schedule.nextDueDate,
+        due_date: dueDate,
         paid_date: today,
         is_late: isLate,
         // points_added/points_deducted follow the same convention every
@@ -390,8 +381,8 @@ export class LoansService {
     // Update discipline score
     await this.disciplineScore.applyDelta(userId, scoreChange);
 
-    // Check if loan is fully repaid
-    if (updatedSchedule.paymentsMade >= updatedSchedule.totalPayments) {
+    // Completion bonus fires only for the caller that claimed the final slot.
+    if (claim.completed) {
       await this.markLoanFullyRepaid(loanId, userId);
     }
 
