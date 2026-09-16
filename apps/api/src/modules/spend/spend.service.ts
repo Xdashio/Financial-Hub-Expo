@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
@@ -363,10 +363,24 @@ export class SpendService {
     }
 
     const spendLockKey = `${userId}:${dto.pocket_id}`;
-    if (SpendService.activeSpends.has(spendLockKey)) {
+    // C4: sibling sub-pockets of the same parent must not borrow concurrently
+    // on this instance. The DB FOR UPDATE in atomic_parent_borrow is the real
+    // cross-instance guard; this parent key only improves same-process UX.
+    let parentBorrowLockKey: string | null = null;
+    if (dto.borrow_from_parent) {
+      const pocketForLock = await this.repository.getPocketById(dto.pocket_id);
+      if (pocketForLock?.parent_pocket_id) {
+        parentBorrowLockKey = `${userId}:parent-borrow:${pocketForLock.parent_pocket_id}`;
+      }
+    }
+    if (
+      SpendService.activeSpends.has(spendLockKey) ||
+      (parentBorrowLockKey !== null && SpendService.activeSpends.has(parentBorrowLockKey))
+    ) {
       throw new ConflictException('A spend transaction is already in progress for this pocket. Please try again.');
     }
     SpendService.activeSpends.add(spendLockKey);
+    if (parentBorrowLockKey) SpendService.activeSpends.add(parentBorrowLockKey);
 
     try {
       const result = await this.checkSpend(dto, userId);
@@ -401,12 +415,17 @@ export class SpendService {
       if (pocket?.parent_pocket_id) {
         // The database function locks the parent family, recomputes its
         // reserve, and writes both ledger entries in one transaction.
-        await this.repository.createImmediateParentToChildReallocation(
+        const borrowed = await this.repository.createImmediateParentToChildReallocation(
           pocket.parent_pocket_id,
           pocket.id,
           result.shortfall,
           'other' // Use 'other' as the reason type for overflow/borrow
         );
+        if (!borrowed) {
+          throw new BadRequestException(
+            'Insufficient reserved balance in the parent pocket to cover this borrow',
+          );
+        }
       }
     }
 
@@ -517,6 +536,7 @@ export class SpendService {
       return response;
     } finally {
       SpendService.activeSpends.delete(spendLockKey);
+      if (parentBorrowLockKey) SpendService.activeSpends.delete(parentBorrowLockKey);
     }
   }
 

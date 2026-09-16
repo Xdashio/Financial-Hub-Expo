@@ -993,7 +993,14 @@ export class SupabaseRepository {
       p_amount: amount,
       p_reason: reason,
     });
-    if (error) throw error;
+    if (error) {
+      // Concurrent sibling borrows race past the soft reserve check in
+      // checkSpend; the RPC's FOR UPDATE + reserve recompute is the real
+      // guard. Surface exhaustion as null so SpendService can return 400.
+      const msg = String(error.message ?? error.details ?? '');
+      if (msg.includes('Insufficient parent reserve')) return null;
+      throw error;
+    }
     return data as Reallocation | null;
   }
 

@@ -70,6 +70,9 @@ describe('SpendService.commitSpend', () => {
       | 'getActivePlanByUserId'
       | 'updatePocket'
       | 'getIncomeEventsByUserId'
+      | 'getParentReservedBalance'
+      | 'createImmediateParentToChildReallocation'
+      | 'getSubPocketsByParentId'
     >
   >;
   let disciplineScore: { applyDelta: jest.Mock };
@@ -659,6 +662,53 @@ describe('SpendService.commitSpend', () => {
       // reduced to absorb this exact spend.
       expect((result as any).pocket.daily_cap).toBeCloseTo(adjustedCap, 2);
       expect((result as any).pocket.today_remaining).toBeCloseTo(Math.max(0, adjustedCap - 2000), 2);
+    });
+  });
+
+  describe('parent borrow (C4 atomic reserve guard)', () => {
+    const PARENT = { ...SPENDABLE_POCKET, id: 'parent-1', name: 'Lifestyle' };
+    const CHILD = { ...SPENDABLE_POCKET, id: 'child-1', name: 'Coffee', parent_pocket_id: 'parent-1' };
+
+    beforeEach(() => {
+      repository.getPocketById.mockImplementation(async (id: string) => {
+        if (id === 'child-1') return CHILD as any;
+        if (id === 'parent-1') return PARENT as any;
+        return SPENDABLE_POCKET as any;
+      });
+      repository.getPocketSummary.mockResolvedValue(makePocketSummary({ available: 100 }));
+      repository.getParentReservedBalance.mockResolvedValue(400);
+      repository.getTopLevelPocketsByPlanId.mockResolvedValue([PARENT] as any);
+    });
+
+    it('borrows from parent then writes the spend when reserve covers the shortfall', async () => {
+      const result = await service.commitSpend(
+        { pocket_id: 'child-1', amount: 300, borrow_from_parent: true },
+        'user-1',
+      );
+
+      expect(result.allowed).toBe(true);
+      expect((result as any).borrowed_from_parent).toBe(true);
+      expect(repository.createImmediateParentToChildReallocation).toHaveBeenCalledWith(
+        'parent-1',
+        'child-1',
+        200,
+        'other',
+      );
+      expect(repository.createTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ pocket_id: 'child-1', amount: 300, type: 'spend' }),
+      );
+    });
+
+    it('returns 400 and does not spend when the atomic borrow loses the reserve race', async () => {
+      (repository.createImmediateParentToChildReallocation as jest.Mock).mockResolvedValueOnce(null);
+
+      await expect(
+        service.commitSpend(
+          { pocket_id: 'child-1', amount: 300, borrow_from_parent: true },
+          'user-1',
+        ),
+      ).rejects.toThrow(/Insufficient reserved balance/);
+      expect(repository.createTransaction).not.toHaveBeenCalled();
     });
   });
 });
