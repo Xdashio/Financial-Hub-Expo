@@ -26,7 +26,7 @@ export default function BiometricEnableScreen() {
   const [biometricType, setBiometricType] = useState<'face' | 'fingerprint' | null>(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  const [isUnlocked, setIsUnlocked] = useState(fromSignup || !user?.biometricEnabled);
+  const [isUnlocked, setIsUnlocked] = useState(!user?.biometricEnabled);
   const [isAuthenticatingEntry, setIsAuthenticatingEntry] = useState(false);
   const confirmingRef = useRef(false);
 
@@ -87,10 +87,14 @@ export default function BiometricEnableScreen() {
     }
   }, []);
 
-  // When biometrics are on and opening from Settings, confirm identity before revealing controls
+  // When biometrics are on, confirm identity before revealing controls —
+  // regardless of whether the user arrived from signup or from Settings. The
+  // fromSignup param previously bypassed this gate entirely: deep-linking
+  // /(auth)/biometric-enable?fromSignup=true while authenticated (biometrics
+  // enabled) revealed the disable toggle without any biometric prompt.
   useFocusEffect(
     useCallback(() => {
-      if (fromSignup || !isReady || !biometricAvailable) return;
+      if (!isReady || !biometricAvailable) return;
       if (!user?.biometricEnabled) {
         setIsUnlocked(true);
         return;
@@ -98,7 +102,7 @@ export default function BiometricEnableScreen() {
       if (!isUnlocked) {
         confirmAccess();
       }
-    }, [fromSignup, isReady, biometricAvailable, user?.biometricEnabled, isUnlocked, confirmAccess])
+    }, [isReady, biometricAvailable, user?.biometricEnabled, isUnlocked, confirmAccess])
   );
 
   // Auto-skip only applies to the signup flow when device has no biometrics

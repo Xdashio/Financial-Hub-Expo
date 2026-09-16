@@ -22,8 +22,7 @@
       "env": {
         "EXPO_PUBLIC_API_URL": "https://api-production-f91bc.up.railway.app/api",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
-        "ARM64_ONLY_BUILD": "true",
-        "ORG_GRADLE_PROJECT_reactNativeArchitectures": "armeabi-v7a,arm64-v8a"
+        "ARM64_ONLY_BUILD": "true"
       },
       "android": {
         "buildType": "apk"

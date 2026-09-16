@@ -488,6 +488,8 @@ export class PocketsService {
       throw new NotFoundException('Parent pocket not found');
     }
 
+    // Pre-flight validation (mirrored atomically inside the RPC so races
+    // cannot slip past a stale read).
     const siblings = await this.repository.getSubPocketsByParentId(parent.id);
     const siblingIds = new Set(siblings.map((s) => s.id));
     for (const split of parsed.splits) {
@@ -510,74 +512,24 @@ export class PocketsService {
       );
     }
 
-    // Current ledger balances, fetched once up front.
-    const [parentSummary, siblingSummaries] = await Promise.all([
-      this.repository.getPocketSummary(parent.id),
-      Promise.all(newPercentages.map((p) => this.repository.getPocketSummary(p.pocket.id))),
-    ]);
-    const balanceByPocketId = new Map(newPercentages.map((p, i) => [p.pocket.id, siblingSummaries[i].available]));
-
-    const decreasing = newPercentages.filter((p) => p.newPercentage < p.oldPercentage - 0.001);
-    const increasing = newPercentages.filter((p) => p.newPercentage > p.oldPercentage + 0.001);
-
-    // Free up money from shrinking siblings first.
-    let parentAvailable = parentSummary.available;
-    const transactions: { pocket_id: string; amount: number; type: 'reallocation_in' | 'reallocation_out' }[] = [];
-    for (const p of decreasing) {
-      const target = round2((parent.monthly_allocation * p.newPercentage) / 100);
-      const currentBalance = balanceByPocketId.get(p.pocket.id) || 0;
-      const freed = Math.max(0, round2(currentBalance - target));
-      if (freed > 0) {
-        transactions.push({ pocket_id: p.pocket.id, amount: -freed, type: 'reallocation_out' });
-        transactions.push({ pocket_id: parent.id, amount: freed, type: 'reallocation_in' });
-        parentAvailable = round2(parentAvailable + freed);
-      }
-    }
-
-    // Fund growing siblings from what the parent now has available.
-    const growthNeeds = increasing.map((p) => {
-      const target = round2((parent.monthly_allocation * p.newPercentage) / 100);
-      const currentBalance = balanceByPocketId.get(p.pocket.id) || 0;
-      return { pocket: p.pocket, needed: Math.max(0, round2(target - currentBalance)) };
-    });
-    const totalNeeded = round2(growthNeeds.reduce((sum, g) => sum + g.needed, 0));
-
-    if (totalNeeded > parentAvailable + 0.01 && !parsed.confirmPartial) {
-      // Nothing committed yet — this is a dry-run check, so it's safe to
-      // return without writing any of the `decreasing` transfers computed
-      // above either. The client re-sends the same request with
-      // confirmPartial: true once the user accepts the partial-fill offer.
-      return { applied: false, shortfall: round2(totalNeeded - parentAvailable), requiresConfirmation: true };
-    }
-
-    const fundingScale = totalNeeded > 0 ? Math.min(1, parentAvailable / totalNeeded) : 1;
-    for (const g of growthNeeds) {
-      const funded = round2(g.needed * fundingScale);
-      if (funded > 0) {
-        transactions.push({ pocket_id: parent.id, amount: -funded, type: 'reallocation_out' });
-        transactions.push({ pocket_id: g.pocket.id, amount: funded, type: 'reallocation_in' });
-      }
-    }
-
-    if (transactions.length > 0) {
-      await this.repository.createTransactions(transactions);
-    }
-
-    // Persist the requested percentages (and refreshed cache) regardless of
-    // whether funding was full or partial — a partial fill's remaining gap
-    // closes over subsequent income events, which always split toward the
-    // stored percentage (see income.service.ts).
-    await Promise.all(
-      newPercentages
-        .filter((p) => Math.abs(p.newPercentage - p.oldPercentage) > 0.001)
-        .map((p) =>
-          this.repository.updatePocket(p.pocket.id, {
-            split_percentage: p.newPercentage,
-            monthly_allocation: round2((parent.monthly_allocation * p.newPercentage) / 100),
-          }),
-        ),
+    // The RPC re-validates under a family-level FOR UPDATE lock and moves the
+    // money in a single transaction — the original race window is closed here.
+    const committed = await this.repository.rebalanceSubPocketsAtomic(
+      parent.id,
+      parsed.splits.map((s) => ({ pocketId: s.pocketId, splitPercentage: s.splitPercentage })),
+      parsed.confirmPartial,
     );
+    if (committed === null) {
+      throw new BadRequestException('This rebalance could not be applied — please try again');
+    }
 
+    if (!committed.applied) {
+      return { applied: false, shortfall: committed.shortfall, requiresConfirmation: true };
+    }
+
+    // Post-commit enrichment: read the fresh, committed pocket rows and
+    // recompute available balance from the ledger. Safe — no race window
+    // remains once the RPC's transaction commits.
     const updatedSiblings = await this.repository.getSubPocketsByParentId(parent.id);
     const enriched = await Promise.all(
       updatedSiblings.map(async (pocket) => {
@@ -588,9 +540,9 @@ export class PocketsService {
 
     return {
       applied: true,
-      partial: totalNeeded > parentAvailable + 0.01,
-      fundedAmount: round2(Math.min(totalNeeded, parentAvailable)),
-      shortfall: Math.max(0, round2(totalNeeded - parentAvailable)),
+      partial: committed.partial,
+      fundedAmount: committed.fundedAmount,
+      shortfall: committed.shortfall,
       pockets: enriched,
     };
   }

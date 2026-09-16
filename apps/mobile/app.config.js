@@ -1,6 +1,6 @@
 // app.config.js
 // Converted from app.json so we can conditionally restrict the Android
-// native architectures for the "preview-arm64" EAS build profile only.
+// native architectures for the "preview" EAS build profile only.
 // Production keeps building for all architectures (app-bundle already lets
 // Google Play do per-device splitting, so there's no APK bloat there).
 
@@ -83,13 +83,28 @@ module.exports = {
         "expo-build-properties",
         {
           android: {
-            enableProguardInReleaseBuilds: true,
+            // R8 + resource shrinking remove unused Java bytecode/resources.
+            // These are explicit here so they remain enabled on every
+            // release-like EAS profile.
+            enableMinifyInReleaseBuilds: true,
             enableShrinkResourcesInReleaseBuilds: true,
+            // Financial Hub renders only PNG assets at runtime. Removing
+            // React Native's unused GIF/WebP decoders reduces Android's
+            // native payload without changing image behavior.
+            gifEnabled: false,
+            webpEnabled: false,
             // Only restrict native architectures for the arm64-only preview
-            // profile (see eas.json -> preview-arm64 -> env.EAS_BUILD_ARM64_ONLY).
+            // profile (see eas.json -> preview -> env.ARM64_ONLY_BUILD).
             // Restricting this for production would break users on
             // armeabi-v7a devices and x86 emulators.
-            ...(arm64Only ? { reactNativeArchitectures: ["arm64-v8a"] } : {}),
+            ...(arm64Only ? {
+              buildArchs: ["arm64-v8a"],
+              // Smaller direct-download APKs; native libraries are compressed
+              // and expanded at install time, trading a little startup speed
+              // for less data used by internal testers.
+              useLegacyPackaging: true,
+              enableBundleCompression: true,
+            } : {}),
           },
         },
       ],

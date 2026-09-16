@@ -205,6 +205,7 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       | 'createTransaction'
       | 'createTransactions'
       | 'updatePocket'
+      | 'rebalanceSubPocketsAtomic'
     >
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
@@ -225,6 +226,9 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       createTransaction: jest.fn().mockResolvedValue({ id: 'txn-1' }),
       createTransactions: jest.fn().mockResolvedValue([]),
       updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
+      rebalanceSubPocketsAtomic: jest
+        .fn()
+        .mockResolvedValue({ applied: true, partial: false, fundedAmount: 0, shortfall: 0 }),
     } as any;
     disciplineScore = { getCurrentScore: jest.fn(), applyDelta: jest.fn() } as any;
     runway = { getRunwayForPlan: jest.fn().mockResolvedValue({ applicable: false }) } as any;
@@ -307,6 +311,7 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       ];
       repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
       repository.getPocketSummary.mockResolvedValue({ available: 500 } as any); // Parent has 500 available
+      repository.rebalanceSubPocketsAtomic.mockResolvedValue({ applied: true, partial: false, fundedAmount: 200, shortfall: 0 });
 
       const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
         splits: [
@@ -316,7 +321,16 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       });
 
       expect(result.applied).toBe(true);
-      expect(repository.updatePocket).toHaveBeenCalled();
+      // The money movement + percentage persistence now happens inside the
+      // atomic_rebalance_sub_pockets RPC, not via createTransactions/updatePocket.
+      expect(repository.rebalanceSubPocketsAtomic).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000',
+        [
+          { pocketId: '550e8400-e29b-41d4-a716-446655440002', splitPercentage: 50 },
+          { pocketId: '550e8400-e29b-41d4-a716-446655440003', splitPercentage: 20 },
+        ],
+        false,
+      );
     });
 
     it('returns shortfall when rebalance requires more than available parent balance', async () => {
@@ -325,6 +339,9 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       ];
       repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
       repository.getPocketSummary.mockResolvedValue({ available: 100 } as any); // Only 100 available
+      // The RPC is the arbiter under the family lock — the service just
+      // relays its dry-run verdict back to the client.
+      repository.rebalanceSubPocketsAtomic.mockResolvedValue({ applied: false, requiresConfirmation: true, shortfall: 400 });
 
       const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
         splits: [
@@ -342,6 +359,7 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       ];
       repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
       repository.getPocketSummary.mockResolvedValue({ available: 100 } as any);
+      repository.rebalanceSubPocketsAtomic.mockResolvedValue({ applied: true, partial: true, fundedAmount: 100, shortfall: 400 });
 
       const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
         splits: [
@@ -364,6 +382,7 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       ];
       repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
       repository.getPocketSummary.mockResolvedValue({ available: 500 } as any);
+      repository.rebalanceSubPocketsAtomic.mockResolvedValue({ applied: true, partial: false, fundedAmount: 100, shortfall: 0 });
 
       const result = await service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', {
         splits: [
@@ -374,8 +393,17 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
       });
 
       expect(result.applied).toBe(true);
-      // sub-2 and sub-3 should be proportionally scaled down to make room
-      expect(repository.updatePocket).toHaveBeenCalled();
+      // The proportional shrink/scale math is authored once, in the RPC,
+      // under the family lock — assert the DB was consulted with the input.
+      expect(repository.rebalanceSubPocketsAtomic).toHaveBeenCalledWith(
+        '550e8400-e29b-41d4-a716-446655440000',
+        [
+          { pocketId: '550e8400-e29b-41d4-a716-446655440002', splitPercentage: 50 },
+          { pocketId: '550e8400-e29b-41d4-a716-446655440003', splitPercentage: 30 },
+          { pocketId: '550e8400-e29b-41d4-a716-446655440004', splitPercentage: 20 },
+        ],
+        false,
+      );
     });
   });
 });

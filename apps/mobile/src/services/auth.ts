@@ -425,16 +425,16 @@ export const useAuthStore = create<AuthState>()(
       },
 
       restoreSession: async () => {
-        // The live Supabase session (now correctly persisted via
-        // AsyncStorage — see supabase.config.ts) is the single source of
-        // truth for whether the user is actually signed in. The app also
-        // keeps its own small 'user' cache (name, biometric flag) for fast
-        // UI, but that cache must never grant an authenticated state on its
-        // own — it previously could, which let a stale/cleared session
-        // still "look" signed in with no real token behind it, and it
-        // could also fail to recognize a perfectly valid live session just
-        // because the cache was empty (e.g. first launch after a fix, or
-        // cache/session writes racing each other).
+        // The live Supabase session (now correctly persisted via the OS
+        // keychain — SecureStore, not AsyncStorage; see supabase.config.ts)
+        // is the single source of truth for whether the user is actually
+        // signed in. The app also keeps its own small 'user' cache (name,
+        // biometric flag) for fast UI, but that cache must never grant an
+        // authenticated state on its own — it previously could, which let a
+        // stale/cleared session still "look" signed in with no real token
+        // behind it, and it could also fail to recognize a perfectly valid
+        // live session just because the cache was empty (e.g. first launch
+        // after a fix, or cache/session writes racing each other).
         set({ isCheckingPlan: true });
         const { data: { session } } = await supabase.auth.getSession();
         const biometricEnabled = await getBiometricEnabled();

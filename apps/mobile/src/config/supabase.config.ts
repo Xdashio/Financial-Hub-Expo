@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -8,32 +9,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase credentials. Please set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY in .env.local');
 }
 
-// Keep this untyped to avoid ESM type-import issues under node16/CommonJS
-let asyncStoragePromise: Promise<any> | null = null;
-
-function getAsyncStorage() {
-  if (!asyncStoragePromise) {
-    asyncStoragePromise = import(
-      '@react-native-async-storage/async-storage'
-    ).then((mod) => mod.default);
-  }
-
-  return asyncStoragePromise;
-}
-
-export const supabase: SupabaseClient = createClient(
-  supabaseUrl,
-  supabaseAnonKey,
-  {
-    auth: {
-      storage: {
+// SecureStore is the hardened equivalent of AsyncStorage for secrets. Sessions
+// (access + refresh tokens) are the most sensitive credential the app holds —
+// they grant full account access until they expire. AsyncStorage stores them in
+// an unencrypted SQLite file on disk; SecureStore uses the OS keystore
+// (iOS Keychain / Android EncryptedSharedPreferences) which is encrypted at
+// rest and backed by hardware on modern devices.
+// Web has no SecureStore — localStorage is acceptable there (dev/preview only;
+// real production sessions go through native).
+const secureStorage = {
   getItem: async (key: string) => {
     if (Platform.OS === 'web') {
       return (globalThis as any).localStorage?.getItem(key) ?? null;
     }
-
-    const AsyncStorage = await getAsyncStorage();
-    return AsyncStorage.getItem(key);
+    return SecureStore.getItemAsync(key);
   },
 
   setItem: async (key: string, value: string) => {
@@ -41,9 +30,7 @@ export const supabase: SupabaseClient = createClient(
       (globalThis as any).localStorage?.setItem(key, value);
       return;
     }
-
-    const AsyncStorage = await getAsyncStorage();
-    await AsyncStorage.setItem(key, value);
+    await SecureStore.setItemAsync(key, value);
   },
 
   removeItem: async (key: string) => {
@@ -51,11 +38,16 @@ export const supabase: SupabaseClient = createClient(
       (globalThis as any).localStorage?.removeItem(key);
       return;
     }
-
-    const AsyncStorage = await getAsyncStorage();
-    await AsyncStorage.removeItem(key);
+    await SecureStore.deleteItemAsync(key);
   },
-},
+};
+
+export const supabase: SupabaseClient = createClient(
+  supabaseUrl,
+  supabaseAnonKey,
+  {
+    auth: {
+      storage: secureStorage,
 
       autoRefreshToken: true,
       persistSession: true,
