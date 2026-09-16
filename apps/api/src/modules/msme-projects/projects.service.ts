@@ -365,8 +365,8 @@ export class ProjectsService {
     confirmRisky?: boolean,
     subPocketId?: string,
   ): Promise<ProjectSummary> {
-    if (amount <= 0) {
-      throw new BadRequestException('Spend amount must be positive');
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+      throw new BadRequestException('Spend amount must be a positive finite number');
     }
 
     const project = await this.repository.getMsmeProjectById(projectId);

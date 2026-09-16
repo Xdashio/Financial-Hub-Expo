@@ -12,6 +12,15 @@ import { useDataSync } from '@/services/data-sync';
 const QUEUE_KEY = 'fh_offline_write_queue_v1';
 const MAX_ITEMS = 25;
 
+/** Headers that must never be persisted in AsyncStorage (audit H7). */
+const SENSITIVE_HEADER_KEYS = new Set([
+  'authorization',
+  'cookie',
+  'set-cookie',
+  'x-access-token',
+  'x-refresh-token',
+]);
+
 export type QueuedWrite = {
   id: string;
   endpoint:
@@ -28,6 +37,18 @@ export type QueuedWrite = {
   attempts: number;
 };
 
+function sanitizeHeaders(
+  headers?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (!headers) return undefined;
+  const cleaned: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (SENSITIVE_HEADER_KEYS.has(key.toLowerCase())) continue;
+    cleaned[key] = value;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
 async function readQueue(): Promise<QueuedWrite[]> {
   try {
     const raw = await AsyncStorage.getItem(QUEUE_KEY);
@@ -40,7 +61,10 @@ async function readQueue(): Promise<QueuedWrite[]> {
 }
 
 async function writeQueue(items: QueuedWrite[]): Promise<void> {
-  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(items.slice(0, MAX_ITEMS)));
+  // Keep the newest money writes when over capacity (audit H8) — dropping
+  // the oldest is preferable to silently losing the user's latest spend/income.
+  const trimmed = items.length > MAX_ITEMS ? items.slice(-MAX_ITEMS) : items;
+  await AsyncStorage.setItem(QUEUE_KEY, JSON.stringify(trimmed));
 }
 
 export async function enqueueWrite(
@@ -53,7 +77,7 @@ export async function enqueueWrite(
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     endpoint,
     body,
-    headers,
+    headers: sanitizeHeaders(headers),
     createdAt: new Date().toISOString(),
     attempts: 0,
   });
@@ -69,9 +93,11 @@ export async function flushWriteQueue(): Promise<{ flushed: number; remaining: n
 
   for (const item of items) {
     try {
-      // Preserve Idempotency-Key on replay so server can de-dupe
-      if (item.headers && Object.keys(item.headers).length > 0) {
-        await api.post(item.endpoint, item.body, item.headers as any);
+      // Only replay non-auth headers (e.g. Idempotency-Key). api.post always
+      // attaches a fresh Authorization from the live session (audit H7).
+      const safeHeaders = sanitizeHeaders(item.headers);
+      if (safeHeaders && Object.keys(safeHeaders).length > 0) {
+        await api.post(item.endpoint, item.body, safeHeaders as any);
       } else {
         await api.post(item.endpoint, item.body);
       }

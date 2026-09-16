@@ -215,7 +215,7 @@ export class MsmeStockService {
         }
         return resultFallback;
       }
-      throw new BadRequestException(e?.message || 'Failed to adjust stock');
+      throw new BadRequestException('Failed to adjust stock');
     }
 
     // Audit movement after successful qty adjust (if movement fails, revert qty)
@@ -235,7 +235,10 @@ export class MsmeStockService {
     } catch (e) {
       // Revert qty adjust on movement failure to keep ledger consistent
       try { await this.repo.adjustStockQty(itemId, -delta); } catch {}
-      throw new BadRequestException(`Failed to record movement: ${e instanceof Error ? e.message : String(e)}`);
+      this.logger.error(
+        `Failed to record stock movement for ${itemId}: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      throw new BadRequestException('Failed to record stock movement');
     }
 
     const result = { movement, item: toDto(updatedItem) };

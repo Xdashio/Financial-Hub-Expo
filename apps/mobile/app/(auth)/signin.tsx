@@ -13,7 +13,7 @@ import React from 'react';
 export default function SignInScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { user, checkBiometricAvailability, sendOtp } = useAuthStore();
+  const { user, checkBiometricAvailability, sendOtp, restoreSession } = useAuthStore();
   const { alert, modal } = useAlertModal();
   const [phone, setPhone] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -49,9 +49,20 @@ export default function SignInScreen() {
         cancelLabel: 'Cancel',
       });
 
-      if (result.success) {
-        router.replace('/(tabs)');
+      if (!result.success) return;
+
+      // Biometric success is not enough — require a live Supabase session
+      // before entering the tab shell (audit H10).
+      await restoreSession();
+      const { isAuthenticated } = useAuthStore.getState();
+      if (!isAuthenticated) {
+        await alert(
+          'Session expired',
+          'Please sign in again with your phone number.',
+        );
+        return;
       }
+      router.replace('/(tabs)');
     } catch (error) {
       // User cancelled or error - fall back to OTP
     } finally {

@@ -1,9 +1,11 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import { HttpAdapterHost } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
 import * as Sentry from '@sentry/nestjs';
 import { AppModule } from './app.module';
+import { ZodExceptionFilter } from './common/zod-exception.filter';
 
 const logger = new Logger('Bootstrap');
 
@@ -107,6 +109,9 @@ async function bootstrap() {
       },
     }),
   );
+  // Map bare ZodError from schema `.parse()` calls to HTTP 400 (audit H4).
+  const { httpAdapter } = app.get(HttpAdapterHost);
+  app.useGlobalFilters(new ZodExceptionFilter(httpAdapter));
 
   // Swagger describes every endpoint and payload shape — keep it off in
   // production unless explicitly opted in.

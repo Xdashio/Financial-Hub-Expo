@@ -372,11 +372,14 @@ export default function ResultScreen() {
   const slideTwoScrollRef = React.useRef<ScrollView>(null);
   const { width } = Dimensions.get('window');
 
-  if (!assignResult) {
-    // Redirect back if no result
-    React.useEffect(() => {
+  // Hooks must run unconditionally — never after an early return (audit H9).
+  React.useEffect(() => {
+    if (!assignResult) {
       router.replace('/(onboarding)/income');
-    }, []);
+    }
+  }, [assignResult, router]);
+
+  if (!assignResult) {
     return null;
   }
 

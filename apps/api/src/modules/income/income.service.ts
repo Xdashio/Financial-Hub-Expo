@@ -186,7 +186,7 @@ export class IncomeService {
             ? String((err as { message: unknown }).message)
             : String(err);
       this.logger.error(`createIncomeEvent failed: ${msg}`);
-      throw new BadRequestException(`Could not save income event: ${msg}`);
+      throw new BadRequestException('Could not save income event');
     }
     if (!createdIncomeEvent) {
       throw new BadRequestException('Failed to create income event.');
@@ -267,7 +267,7 @@ export class IncomeService {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
           this.logger.error(`createTransactions failed after income ${createdIncomeEvent.id}: ${msg}`);
-          throw new BadRequestException(`Income saved but allocation ledger failed: ${msg}`);
+          throw new BadRequestException('Income saved but allocation ledger failed');
         }
       }
 
