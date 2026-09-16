@@ -671,12 +671,8 @@ export class IncomeService {
           category: null,
         }));
 
+        await this.claimSurplusAllocation(incomeEventId);
         await this.repository.createTransactions(transactions);
-
-        await this.repository.updateIncomeEvent(incomeEventId, {
-          surplus_allocation_status: 'allocated',
-          unallocated_surplus: null,
-        });
 
         return {
           success: true,
@@ -696,6 +692,7 @@ export class IncomeService {
         if (!pocket || pocket.plan_id !== plan.id) {
           throw new BadRequestException('Invalid pocket');
         }
+        await this.claimSurplusAllocation(incomeEventId);
         await this.repository.createTransactions([{
           pocket_id: dto.pocket_id,
           amount: surplusAmount,
@@ -703,10 +700,6 @@ export class IncomeService {
           merchant: null,
           category: null,
         }]);
-        await this.repository.updateIncomeEvent(incomeEventId, {
-          surplus_allocation_status: 'allocated',
-          unallocated_surplus: null,
-        });
         return {
           success: true,
           allocation: {
@@ -733,6 +726,7 @@ export class IncomeService {
         if (!createdPocket) {
           throw new BadRequestException('Failed to create new pocket');
         }
+        await this.claimSurplusAllocation(incomeEventId);
         await this.repository.createTransactions([{
           pocket_id: createdPocket.id,
           amount: surplusAmount,
@@ -740,10 +734,6 @@ export class IncomeService {
           merchant: null,
           category: null,
         }]);
-        await this.repository.updateIncomeEvent(incomeEventId, {
-          surplus_allocation_status: 'allocated',
-          unallocated_surplus: null,
-        });
         return {
           success: true,
           allocation: {
@@ -800,11 +790,8 @@ export class IncomeService {
         if (savingsTransactions.length === 0) {
           throw new BadRequestException('No savings allocation computed');
         }
+        await this.claimSurplusAllocation(incomeEventId);
         await this.repository.createTransactions(savingsTransactions);
-        await this.repository.updateIncomeEvent(incomeEventId, {
-          surplus_allocation_status: 'allocated',
-          unallocated_surplus: null,
-        });
         // Fire-and-forget push for business copy ("Move excess KSh X to Savings? [Confirm]")
         // — mirrors the allocation push but with savings-specific copy. Never blocks the response.
         void this.pushDelivery
@@ -825,6 +812,13 @@ export class IncomeService {
 
       default:
         throw new BadRequestException('Invalid target type');
+    }
+  }
+
+  private async claimSurplusAllocation(incomeEventId: string): Promise<void> {
+    const claimed = await this.repository.claimPendingSurplus(incomeEventId);
+    if (!claimed) {
+      throw new BadRequestException('This income event has no pending surplus to allocate');
     }
   }
 }

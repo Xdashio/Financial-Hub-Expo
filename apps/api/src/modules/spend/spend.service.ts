@@ -399,6 +399,8 @@ export class SpendService {
     if (isBorrowFromParent && result.parent_pocket && result.shortfall) {
       const pocket = await this.repository.getPocketById(dto.pocket_id);
       if (pocket?.parent_pocket_id) {
+        // The database function locks the parent family, recomputes its
+        // reserve, and writes both ledger entries in one transaction.
         await this.repository.createImmediateParentToChildReallocation(
           pocket.parent_pocket_id,
           pocket.id,

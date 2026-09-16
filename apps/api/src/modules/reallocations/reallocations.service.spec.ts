@@ -79,6 +79,7 @@ describe('ReallocationsService', () => {
       createReallocation: jest.fn(),
       getReallocationById: jest.fn(),
       updateReallocation: jest.fn(),
+      claimReallocationCompletion: jest.fn().mockResolvedValue({ id: 'realloc-1', status: 'completed' }),
       getReallocationsByUserId: jest.fn(),
       createBehaviorEvent: jest.fn(),
       getLatestDisciplineScore: jest.fn(),
@@ -369,16 +370,14 @@ describe('ReallocationsService', () => {
       const result = await service.complete('user-123', 'realloc-1', {});
 
       // monthly_allocation is the planning ceiling and is never mutated for
-      // balance movement — see reallocations.service.ts complete(). Balance
-      // moves only through the ledger transactions below.
+      // balance movement — the ledger rows are written inside the
+      // atomic_complete_reallocation RPC alongside the status flip, so no
+      // createTransactions call is made here.
       expect(repo.updatePocket).not.toHaveBeenCalled();
-      expect(repo.createTransactions).toHaveBeenCalledWith([
-        { pocket_id: TRANSPORT_POCKET.id, amount: -100, type: 'reallocation_out' },
-        { pocket_id: LEISURE_POCKET.id, amount: 100, type: 'reallocation_in' },
-      ]);
-      expect(repo.updateReallocation).toHaveBeenCalledWith(
+      expect(repo.createTransactions).not.toHaveBeenCalled();
+      expect(repo.claimReallocationCompletion).toHaveBeenCalledWith(
         'realloc-1',
-        expect.objectContaining({ status: 'completed', discipline_cost: 0 })
+        expect.objectContaining({ discipline_cost: 0 })
       );
       expect(repo.upsertDisciplineScore).not.toHaveBeenCalled();
       expect(result).toEqual({ id: 'realloc-1', status: 'completed' });
@@ -403,7 +402,7 @@ describe('ReallocationsService', () => {
 
       await service.complete('user-123', 'realloc-2', { skipCoolingOff: true });
 
-      expect(repo.updateReallocation).toHaveBeenCalledWith(
+      expect(repo.claimReallocationCompletion).toHaveBeenCalledWith(
         'realloc-2',
         expect.objectContaining({ discipline_cost: 5 })
       );
@@ -430,7 +429,7 @@ describe('ReallocationsService', () => {
 
       await service.complete('user-123', 'realloc-3', { skipCoolingOff: false });
 
-      expect(repo.updateReallocation).toHaveBeenCalledWith(
+      expect(repo.claimReallocationCompletion).toHaveBeenCalledWith(
         'realloc-3',
         expect.objectContaining({ discipline_cost: 0 })
       );

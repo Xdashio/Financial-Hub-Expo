@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseClient } from '../config/supabase.config';
 import {
   User, UserInsert, UserUpdate,
@@ -536,6 +535,19 @@ export class SupabaseRepository {
     return data;
   }
 
+  /** Atomically claim a pending surplus so only one caller can allocate it. */
+  async claimPendingSurplus(incomeEventId: string): Promise<IncomeEvent | null> {
+    const { data, error } = await this.supabase
+      .from('income_events')
+      .update({ surplus_allocation_status: 'allocated', unallocated_surplus: null })
+      .eq('id', incomeEventId)
+      .eq('surplus_allocation_status', 'pending')
+      .select()
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
   // Transactions
   async createTransaction(transaction: TransactionInsert): Promise<Transaction | null> {
     const { data, error } = await this.supabase
@@ -952,25 +964,14 @@ export class SupabaseRepository {
     amount: number,
     reason: 'other' | 'emergency' | 'unexpected_expense' | 'income_change' | 'priority_shift'
   ): Promise<Reallocation | null> {
-    const reallocation = await this.createReallocation({
-      id: uuidv4(),
-      from_pocket_id: fromPocketId,
-      to_pocket_id: toPocketId,
-      amount,
-      reason,
-      status: 'completed', // Skip cooling-off, complete immediately
-      cooling_off_ends_at: null,
-      discipline_cost: 0,
-      completed_at: new Date().toISOString(),
+    const { data, error } = await (this.supabase as any).rpc('atomic_parent_borrow', {
+      p_parent_pocket_id: fromPocketId,
+      p_child_pocket_id: toPocketId,
+      p_amount: amount,
+      p_reason: reason,
     });
-
-    // Write ledger entries immediately
-    await this.createTransactions([
-      { pocket_id: fromPocketId, amount: -amount, type: 'reallocation_out' },
-      { pocket_id: toPocketId, amount, type: 'reallocation_in' },
-    ]);
-
-    return reallocation;
+    if (error) throw error;
+    return data as Reallocation | null;
   }
 
   async getReallocationById(id: string): Promise<Reallocation | null> {
@@ -1023,6 +1024,19 @@ export class SupabaseRepository {
       .eq('id', id)
       .select()
       .single();
+    if (error) throw error;
+    return data;
+  }
+
+  /** Completes a requested reallocation exactly once with atomic ledger writes. */
+  async claimReallocationCompletion(
+    id: string,
+    updates: Pick<ReallocationUpdate, 'completed_at' | 'discipline_cost'>,
+  ): Promise<Reallocation | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_complete_reallocation', {
+      p_reallocation_id: id,
+      p_discipline_cost: updates.discipline_cost ?? 0,
+    });
     if (error) throw error;
     return data;
   }
@@ -1823,6 +1837,23 @@ export class SupabaseRepository {
       .eq('id', id)
       .select()
       .single();
+    if (error) throw error;
+    return data;
+  }
+
+  /** Atomically records invoice income, allocations, and the paid status. */
+  async claimMsmeInvoicePayment(
+    id: string,
+    input: { userId: string; source: string; label: string; date: string; allocations: Array<{ pocket_id: string; amount: number }> },
+  ): Promise<MsmeInvoice | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_pay_msme_invoice', {
+      p_invoice_id: id,
+      p_user_id: input.userId,
+      p_source: input.source,
+      p_label: input.label,
+      p_date: input.date,
+      p_allocations: input.allocations,
+    });
     if (error) throw error;
     return data;
   }

@@ -160,22 +160,22 @@ export class ReallocationsService {
     const disciplineCost = applyingSkip ? SKIP_COOLING_OFF_COST : 0;
     const completedAt = new Date().toISOString();
 
-    // Write ledger entries only — no mutation of monthly_allocation.
-    // reallocation_out is stored as a negative amount so the repository's
-    // ledger sum (allocated + reallocatedOut - spent) stays consistent.
-    await this.repo.createTransactions([
-      { pocket_id: fromPocket.id, amount: -reallocation.amount, type: 'reallocation_out' },
-      { pocket_id: toPocket.id, amount: reallocation.amount, type: 'reallocation_in' },
-    ]);
-
-    const updated = await this.repo.updateReallocation(reallocation.id, {
-      status: 'completed',
+    // Claim completion before writing ledger entries. The CAS predicate lives
+    // in the repository query, so concurrent requests cannot both pass this
+    // point after observing the old status.
+    const updated = await this.repo.claimReallocationCompletion(reallocation.id, {
       completed_at: completedAt,
       discipline_cost: disciplineCost,
     });
     if (!updated) {
-      throw new BadRequestException('Failed to complete reallocation');
+      throw new BadRequestException('This reallocation has already been resolved');
     }
+
+    // Ledger rows were written inside atomic_complete_reallocation; the RPC
+    // locked both pockets and applied reallocation_out/reallocation_in as one
+    // transaction with the status flip, so there is nothing to write here.
+    // reallocation_out is stored as a negative amount so the repository's
+    // ledger sum (allocated + reallocatedOut - spent) stays consistent.
 
     await this.repo.createBehaviorEvent({
       user_id: userId,

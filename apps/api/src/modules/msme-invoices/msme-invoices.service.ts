@@ -199,24 +199,10 @@ export class MsmeInvoicesService {
 
     const amount = Number(row.amount);
     const nowIso = new Date().toISOString();
+    let allocations: Array<{ pocket_id: string; amount: number }> = [];
 
-    // Ledger-first so failure does not drift invoice to paid (B-01)
-    const incomeEvent = await this.repository.createIncomeEvent({
-      user_id: userId,
-      amount,
-      source: row.customer_name.slice(0, 100),
-      label: `Invoice ${row.id.slice(0, 8)} - ${row.customer_name}`.slice(0, 200),
-      date: nowIso.slice(0, 10),
-      run_allocation: true,
-      segment: 'msme',
-    });
-    if (!incomeEvent) {
-      throw new BadRequestException('Failed to create income event for invoice payment');
-    }
-
-    // Allocate proportionally to MSME plan pockets (same logic as IncomeService).
-    // If no pockets or no allocations, keep ledger (income_event already written)
-    // but warn — do not fail the pay flow, as the income is already true.
+    // Build allocations before the transaction. The RPC below records the
+    // invoice, income, and every allocation as one all-or-nothing operation.
     try {
       const plan = await this.repository.getActivePlanByUserId(userId, 'msme');
       if (plan) {
@@ -233,9 +219,7 @@ export class MsmeInvoicesService {
             const largest = txns.reduce((m, t) => (t.amount > m.amount ? t : m), txns[0]);
             largest.amount = round2(largest.amount + drift);
           }
-          if (txns.length > 0) {
-            await this.repository.createTransactions(txns.map(t => ({ pocket_id: t.pocket_id, amount: t.amount, type: t.type })));
-          }
+          allocations = txns.map(t => ({ pocket_id: t.pocket_id, amount: t.amount }));
         } else {
           this.logger.warn(`payInvoice no pockets/allocations for ${userId} plan ${plan.id} — income_event created, no pocket allocation`);
         }
@@ -249,8 +233,14 @@ export class MsmeInvoicesService {
       this.logger.warn(`payInvoice allocation failed for ${id}: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    const paid = await this.repository.updateMsmeInvoice(id, { status: 'paid', paid_at: nowIso });
-    if (!paid) throw new BadRequestException('Failed to mark invoice paid after ledger write');
+    const paid = await this.repository.claimMsmeInvoicePayment(id, {
+      userId,
+      source: row.customer_name.slice(0, 100),
+      label: `Invoice ${row.id.slice(0, 8)} - ${row.customer_name}`.slice(0, 200),
+      date: nowIso.slice(0, 10),
+      allocations,
+    });
+    if (!paid) throw new BadRequestException('Invoice already paid or cannot be paid');
 
     const dto = toDto(paid);
     if (idempotencyKey) {

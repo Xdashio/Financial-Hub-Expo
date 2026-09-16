@@ -13,7 +13,7 @@ const POCKETS = [
 ];
 
 function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
-  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord' | 'getSubPocketsByParentId'
+  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord' | 'getSubPocketsByParentId' | 'claimPendingSurplus'
 >>> = {}) {
   return {
     getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN),
@@ -24,6 +24,7 @@ function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
     saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
     updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
     getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
+    claimPendingSurplus: jest.fn().mockResolvedValue({ id: 'evt-1' }),
     ...overrides,
   } as unknown as jest.Mocked<SupabaseRepository>;
 }

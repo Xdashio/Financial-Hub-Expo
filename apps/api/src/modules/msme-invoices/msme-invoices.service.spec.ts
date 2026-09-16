@@ -33,6 +33,7 @@ describe('MsmeInvoicesService', () => {
       getMsmeInvoiceById: jest.fn().mockResolvedValue(mockInvoice),
       getMsmeInvoicesByUserId: jest.fn().mockResolvedValue([mockInvoice]),
       updateMsmeInvoice: jest.fn().mockImplementation(async (_id, updates) => ({ ...mockInvoice, ...updates })),
+      claimMsmeInvoicePayment: jest.fn().mockResolvedValue({ ...mockInvoice, status: 'paid', paid_at: new Date().toISOString() }),
       deleteMsmeInvoice: jest.fn().mockResolvedValue(undefined),
       createIncomeEvent: jest.fn().mockResolvedValue({ id: 'inc-1' }),
       getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([]),
@@ -96,12 +97,15 @@ describe('MsmeInvoicesService', () => {
       expect(result.status).toBe('void');
     });
 
-    it('pay sent -> creates income_event', async () => {
+    it('pay sent -> delegates the atomic income-and-payment operation', async () => {
       repo.getMsmeInvoiceById.mockResolvedValue({ ...mockInvoice, status: 'sent' } as any);
       repo.updateMsmeInvoice.mockResolvedValue({ ...mockInvoice, status: 'paid', paid_at: new Date().toISOString() } as any);
       const result = await service.payInvoice(mockInvoice.id, userId);
       expect(result.status).toBe('paid');
-      expect(repo.createIncomeEvent).toHaveBeenCalledWith(expect.objectContaining({ amount: 50000, segment: 'msme' }));
+      expect(repo.claimMsmeInvoicePayment).toHaveBeenCalledWith(
+        mockInvoice.id,
+        expect.objectContaining({ userId, source: mockInvoice.customer_name }),
+      );
     });
 
     it('rejects pay if already paid', async () => {

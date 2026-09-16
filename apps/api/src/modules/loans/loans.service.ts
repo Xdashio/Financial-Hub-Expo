@@ -301,6 +301,9 @@ export class LoansService {
     if (!schedule) {
       throw new BadRequestException('Loan has no repayment schedule');
     }
+    if (schedule.paymentsMade >= schedule.totalPayments) {
+      throw new BadRequestException('This loan has already been fully repaid');
+    }
 
     // Find the repayment sub-pocket
     const subPockets = await this.repository.getSubPocketsByParentId(loanId);
