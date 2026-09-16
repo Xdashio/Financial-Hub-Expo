@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SpendCheckDto } from './dto/spend-check.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
@@ -23,7 +23,10 @@ import { utcDayBounds, effectiveDailyCap, previewDailyCapAfterSpend } from '../r
 
 @Injectable()
 export class SpendService {
-  private static readonly activeSpends = new Set<string>();
+  // H2: the old in-process `activeSpends` set was removed. commitSpend now
+  // serialises through the atomic_commit_spend RPC (migration 034), which
+  // re-verifies the ledger balance under pocket/family row locks — the guard
+  // holds across API instances, not just on one process.
   private readonly logger = new Logger(SpendService.name);
 
   constructor(
@@ -362,28 +365,7 @@ export class SpendService {
       }
     }
 
-    const spendLockKey = `${userId}:${dto.pocket_id}`;
-    // C4: sibling sub-pockets of the same parent must not borrow concurrently
-    // on this instance. The DB FOR UPDATE in atomic_parent_borrow is the real
-    // cross-instance guard; this parent key only improves same-process UX.
-    let parentBorrowLockKey: string | null = null;
-    if (dto.borrow_from_parent) {
-      const pocketForLock = await this.repository.getPocketById(dto.pocket_id);
-      if (pocketForLock?.parent_pocket_id) {
-        parentBorrowLockKey = `${userId}:parent-borrow:${pocketForLock.parent_pocket_id}`;
-      }
-    }
-    if (
-      SpendService.activeSpends.has(spendLockKey) ||
-      (parentBorrowLockKey !== null && SpendService.activeSpends.has(parentBorrowLockKey))
-    ) {
-      throw new ConflictException('A spend transaction is already in progress for this pocket. Please try again.');
-    }
-    SpendService.activeSpends.add(spendLockKey);
-    if (parentBorrowLockKey) SpendService.activeSpends.add(parentBorrowLockKey);
-
-    try {
-      const result = await this.checkSpend(dto, userId);
+    const result = await this.checkSpend(dto, userId);
 
     // audit_team.md item 4/5: `insufficient_funds` is a soft block — the
     // client shows "adjust allocation" / "cancel" / "spend anyway" instead
@@ -409,33 +391,32 @@ export class SpendService {
       return result;
     }
 
-    // If borrowing from parent, execute the immediate parent-to-child reallocation first
-    if (isBorrowFromParent && result.parent_pocket && result.shortfall) {
-      const pocket = await this.repository.getPocketById(dto.pocket_id);
-      if (pocket?.parent_pocket_id) {
-        // The database function locks the parent family, recomputes its
-        // reserve, and writes both ledger entries in one transaction.
-        const borrowed = await this.repository.createImmediateParentToChildReallocation(
-          pocket.parent_pocket_id,
-          pocket.id,
-          result.shortfall,
-          'other' // Use 'other' as the reason type for overflow/borrow
-        );
-        if (!borrowed) {
-          throw new BadRequestException(
-            'Insufficient reserved balance in the parent pocket to cover this borrow',
-          );
-        }
-      }
-    }
-
-    const transaction = await this.repository.createTransaction({
-      pocket_id: dto.pocket_id,
+    // H2 (034): commit the spend through the database. atomic_commit_spend
+    // locks the pocket (and its parent family when a borrow is requested),
+    // re-verifies the ledger balance under the lock, performs the parent-to-
+    // child borrow for exactly the true gap, and writes the spend row in one
+    // transaction — the cross-instance replacement for the old in-process
+    // lock, and the guard against two instances double-debiting a pocket.
+    const committed = await this.repository.atomicCommitSpend({
+      pocketId: dto.pocket_id,
       amount: round2(dto.amount),
-      type: 'spend',
       merchant: dto.recipient_key || null,
       category: dto.category || null,
+      borrowFromParent: Boolean(
+        isBorrowFromParent && result.parent_pocket && result.shortfall,
+      ),
+      override: isOverride,
     });
+    if (!committed) {
+      // The DB guard rejected the commit: balance dropped below this amount
+      // since checkSpend (a concurrent spend or borrow won the race), or the
+      // parent reserve ran dry mid-borrow. Same conflict UX the old
+      // in-process lock produced.
+      throw new ConflictException(
+        'This spend could not be committed — the pocket balance changed since the check. Please try again.',
+      );
+    }
+    const transaction = { id: committed.transaction_id };
 
     // result.pocket.available_balance was computed by checkSpend() *before*
     // this transaction was written, so it's the pre-spend balance. Re-read
@@ -534,10 +515,6 @@ export class SpendService {
     }
 
       return response;
-    } finally {
-      SpendService.activeSpends.delete(spendLockKey);
-      if (parentBorrowLockKey) SpendService.activeSpends.delete(parentBorrowLockKey);
-    }
   }
 
   /**

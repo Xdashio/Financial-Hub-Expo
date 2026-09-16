@@ -62,7 +62,7 @@ describe('SpendService.commitSpend', () => {
       | 'getPlanById'
       | 'getPocketSummary'
       | 'getMerchantClassification'
-      | 'createTransaction'
+      | 'atomicCommitSpend'
       | 'getBehaviorEventsByTypesSince'
       | 'getSpendTotalsByPocketBetween'
       | 'createBehaviorEvent'
@@ -71,7 +71,6 @@ describe('SpendService.commitSpend', () => {
       | 'updatePocket'
       | 'getIncomeEventsByUserId'
       | 'getParentReservedBalance'
-      | 'createImmediateParentToChildReallocation'
       | 'getSubPocketsByParentId'
     >
   >;
@@ -87,14 +86,20 @@ describe('SpendService.commitSpend', () => {
       getMerchantClassification: jest.fn().mockResolvedValue(null),
       getIdempotencyRecord: jest.fn().mockResolvedValue(null),
       saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
-      createTransaction: jest.fn().mockImplementation((tx) => ({ id: 'tx-1', ...tx })),
+      // H2 (034): the atomic RPC returns the committed tx metadata; the old
+      // createTransaction + createImmediateParentToChildReallocation pair is
+      // gone (both are now one database transaction).
+      atomicCommitSpend: jest.fn().mockImplementation((params) => ({
+        transaction_id: 'tx-1',
+        borrowed_amount: 0,
+        available_after: params.amount,
+      })),
       getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
       getSpendTotalsByPocketBetween: jest.fn().mockResolvedValue(new Map([['pocket-1', 500]])),
       createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'evt-1' }),
       getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue([SPENDABLE_POCKET, FIXED_POCKET]),
       getSubPocketsByParentId: jest.fn().mockResolvedValue([]),
       getParentReservedBalance: jest.fn().mockResolvedValue(0),
-      createImmediateParentToChildReallocation: jest.fn().mockResolvedValue({ id: 'realloc-1' }),
       // Defaults to no active plan (i.e. not on a 'daily' plan) so existing
       // tests, which predate the daily-cap emergency-overspend check, keep
       // exercising the same insufficient_funds/blocked_category paths
@@ -120,12 +125,13 @@ describe('SpendService.commitSpend', () => {
     );
 
     expect(result.allowed).toBe(true);
-    expect(repository.createTransaction).toHaveBeenCalledWith({
-      pocket_id: 'pocket-1',
+    expect(repository.atomicCommitSpend).toHaveBeenCalledWith({
+      pocketId: 'pocket-1',
       amount: 500,
-      type: 'spend',
       merchant: null,
       category: 'grocery',
+      borrowFromParent: false,
+      override: false,
     });
     expect(result.transaction_id).toBe('tx-1');
   });
@@ -139,7 +145,7 @@ describe('SpendService.commitSpend', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.block_reason).toBe('insufficient_funds');
-    expect(repository.createTransaction).not.toHaveBeenCalled();
+    expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
   });
 
   it('does not write a transaction when the category is blocked for the pocket', async () => {
@@ -152,7 +158,7 @@ describe('SpendService.commitSpend', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.block_reason).toBe('blocked_category');
-    expect(repository.createTransaction).not.toHaveBeenCalled();
+    expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
   });
 
   describe('gambling_betting blocked attempt (option 3, 2026-08-12)', () => {
@@ -167,7 +173,7 @@ describe('SpendService.commitSpend', () => {
       expect(result.allowed).toBe(false);
       expect(result.block_reason).toBe('blocked_category');
       // The block itself is unaffected — no override, no unblock.
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
       // But the attempt is logged and costs discipline-score points.
       expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', -5);
       expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
@@ -224,7 +230,7 @@ describe('SpendService.commitSpend', () => {
 
     expect(result.allowed).toBe(false);
     expect(result.block_reason).toBe('unclassified_merchant');
-    expect(repository.createTransaction).not.toHaveBeenCalled();
+    expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
   });
 
   it('does not write a transaction when the pocket is time-locked, and still reports available balance', async () => {
@@ -241,7 +247,7 @@ describe('SpendService.commitSpend', () => {
     expect(result.allowed).toBe(false);
     expect(result.block_reason).toBe('pocket_time_locked');
     expect(result.pocket.available_balance).toBe(3000);
-    expect(repository.createTransaction).not.toHaveBeenCalled();
+    expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
   });
 
   describe('insufficient_funds override (audit_team.md item 4/5)', () => {
@@ -267,7 +273,7 @@ describe('SpendService.commitSpend', () => {
       expect(result.reallocation_sources).toEqual([
         { pocket_id: 'pocket-2', pocket_name: 'Transport', available_balance: 900 },
       ]);
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
     });
 
     it('excludes the source pocket, zero-balance pockets, and locked pockets from reallocation sources', async () => {
@@ -296,12 +302,13 @@ describe('SpendService.commitSpend', () => {
       expect(result.allowed).toBe(true);
       expect(result.block_reason).toBeNull();
       expect((result as any).overridden).toBe(true);
-      expect(repository.createTransaction).toHaveBeenCalledWith({
-        pocket_id: 'pocket-1',
+      expect(repository.atomicCommitSpend).toHaveBeenCalledWith({
+        pocketId: 'pocket-1',
         amount: 500,
-        type: 'spend',
         merchant: null,
         category: null,
+        borrowFromParent: false,
+        override: true,
       });
       expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -330,7 +337,7 @@ describe('SpendService.commitSpend', () => {
 
       expect(result.allowed).toBe(false);
       expect(result.block_reason).toBe('blocked_category');
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
     });
 
     it('caps essential_override deductions per calendar month like the other penalty events', async () => {
@@ -361,7 +368,7 @@ describe('SpendService.commitSpend', () => {
 
       expect(result.allowed).toBe(false);
       expect(result.block_reason).toBe('savings_protected');
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
     });
 
     it('blocks spend attempts on savings pockets even with override: true', async () => {
@@ -375,7 +382,7 @@ describe('SpendService.commitSpend', () => {
 
       expect(result.allowed).toBe(false);
       expect(result.block_reason).toBe('savings_protected');
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
       expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
     });
 
@@ -404,7 +411,7 @@ describe('SpendService.commitSpend', () => {
       expect(result.allowed).toBe(false);
       expect(result.block_reason).toBe('savings_protected');
       expect((result as any).overridable).toBeUndefined();
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
     });
 
     it('never overrides savings_protected, even with override: true', async () => {
@@ -418,7 +425,7 @@ describe('SpendService.commitSpend', () => {
 
       expect(result.allowed).toBe(false);
       expect(result.block_reason).toBe('savings_protected');
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
       expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
     });
 
@@ -463,7 +470,7 @@ describe('SpendService.commitSpend', () => {
       expect(result.block_reason).toBe('daily_cap_exceeded');
       expect((result as any).current_daily_cap).toBe(833);
       expect((result as any).overridable).toBe(true);
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).not.toHaveBeenCalled();
       expect(repository.updatePocket).not.toHaveBeenCalled();
     });
 
@@ -471,7 +478,7 @@ describe('SpendService.commitSpend', () => {
       const result = await service.commitSpend({ pocket_id: 'pocket-1', amount: 500 }, 'user-1');
 
       expect(result.allowed).toBe(true);
-      expect(repository.createTransaction).toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).toHaveBeenCalled();
       expect(repository.updatePocket).not.toHaveBeenCalled();
     });
 
@@ -483,8 +490,8 @@ describe('SpendService.commitSpend', () => {
 
       expect(result.allowed).toBe(true);
       expect((result as any).overridden_daily_cap).toBe(true);
-      expect(repository.createTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ pocket_id: 'pocket-1', amount: 2000 }),
+      expect(repository.atomicCommitSpend).toHaveBeenCalledWith(
+        expect.objectContaining({ pocketId: 'pocket-1', amount: 2000 }),
       );
       // 25,000 - 2,000 = 23,000 left, spread over the days-remaining figure
       // remainingDaysAfterToday computes for "today" (real clock time in
@@ -566,7 +573,7 @@ describe('SpendService.commitSpend', () => {
 
       expect(result.allowed).toBe(true);
       expect(result.block_reason).toBeNull();
-      expect(repository.createTransaction).toHaveBeenCalled();
+      expect(repository.atomicCommitSpend).toHaveBeenCalled();
     });
 
     it('BUG REGRESSION (2026-08-27): reports the live cap (not the stale one) when a freelancer genuinely does exceed it', async () => {
@@ -688,27 +695,29 @@ describe('SpendService.commitSpend', () => {
 
       expect(result.allowed).toBe(true);
       expect((result as any).borrowed_from_parent).toBe(true);
-      expect(repository.createImmediateParentToChildReallocation).toHaveBeenCalledWith(
-        'parent-1',
-        'child-1',
-        200,
-        'other',
-      );
-      expect(repository.createTransaction).toHaveBeenCalledWith(
-        expect.objectContaining({ pocket_id: 'child-1', amount: 300, type: 'spend' }),
-      );
+      // The shortfall (200) is now computed inside the RPC under the family
+      // lock — the service only signals that a borrow is authorized. The DB
+      // performs the parent check + ledger pair + spend in one transaction.
+      expect(repository.atomicCommitSpend).toHaveBeenCalledWith({
+        pocketId: 'child-1',
+        amount: 300,
+        merchant: null,
+        category: null,
+        borrowFromParent: true,
+        override: false,
+      });
     });
 
-    it('returns 400 and does not spend when the atomic borrow loses the reserve race', async () => {
-      (repository.createImmediateParentToChildReallocation as jest.Mock).mockResolvedValueOnce(null);
+    it('returns a conflict and does not spend when the atomic commit loses the race', async () => {
+      (repository.atomicCommitSpend as jest.Mock).mockResolvedValueOnce(null);
 
       await expect(
         service.commitSpend(
           { pocket_id: 'child-1', amount: 300, borrow_from_parent: true },
           'user-1',
         ),
-      ).rejects.toThrow(/Insufficient reserved balance/);
-      expect(repository.createTransaction).not.toHaveBeenCalled();
+      ).rejects.toThrow(/could not be committed/);
+      expect(repository.atomicCommitSpend).toHaveBeenCalled();
     });
   });
 });

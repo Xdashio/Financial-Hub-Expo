@@ -53,6 +53,8 @@ describe('RolloverService.runForUser', () => {
       createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'evt-1' }),
       getRolloverCreditsForPocketBetween: jest.fn().mockResolvedValue(0),
       hasRolloverLedgerRowsForDate: jest.fn().mockResolvedValue(false),
+      acquireRolloverLock: jest.fn().mockResolvedValue(true),
+      releaseRolloverLock: jest.fn().mockResolvedValue(undefined),
     };
     disciplineScore = {
       applyDelta: jest.fn().mockResolvedValue({ previousScore: 100, newScore: 103 }),

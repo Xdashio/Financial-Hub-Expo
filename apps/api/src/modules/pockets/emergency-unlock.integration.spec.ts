@@ -109,6 +109,32 @@ class InMemoryRepository {
     return row;
   }
 
+  // In-memory stand-in for the atomic_commit_spend RPC (H2): writes the
+  // spend row and reports the post-commit ledger balance via the real
+  // getPocketSummary reducer. Borrow/parent-reserve arms aren't exercised
+  // by this spec, so they're not modelled here.
+  async atomicCommitSpend(params: {
+    pocketId: string;
+    amount: number;
+    merchant: string | null;
+    category: string | null;
+    borrowFromParent: boolean;
+    override: boolean;
+  }): Promise<{ transaction_id: string; borrowed_amount: number; available_after: number }> {
+    const row = {
+      id: `tx-${++this.txCounter}`,
+      created_at: new Date().toISOString(),
+      pocket_id: params.pocketId,
+      amount: params.amount,
+      type: 'spend',
+      merchant: params.merchant,
+      category: params.category,
+    } as unknown as Transaction;
+    this.transactions.push(row);
+    const summary = await this.getPocketSummary(params.pocketId);
+    return { transaction_id: row.id, borrowed_amount: 0, available_after: summary.available };
+  }
+
   async getTransactionsByPocketId(pocketId: string): Promise<Transaction[]> {
     return this.transactions.filter((t) => t.pocket_id === pocketId);
   }

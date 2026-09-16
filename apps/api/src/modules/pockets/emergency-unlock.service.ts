@@ -248,42 +248,36 @@ export class EmergencyUnlockService {
       };
     }
 
-    // Create ledger transactions
-    const transactions = [];
+    // Create the unlock event, the savings debit, and the reserve shrink in
+    // one database transaction (H1, migration 031): a failure on any step no
+    // longer leaves an orphaned unlock record with no money actually moving.
+    // The database's one-per-month unique index also rejects a concurrent
+    // same-month unlock inside the same transaction.
     const unlockId = generateUUID();
-
-    // Debit from savings
-    transactions.push({
-      pocket_id: savingsPocket.id,
-      amount: -request.amount,
-      type: 'reallocation_out' as const,
-      emergency_unlock_id: unlockId,
-    });
-
-    // Record unlock event with runway impact
-    await this.repository.createEmergencyUnlock({
-      user_id: userId,
-      plan_id: planId,
+    const committed = await this.repository.executeEmergencyUnlockAtomic({
+      id: unlockId,
+      userId,
+      planId,
       amount: request.amount,
-      days_calculated: selectedOption.runway_reduction_days,
-      least_daily_spend: eligibility.analysis?.least_daily_spend ?? 0,
-      average_daily_spend: eligibility.analysis?.average_daily_spend ?? 0,
-      reserve_kept: savingsSummary.available - request.amount,
-      // New runway impact fields
-      runway_days_before: selectedOption.runway_days_before,
-      runway_days_after: selectedOption.runway_days_after,
-      runway_reduction_days: selectedOption.runway_reduction_days,
+      daysCalculated: selectedOption.runway_reduction_days,
+      leastDailySpend: eligibility.analysis?.least_daily_spend ?? 0,
+      averageDailySpend: eligibility.analysis?.average_daily_spend ?? 0,
+      reserveKept: savingsSummary.available - request.amount,
+      runwayDaysBefore: selectedOption.runway_days_before,
+      runwayDaysAfter: selectedOption.runway_days_after,
+      runwayReductionDays: selectedOption.runway_reduction_days,
+      savingsPocketId: savingsPocket.id,
     });
 
-    // Persist the ledger debit from savings — without this, the emergency
-    // unlock record and reserve_balance update above would drift from the
-    // savings pocket's actual transaction history.
-    await this.repository.createTransactions(transactions);
-
-    // Update plan reserve_balance (reduce by emergency amount)
-    // The reserve is reduced because we're taking from discretionary reserve
-    const newReserveBalance = Math.max(0, (plan.reserve_balance || 0) - request.amount);
-    await this.repository.updatePlan(planId, { reserve_balance: newReserveBalance });
+    // A concurrent unlock slipped past checkEligibility and won the monthly
+    // slot first — the DB's unique index rejected this one (atomic rollback).
+    if (!committed) {
+      return {
+        applied: false,
+        error: 'monthly_limit_reached',
+        message: 'You can only use emergency unlock once per month.',
+      };
+    }
 
     // Calculate next available date
     const nextAvailable = new Date();

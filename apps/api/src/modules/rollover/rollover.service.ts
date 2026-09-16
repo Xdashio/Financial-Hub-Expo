@@ -59,8 +59,12 @@ export interface RolloverRunResult {
 
 @Injectable()
 export class RolloverService {
+  // H2: cross-instance lock replaced the old in-process `activeUsers` Set.
+  // Two concurrent sweeps can no longer both pass the ledger-row check and
+  // double-credit the same date. The stale-claim reaper (15 min TTL in
+  // acquireRolloverLock) prevents a crashed worker from permanently wedging
+  // rollover for a user.
   private readonly logger = new Logger(RolloverService.name);
-  private static readonly activeUsers = new Set<string>();
 
   constructor(
     private readonly repository: SupabaseRepository,
@@ -69,7 +73,8 @@ export class RolloverService {
   ) {}
 
   async runForUser(userId: string, now = new Date()): Promise<RolloverRunResult> {
-    if (RolloverService.activeUsers.has(userId)) {
+    const lockClaimed = await this.repository.acquireRolloverLock(userId);
+    if (!lockClaimed) {
       return {
         days: [],
         totalAmount: 0,
@@ -78,7 +83,6 @@ export class RolloverService {
         milestoneAwarded: null,
       };
     }
-    RolloverService.activeUsers.add(userId);
 
     try {
       const plan = await this.repository.getActivePlanByUserId(userId);
@@ -197,7 +201,7 @@ export class RolloverService {
         milestoneAwarded,
       };
     } finally {
-      RolloverService.activeUsers.delete(userId);
+      await this.repository.releaseRolloverLock(userId);
     }
   }
 

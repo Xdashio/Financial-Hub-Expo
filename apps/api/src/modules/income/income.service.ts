@@ -159,63 +159,18 @@ export class IncomeService {
     const normalAllocationAmount = hasSurplus ? expectedIncome! : dto.amount;
     const surplusAmount = hasSurplus ? dto.amount - expectedIncome! : 0;
 
-    // Create income event. Production DBs that predate surplus columns
-    // reject inserts that mention those fields (PGRST204) — so we never
-    // include them on the initial insert. Surplus is applied via a
-    // best-effort update afterwards when the columns exist.
-    const incomeEventBase = {
-      id: uuidv4(),
-      user_id: userId,
-      amount: dto.amount,
-      source: dto.source,
-      // '' not null: older DBs still have label NOT NULL.
-      label: dto.label?.trim() || '',
-      date: dto.date,
-      run_allocation: dto.run_allocation,
-      segment: (dto.segment ?? 'individual') as 'individual' | 'msme',
-    };
-
-    let createdIncomeEvent;
-    try {
-      createdIncomeEvent = await this.repository.createIncomeEvent(incomeEventBase);
-    } catch (err) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : err && typeof err === 'object' && 'message' in err
-            ? String((err as { message: unknown }).message)
-            : String(err);
-      this.logger.error(`createIncomeEvent failed: ${msg}`);
-      throw new BadRequestException('Could not save income event');
-    }
-    if (!createdIncomeEvent) {
-      throw new BadRequestException('Failed to create income event.');
-    }
-
-    if (hasSurplus) {
-      try {
-        const updated = await this.repository.updateIncomeEvent(createdIncomeEvent.id, {
-          unallocated_surplus: surplusAmount,
-          surplus_allocation_status: 'pending',
-        });
-        if (updated) {
-          createdIncomeEvent = updated;
-        }
-      } catch (err) {
-        this.logger.warn(
-          `surplus columns unavailable; income saved without surplus tracking: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
-
-    let allocation = {
-      triggered: false,
-      allocations: [] as Array<{ pocket_id: string; pocket_name: string; amount: number; percentage: number; is_minimum?: boolean; is_capped?: boolean }>,
-      total_allocated: 0,
-      unallocated: dto.amount,
-    };
+    // H1 (032): split the allocation math up front so the income event,
+    // surplus flags, and all allocation credits land in one database
+    // transaction. Pre-computing is safe because it only reads plan/pocket
+    // rows, which the RPC serialises later via the event insert.
+    let allocations: Array<{
+      pocket_id: string;
+      pocket_name: string;
+      amount: number;
+      percentage: number;
+      is_minimum?: boolean;
+      is_capped?: boolean;
+    }> = [];
 
     if (dto.run_allocation) {
       // Query current balances for fixed pockets so multi-deposit pacing does not overfund them
@@ -239,68 +194,73 @@ export class IncomeService {
         pockets,
         pocketBalances,
       );
-      const allocations = await this.applySubPocketSplits(baseAllocations, dto.sub_split_overrides);
+      allocations = await this.applySubPocketSplits(baseAllocations, dto.sub_split_overrides);
+    }
 
-      // Write allocation transactions to the ledger. Balance everywhere in
-      // the app is now ledger-derived (allocation credits - spend debits -
-      // reallocation outflows), so writing these rows is the only step
-      // needed to make the funds appear in each pocket. monthly_allocation
-      // is the planning ceiling set at onboarding and is never mutated.
-      //
-      // Guard against calling insert() with an empty array: this happens
-      // whenever every pocket's monthly_allocation is 0 (proportional split
-      // has nothing to divide by), and PostgREST/supabase-js reject a
-      // zero-row insert payload, which surfaced to the client as an opaque
-      // 500 on POST /income/manual instead of the income event still being
-      // recorded.
-      if (allocations.length > 0) {
-        const transactions: TransactionInsert[] = allocations.map(alloc => ({
-          pocket_id: alloc.pocket_id,
-          amount: alloc.amount,
-          type: 'allocation' as const,
-          merchant: null,
-          category: null,
-        }));
+    // H1: write the income event, surplus flags, and allocation ledger rows
+    // in one database transaction. A failure anywhere rolls back everything
+    // — no more orphaned income events with "allocation ledger failed".
+    const incomeId = uuidv4();
+    let createdIncomeEvent;
+    try {
+      createdIncomeEvent = await this.repository.createManualIncomeAtomic({
+        id: incomeId,
+        userId,
+        amount: dto.amount,
+        source: dto.source,
+        label: dto.label?.trim() || '',
+        date: dto.date,
+        runAllocation: dto.run_allocation,
+        segment: (dto.segment ?? 'individual') as 'individual' | 'msme',
+        unallocatedSurplus: hasSurplus ? surplusAmount : null,
+        surplusAllocationStatus: hasSurplus ? 'pending' : null,
+        allocations: allocations.length
+          ? allocations.map((a) => ({ pocketId: a.pocket_id, amount: a.amount }))
+          : undefined,
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : err && typeof err === 'object' && 'message' in err
+            ? String((err as { message: unknown }).message)
+            : String(err);
+      this.logger.error(`createManualIncomeAtomic failed: ${msg}`);
+      throw new BadRequestException('Could not save income event');
+    }
+    if (!createdIncomeEvent) {
+      throw new BadRequestException('Failed to create income event.');
+    }
 
-        try {
-          await this.repository.createTransactions(transactions);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          this.logger.error(`createTransactions failed after income ${createdIncomeEvent.id}: ${msg}`);
-          throw new BadRequestException('Income saved but allocation ledger failed');
-        }
-      }
+    let allocation = {
+      triggered: dto.run_allocation,
+      allocations: allocations.map((alloc) => ({
+        pocket_id: alloc.pocket_id,
+        pocket_name: alloc.pocket_name,
+        amount: alloc.amount,
+        percentage: alloc.percentage,
+        is_minimum: alloc.is_minimum,
+        is_capped: alloc.is_capped,
+      })),
+      total_allocated: allocations.reduce((sum, a) => sum + a.amount, 0),
+      unallocated: dto.amount - allocations.reduce((sum, a) => sum + a.amount, 0),
+    };
 
-      allocation = {
-        triggered: true,
-        allocations: allocations.map(alloc => ({
-          pocket_id: alloc.pocket_id,
-          pocket_name: alloc.pocket_name,
-          amount: alloc.amount,
-          percentage: alloc.percentage,
-          is_minimum: alloc.is_minimum,
-          is_capped: alloc.is_capped,
-        })),
-        total_allocated: allocations.reduce((sum, a) => sum + a.amount, 0),
-        unallocated: dto.amount - allocations.reduce((sum, a) => sum + a.amount, 0),
-      };
-
-      if (allocation.total_allocated > 0) {
-        // Fire-and-forget: awaiting Expo here hung POST /income/manual until
-        // the Railway proxy reset the connection whenever push was slow.
-        void this.pushDelivery
-          .notifyAllocationReceived(
-            userId,
-            createdIncomeEvent.id,
-            allocation.total_allocated,
-            allocation.allocations.length,
-          )
-          .catch((err) => {
-            this.logger.warn(
-              `allocation push failed: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-      }
+    if (allocation.total_allocated > 0) {
+      // Fire-and-forget: awaiting Expo here hung POST /income/manual until
+      // the Railway proxy reset the connection whenever push was slow.
+      void this.pushDelivery
+        .notifyAllocationReceived(
+          userId,
+          createdIncomeEvent.id,
+          allocation.total_allocated,
+          allocation.allocations.length,
+        )
+        .catch((err) => {
+          this.logger.warn(
+            `allocation push failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
     }
 
     // Recompute runway now that this income event exists, and — for

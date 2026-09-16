@@ -522,6 +522,48 @@ export class SupabaseRepository {
     return data;
   }
 
+  /**
+   * H1: records an income event, applies surplus flags, and writes the
+   * allocation credits in one database transaction (migration 032). If any
+   * step fails, no partial income lands on the ledger. Returns the final
+   * income event row (with surplus columns applied when the DB supports
+   * them, pre-008 databases degrade to the un-surplused event).
+   */
+  async createManualIncomeAtomic(params: {
+    id: string;
+    userId: string;
+    amount: number;
+    source: string;
+    label: string;
+    date: string;
+    runAllocation: boolean;
+    segment: 'individual' | 'msme';
+    unallocatedSurplus?: number | null;
+    surplusAllocationStatus?: 'pending' | 'allocated' | 'skipped' | null;
+    allocations?: Array<{ pocketId: string; amount: number }>;
+  }): Promise<IncomeEvent | null> {
+    const { data, error } = await (this.supabase as any).rpc(
+      'atomic_create_manual_income',
+      {
+        p_id: params.id,
+        p_user_id: params.userId,
+        p_amount: params.amount,
+        p_source: params.source,
+        p_label: params.label,
+        p_date: params.date,
+        p_run_allocation: params.runAllocation,
+        p_segment: params.segment,
+        p_unallocated_surplus: params.unallocatedSurplus ?? null,
+        p_surplus_allocation_status: params.surplusAllocationStatus ?? null,
+        p_allocations: params.allocations?.length
+          ? params.allocations.map((a) => ({ pocket_id: a.pocketId, amount: a.amount }))
+          : null,
+      },
+    );
+    if (error) throw error;
+    return (data ?? null) as IncomeEvent | null;
+  }
+
   async getIncomeEventsByUserId(
     userId: string,
     segment?: 'individual' | 'msme',
@@ -626,6 +668,57 @@ export class SupabaseRepository {
     return data || [];
   }
 
+  /**
+   * Atomically recomputes a sub-pocket family's balances and applies a
+   * percentage rebalance exactly once. Concurrent rebalances of the same
+   * family used to both pass a soft balance read and double-fund the same
+   * growing siblings; the RPC locks the whole family and is the real guard
+   * (H5). Returns a dry-run shortfall marker when the edit needs more money
+   * than currently exists and `confirmPartial` is false.
+   */
+  async rebalanceSubPocketsAtomic(
+    parentPocketId: string,
+    splits: Array<{ pocketId: string; splitPercentage: number }>,
+    confirmPartial: boolean,
+  ): Promise<
+    | { applied: true; partial: boolean; fundedAmount: number; shortfall: number }
+    | { applied: false; requiresConfirmation: true; shortfall: number }
+    | null
+  > {
+    // Last split wins for a duplicated pocket_id, matching the Map the service
+    // used to build (zod MIN(1) plus this keeps the JSON strictly unique).
+    const seen = new Map<string, number>();
+    for (const s of splits) seen.set(s.pocketId, s.splitPercentage);
+    const p_splits = [...seen.entries()].map(([pocket_id, split_percentage]) => ({
+      pocket_id,
+      split_percentage,
+    }));
+
+    const { data, error } = await (this.supabase as any).rpc('atomic_rebalance_sub_pockets', {
+      p_parent_pocket_id: parentPocketId,
+      p_splits,
+      p_confirm_partial: confirmPartial,
+    });
+    if (error) {
+      // Concurrent losers and invalid split sets surface as a clean BadRequest
+      // in the service rather than leaking a PostgREST payload.
+      const msg = String(error.message ?? error.details ?? '');
+      if (msg.includes('not a sub-pocket of this parent')) return null;
+      throw error;
+    }
+    if (!data) return null;
+    const applied = Boolean(data.applied);
+    if (!applied) {
+      return { applied: false, requiresConfirmation: true, shortfall: Number(data.shortfall) };
+    }
+    return {
+      applied: true,
+      partial: Boolean(data.partial),
+      fundedAmount: Number(data.funded_amount),
+      shortfall: Number(data.shortfall),
+    };
+  }
+
   async getTransactionsByPocketId(pocketId: string): Promise<Transaction[]> {
     const { data, error } = await this.supabase
       .from('transactions')
@@ -681,6 +774,53 @@ export class SupabaseRepository {
       .single();
     if (error) throw error;
     return data;
+  }
+
+  /**
+   * H1: writes the unlock record, the savings debit, and the plan reserve
+   * shrink in one transaction (migration 031). Returns `{ id, created_at }`
+   * on success; returns null when the one-per-month unique index rejects a
+   * concurrent same-month unlock (surfaces to the service as a clean
+   * "monthly limit reached" response instead of a 500).
+   */
+  async executeEmergencyUnlockAtomic(params: {
+    id: string;
+    userId: string;
+    planId: string;
+    amount: number;
+    daysCalculated: number;
+    leastDailySpend: number;
+    averageDailySpend: number;
+    reserveKept: number;
+    runwayDaysBefore: number;
+    runwayDaysAfter: number;
+    runwayReductionDays: number;
+    savingsPocketId: string;
+  }): Promise<{ id: string; created_at: string } | null> {
+    const { data, error } = await (this.supabase as any).rpc(
+      'atomic_execute_emergency_unlock',
+      {
+        p_id: params.id,
+        p_user_id: params.userId,
+        p_plan_id: params.planId,
+        p_amount: params.amount,
+        p_days_calculated: params.daysCalculated,
+        p_least_daily_spend: params.leastDailySpend,
+        p_average_daily_spend: params.averageDailySpend,
+        p_reserve_kept: params.reserveKept,
+        p_runway_days_before: params.runwayDaysBefore,
+        p_runway_days_after: params.runwayDaysAfter,
+        p_runway_reduction_days: params.runwayReductionDays,
+        p_savings_pocket_id: params.savingsPocketId,
+      },
+    );
+    if (error) {
+      const msg = String(error.message ?? error.details ?? '');
+      if (msg.includes('duplicate key') || msg.includes('one_per_month'))
+        return null;
+      throw error;
+    }
+    return data as { id: string; created_at: string };
   }
 
   async getEmergencyUnlockByUserId(userId: string): Promise<EmergencyUnlockRow[]> {
@@ -1037,6 +1177,81 @@ export class SupabaseRepository {
       throw error;
     }
     return data as Reallocation | null;
+  }
+
+  /**
+   * H2: cross-instance duplicate-sweep guard for rollover. Attempts a fast
+   * INSERT ON CONFLICT DO NOTHING (implicit unique PK) — the first instance
+   * to claim gets `true`, concurrent callers get `false`. Stale claims
+   * (crashed worker, abandoned mid-sweep) older than 15 minutes are reaped
+   * before the INSERT so a crash does not permanently wedge rollover.
+   */
+  async acquireRolloverLock(userId: string): Promise<boolean> {
+    await this.supabase
+      .from('rollover_locks')
+      .delete()
+      .lt('acquired_at', new Date(Date.now() - 15 * 60_000).toISOString());
+    const { error } = await this.supabase
+      .from('rollover_locks')
+      .insert({ user_id: userId } as any);
+    if (error) {
+      if (error.code === '23505') return false; // unique violation = someone else holds the lock
+      throw error;
+    }
+    return true;
+  }
+
+  /** Release the rollover lock for the given user. */
+  async releaseRolloverLock(userId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('rollover_locks')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw error;
+  }
+
+  /**
+   * H2: commits a spend under row locks (migration 034) — the database-level
+   * replacement for the old in-process `activeSpends` set. Re-verifies the
+   * pocket's ledger balance under lock, optionally borrows exactly the true
+   * gap from the parent in the same transaction, and inserts the spend row.
+   * Returns the committed tx metadata, or null when the DB guard rejected the
+   * spend (balance dropped below the amount since the pre-flight checkSpend).
+   */
+  async atomicCommitSpend(params: {
+    pocketId: string;
+    amount: number;
+    merchant: string | null;
+    category: string | null;
+    borrowFromParent: boolean;
+    override: boolean;
+  }): Promise<{
+    transaction_id: string;
+    borrowed_amount: number;
+    available_after: number;
+  } | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_commit_spend', {
+      p_pocket_id: params.pocketId,
+      p_amount: params.amount,
+      p_merchant: params.merchant,
+      p_category: params.category,
+      p_borrow_from_parent: params.borrowFromParent,
+      p_override: params.override,
+    });
+    if (error) {
+      // Concurrent debit drained the pocket between checkSpend and commit, or
+      // the parent reserve ran dry mid-borrow. Both surface as null so the
+      // service returns a clean conflict instead of leaking a PostgREST 500.
+      const msg = String(error.message ?? error.details ?? '');
+      if (msg.includes('Insufficient funds') || msg.includes('Insufficient parent reserve'))
+        return null;
+      throw error;
+    }
+    return data as {
+      transaction_id: string;
+      borrowed_amount: number;
+      available_after: number;
+    };
   }
 
   async getReallocationById(id: string): Promise<Reallocation | null> {

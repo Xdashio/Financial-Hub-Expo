@@ -125,9 +125,7 @@ describe('EmergencyUnlockService (runway-impact model)', () => {
       | 'getPocketSummary'
       | 'getEmergencyUnlockThisMonth'
       | 'getFixedExpensesByUserId'
-      | 'createTransactions'
-      | 'createEmergencyUnlock'
-      | 'updatePlan'
+      | 'executeEmergencyUnlockAtomic'
     >
   >;
   let spendingAnalysis: jest.Mocked<SpendingAnalysisService>;
@@ -140,22 +138,10 @@ describe('EmergencyUnlockService (runway-impact model)', () => {
       getPocketSummary: jest.fn(),
       getEmergencyUnlockThisMonth: jest.fn(),
       getFixedExpensesByUserId: jest.fn(),
-      createTransactions: jest.fn().mockResolvedValue([]),
-      createEmergencyUnlock: jest.fn().mockResolvedValue({
+      executeEmergencyUnlockAtomic: jest.fn().mockResolvedValue({
         id: 'unlock-1',
-        user_id: 'user-1',
-        plan_id: 'plan-1',
-        amount: 1000,
-        days_calculated: 2,
-        least_daily_spend: 500,
-        average_daily_spend: 800,
-        reserve_kept: 1000,
-        runway_days_before: 10,
-        runway_days_after: 8,
-        runway_reduction_days: 2,
         created_at: '2026-08-15T00:00:00.000Z',
       }),
-      updatePlan: jest.fn().mockResolvedValue({}),
     } as any;
 
     spendingAnalysis = {
@@ -339,9 +325,7 @@ describe('EmergencyUnlockService (runway-impact model)', () => {
       expect(result.unlock?.runway_days_before).toBeDefined();
       expect(result.unlock?.runway_days_after).toBeDefined();
       expect(result.unlock?.runway_reduction_days).toBeDefined();
-      expect(repository.createTransactions).toHaveBeenCalled();
-      expect(repository.createEmergencyUnlock).toHaveBeenCalled();
-      expect(repository.updatePlan).toHaveBeenCalled();
+      expect(repository.executeEmergencyUnlockAtomic).toHaveBeenCalled();
     });
 
     it('rejects amount exceeding 50% of discretionary reserve', async () => {
@@ -388,10 +372,10 @@ describe('EmergencyUnlockService (runway-impact model)', () => {
         confirm_impact: true,
       });
 
-      const createCall = repository.createEmergencyUnlock.mock.calls[0][0];
-      expect(createCall.runway_days_before).toBeDefined();
-      expect(createCall.runway_days_after).toBeDefined();
-      expect(createCall.runway_reduction_days).toBeDefined();
+      const createCall = repository.executeEmergencyUnlockAtomic.mock.calls[0][0];
+      expect(createCall.runwayDaysBefore).toBeDefined();
+      expect(createCall.runwayDaysAfter).toBeDefined();
+      expect(createCall.runwayReductionDays).toBeDefined();
     });
   });
 });

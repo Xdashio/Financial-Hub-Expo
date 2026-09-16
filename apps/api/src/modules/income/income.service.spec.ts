@@ -13,13 +13,27 @@ const POCKETS = [
 ];
 
 function makeRepository(overrides: Partial<jest.Mocked<Pick<SupabaseRepository,
-  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createIncomeEvent' | 'createTransactions' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord' | 'getSubPocketsByParentId' | 'allocatePendingSurplusAtomic'
+  'getActivePlanByUserId' | 'getTopLevelPocketsByPlanId' | 'createManualIncomeAtomic' | 'updatePocket' | 'getIdempotencyRecord' | 'saveIdempotencyRecord' | 'getSubPocketsByParentId' | 'allocatePendingSurplusAtomic'
 >>> = {}) {
   return {
     getActivePlanByUserId: jest.fn().mockResolvedValue(PLAN),
     getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(POCKETS.map(p => ({ ...p }))),
-    createIncomeEvent: jest.fn().mockImplementation((event) => ({ ...event })),
-    createTransactions: jest.fn().mockResolvedValue([]),
+    // H1 (032): the atomic RPC replaces the old createIncomeEvent +
+    // updateIncomeEvent + createTransactions sequence. The mock mirrors what
+    // the DB returns: a snake_case income_events row.
+    createManualIncomeAtomic: jest.fn().mockImplementation((params: any) => ({
+      id: params.id,
+      user_id: params.userId,
+      amount: params.amount,
+      source: params.source,
+      label: params.label || null,
+      date: params.date,
+      run_allocation: params.runAllocation,
+      segment: params.segment,
+      unallocated_surplus: params.unallocatedSurplus ?? null,
+      surplus_allocation_status: params.surplusAllocationStatus ?? null,
+      created_at: '2026-08-09T00:00:00.000Z',
+    })),
     getIdempotencyRecord: jest.fn().mockResolvedValue(null),
     saveIdempotencyRecord: jest.fn().mockResolvedValue({ id: 'idem-1' }),
     updatePocket: jest.fn().mockImplementation((id, updates) => ({ id, ...updates })),
@@ -76,8 +90,8 @@ describe('IncomeService.createManualIncome', () => {
 
     await service.createManualIncome({ ...BASE_DTO, run_allocation: false }, 'user-1');
 
-    expect(repository.createIncomeEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'user-1', amount: 4000, source: 'client_payment', run_allocation: false })
+    expect(repository.createManualIncomeAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', amount: 4000, source: 'client_payment', runAllocation: false })
     );
   });
 
@@ -88,7 +102,9 @@ describe('IncomeService.createManualIncome', () => {
     const result = await service.createManualIncome({ ...BASE_DTO, run_allocation: false }, 'user-1');
 
     expect(repository.updatePocket).not.toHaveBeenCalled();
-    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(repository.createManualIncomeAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({ runAllocation: false, allocations: undefined })
+    );
     expect(result.allocation.triggered).toBe(false);
   });
 
@@ -126,8 +142,11 @@ describe('IncomeService.createManualIncome', () => {
     const result = await service.createManualIncome(BASE_DTO, 'user-1');
 
     // Regression guard: calling supabase-js .insert([]) with a zero-row
-    // array is what produced the opaque 500 on POST /income/manual.
-    expect(repository.createTransactions).not.toHaveBeenCalled();
+    // array is what produced the opaque 500 on POST /income/manual. The
+    // atomic RPC must be told there is nothing to allocate.
+    expect(repository.createManualIncomeAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({ allocations: undefined })
+    );
     expect(result.allocation.triggered).toBe(true);
     expect(result.allocation.allocations).toEqual([]);
   });
@@ -138,11 +157,13 @@ describe('IncomeService.createManualIncome', () => {
 
     await service.createManualIncome(BASE_DTO, 'user-1');
 
-    expect(repository.createTransactions).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ pocket_id: 'pocket-savings', type: 'allocation' }),
-        expect.objectContaining({ pocket_id: 'pocket-food', type: 'allocation' }),
-      ])
+    expect(repository.createManualIncomeAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allocations: expect.arrayContaining([
+          expect.objectContaining({ pocketId: 'pocket-savings' }),
+          expect.objectContaining({ pocketId: 'pocket-food' }),
+        ]),
+      })
     );
   });
 
@@ -170,7 +191,7 @@ describe('IncomeService.createManualIncome', () => {
     );
 
     expect(result.allocation.triggered).toBe(true);
-    expect(repository.createIncomeEvent).toHaveBeenCalled();
+    expect(repository.createManualIncomeAtomic).toHaveBeenCalled();
   });
 
   it('recomputes and persists daily_cap on every new income event for freelancer + daily plans', async () => {
