@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { InvoiceCreateInputSchema, InvoiceUpdateInputSchema } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { parsePagination } from '../../common/pagination';
 import { MsmeInvoice, MsmeInvoiceInsert, MsmeInvoiceUpdate } from '../../database/database.types';
 
 function round2(n: number): number {
@@ -73,16 +74,18 @@ export class MsmeInvoicesService {
     query: { status?: string; overdueOnly?: boolean; search?: string; page?: number; limit?: number },
   ) {
     const plan = await this.repository.getActivePlanByUserId(userId, 'msme');
+    // M2: sanitise first — the old `Number(query.page) || 1` let Infinity
+    // through uncapped and echoed raw NaN back as `page` in the empty-plan
+    // branch below.
+    const { page, limit } = parsePagination(query.page, query.limit);
     if (!plan) {
       // Return paginated empty if pagination requested, else array for BC
-      if (query.page != null || query.limit != null) return { data: [], total: 0, page: query.page ?? 1, totalPages: 0 } as any;
+      if (query.page != null || query.limit != null) return { data: [], total: 0, page, totalPages: 0 } as any;
       return [];
     }
 
     // If pagination requested, use DB-paginated path (A-02)
     if (query.page != null || query.limit != null) {
-      const page = Math.max(1, Number(query.page) || 1);
-      const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
       let rows = await this.repository.getMsmeInvoicesByUserId(userId, {
         status: query.status,
         overdueOnly: query.overdueOnly,
@@ -190,7 +193,11 @@ export class MsmeInvoicesService {
         try {
           const existing = await this.repository.getIdempotencyRecord(userId, scope, idempotencyKey);
           if (existing?.response) return existing.response as any;
-        } catch {}
+        } catch (e) {
+          this.logger.warn(
+            `idempotency replay lookup failed (invoice pay): ${e instanceof Error ? e.message : String(e)}`,
+          );
+        }
       }
       throw new BadRequestException('Invoice already paid');
     }

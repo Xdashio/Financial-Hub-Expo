@@ -5,9 +5,10 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useAlertModal } from '@/hooks/useAlertModal';
-import { useAuthStore } from '@/services/auth';
+import { AuthFlowCode, useAuthStore } from '@/services/auth';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft, Fingerprint, ScanFace } from 'lucide-react-native';
+import { formatKenyanPhoneInput, isValidKenyanPhone, toE164Kenyan } from '@/utils/phone';
 import React from 'react';
 
 export default function SignInScreen() {
@@ -70,28 +71,23 @@ export default function SignInScreen() {
     }
   };
 
-  const validatePhone = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    return cleaned.length === 9 && (cleaned.startsWith('7') || cleaned.startsWith('1'));
-  };
-
   const handleSendCode = async () => {
-    if (!validatePhone(phone)) {
+    if (!isValidKenyanPhone(phone)) {
       setPhoneError('Enter a valid Kenyan number (e.g., 712 345 678 or 110 123 456)');
       return;
     }
 
     setIsLoading(true);
     try {
-      const fullPhone = `+254${phone.replace(/\s/g, '')}`;
+      const fullPhone = toE164Kenyan(phone);
       await sendOtp(fullPhone, { allowSignup: false });
       router.push({
         pathname: '/(auth)/verify-otp',
         params: { phone: fullPhone, mode: 'signin' },
       });
     } catch (error: any) {
-      // If user doesn't exist, redirect to signup
-      if (error?.message?.includes('No account found') || error?.message?.includes('signups not allowed')) {
+      // Match stable AuthFlowCode — not English substrings (audit L1).
+      if (error?.code === AuthFlowCode.NO_ACCOUNT) {
         await alert('Account not found', 'No account found for this number. Redirecting to sign up...');
         router.replace('/(auth)/signup');
       } else {
@@ -102,16 +98,8 @@ export default function SignInScreen() {
     }
   };
 
-  const formatPhone = (text: string) => {
-    // Strip everything except digits (blocks emojis, letters, symbols); cap at 9
-    const cleaned = text.replace(/\D/g, '').slice(0, 9);
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
-    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 9)}`;
-  };
-
   const handlePhoneChange = (text: string) => {
-    setPhone(formatPhone(text));
+    setPhone(formatKenyanPhoneInput(text));
     if (phoneError) setPhoneError('');
   };
 

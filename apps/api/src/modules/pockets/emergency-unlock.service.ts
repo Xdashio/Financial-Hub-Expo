@@ -12,6 +12,7 @@ import {
 import { SpendingAnalysisService } from '../insights/spending-analysis.service';
 import { randomUUID } from 'crypto';
 import { sumMoney, toCents, fromCents } from '@financial-hub/shared';
+import { assertMoneyAmount } from '../../common/money-limits';
 
 const MINIMUM_HISTORY_DAYS = 7;
 const MAX_EMERGENCY_PERCENTAGE = 0.5; // Max 50% of discretionary runway
@@ -168,6 +169,10 @@ export class EmergencyUnlockService {
     planId: string,
     request: EmergencyUnlockRequest,
   ): Promise<EmergencyUnlockResponse> {
+    // M1: inline body, no DTO/zod parse on this path — bound it explicitly.
+    // (EmergencyUnlockRequestSchema now carries the same ceiling for callers
+    // that do parse, but this service must not trust the transport.)
+    assertMoneyAmount(request.amount, 'amount', { min: 0.01 });
     // Re-check eligibility
     const eligibility = await this.checkEligibility(userId, planId);
     if (!eligibility.eligible) {
@@ -254,6 +259,9 @@ export class EmergencyUnlockService {
     // The database's one-per-month unique index also rejects a concurrent
     // same-month unlock inside the same transaction.
     const unlockId = generateUUID();
+    // Pre-flight available is advisory only — migration 042 rechecks the
+    // ledger under FOR UPDATE on the savings pocket and rejects if a
+    // concurrent spend drained the balance (maps to savings_insufficient).
     const committed = await this.repository.executeEmergencyUnlockAtomic({
       id: unlockId,
       userId,
@@ -269,9 +277,15 @@ export class EmergencyUnlockService {
       savingsPocketId: savingsPocket.id,
     });
 
-    // A concurrent unlock slipped past checkEligibility and won the monthly
-    // slot first — the DB's unique index rejected this one (atomic rollback).
-    if (!committed) {
+    if (!committed.ok) {
+      if (committed.reason === 'insufficient') {
+        return {
+          applied: false,
+          error: 'savings_insufficient',
+          message: 'Insufficient balance in savings pocket.',
+        };
+      }
+      // Concurrent unlock won the monthly unique-index slot first.
       return {
         applied: false,
         error: 'monthly_limit_reached',

@@ -88,6 +88,10 @@ export const CATEGORY_COLORS: Record<string, CategoryColorMapping> = {
     lightMode: '#B05320', // clay (blocked category)
     darkMode: '#F4A576', // clayBright
   },
+  unclassified: {
+    lightMode: '#6B7C74', // sage
+    darkMode: '#A8B5AE',
+  },
 
   // MSME Business Categories (ADR-001 §5.2)
   stock: {

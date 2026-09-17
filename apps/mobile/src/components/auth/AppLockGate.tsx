@@ -141,11 +141,22 @@ export function AppLockGate({ children }: { children: React.ReactNode }) {
     <View style={{ flex: 1 }}>
       {/* Children (the Stack navigator) stay mounted underneath the lock
           screen rather than being unmounted while locked — otherwise every
-          lock/unlock cycle would blow away in-flight navigation state. */}
-      {children}
+          lock/unlock cycle would blow away in-flight navigation state.
+          While locked: pointerEvents="none" blocks touches, and
+          accessibilityElementsHidden / importantForAccessibility hide the
+          live navigator from a11y focus (audit L4). */}
+      <View
+        style={{ flex: 1 }}
+        pointerEvents={showOverlay ? 'none' : 'auto'}
+        accessibilityElementsHidden={showOverlay}
+        importantForAccessibility={showOverlay ? 'no-hide-descendants' : 'auto'}
+      >
+        {children}
+      </View>
 
       {showOverlay && (
         <View
+          pointerEvents="auto"
           style={{
             position: 'absolute',
             top: 0,

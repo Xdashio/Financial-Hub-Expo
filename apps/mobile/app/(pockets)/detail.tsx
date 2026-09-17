@@ -15,7 +15,7 @@ import { useDataSync } from '@/services/data-sync';
 import { ScreenContainer, LoadingState, ErrorState, InlineLoading, Button, SearchBar } from '@/components/ui';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { getMerchantCategoryLabel } from '@financial-hub/shared';
-import { SubPocketRebalanceSheet } from '@/components/pockets/SubPocketRebalanceSheet';
+import { SubPocketRebalanceSheet } from '@/components/pockets';
 import { SavingsPocketGoalsCard, SavingsGoal } from '@/components/savings/SavingsPocketGoalsCard';
 import { GoalReachedSheet } from '@/components/savings/GoalReachedSheet';
 import { SubPocketIcon } from '@/components/icons';
@@ -61,6 +61,11 @@ interface PocketSummary {
     daily_cap: number | null;
     is_time_locked: boolean;
     lock_until: string | null;
+    // Real savings goal (M7 / API 039_savings_goal.sql). Null = no goal set —
+    // the Goal progress section below renders its "set a target" empty state
+    // instead of fabricating monthly_allocation × 12.
+    savings_target_amount?: number | null;
+    savings_target_date?: string | null;
     // Sub-pockets (audit_team.md item 10): null for a top-level pocket,
     // set for a sub-pocket nested under a parent. See
     // POST/GET /pockets/:id/sub-pockets.
@@ -268,24 +273,30 @@ export default function PocketDetailScreen() {
   const [deleting, setDeleting] = useState(false);
   const [rebalanceSheetVisible, setRebalanceSheetVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'spend' | 'allocation' | 'reallocation'>('all');
   const [goalReachedSheetVisible, setGoalReachedSheetVisible] = useState(false);
   const [reachedGoal, setReachedGoal] = useState<SavingsGoal | null>(null);
   const [subPocketSearch, setSubPocketSearch] = useState('');
   const [showAllSubPockets, setShowAllSubPockets] = useState(false);
 
-  const filteredTransactions = transactions.filter(tx => {
-    const matchesSearch = searchQuery === '' || 
-      (tx.merchant && tx.merchant.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (tx.category && tx.category.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesFilter = filterType === 'all' || 
-      (filterType === 'spend' && tx.type === 'spend') ||
-      (filterType === 'allocation' && tx.type === 'allocation') ||
-      (filterType === 'reallocation' && (tx.type === 'reallocation_in' || tx.type === 'reallocation_out'));
-    
-    return matchesSearch && matchesFilter;
-  });
+  // Debounce search so every keystroke doesn't hit the API (L9 server-side filter).
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  const txFilters = React.useMemo(
+    () => ({
+      search: debouncedSearch || undefined,
+      type: filterType === 'all' ? undefined : filterType,
+    }),
+    [debouncedSearch, filterType],
+  );
+
+  // Results come pre-filtered from the server across all pages — no client-side
+  // page-slice false negatives (audit L9).
+  const filteredTransactions = transactions;
 
   // ── Sub-pocket filtering + collapsible (MSME info-overload §28 #1, Phase 6) ──
   const SUB_POCKET_COLLAPSE_AT = 3;
@@ -308,7 +319,7 @@ export default function PocketDetailScreen() {
       setScopeFailed(false);
       const [s, txPage, sc, subs] = await Promise.all([
         pocketsApi.getSummary(id),
-        pocketsApi.getTransactions(id, 1, 20),
+        pocketsApi.getTransactions(id, 1, 20, txFilters),
         pocketsApi.getMerchantScope(id).then(
           (result) => ({ ok: true as const, result }),
           () => ({ ok: false as const, result: null })
@@ -334,14 +345,25 @@ export default function PocketDetailScreen() {
       const errorMessage = e instanceof Error ? e.message : 'Failed to load pocket data';
       setError(errorMessage);
     }
-  }, [id]);
+  }, [id, txFilters]);
 
-  // Initial load
+  // Initial load + full-screen spinner only when the pocket id changes —
+  // search/filter updates reuse loadAll without flashing the whole screen.
+  const pocketIdRef = useRef(id);
+  const isInitialTxLoad = useRef(true);
   React.useEffect(() => {
-    setIsLoading(true);
-    setError(null);
-    loadAll().finally(() => setIsLoading(false));
-  }, [loadAll]);
+    const idChanged = pocketIdRef.current !== id;
+    pocketIdRef.current = id;
+    if (isInitialTxLoad.current || idChanged) {
+      isInitialTxLoad.current = false;
+      setIsLoading(true);
+      setError(null);
+      loadAll().finally(() => setIsLoading(false));
+    } else {
+      // Filter/search change (L9) — refresh the transaction list in place.
+      void loadAll();
+    }
+  }, [loadAll, id]);
 
   // Reload on focus (coming back from log-spend / realloc)
   useFocusEffect(
@@ -375,7 +397,7 @@ export default function PocketDetailScreen() {
     setLoadMoreError(false);
     try {
       const next = page + 1;
-      const txPage = await pocketsApi.getTransactions(id, next, 20);
+      const txPage = await pocketsApi.getTransactions(id, next, 20, txFilters);
       setTransactions(prev => [...prev, ...(txPage.transactions ?? [])]);
       setPage(next);
       setHasMore(next < (txPage.pagination?.totalPages ?? 1));
@@ -1034,17 +1056,24 @@ export default function PocketDetailScreen() {
               Goal progress
             </Text>
             <SavingsPocketGoalsCard
-              goals={[{
+              // M7: the goal is the stored savings_target_amount the user set
+              // (onboarding savingsGoal or the goal-set modal). No stored
+              // goal → empty list → the card's "Set a savings target" empty
+              // state. The old monthly_allocation × 12 fabrication is gone:
+              // it made goal_reached reachable via a target nobody chose.
+              goals={pocket.savings_target_amount && pocket.savings_target_amount > 0 ? [{
                 id: pocket.id,
                 name: pocket.name,
-                // Use monthly_allocation × 12 as an annual savings target
-                // (same convention as the home screen's SavingsGoalTracker).
-                // Once a goal-setting API exists this can be replaced with
-                // the stored target amount.
-                targetAmount: stat.monthly_allocation * 12,
+                targetAmount: pocket.savings_target_amount,
                 currentAmount: stat.available,
+                targetDate: pocket.savings_target_date ?? undefined,
                 category: 'goal',
-              }]}
+              }] : []}
+              onSetTarget={() => {
+                if (pocket?.id) {
+                  router.push({ pathname: '/(modals)/goal-set', params: { pocketId: pocket.id } });
+                }
+              }}
               onGoalReached={handleGoalReached}
             />
           </View>
@@ -1387,6 +1416,11 @@ export default function PocketDetailScreen() {
               placeholder="Search transactions..."
               onClear={() => setSearchQuery('')}
             />
+            {(debouncedSearch !== '' || filterType !== 'all') && (
+              <Text style={{ ...typography.caption, color: colors.sage }}>
+                Search covers all pages (server-side filter)
+              </Text>
+            )}
             
             <ScrollView
               horizontal
@@ -1422,7 +1456,7 @@ export default function PocketDetailScreen() {
             </ScrollView>
           </View>
 
-          {filteredTransactions.length === 0 && transactions.length > 0 ? (
+          {filteredTransactions.length === 0 && (debouncedSearch !== '' || filterType !== 'all') ? (
             <View style={{ paddingVertical: spacing.xl, alignItems: 'center' }}>
               <Filter size={28} color={colors.sage} strokeWidth={2} />
               <Text style={{ ...typography.body, color: colors.sage, marginTop: spacing.md }}>

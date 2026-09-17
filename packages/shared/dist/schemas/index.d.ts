@@ -2498,6 +2498,8 @@ export declare const PocketSchema: z.ZodObject<{
     dailyCap: z.ZodOptional<z.ZodNumber>;
     parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
@@ -2515,6 +2517,8 @@ export declare const PocketSchema: z.ZodObject<{
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
     splitPercentage?: number | null | undefined;
+    savingsTargetAmount?: number | null | undefined;
+    savingsTargetDate?: string | null | undefined;
 }, {
     name: string;
     id: string;
@@ -2530,20 +2534,28 @@ export declare const PocketSchema: z.ZodObject<{
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
     splitPercentage?: number | null | undefined;
+    savingsTargetAmount?: number | null | undefined;
+    savingsTargetDate?: string | null | undefined;
 }>;
 export type Pocket = z.infer<typeof PocketSchema>;
 export declare const PocketUpdateInputSchema: z.ZodObject<{
     name: z.ZodOptional<z.ZodString>;
     category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "stock", "supplier", "licence", "tax", "salary", "rent", "operations", "profit", "owner_draw", "growth", "marketing", "equipment", "other"]>>;
     dailyCap: z.ZodOptional<z.ZodNumber>;
+    savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
 }, "strict", z.ZodTypeAny, {
     name?: string | undefined;
     category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     dailyCap?: number | undefined;
+    savingsTargetAmount?: number | null | undefined;
+    savingsTargetDate?: string | null | undefined;
 }, {
     name?: string | undefined;
     category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
     dailyCap?: number | undefined;
+    savingsTargetAmount?: number | null | undefined;
+    savingsTargetDate?: string | null | undefined;
 }>;
 export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
 /** POST /pockets/:id/sub-pockets — creates a sub-pocket nested under the
@@ -3041,6 +3053,8 @@ export declare const LoanDetailSchema: z.ZodObject<{
     dailyCap: z.ZodOptional<z.ZodNumber>;
     parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+    savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     createdAt: z.ZodString;
     updatedAt: z.ZodString;
 } & {
@@ -3089,6 +3103,8 @@ export declare const LoanDetailSchema: z.ZodObject<{
         dailyCap: z.ZodOptional<z.ZodNumber>;
         parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
@@ -3106,6 +3122,8 @@ export declare const LoanDetailSchema: z.ZodObject<{
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }, {
         name: string;
         id: string;
@@ -3121,6 +3139,8 @@ export declare const LoanDetailSchema: z.ZodObject<{
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }>, "many">>;
 }, "strip", z.ZodTypeAny, {
     name: string;
@@ -3161,11 +3181,15 @@ export declare const LoanDetailSchema: z.ZodObject<{
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }[] | undefined;
     dailyCap?: number | undefined;
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
     splitPercentage?: number | null | undefined;
+    savingsTargetAmount?: number | null | undefined;
+    savingsTargetDate?: string | null | undefined;
 }, {
     name: string;
     dueDay: number;
@@ -3204,12 +3228,16 @@ export declare const LoanDetailSchema: z.ZodObject<{
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }[] | undefined;
     dailyCap?: number | undefined;
     isTimeLocked?: boolean | undefined;
     lockUntil?: string | undefined;
     parentPocketId?: string | null | undefined;
     splitPercentage?: number | null | undefined;
+    savingsTargetAmount?: number | null | undefined;
+    savingsTargetDate?: string | null | undefined;
 }>;
 export type LoanDetail = z.infer<typeof LoanDetailSchema>;
 export declare const FixedExpenseSchema: z.ZodObject<{
@@ -5263,6 +5291,8 @@ export declare const schemas: {
         dailyCap: z.ZodOptional<z.ZodNumber>;
         parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     }, "strip", z.ZodTypeAny, {
@@ -5280,6 +5310,8 @@ export declare const schemas: {
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }, {
         name: string;
         id: string;
@@ -5295,19 +5327,27 @@ export declare const schemas: {
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }>;
     PocketUpdateInput: z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
         category: z.ZodOptional<z.ZodEnum<["food", "transport", "leisure", "personal", "utilities", "healthcare", "education", "housing", "family", "stock", "supplier", "licence", "tax", "salary", "rent", "operations", "profit", "owner_draw", "growth", "marketing", "equipment", "other"]>>;
         dailyCap: z.ZodOptional<z.ZodNumber>;
+        savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
     }, "strict", z.ZodTypeAny, {
         name?: string | undefined;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }, {
         name?: string | undefined;
         category?: "stock" | "supplier" | "licence" | "tax" | "salary" | "rent" | "operations" | "profit" | "owner_draw" | "growth" | "marketing" | "equipment" | "food" | "transport" | "leisure" | "personal" | "utilities" | "healthcare" | "education" | "housing" | "family" | "other" | undefined;
         dailyCap?: number | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }>;
     SubPocketCreateInput: z.ZodObject<{
         name: z.ZodString;
@@ -5733,6 +5773,8 @@ export declare const schemas: {
         dailyCap: z.ZodOptional<z.ZodNumber>;
         parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+        savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
         createdAt: z.ZodString;
         updatedAt: z.ZodString;
     } & {
@@ -5781,6 +5823,8 @@ export declare const schemas: {
             dailyCap: z.ZodOptional<z.ZodNumber>;
             parentPocketId: z.ZodOptional<z.ZodNullable<z.ZodString>>;
             splitPercentage: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            savingsTargetAmount: z.ZodOptional<z.ZodNullable<z.ZodNumber>>;
+            savingsTargetDate: z.ZodOptional<z.ZodNullable<z.ZodString>>;
             createdAt: z.ZodString;
             updatedAt: z.ZodString;
         }, "strip", z.ZodTypeAny, {
@@ -5798,6 +5842,8 @@ export declare const schemas: {
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
             splitPercentage?: number | null | undefined;
+            savingsTargetAmount?: number | null | undefined;
+            savingsTargetDate?: string | null | undefined;
         }, {
             name: string;
             id: string;
@@ -5813,6 +5859,8 @@ export declare const schemas: {
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
             splitPercentage?: number | null | undefined;
+            savingsTargetAmount?: number | null | undefined;
+            savingsTargetDate?: string | null | undefined;
         }>, "many">>;
     }, "strip", z.ZodTypeAny, {
         name: string;
@@ -5853,11 +5901,15 @@ export declare const schemas: {
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
             splitPercentage?: number | null | undefined;
+            savingsTargetAmount?: number | null | undefined;
+            savingsTargetDate?: string | null | undefined;
         }[] | undefined;
         dailyCap?: number | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }, {
         name: string;
         dueDay: number;
@@ -5896,12 +5948,16 @@ export declare const schemas: {
             lockUntil?: string | undefined;
             parentPocketId?: string | null | undefined;
             splitPercentage?: number | null | undefined;
+            savingsTargetAmount?: number | null | undefined;
+            savingsTargetDate?: string | null | undefined;
         }[] | undefined;
         dailyCap?: number | undefined;
         isTimeLocked?: boolean | undefined;
         lockUntil?: string | undefined;
         parentPocketId?: string | null | undefined;
         splitPercentage?: number | null | undefined;
+        savingsTargetAmount?: number | null | undefined;
+        savingsTargetDate?: string | null | undefined;
     }>;
     FixedExpense: z.ZodObject<{
         id: z.ZodString;

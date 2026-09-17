@@ -20,6 +20,7 @@ import {
   POINTS_GAMBLING_BLOCKED_ATTEMPT,
 } from '../rollover/rollover.constants';
 import { utcDayBounds, effectiveDailyCap, previewDailyCapAfterSpend } from '../rollover/rollover-planner';
+import { assertMoneyAmount } from '../../common/money-limits';
 
 @Injectable()
 export class SpendService {
@@ -94,6 +95,10 @@ export class SpendService {
       throw new NotFoundException('Pocket not found');
     }
     await this.assertPocketOwnership(pocket, userId);
+
+    // M1: DTO decorators already bound this — re-assert so a misconfigured
+    // pipe can never let NaN/Infinity/unbounded money reach the ledger.
+    assertMoneyAmount(dto.amount, 'amount', { min: 0.01 });
 
     // Time-locked pockets (e.g. a savings pocket the user locked to resist
     // impulse spending) must block spend the same way ReallocationsService

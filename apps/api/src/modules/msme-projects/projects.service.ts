@@ -27,6 +27,8 @@ import {
 } from '../../database/database.types';
 import * as Sentry from '@sentry/node';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { assertMoneyAmount } from '../../common/money-limits';
+import { parsePagination } from '../../common/pagination';
 import { FundingCascadeService, TierState, AllocationResult, FundingTier } from './funding-cascade.service';
 import { PushDeliveryService } from '../notifications/push-delivery.service';
 
@@ -192,8 +194,9 @@ export class ProjectsService {
       summaries.push(await this.buildProjectSummary(project, tiers));
     }
     if (page != null || limit != null) {
-      const p = Math.max(1, Number(page) || 1);
-      const l = Math.min(50, Math.max(1, Number(limit) || 20));
+      // M2: controllers sanitise, but sanitise again — the old
+      // `Number(page) || 1` still let Infinity through uncapped.
+      const { page: p, limit: l } = parsePagination(page, limit);
       const total = summaries.length;
       const totalPages = Math.ceil(total / l);
       const from = (p - 1) * l;
@@ -368,6 +371,8 @@ export class ProjectsService {
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       throw new BadRequestException('Spend amount must be a positive finite number');
     }
+    // M1: finite is not enough — cap single spends at the money ceiling.
+    assertMoneyAmount(amount, 'amount', { min: 0.01 });
 
     const project = await this.repository.getMsmeProjectById(projectId);
     if (!project) {
@@ -821,6 +826,9 @@ export class ProjectsService {
     if (project.user_id !== userId) {
       throw new ForbiddenException('You do not have access to this project');
     }
+
+    // M2: cap limit at 50, fall back on NaN — same rule as every other list.
+    ({ page, limit } = parsePagination(page, limit));
 
     const [allocations, spends] = await Promise.all([
       this.repository.getMsmeProjectAllocationsByProjectId(projectId),

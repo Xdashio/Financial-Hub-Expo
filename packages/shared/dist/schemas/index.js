@@ -4,6 +4,13 @@ exports.MsmeProjectSpendSchema = exports.MsmeProjectAllocationSchema = exports.M
 exports.RepaymentCadenceSchema = exports.EmergencyUnlockResponseSchema = exports.EmergencyUnlockAllocationSchema = exports.EmergencyUnlockRequestSchema = exports.EmergencyUnlockEligibilityResponseSchema = exports.DiscretionaryRunwaySchema = exports.SpendingAnalysisSchema = exports.RunwayImpactOptionSchema = exports.EmergencyUnlockEligibilityReasonSchema = exports.SubPocketRebalanceInputSchema = exports.SubPocketCreateInputSchema = exports.PocketUpdateInputSchema = exports.PocketSchema = exports.PlanSchema = exports.UserSchema = exports.RunwaySummarySchema = exports.RetakeEligibilitySchema = exports.PlanRetakeResultSchema = exports.PlanRedistributionSchema = exports.RedistributionMovementSchema = exports.RedistributionReasonSchema = exports.OnboardingCommitResultSchema = exports.PlanPreviewResultSchema = exports.CategoryAllocationPreviewSchema = exports.OnboardingAssignResultSchema = exports.PlanAssignReasonSchema = exports.StockMovementSchema = exports.StockItemSchema = exports.StockMovementCreateInputSchema = exports.StockMovementTypeSchema = exports.StockItemUpdateInputSchema = exports.StockItemCreateInputSchema = exports.MsmeOperationalInsightsSchema = exports.MsmeAlertSchema = exports.MsmeProjectStatsSchema = exports.MsmeInvoiceStatsSchema = exports.InvoiceSchema = exports.InvoiceUpdateInputSchema = exports.InvoiceCreateInputSchema = exports.KraPinSchema = exports.EtimsStatusSchema = exports.InvoiceStatusSchema = exports.ProjectSpendInputSchema = exports.ProjectCompletionResolveInputSchema = exports.ProjectCompleteResultSchema = exports.SpendControlsUpdateInputSchema = exports.ExcessResolveInputSchema = exports.MsmeProjectExcessPromptSchema = exports.ExcessPromptTargetSchema = exports.ExcessPromptStatusSchema = void 0;
 exports.schemas = exports.DisciplineScoreSchema = exports.BehaviorEventSchema = exports.MerchantClassificationSchema = exports.ReallocationCompleteInputSchema = exports.ReallocationInputSchema = exports.ReallocationSchema = exports.DailyAllocationSchema = exports.TransactionSchema = exports.IncomeEventSchema = exports.FixedExpenseSchema = exports.LoanDetailSchema = exports.LoanPurposePocketInputSchema = exports.LoanUpdateInputSchema = exports.LoanCreateInputSchema = exports.RepaymentScheduleSchema = void 0;
 const zod_1 = require("zod");
+const money_1 = require("../money");
+// M1: every unbounded monetary (and money-derived) number below carries
+// `.finite().max(MAX_MONEY_AMOUNT)` so a single client value can never be
+// NaN/Infinity or exceed the 100,000,000 KSh ceiling. Pure counts/percents
+// with their own `.int()`/`.max()` bounds are already finite-safe and were
+// left untouched, except where the mechanical `.positive()`/`.nonnegative()`
+// pass also (harmlessly) tightened them — the tighter bound always wins.
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
 // ============================================================================
@@ -249,12 +256,12 @@ exports.SavingsGoalInputSchema = zod_1.z.object({
     // new PII category beyond what the app already handles (open question 5
     // in ONBOARDING_AND_SCORING_REDESIGN.md).
     goalLabel: zod_1.z.string().min(1).max(60).optional(),
-    goalAmount: zod_1.z.number().positive().optional(),
+    goalAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
     goalTimeframe: exports.SavingsGoalTimeframeSchema,
 });
 exports.FixedExpenseInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     dueDay: zod_1.z.number().int().min(1).max(31),
     category: exports.PocketCategorySchema,
     frequency: zod_1.z.enum(['monthly', 'weekly', 'daily']).optional(),
@@ -262,8 +269,8 @@ exports.FixedExpenseInputSchema = zod_1.z.object({
 exports.OnboardingInputSchema = zod_1.z.object({
     incomePattern: exports.IncomePatternSchema,
     spendingHabit: exports.SpendingHabitSchema,
-    incomeAmount: zod_1.z.number().positive(),
-    fixedTotal: zod_1.z.number().nonnegative(),
+    incomeAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    fixedTotal: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     sourceCount: zod_1.z.number().int().positive(),
     fixedExpenses: zod_1.z.array(exports.FixedExpenseInputSchema).optional(),
     // Required (validated in validateOnboardingInput, not here, so the error
@@ -314,9 +321,9 @@ exports.MsmeOnboardingInputSchema = zod_1.z.object({
     segment: zod_1.z.literal('msme'),
     businessName: zod_1.z.string().min(1).max(100),
     // maps to plans.expected_income_amount (see commitMsme)
-    monthlyRevenue: zod_1.z.number().positive(),
+    monthlyRevenue: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     // sum of recurring business obligations (rent, salaries, licences, taxes…)
-    fixedTotal: zod_1.z.number().nonnegative(),
+    fixedTotal: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     fixedExpenses: zod_1.z.array(exports.FixedExpenseInputSchema).optional(),
     hasEmployees: zod_1.z.boolean().optional(),
     businessStage: exports.BusinessStageSchema.optional(),
@@ -334,25 +341,25 @@ exports.ProjectStatusSchema = zod_1.z.enum(['draft', 'active', 'completed', 'can
 exports.TierSubPocketInputSchema = zod_1.z.object({
     id: zod_1.z.string().optional(),
     name: zod_1.z.string().min(1).max(100),
-    targetAmount: zod_1.z.number().positive(),
+    targetAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
 });
 exports.TierSubPocketSummarySchema = zod_1.z.object({
     id: zod_1.z.string(),
     name: zod_1.z.string().min(1).max(100),
-    targetAmount: zod_1.z.number().positive(),
-    allocatedAmount: zod_1.z.number().nonnegative(),
-    spentAmount: zod_1.z.number().nonnegative(),
-    remainingCash: zod_1.z.number().nonnegative(),
+    targetAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    allocatedAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    spentAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    remainingCash: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     fundingPercent: zod_1.z.number().min(0).max(100),
 });
 exports.ProjectCreateInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     kind: exports.ProjectKindSchema,
-    contractValue: zod_1.z.number().positive(),
+    contractValue: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     tiers: zod_1.z.object({
-        priorities: zod_1.z.number().nonnegative(), // target amounts
-        needs: zod_1.z.number().nonnegative(),
-        wants: zod_1.z.number().nonnegative(),
+        priorities: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT), // target amounts
+        needs: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+        wants: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     }).refine(v => v.priorities + v.needs + v.wants > 0, { message: 'At least one tier target required' }),
     subPockets: zod_1.z.object({
         priorities: zod_1.z.array(exports.TierSubPocketInputSchema).optional(),
@@ -362,7 +369,7 @@ exports.ProjectCreateInputSchema = zod_1.z.object({
     // optional: allow wants=0 for lean projects — service normalizes
 }).refine(v => Math.abs((v.tiers.priorities + v.tiers.needs + v.tiers.wants) - v.contractValue) < 0.01, { message: 'Tier targets must sum to contract value', path: ['contractValue'] });
 exports.ProjectIncomeInputSchema = zod_1.z.object({
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     source: zod_1.z.string().min(1).max(100), // Deposit / Progress / Final
     label: zod_1.z.string().max(200).optional(),
     date: zod_1.z.string().date(),
@@ -371,10 +378,10 @@ exports.TierSummarySchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     tier: exports.FundingTierSchema,
     sortOrder: zod_1.z.number().int().min(1).max(3),
-    targetAmount: zod_1.z.number().positive(),
-    allocatedAmount: zod_1.z.number().nonnegative(),
-    spentAmount: zod_1.z.number().nonnegative(),
-    remainingCash: zod_1.z.number().nonnegative(), // allocated - spent
+    targetAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    allocatedAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    spentAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    remainingCash: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT), // allocated - spent
     fundingStatus: exports.FundingStatusSchema,
     fundingPercent: zod_1.z.number().min(0).max(100),
     subPockets: zod_1.z.array(exports.TierSubPocketSummarySchema).optional(),
@@ -387,7 +394,7 @@ exports.ProjectSummarySchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     name: zod_1.z.string(),
     kind: exports.ProjectKindSchema,
-    contractValue: zod_1.z.number(),
+    contractValue: zod_1.z.number().finite(),
     status: exports.ProjectStatusSchema,
     isActiveCascade: zod_1.z.boolean(),
     // Phase 5 spending controls (§20) — defaults mirror DB DEFAULT.
@@ -396,10 +403,10 @@ exports.ProjectSummarySchema = zod_1.z.object({
     completionResolvedTo: zod_1.z.enum(['savings', 'keep']).nullable().optional(),
     tiers: zod_1.z.array(exports.TierSummarySchema).length(3),
     nextIncomeGoesTo: exports.FundingTierSchema.nullable(), // null if all funded
-    totalAllocated: zod_1.z.number(),
-    totalSpent: zod_1.z.number(),
-    totalRemaining: zod_1.z.number(),
-    excessPending: zod_1.z.number().nullable(),
+    totalAllocated: zod_1.z.number().finite(),
+    totalSpent: zod_1.z.number().finite(),
+    totalRemaining: zod_1.z.number().finite(),
+    excessPending: zod_1.z.number().finite().nullable(),
 });
 // ============================================================================
 // MSME Project Database Table Schemas (Phase 3 - 017_msme_projects.sql)
@@ -410,7 +417,7 @@ exports.MsmeProjectSchema = zod_1.z.object({
     planId: zod_1.z.string().uuid(),
     name: zod_1.z.string().min(1).max(100),
     kind: exports.ProjectKindSchema,
-    contractValue: zod_1.z.number().positive(),
+    contractValue: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     status: exports.ProjectStatusSchema,
     isActiveCascade: zod_1.z.boolean(),
     spendingControls: exports.SpendingControlsSchema.optional(),
@@ -426,9 +433,9 @@ exports.MsmeProjectTierSchema = zod_1.z.object({
     projectId: zod_1.z.string().uuid(),
     tier: exports.FundingTierSchema,
     sortOrder: zod_1.z.number().int().min(1).max(3),
-    targetAmount: zod_1.z.number().positive(),
-    allocatedAmount: zod_1.z.number().nonnegative(),
-    spentAmount: zod_1.z.number().nonnegative(),
+    targetAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    allocatedAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    spentAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     createdAt: zod_1.z.string().datetime(),
     updatedAt: zod_1.z.string().datetime(),
 });
@@ -436,7 +443,7 @@ exports.MsmeProjectIncomeEventSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     projectId: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     source: zod_1.z.string().min(1).max(100),
     label: zod_1.z.string().max(200).nullable().optional(),
     date: zod_1.z.string().date(),
@@ -447,14 +454,14 @@ exports.MsmeProjectAllocationSchema = zod_1.z.object({
     projectId: zod_1.z.string().uuid(),
     tierId: zod_1.z.string().uuid(),
     incomeEventId: zod_1.z.string().uuid(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     createdAt: zod_1.z.string().datetime(),
 });
 exports.MsmeProjectSpendSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     tierId: zod_1.z.string().uuid(),
     projectId: zod_1.z.string().uuid(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     merchant: zod_1.z.string().nullable().optional(),
     category: zod_1.z.string().nullable().optional(),
     note: zod_1.z.string().max(300).nullable().optional(),
@@ -466,7 +473,7 @@ exports.MsmeProjectExcessPromptSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     projectId: zod_1.z.string().uuid(),
     incomeEventId: zod_1.z.string().uuid(),
-    excessAmount: zod_1.z.number().positive(),
+    excessAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     chosenTarget: exports.ExcessPromptTargetSchema.nullable().optional(),
     status: exports.ExcessPromptStatusSchema,
     createdAt: zod_1.z.string().datetime(),
@@ -482,11 +489,11 @@ exports.ProjectCompleteResultSchema = zod_1.z.object({
     project: exports.ProjectSummarySchema,
     remainingPerTier: zod_1.z.array(zod_1.z.object({
         tier: exports.FundingTierSchema,
-        remainingCash: zod_1.z.number().nonnegative(),
-        targetAmount: zod_1.z.number(),
-        allocatedAmount: zod_1.z.number(),
+        remainingCash: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+        targetAmount: zod_1.z.number().finite(),
+        allocatedAmount: zod_1.z.number().finite(),
     })),
-    totalRemaining: zod_1.z.number().nonnegative(),
+    totalRemaining: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     suggestion: zod_1.z.string(),
     requiresResolution: zod_1.z.boolean(),
 });
@@ -497,7 +504,7 @@ exports.ProjectCompletionResolveInputSchema = zod_1.z.object({
 exports.ProjectSpendInputSchema = zod_1.z.object({
     tierId: zod_1.z.string().uuid(),
     subPocketId: zod_1.z.string().optional(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     merchant: zod_1.z.string().min(1).max(100).optional(),
     category: zod_1.z.string().max(100).optional(),
     note: zod_1.z.string().max(300).optional(),
@@ -517,7 +524,7 @@ exports.KraPinSchema = zod_1.z.string().regex(/^[A-Z][0-9]{9}[A-Z]$/, {
 exports.InvoiceCreateInputSchema = zod_1.z.object({
     customerName: zod_1.z.string().min(1).max(100),
     customerPin: exports.KraPinSchema.optional().nullable(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     dueDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'dueDate must be YYYY-MM-DD' }),
     description: zod_1.z.string().max(200).optional().nullable(),
 });
@@ -525,7 +532,7 @@ exports.InvoiceCreateInputSchema = zod_1.z.object({
 exports.InvoiceUpdateInputSchema = zod_1.z.object({
     customerName: zod_1.z.string().min(1).max(100).optional(),
     customerPin: exports.KraPinSchema.optional().nullable(),
-    amount: zod_1.z.number().positive().optional(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
     dueDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
     description: zod_1.z.string().max(200).optional().nullable(),
     status: exports.InvoiceStatusSchema.optional(),
@@ -537,7 +544,7 @@ exports.InvoiceSchema = zod_1.z.object({
     planId: zod_1.z.string().uuid(),
     customerName: zod_1.z.string().min(1).max(100),
     customerPin: exports.KraPinSchema.nullable().optional(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     dueDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     status: exports.InvoiceStatusSchema,
     description: zod_1.z.string().max(200).nullable().optional(),
@@ -559,9 +566,9 @@ exports.MsmeInvoiceStatsSchema = zod_1.z.object({
     paid: zod_1.z.number().int().nonnegative(),
     voidCount: zod_1.z.number().int().nonnegative(),
     overdue: zod_1.z.number().int().nonnegative(),
-    outstanding: zod_1.z.number().nonnegative(),
-    overdueAmount: zod_1.z.number().nonnegative(),
-    paidAmount: zod_1.z.number().nonnegative(),
+    outstanding: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    overdueAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    paidAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     collectionRate: zod_1.z.number().min(0).max(100),
 });
 exports.MsmeProjectStatsSchema = zod_1.z.object({
@@ -569,9 +576,9 @@ exports.MsmeProjectStatsSchema = zod_1.z.object({
     active: zod_1.z.number().int().nonnegative(),
     draft: zod_1.z.number().int().nonnegative(),
     completed: zod_1.z.number().int().nonnegative(),
-    totalContractValue: zod_1.z.number().nonnegative(),
-    totalAllocated: zod_1.z.number().nonnegative(),
-    totalSpent: zod_1.z.number().nonnegative(),
+    totalContractValue: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    totalAllocated: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    totalSpent: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     fundingPercent: zod_1.z.number().min(0).max(100),
 });
 exports.MsmeAlertSchema = zod_1.z.object({
@@ -582,7 +589,7 @@ exports.MsmeAlertSchema = zod_1.z.object({
 exports.MsmeOperationalInsightsSchema = zod_1.z.object({
     invoices: exports.MsmeInvoiceStatsSchema,
     projects: exports.MsmeProjectStatsSchema,
-    fundingVelocityDays: zod_1.z.number().nonnegative().nullable(),
+    fundingVelocityDays: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).nullable(),
     alerts: zod_1.z.array(exports.MsmeAlertSchema),
 });
 // ============================================================================
@@ -591,25 +598,25 @@ exports.MsmeOperationalInsightsSchema = zod_1.z.object({
 exports.StockItemCreateInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     sku: zod_1.z.string().min(1).max(30).optional().nullable(),
-    qtyOnHand: zod_1.z.number().nonnegative().optional(),
-    unitCost: zod_1.z.number().nonnegative(),
-    unitPrice: zod_1.z.number().nonnegative(),
-    lowStockThreshold: zod_1.z.number().nonnegative().optional(),
+    qtyOnHand: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    unitCost: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    unitPrice: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    lowStockThreshold: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
     location: zod_1.z.string().max(100).optional().nullable(),
 });
 exports.StockItemUpdateInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100).optional(),
     sku: zod_1.z.string().min(1).max(30).optional().nullable(),
-    unitCost: zod_1.z.number().nonnegative().optional(),
-    unitPrice: zod_1.z.number().nonnegative().optional(),
-    lowStockThreshold: zod_1.z.number().nonnegative().optional(),
+    unitCost: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    unitPrice: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    lowStockThreshold: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
     location: zod_1.z.string().max(100).optional().nullable(),
 });
 exports.StockMovementTypeSchema = zod_1.z.enum(['in', 'out', 'adjust']);
 exports.StockMovementCreateInputSchema = zod_1.z.object({
     type: exports.StockMovementTypeSchema,
-    qty: zod_1.z.number().refine((n) => n !== 0, { message: 'Quantity cannot be zero' }),
-    unitCost: zod_1.z.number().nonnegative().optional().nullable(),
+    qty: zod_1.z.number().finite().refine((n) => n !== 0, { message: 'Quantity cannot be zero' }),
+    unitCost: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional().nullable(),
     note: zod_1.z.string().max(200).optional().nullable(),
     pocketId: zod_1.z.string().uuid().optional().nullable(),
 }).refine((data) => {
@@ -624,10 +631,10 @@ exports.StockItemSchema = zod_1.z.object({
     planId: zod_1.z.string().uuid(),
     name: zod_1.z.string().min(1).max(100),
     sku: zod_1.z.string().max(30).nullable().optional(),
-    qtyOnHand: zod_1.z.number().nonnegative(),
-    unitCost: zod_1.z.number().nonnegative(),
-    unitPrice: zod_1.z.number().nonnegative(),
-    lowStockThreshold: zod_1.z.number().nonnegative(),
+    qtyOnHand: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    unitCost: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    unitPrice: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    lowStockThreshold: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     location: zod_1.z.string().max(100).nullable().optional(),
     isLowStock: zod_1.z.boolean().optional(),
     createdAt: zod_1.z.string().datetime(),
@@ -638,9 +645,9 @@ exports.StockMovementSchema = zod_1.z.object({
     itemId: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(),
     type: exports.StockMovementTypeSchema,
-    qty: zod_1.z.number().positive(),
-    unitCost: zod_1.z.number().nonnegative().nullable().optional(),
-    totalCost: zod_1.z.number().nonnegative(),
+    qty: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    unitCost: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).nullable().optional(),
+    totalCost: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     note: zod_1.z.string().max(200).nullable().optional(),
     pocketId: zod_1.z.string().uuid().nullable().optional(),
     createdAt: zod_1.z.string().datetime(),
@@ -649,15 +656,15 @@ exports.PlanAssignReasonSchema = zod_1.z.object({
     rule: zod_1.z.string(),
     reason: zod_1.z.string(),
     // Numeric context for "why this plan" templates (§2.6).
-    needsRatio: zod_1.z.number().nonnegative().optional(),
+    needsRatio: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
     needsBand: exports.NeedsBandSchema.optional(),
     // Populated only on the 'savings_goal_capacity_shortfall' reason (§4.2):
     // the literal derived rate needed to hit the goal on time would exceed
     // the sane-share cap, so these carry the numbers the client renders as
     // "would take ~N months longer" / "would need ~X% of your spendable
     // income" instead of silently forcing or silently ignoring the goal.
-    goalMonthsNeeded: zod_1.z.number().nonnegative().optional(),
-    goalRequiredSharePercent: zod_1.z.number().nonnegative().optional(),
+    goalMonthsNeeded: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    goalRequiredSharePercent: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
 });
 exports.OnboardingAssignResultSchema = zod_1.z.object({
     // Which segment this assignment targets (individual assign flows omit it;
@@ -674,18 +681,18 @@ exports.OnboardingAssignResultSchema = zod_1.z.object({
     // persona. Undefined for pure 'salaried' and for 'freelancer'.
     hasSideIncome: zod_1.z.boolean().optional(),
     reasons: zod_1.z.array(exports.PlanAssignReasonSchema),
-    remainingAfterFixed: zod_1.z.number(),
-    savingsTarget: zod_1.z.number(),
-    spendableAmount: zod_1.z.number(),
-    needsRatio: zod_1.z.number().nonnegative(),
+    remainingAfterFixed: zod_1.z.number().finite(),
+    savingsTarget: zod_1.z.number().finite(),
+    spendableAmount: zod_1.z.number().finite(),
+    needsRatio: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     needsBand: exports.NeedsBandSchema,
 });
 exports.CategoryAllocationPreviewSchema = zod_1.z.object({
     category: exports.SpendableCategorySchema,
     name: zod_1.z.string(),
-    amount: zod_1.z.number().nonnegative(),
-    percentage: zod_1.z.number().nonnegative(),
-    dailyCap: zod_1.z.number().nonnegative().optional(),
+    amount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    percentage: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    dailyCap: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
 });
 /** POST/PATCH /onboarding/plan-preview — assign result plus an editable
  *  per-category breakdown of the spendable amount, used by the onboarding
@@ -705,8 +712,8 @@ exports.OnboardingCommitResultSchema = zod_1.z.object({
         name: zod_1.z.string(),
         kind: exports.PocketKindSchema, // Includes 'loan' for compatibility, though onboarding doesn't create loans
         category: exports.PocketCategorySchema.optional(),
-        monthlyAllocation: zod_1.z.number().nonnegative(),
-        dailyCap: zod_1.z.number().nonnegative().optional(),
+        monthlyAllocation: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+        dailyCap: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
     })),
 });
 /** Why a balance moved from an old pocket to a new one during plan retake. */
@@ -719,11 +726,11 @@ exports.RedistributionReasonSchema = zod_1.z.enum([
 exports.RedistributionMovementSchema = zod_1.z.object({
     fromPocketName: zod_1.z.string(),
     toPocketName: zod_1.z.string(),
-    amount: zod_1.z.number().nonnegative(),
+    amount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     reason: exports.RedistributionReasonSchema,
 });
 exports.PlanRedistributionSchema = zod_1.z.object({
-    totalMoved: zod_1.z.number().nonnegative(),
+    totalMoved: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     movements: zod_1.z.array(exports.RedistributionMovementSchema),
     previousPlanType: exports.PlanTypeSchema,
     newPlanType: exports.PlanTypeSchema,
@@ -748,16 +755,16 @@ exports.RunwaySummarySchema = zod_1.z.object({
     // freelancer + daily plans. Callers should not render a runway UI when
     // this is false.
     applicable: zod_1.z.boolean(),
-    runwayDays: zod_1.z.number().nonnegative().optional(),
-    expectedIntervalDays: zod_1.z.number().positive().optional(),
-    daysSinceLastIncome: zod_1.z.number().nonnegative().optional(),
+    runwayDays: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    expectedIntervalDays: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    daysSinceLastIncome: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
     // 'estimate' = derived from the onboarding band, no income history yet.
     // 'historical' = derived from actual income_events gaps (>= 2 events).
     confidence: zod_1.z.enum(['estimate', 'historical']).optional(),
     // Reserve-based runway fields
-    discretionaryReserve: zod_1.z.number().nonnegative().optional(),
-    fixedObligations: zod_1.z.number().nonnegative().optional(),
-    dailyBudget: zod_1.z.number().nonnegative().optional(),
+    discretionaryReserve: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    fixedObligations: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
+    dailyBudget: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(),
 });
 // ============================================================================
 // Core Domain Schemas - Pack 1 Specification
@@ -795,8 +802,8 @@ exports.PocketSchema = zod_1.z.object({
     category: exports.PocketCategorySchema.optional(), // for spendable: 'food' | 'transport' | 'leisure' | …
     isTimeLocked: zod_1.z.boolean().default(false),
     lockUntil: zod_1.z.string().datetime().optional(),
-    monthlyAllocation: zod_1.z.number().nonnegative(),
-    dailyCap: zod_1.z.number().nonnegative().optional(), // for daily plans
+    monthlyAllocation: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    dailyCap: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).optional(), // for daily plans
     // Sub-pockets (audit_team.md item 10): null/absent for a top-level
     // pocket, set for a sub-pocket nested one level under a parent pocket.
     // See docs on POST /pockets/:id/sub-pockets — depth is capped at one
@@ -807,18 +814,28 @@ exports.PocketSchema = zod_1.z.object({
     // Undefined/null for top-level pockets. `monthlyAllocation` above is
     // kept in sync as a derived cache whenever the parent's allocation
     // changes — see pockets.service.ts recomputeSubPocketAllocations.
-    splitPercentage: zod_1.z.number().positive().max(100).nullable().optional(),
+    splitPercentage: zod_1.z.number().positive().finite().max(100).nullable().optional(),
+    // Real savings goal (M7 / 039_savings_goal.sql). Null/absent = no goal set
+    // — clients must render the "set a target" empty state, never fabricate
+    // one from monthlyAllocation.
+    savingsTargetAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT).nullable().optional(),
+    savingsTargetDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'savingsTargetDate must be YYYY-MM-DD' }).nullable().optional(),
     createdAt: zod_1.z.string().datetime(),
     updatedAt: zod_1.z.string().datetime(),
 });
 // Fields a user is allowed to change on their own pocket. Balances
 // (monthlyAllocation), plan ownership (planId) and the savings time-lock are
 // derived by the allocation engine / plan provisioning, never client-supplied.
+// savingsTargetAmount/savingsTargetDate are the user-set savings goal (M7) —
+// nullable so the client can clear a goal; `.strict()` still rejects
+// anything else, so monthlyAllocation stays unwritable here.
 exports.PocketUpdateInputSchema = zod_1.z
     .object({
     name: zod_1.z.string().min(1).max(100),
     category: exports.PocketCategorySchema,
-    dailyCap: zod_1.z.number().nonnegative(),
+    dailyCap: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    savingsTargetAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT).nullable(),
+    savingsTargetDate: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'savingsTargetDate must be YYYY-MM-DD' }).nullable(),
 })
     .partial()
     .strict();
@@ -838,7 +855,7 @@ exports.PocketUpdateInputSchema = zod_1.z
 exports.SubPocketCreateInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
     category: exports.PocketCategorySchema.optional(),
-    splitPercentage: zod_1.z.number().positive().max(100),
+    splitPercentage: zod_1.z.number().positive().finite().max(100),
 });
 /** PATCH /pockets/:id/rebalance — bulk-updates a full sibling set's
  *  splitPercentage in one call (the rebalance bottom-sheet's sliders edit
@@ -855,7 +872,7 @@ exports.SubPocketRebalanceInputSchema = zod_1.z.object({
     splits: zod_1.z
         .array(zod_1.z.object({
         pocketId: zod_1.z.string().uuid(),
-        splitPercentage: zod_1.z.number().positive().max(100),
+        splitPercentage: zod_1.z.number().positive().finite().max(100),
     }))
         .min(1),
     confirmPartial: zod_1.z.boolean().optional().default(false),
@@ -871,23 +888,23 @@ exports.EmergencyUnlockEligibilityReasonSchema = zod_1.z.enum([
     'reserve_protected',
 ]);
 exports.RunwayImpactOptionSchema = zod_1.z.object({
-    emergency_amount: zod_1.z.number().positive(),
-    runway_days_before: zod_1.z.number().nonnegative(),
-    runway_days_after: zod_1.z.number().nonnegative(),
-    runway_reduction_days: zod_1.z.number().nonnegative(),
+    emergency_amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    runway_days_before: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    runway_days_after: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    runway_reduction_days: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
 });
 exports.SpendingAnalysisSchema = zod_1.z.object({
-    least_daily_spend: zod_1.z.number().nonnegative(),
-    most_daily_spend: zod_1.z.number().nonnegative(),
-    average_daily_spend: zod_1.z.number().nonnegative(),
+    least_daily_spend: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    most_daily_spend: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    average_daily_spend: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
     days_of_history: zod_1.z.number().int().nonnegative(),
 });
 exports.DiscretionaryRunwaySchema = zod_1.z.object({
-    total_reserve: zod_1.z.number().nonnegative(),
-    fixed_obligations: zod_1.z.number().nonnegative(),
-    discretionary_reserve: zod_1.z.number().nonnegative(),
-    daily_budget: zod_1.z.number().nonnegative(),
-    runway_days: zod_1.z.number().nonnegative(),
+    total_reserve: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    fixed_obligations: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    discretionary_reserve: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    daily_budget: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    runway_days: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
 });
 exports.EmergencyUnlockEligibilityResponseSchema = zod_1.z.object({
     eligible: zod_1.z.boolean(),
@@ -901,23 +918,23 @@ exports.EmergencyUnlockEligibilityResponseSchema = zod_1.z.object({
     next_available: zod_1.z.string().datetime().optional(),
 });
 exports.EmergencyUnlockRequestSchema = zod_1.z.object({
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     confirm_impact: zod_1.z.boolean(),
 });
 exports.EmergencyUnlockAllocationSchema = zod_1.z.object({
     pocket_id: zod_1.z.string().uuid(),
     pocket_name: zod_1.z.string(),
-    amount: zod_1.z.number().positive(),
-    percentage: zod_1.z.number().nonnegative(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    percentage: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
 });
 exports.EmergencyUnlockResponseSchema = zod_1.z.object({
     applied: zod_1.z.boolean(),
     unlock: zod_1.z.object({
         id: zod_1.z.string().uuid(),
-        amount: zod_1.z.number().positive(),
-        runway_days_before: zod_1.z.number().nonnegative(),
-        runway_days_after: zod_1.z.number().nonnegative(),
-        runway_reduction_days: zod_1.z.number().nonnegative(),
+        amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+        runway_days_before: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+        runway_days_after: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+        runway_reduction_days: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
         allocations: zod_1.z.array(exports.EmergencyUnlockAllocationSchema),
     }).optional(),
     error: zod_1.z.string().optional(),
@@ -929,8 +946,8 @@ exports.EmergencyUnlockResponseSchema = zod_1.z.object({
 // ============================================================================
 exports.RepaymentCadenceSchema = zod_1.z.enum(['weekly', 'biweekly', 'monthly']);
 exports.RepaymentScheduleSchema = zod_1.z.object({
-    totalAmount: zod_1.z.number().positive(),
-    repaymentAmount: zod_1.z.number().positive(),
+    totalAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    repaymentAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     cadence: exports.RepaymentCadenceSchema,
     startDate: zod_1.z.string(), // ISO date string
     endDate: zod_1.z.string(), // ISO date string
@@ -940,8 +957,8 @@ exports.RepaymentScheduleSchema = zod_1.z.object({
 });
 exports.LoanCreateInputSchema = zod_1.z.object({
     name: zod_1.z.string().min(1).max(100),
-    totalAmount: zod_1.z.number().positive(),
-    repaymentAmount: zod_1.z.number().positive(),
+    totalAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
+    repaymentAmount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     cadence: exports.RepaymentCadenceSchema,
     startDate: zod_1.z.string(), // ISO date string
     endDate: zod_1.z.string(), // ISO date string
@@ -971,7 +988,7 @@ exports.FixedExpenseSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(), // per user
     name: zod_1.z.string().min(1).max(100),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     dueDay: zod_1.z.number().int().min(1).max(31),
     category: exports.PocketCategorySchema,
     createdAt: zod_1.z.string().datetime(),
@@ -980,7 +997,7 @@ exports.FixedExpenseSchema = zod_1.z.object({
 exports.IncomeEventSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     source: zod_1.z.string().min(1).max(100),
     label: zod_1.z.string().max(200),
     date: zod_1.z.string().date(),
@@ -990,7 +1007,7 @@ exports.IncomeEventSchema = zod_1.z.object({
 exports.TransactionSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     pocketId: zod_1.z.string().uuid(),
-    amount: zod_1.z.number(), // signed (positive for credit, negative for debit)
+    amount: zod_1.z.number().finite(), // signed (positive for credit, negative for debit)
     type: exports.TransactionTypeSchema, // 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
     merchant: zod_1.z.string().optional(), // nullable
     category: exports.MerchantCategorySchema.optional(),
@@ -1006,12 +1023,12 @@ exports.DailyAllocationSchema = zod_1.z.object({
     planId: zod_1.z.string().uuid(),
     userId: zod_1.z.string().uuid(),
     allocationDate: zod_1.z.string().date(),
-    plannedAmount: zod_1.z.number().nonnegative(),
-    actualSpend: zod_1.z.number().nonnegative(),
-    returnedAmount: zod_1.z.number().nonnegative(),
-    overspendAmount: zod_1.z.number().nonnegative(),
-    runwayDaysAtOpen: zod_1.z.number().nonnegative().nullable().optional(),
-    runwayDaysAtClose: zod_1.z.number().nonnegative().nullable().optional(),
+    plannedAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    actualSpend: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    returnedAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    overspendAmount: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT),
+    runwayDaysAtOpen: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).nullable().optional(),
+    runwayDaysAtClose: zod_1.z.number().nonnegative().finite().max(money_1.MAX_MONEY_AMOUNT).nullable().optional(),
     status: zod_1.z.enum(['open', 'closed']),
     createdAt: zod_1.z.string().datetime(),
     closedAt: zod_1.z.string().datetime().nullable().optional(),
@@ -1020,18 +1037,18 @@ exports.ReallocationSchema = zod_1.z.object({
     id: zod_1.z.string().uuid(),
     fromPocketId: zod_1.z.string().uuid(),
     toPocketId: zod_1.z.string().uuid(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     reason: exports.ReallocationReasonSchema, // chip selection
     status: exports.ReallocationStatusSchema, // 'pending' | 'cooling_off' | 'completed' | 'skipped'
     coolingOffEndsAt: zod_1.z.string().datetime().optional(),
-    disciplineCost: zod_1.z.number().default(0),
+    disciplineCost: zod_1.z.number().finite().max(money_1.MAX_MONEY_AMOUNT).default(0),
     createdAt: zod_1.z.string().datetime(),
     completedAt: zod_1.z.string().datetime().optional(),
 });
 exports.ReallocationInputSchema = zod_1.z.object({
     fromPocketId: zod_1.z.string().uuid(),
     toPocketId: zod_1.z.string().uuid(),
-    amount: zod_1.z.number().positive(),
+    amount: zod_1.z.number().positive().finite().max(money_1.MAX_MONEY_AMOUNT),
     reason: exports.ReallocationReasonSchema,
 });
 exports.ReallocationCompleteInputSchema = zod_1.z.object({
@@ -1053,7 +1070,7 @@ exports.BehaviorEventSchema = zod_1.z.object({
 exports.DisciplineScoreSchema = zod_1.z.object({
     userId: zod_1.z.string().uuid(),
     score: zod_1.z.number().min(0).max(100),
-    delta: zod_1.z.number(),
+    delta: zod_1.z.number().finite(),
     period: zod_1.z.string(), // e.g. '2024-01', 'week-3'
     calculatedAt: zod_1.z.string().datetime(),
 });

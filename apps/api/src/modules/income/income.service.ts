@@ -9,6 +9,7 @@ import { computeSpendableDailyCaps } from '../runway/runway.calculator';
 import { MIN_SAVINGS_RATE } from '../onboarding/rules-engine';
 import { PushDeliveryService } from '../notifications/push-delivery.service';
 import { resolveSubPocketSplit } from '../../common/sub-pocket-split';
+import { assertMoneyAmount, MAX_MONEY_AMOUNT } from '../../common/money-limits';
 
 @Injectable()
 export class IncomeService {
@@ -44,6 +45,10 @@ export class IncomeService {
     if (!plan) {
       throw new BadRequestException('No active plan found. Please complete onboarding first.');
     }
+
+    // M1: DTO decorators already bound this, but re-assert here so a
+    // misconfigured pipe can never let NaN/Infinity/unbounded money through.
+    assertMoneyAmount(dto.amount, 'amount', { min: 0.01 });
 
     const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
     if (pockets.length === 0) {
@@ -122,6 +127,9 @@ export class IncomeService {
     if (!plan) {
       throw new BadRequestException('No active plan found. Please complete onboarding first.');
     }
+
+    // M1: see allocatePreview — same belt-and-braces bound on the DTO path.
+    assertMoneyAmount(dto.amount, 'amount', { min: 0.01 });
 
     const pockets = await this.repository.getTopLevelPocketsByPlanId(plan.id);
     if (pockets.length === 0) {
@@ -369,7 +377,17 @@ export class IncomeService {
         // an arbitrary pocket_id, including one belonging to someone else.
         const actualSubPockets = await this.repository.getSubPocketsByParentId(allocation.pocket_id);
         const validSubPocketIds = new Set(actualSubPockets.map((s) => s.id));
-        const validOverride = override.filter((o) => validSubPocketIds.has(o.pocketId));
+        // M1: drop non-finite/out-of-range override amounts before they can
+        // poison the reduce below (NaN) or exceed the money ceiling. Whatever
+        // survives is still clamped to the parent's share on the next lines.
+        const validOverride = override.filter(
+          (o) =>
+            validSubPocketIds.has(o.pocketId) &&
+            typeof o.amount === 'number' &&
+            Number.isFinite(o.amount) &&
+            o.amount >= 0 &&
+            o.amount <= MAX_MONEY_AMOUNT,
+        );
 
         const overrideTotal = round2(validOverride.reduce((sum, o) => sum + o.amount, 0));
         const cappedOverrideTotal = Math.min(overrideTotal, allocation.amount);

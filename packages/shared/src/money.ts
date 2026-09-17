@@ -63,3 +63,17 @@ export function formatWholeKsh(amount: number): string {
 export function round2(amount: number): number {
   return fromCents(toCents(amount));
 }
+
+/**
+ * Absolute ceiling for any single monetary amount accepted from a client
+ * (M1). 100,000,000 KSh in integer-cents-safe range: well below
+ * Number.MAX_SAFE_INTEGER even in cents (10^10), consistent with the
+ * integer-cents math above, and far above any legitimate single income,
+ * spend, allocation, invoice, or contract value in this product.
+ */
+export const MAX_MONEY_AMOUNT = 100_000_000;
+
+/** True for finite numbers only — rejects NaN/Infinity alongside the ceiling. */
+export function isFiniteMoney(amount: unknown): amount is number {
+  return typeof amount === 'number' && Number.isFinite(amount);
+}

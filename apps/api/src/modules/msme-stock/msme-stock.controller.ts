@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MsmeStockService } from './msme-stock.service';
+import { parsePagination } from '../../common/pagination';
 
 @ApiTags('MSME Stock')
 @Controller('msme/stock')
@@ -21,11 +22,13 @@ export class MsmeStockController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    // M2: see msme-invoices.controller — same NaN-sanitising rationale.
+    const { page: pg, limit: lim } = parsePagination(page, limit);
     return this.stock.getItemsForUser(req.user.id, {
       search,
       lowStockOnly: lowStock === 'true',
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
+      page: page !== undefined || limit !== undefined ? pg : undefined,
+      limit: page !== undefined || limit !== undefined ? lim : undefined,
     } as any);
   }
 

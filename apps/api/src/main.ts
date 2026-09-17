@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import * as Sentry from '@sentry/nestjs';
 import { AppModule } from './app.module';
 import { ZodExceptionFilter } from './common/zod-exception.filter';
+import { validateEnv } from './config/env.validation';
 
 const logger = new Logger('Bootstrap');
 
@@ -29,6 +30,10 @@ function corsOrigins(): string[] {
 }
 
 async function bootstrap() {
+  // M14: fail fast on a misconfigured environment before touching the
+  // network, Sentry, or the database — a bad container must never boot.
+  validateEnv();
+
   if (process.env.SENTRY_DSN) {
     Sentry.init({
       dsn: process.env.SENTRY_DSN,

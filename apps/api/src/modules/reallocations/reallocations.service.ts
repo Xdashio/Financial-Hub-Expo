@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { PushDeliveryService } from '../notifications/push-delivery.service';
 import { Pocket, Reallocation } from '../../database/database.types';
 import { coolingOffModifierFor, CoolingOffModifier } from '../../common/personality-modifiers';
@@ -31,7 +30,6 @@ export class ReallocationsService {
 
   constructor(
     private readonly repo: SupabaseRepository,
-    private readonly disciplineScore: DisciplineScoreService,
     private readonly pushDelivery: PushDeliveryService,
   ) {}
 
@@ -158,41 +156,28 @@ export class ReallocationsService {
     }
 
     const disciplineCost = applyingSkip ? SKIP_COOLING_OFF_COST : 0;
-    const completedAt = new Date().toISOString();
 
-    // Claim completion before writing ledger entries. The CAS predicate lives
-    // in the repository query, so concurrent requests cannot both pass this
-    // point after observing the old status.
+    // Claim completion before anything else. atomic_complete_reallocation
+    // locks the reallocation row + both pockets, re-checks the source ledger
+    // inside the lock, writes both ledger rows, flips the status, and commits
+    // the reallocation_completed behavior event plus the SKIP_COOLING_OFF_COST
+    // discipline delta in one transaction. Concurrent requests therefore
+    // cannot both observe the old status, and a loser can never double-move
+    // money or double-apply the skip cost — the RPC returns null for any
+    // expected business rejection.
     const updated = await this.repo.claimReallocationCompletion(reallocation.id, {
-      completed_at: completedAt,
       discipline_cost: disciplineCost,
+      userId,
+      fromPocketName: fromPocket.name,
+      toPocketName: toPocket.name,
     });
     if (!updated) {
       throw new BadRequestException('This reallocation has already been resolved');
     }
 
-    // Ledger rows were written inside atomic_complete_reallocation; the RPC
-    // locked both pockets and applied reallocation_out/reallocation_in as one
-    // transaction with the status flip, so there is nothing to write here.
-    // reallocation_out is stored as a negative amount so the repository's
-    // ledger sum (allocated + reallocatedOut - spent) stays consistent.
-
-    await this.repo.createBehaviorEvent({
-      user_id: userId,
-      type: 'reallocation_completed',
-      payload: {
-        reallocationId: reallocation.id,
-        fromPocket: fromPocket.name,
-        toPocket: toPocket.name,
-        amount: reallocation.amount,
-        disciplineCost,
-      },
-    });
-
-    if (disciplineCost > 0) {
-      await this.applyDisciplineCost(userId, disciplineCost);
-    }
-
+    // Behavior event + discipline delta commit inside the RPC transaction;
+    // the only write left here is the best-effort push notification, which
+    // must never fail the request.
     await this.pushDelivery
       .notifyReallocationConfirm(
         userId,
@@ -212,10 +197,6 @@ export class ReallocationsService {
 
   async getForUser(userId: string): Promise<Reallocation[]> {
     return this.repo.getReallocationsByUserId(userId);
-  }
-
-  private async applyDisciplineCost(userId: string, cost: number): Promise<void> {
-    await this.disciplineScore.applyDelta(userId, -cost);
   }
 
   private isEssential(pocket: Pocket): boolean {

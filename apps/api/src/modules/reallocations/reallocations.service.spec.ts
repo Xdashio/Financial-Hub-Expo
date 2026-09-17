@@ -3,7 +3,6 @@ import { Test } from '@nestjs/testing';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ReallocationsService } from './reallocations.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
-import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import { PushDeliveryService } from '../notifications/push-delivery.service';
 
 jest.mock('../../database/supabase.repository');
@@ -82,14 +81,11 @@ describe('ReallocationsService', () => {
       claimReallocationCompletion: jest.fn().mockResolvedValue({ id: 'realloc-1', status: 'completed' }),
       getReallocationsByUserId: jest.fn(),
       createBehaviorEvent: jest.fn(),
-      getLatestDisciplineScore: jest.fn(),
-      upsertDisciplineScore: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReallocationsService,
-        DisciplineScoreService,
         { provide: SupabaseRepository, useValue: repo },
         {
           provide: PushDeliveryService,
@@ -352,7 +348,7 @@ describe('ReallocationsService', () => {
       );
     });
 
-    it('completes a pending reallocation, moving balances and logging a behavior event', async () => {
+    it('completes a pending reallocation, moving balances through the atomic RPC', async () => {
       repo.getReallocationById.mockResolvedValue({
         id: 'realloc-1',
         status: 'pending',
@@ -370,20 +366,26 @@ describe('ReallocationsService', () => {
       const result = await service.complete('user-123', 'realloc-1', {});
 
       // monthly_allocation is the planning ceiling and is never mutated for
-      // balance movement — the ledger rows are written inside the
-      // atomic_complete_reallocation RPC alongside the status flip, so no
-      // createTransactions call is made here.
+      // balance movement — the ledger rows, the status flip, the
+      // reallocation_completed behavior event, and any discipline delta all
+      // commit inside atomic_complete_reallocation (migration 035), so the
+      // service writes nothing here.
       expect(repo.updatePocket).not.toHaveBeenCalled();
       expect(repo.createTransactions).not.toHaveBeenCalled();
+      expect(repo.createBehaviorEvent).not.toHaveBeenCalled();
       expect(repo.claimReallocationCompletion).toHaveBeenCalledWith(
         'realloc-1',
-        expect.objectContaining({ discipline_cost: 0 })
+        expect.objectContaining({
+          discipline_cost: 0,
+          userId: 'user-123',
+          fromPocketName: 'Transport',
+          toPocketName: 'Personal & leisure',
+        })
       );
-      expect(repo.upsertDisciplineScore).not.toHaveBeenCalled();
       expect(result).toEqual({ id: 'realloc-1', status: 'completed' });
     });
 
-    it('applies a 5-point discipline cost when skipping the cooling-off wait', async () => {
+    it('passes a 5-point discipline cost to the RPC when skipping the cooling-off wait', async () => {
       repo.getReallocationById.mockResolvedValue({
         id: 'realloc-2',
         status: 'cooling_off',
@@ -398,17 +400,22 @@ describe('ReallocationsService', () => {
       });
       repo.getPlanById.mockResolvedValue(PLAN as any);
       repo.updateReallocation.mockResolvedValue({ id: 'realloc-2', status: 'completed', discipline_cost: 5 } as any);
-      repo.getLatestDisciplineScore.mockResolvedValue({ score: 100, delta: 3 } as any);
 
       await service.complete('user-123', 'realloc-2', { skipCoolingOff: true });
 
       expect(repo.claimReallocationCompletion).toHaveBeenCalledWith(
         'realloc-2',
-        expect.objectContaining({ discipline_cost: 5 })
+        expect.objectContaining({
+          discipline_cost: 5,
+          userId: 'user-123',
+          fromPocketName: 'Groceries & food',
+          toPocketName: 'Personal & leisure',
+        })
       );
-      expect(repo.upsertDisciplineScore).toHaveBeenCalledWith(
-        expect.objectContaining({ user_id: 'user-123', score: 95, delta: -5 })
-      );
+      // The SKIP_COOLING_OFF_COST delta is applied inside the RPC transaction,
+      // never as a separate service write.
+      expect(repo.createBehaviorEvent).not.toHaveBeenCalled();
+      expect(repo.createTransactions).not.toHaveBeenCalled();
     });
 
     it('allows completing a cooling_off reallocation once the window has passed, without a discipline cost', async () => {
@@ -431,9 +438,45 @@ describe('ReallocationsService', () => {
 
       expect(repo.claimReallocationCompletion).toHaveBeenCalledWith(
         'realloc-3',
-        expect.objectContaining({ discipline_cost: 0 })
+        expect.objectContaining({ discipline_cost: 0, userId: 'user-123' })
       );
-      expect(repo.upsertDisciplineScore).not.toHaveBeenCalled();
+      expect(repo.createBehaviorEvent).not.toHaveBeenCalled();
+    });
+
+    it('serializes concurrent completions — the loser gets a clean 400 and no double side-effects', async () => {
+      repo.getReallocationById.mockResolvedValue({
+        id: 'realloc-race',
+        status: 'cooling_off',
+        from_pocket_id: FOOD_POCKET.id,
+        to_pocket_id: LEISURE_POCKET.id,
+        amount: 800,
+        cooling_off_ends_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      } as any);
+      repo.getPocketById.mockImplementation(async (id: string) => {
+        if (id === FOOD_POCKET.id) return { ...FOOD_POCKET } as any;
+        return { ...LEISURE_POCKET } as any;
+      });
+      repo.getPlanById.mockResolvedValue(PLAN as any);
+
+      // The RPC is the CAS: the first caller wins the row lock and flips the
+      // status; the concurrent caller is rejected and surfaces as null.
+      repo.claimReallocationCompletion
+        .mockResolvedValueOnce({ id: 'realloc-race', status: 'completed', discipline_cost: 5 } as any)
+        .mockResolvedValueOnce(null as any);
+
+      const [winner, loser] = await Promise.allSettled([
+        service.complete('user-123', 'realloc-race', { skipCoolingOff: true }),
+        service.complete('user-123', 'realloc-race', { skipCoolingOff: true }),
+      ]);
+
+      expect(winner.status).toBe('fulfilled');
+      expect(loser.status).toBe('rejected');
+      if (loser.status === 'rejected') {
+        expect(loser.reason).toBeInstanceOf(BadRequestException);
+      }
+      // Side effects commit only in the winner's single RPC transaction.
+      expect(repo.createBehaviorEvent).not.toHaveBeenCalled();
+      expect(repo.createTransactions).not.toHaveBeenCalled();
     });
   });
 

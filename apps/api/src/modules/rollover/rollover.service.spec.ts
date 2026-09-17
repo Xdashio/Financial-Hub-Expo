@@ -263,4 +263,24 @@ describe('RolloverService.runForUser', () => {
       }),
     );
   });
+
+  it('serializes concurrent sweeps (033) — lock loser returns empty result and never writes', async () => {
+    repository.acquireRolloverLock
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    repository.hasRolloverLedgerRowsForDate.mockResolvedValue(false);
+
+    const [winner, loser] = await Promise.all([
+      service.runForUser('user-1', new Date('2026-08-10T18:00:00.000Z')),
+      service.runForUser('user-1', new Date('2026-08-10T18:00:00.000Z')),
+    ]);
+
+    expect(winner.latestAmount).toBeGreaterThan(0);
+    expect(loser.days).toEqual([]);
+    expect(loser.totalAmount).toBe(0);
+    expect(repository.acquireRolloverLock).toHaveBeenCalledTimes(2);
+    // Catch-up days each write their own batch; the lock loser writes none.
+    expect(repository.createTransactions).toHaveBeenCalled();
+    expect(repository.releaseRolloverLock).toHaveBeenCalled();
+  });
 });

@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, Request, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MerchantService } from './merchant.service';
 import { ClassifyDto } from './dto/classify.dto';
+import { parsePagination } from '../../common/pagination';
 
 @ApiTags('Merchant')
 @Controller('merchant')
@@ -31,12 +32,12 @@ export class MerchantController {
     @Query('limit') limit: string,
     @Query('search') search: string
   ) {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 50;
+    const { page: pageNum, limit: limitNum } = parsePagination(page, limit, 50);
     return this.merchantService.getClassifications(req.user.id, pageNum, limitNum, search);
   }
 
   @Delete('classifications/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Remove a merchant classification' })
   @ApiResponse({ status: 204, description: 'Classification removed successfully' })
   @ApiResponse({ status: 404, description: 'Classification not found' })

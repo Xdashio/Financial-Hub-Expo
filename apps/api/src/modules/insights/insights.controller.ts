@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { InsightsService, DisciplineScoreResult, PaginatedBehaviorEvents, HeatmapDay, MsmeProjectInsights, MsmeOperationalInsights } from './insights.service';
 import { BehaviorEvent } from '../../database/database.types';
 import type { NudgeItem } from '../nudges/nudge.calculator';
+import { parsePagination } from '../../common/pagination';
 
 @ApiTags('Insights')
 @Controller('insights')
@@ -56,8 +57,7 @@ export class InsightsController {
     @Query('page') page: string,
     @Query('limit') limit: string
   ): Promise<PaginatedBehaviorEvents> {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 20;
+    const { page: pageNum, limit: limitNum } = parsePagination(page, limit);
     return this.insightsService.getBehaviorEventsPaginated(req.user.id, pageNum, limitNum);
   }
 

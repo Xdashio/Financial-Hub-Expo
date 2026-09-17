@@ -131,7 +131,6 @@ Financial-Hub-Expo/
 │           └── utils/        Money formatting, date helpers, navigation, etc.
 ├── packages/
 │   └── shared/               Zod schemas, domain types, money utils (used by both api and mobile)
-├── marketing/                Vite landing page (English/Kiswahili toggle)
 ├── docs/                     System documentation, innovation document, KECOBO certificate
 ├── assets/                   App logo
 ├── pnpm-workspace.yaml
@@ -139,6 +138,8 @@ Financial-Hub-Expo/
 ├── railway.toml              Railway deployment config (Dockerfile build, monorepo root context)
 └── .github/workflows/ci.yml  CI: lint + typecheck + test + build (all packages)
 ```
+
+Marketing landing page lives outside this monorepo at `../Financial-Hub-Marketing`.
 
 ## Docs in this folder
 

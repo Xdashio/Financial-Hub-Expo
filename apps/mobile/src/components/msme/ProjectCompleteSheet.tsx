@@ -9,22 +9,33 @@ import { Button } from '@/components/ui/Button';
 import { formatMoney } from '@/utils/money';
 import { msmeProjectsApi } from '@/services/api';
 
-type TierBrief = { tier: 'priorities' | 'needs' | 'wants'; remainingCash: number; targetAmount: number; allocatedAmount: number };
+/** Subset of shared ProjectSummary / ProjectCompleteResult used by this sheet.
+ *  API exposes camelCase `completionResolvedTo` (DB column: completion_resolved_to). */
+interface CompletionProjectFields {
+  name?: string;
+  totalRemaining?: number;
+  completionResolvedTo?: 'savings' | 'keep' | null;
+  completionResolvedAt?: string | null;
+}
 
-interface CompleteInfo {
- project: any;
- remainingPerTier: TierBrief[];
- totalRemaining: number;
- suggestion: string;
- requiresResolution: boolean;
+interface CompleteInfoFields {
+  totalRemaining: number;
+  remainingPerTier?: Array<{
+    tier: string;
+    remainingCash: number;
+    targetAmount: number;
+    allocatedAmount: number;
+  }>;
+  suggestion?: string;
+  requiresResolution?: boolean;
 }
 
 interface Props {
  visible: boolean;
  onClose: () => void;
  projectId: string;
- project: any; // ProjectSummary
- completeInfo: CompleteInfo | null;
+ project: CompletionProjectFields | null;
+ completeInfo: CompleteInfoFields | null;
  onSuccess: () => void;
 }
 
@@ -90,10 +101,10 @@ export function ProjectCompleteSheet({ visible, onClose, projectId, project, com
  </View>
  </View>
 
- {completeInfo && hasRemaining && (
+ {(completeInfo?.remainingPerTier?.length ?? 0) > 0 && hasRemaining && (
  <View style={{ backgroundColor: colors.surface, borderWidth, borderColor: colors.line, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md }}>
  <Text style={{ ...typography.eyebrow, color: colors.ink, marginBottom: spacing.sm }}>Remaining per tier</Text>
- {completeInfo.remainingPerTier.map((r) => (
+ {completeInfo!.remainingPerTier!.map((r) => (
  <View key={r.tier} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 }}>
  <Text style={{ ...typography.caption, color: colors.sage, textTransform: 'capitalize' }}>{r.tier}</Text>
  <Text style={{ ...typography.caption, color: colors.ink, fontVariant: ['tabular-nums'] }}>{formatMoney(r.remainingCash)} left (of {formatMoney(r.allocatedAmount)} alloc)</Text>
@@ -104,7 +115,7 @@ export function ProjectCompleteSheet({ visible, onClose, projectId, project, com
  <Text style={{ ...typography.heading, color: colors.ink }}>Total unused</Text>
  <Text style={{ ...typography.heading, color: colors.plum, fontVariant: ['tabular-nums'] }}>{fmt}</Text>
  </View>
- <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs, lineHeight: 16 }}>{completeInfo.suggestion}</Text>
+ <Text style={{ ...typography.caption, color: colors.sage, marginTop: spacing.xs, lineHeight: 16 }}>{completeInfo?.suggestion}</Text>
  </View>
  )}
 

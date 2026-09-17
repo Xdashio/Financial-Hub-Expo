@@ -2,7 +2,15 @@ const tseslint = require('typescript-eslint');
 const parser = require('@typescript-eslint/parser');
 
 module.exports = tseslint.config(
-  { ignores: ['node_modules/', 'dist/', 'coverage/', '*.config.js'] },
+  {
+    ignores: [
+      'node_modules/',
+      'dist/',
+      'coverage/',
+      '*.config.js',
+      'src/**/*.spec.ts',
+    ],
+  },
   {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {

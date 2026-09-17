@@ -1,5 +1,5 @@
 import { supabase } from '@/config/supabase.config';
-import { API_BASE_URL } from '@/config/api';
+import { API_BASE_URL, getDevTunnelHeaders } from '@/config/api';
 import { nanoid } from 'nanoid';
 
 // Set EXPO_PUBLIC_API_URL in .env.local (dev) or eas.json (EAS builds).
@@ -8,8 +8,8 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    // Bypass ngrok's browser interstitial page in dev (safe no-op in production)
-    'ngrok-skip-browser-warning': 'true',
+    // M8: dev-tunnel bypass only — no-op in production, absent there.
+    ...getDevTunnelHeaders(),
   };
   if (session?.access_token) {
     headers['Authorization'] = `Bearer ${session.access_token}`;
@@ -143,8 +143,17 @@ export const pocketsApi = {
     api.post<any>(`/pockets${segment === 'msme' ? '?segment=msme' : ''}`, data),
   delete: (id: string) => api.delete<any>(`/pockets/${id}`),
   getSummary: (id: string) => api.get<any>(`/pockets/${id}/summary`),
-  getTransactions: (id: string, page = 1, limit = 20) =>
-    api.get<any>(`/pockets/${id}/transactions?page=${page}&limit=${limit}`),
+  getTransactions: (
+    id: string,
+    page = 1,
+    limit = 20,
+    filters?: { search?: string; type?: 'spend' | 'allocation' | 'reallocation' },
+  ) => {
+    const q = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (filters?.search?.trim()) q.set('search', filters.search.trim());
+    if (filters?.type) q.set('type', filters.type);
+    return api.get<any>(`/pockets/${id}/transactions?${q.toString()}`);
+  },
   getMerchantScope: (id: string) => api.get<any>(`/pockets/${id}/merchant-scope`),
   getLockStatus: (id: string) => api.get<any>(`/pockets/${id}/lock-status`),
   unlock: (id: string, data: { reason?: string; biometric_confirmed: boolean; goal_reached?: boolean }) =>

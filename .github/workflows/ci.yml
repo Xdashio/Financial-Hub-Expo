@@ -69,6 +69,60 @@ jobs:
       - name: Run tests
         run: pnpm test
 
+  test-mobile:
+    name: Mobile Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter shared build
+
+      - name: Run mobile test harness (jest-expo spike)
+        run: pnpm test:mobile
+
+  test-api-coverage:
+    name: API Coverage Thresholds
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build shared package
+        run: pnpm --filter shared build
+
+      - name: Run API tests with coverage fail-below
+        run: pnpm test:api:cov
+
   build-mobile:
     name: Build Mobile
     runs-on: ubuntu-latest
@@ -141,6 +195,47 @@ jobs:
       - name: Build shared package
         run: pnpm --filter shared build
 
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit prod dependencies
+        shell: bash
+        run: |
+          pnpm audit --prod --json > /tmp/audit.json || true
+          python3 - <<'EOF'
+          import json, sys
+          d = json.load(open('/tmp/audit.json'))
+          advs = d.get('advisories', {})
+          high = [a for a in advs.values() if a['severity'] == 'high']
+          print(f"prod advisories: {len(advs)} total ({sum(1 for a in advs.values() if a['severity']=="high")} high)")
+          for a in high:
+              print("  -", a['module_name'], a['title'][:70])
+          # Known-deferred exemptions (no patched release exists; resolved on next Expo/Metro SDK bump):
+          exempt = {'image-size'}
+          failing = [a['module_name'] for a in high if a['module_name'] not in exempt]
+          if failing:
+              print("FAIL: new high-severity prod advisories present")
+              sys.exit(1)
+          EOF
+
   check-public-api:
     name: Check API Changes
     runs-on: ubuntu-latest
@@ -169,7 +264,7 @@ jobs:
         run: pnpm build
 
       - name: Verify migrations byte-identity (schema-sync guard)
-        run: SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter api test -- schema-sync.spec.ts
+        run: SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter api test -- schema-sync.spec.ts db-types-sync.spec.ts
 
       - name: OpenAPI breaking-change check (placeholder)
-        run: echo "TODO: wire openapi-diff when @nestjs/swagger json is emitted"
+        run: 'echo "TODO: wire openapi-diff when @nestjs/swagger json is emitted"'

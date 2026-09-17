@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import type { FixedExpense } from '../../database/database.types';
 import { round2 } from '@financial-hub/shared';
+import { assertMoneyAmount } from '../../common/money-limits';
 
 export interface AllocationRecommendation {
   expenseId: string;
@@ -135,6 +136,9 @@ export class BehavioralRecommendationsService {
     expenseId: string,
     newAllocation: number,
   ): Promise<void> {
+    // M1: this inline body previously had no validation at all — a NaN or
+    // unbounded value would have been written straight to fixed_expenses.
+    assertMoneyAmount(newAllocation, 'newAllocation');
     // Verify the expense belongs to the user
     const expense = await this.repository.getFixedExpenseById(expenseId);
     if (!expense || expense.user_id !== userId) {

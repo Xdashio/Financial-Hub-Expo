@@ -2,6 +2,7 @@ import { Controller, Post, Get, Body, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MerchantReportService } from './merchant-report.service';
 import { ReportCreateDto } from './dto/report-create.dto';
+import { parsePagination } from '../../common/pagination';
 
 // Mounted at `merchant` (not `merchant-report`) so the live routes match the
 // documented contract in API_SPECIFICATION.md §2.3 — POST /merchant/report
@@ -35,8 +36,7 @@ export class MerchantReportController {
     @Query('limit') limit?: string,
     @Query('status') status?: string
   ) {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 20;
+    const { page: pageNum, limit: limitNum } = parsePagination(page, limit);
     return this.merchantReportService.getReports(req.user.id, pageNum, limitNum, status);
   }
 }

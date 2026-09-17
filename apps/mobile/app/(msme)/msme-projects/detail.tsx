@@ -346,7 +346,13 @@ export default function MsmeProjectDetailScreen() {
  const [excessPrompts, setExcessPrompts] = useState<any[]>([]);
  const [showExcessSheet, setShowExcessSheet] = useState(false);
  const [showCompleteSheet, setShowCompleteSheet] = useState(false);
- const [completeInfo, setCompleteInfo] = useState<any>(null);
+ const [completeInfo, setCompleteInfo] = useState<{
+   project: ProjectSummary;
+   remainingPerTier: Array<{ tier: any; remainingCash: number; targetAmount: number; allocatedAmount: number }>;
+   totalRemaining: number;
+   suggestion: string;
+   requiresResolution: boolean;
+ } | null>(null);
 
  // pagination for transactions
  const [page, setPage] = useState(1);

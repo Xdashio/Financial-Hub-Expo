@@ -2,10 +2,11 @@ import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
-import { useAuthStore } from '@/services/auth';
+import { AuthFlowCode, useAuthStore } from '@/services/auth';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, Input, ScreenContainer, SafeScrollView, BrandHeader, ProgressIndicator, SectionTitle } from '@/components/ui';
 import { ChevronLeft } from 'lucide-react-native';
+import { formatKenyanPhoneInput, isValidKenyanPhone, toE164Kenyan } from '@/utils/phone';
 import React from 'react';
 
 export default function SignUpScreen() {
@@ -18,11 +19,6 @@ export default function SignUpScreen() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [phoneError, setPhoneError] = React.useState('');
   const [nameError, setNameError] = React.useState('');
-
-  const validatePhone = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    return cleaned.length === 9 && (cleaned.startsWith('7') || cleaned.startsWith('1'));
-  };
 
   const validateName = (value: string) => {
     const trimmed = value.trim();
@@ -39,17 +35,8 @@ export default function SignUpScreen() {
   const sanitiseName = (text: string) =>
     text.replace(/[^\p{L}\s'-]/gu, '');
 
-  const formatPhone = (value: string) => {
-    // Strip everything except digits first (blocks emojis, letters, symbols)
-    const cleaned = value.replace(/\D/g, '').slice(0, 9);
-    if (cleaned.length <= 3) return cleaned;
-    if (cleaned.length <= 6) return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
-    return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 6)} ${cleaned.slice(6, 9)}`;
-  };
-
   const handlePhoneChange = (text: string) => {
-    const formatted = formatPhone(text);
-    setPhone(formatted);
+    setPhone(formatKenyanPhoneInput(text));
     if (phoneError) setPhoneError('');
   };
 
@@ -69,7 +56,7 @@ export default function SignUpScreen() {
       hasError = true;
     }
 
-    if (!validatePhone(phone)) {
+    if (!isValidKenyanPhone(phone)) {
       setPhoneError('Enter a valid Kenyan number (e.g., 712 345 678 or 110 123 456)');
       hasError = true;
     }
@@ -78,7 +65,7 @@ export default function SignUpScreen() {
     
     setIsLoading(true);
     try {
-      const fullPhone = `+254${phone.replace(/\s/g, '')}`;
+      const fullPhone = toE164Kenyan(phone);
       // sendSignupOtp checks whether the number is already registered
       // *before* creating anything — see auth.ts for why the plain
       // sendOtp(allowSignup: true) call could never actually detect this.
@@ -94,8 +81,8 @@ export default function SignUpScreen() {
         },
       });
     } catch (error: any) {
-      // If user already exists, redirect to signin
-      if (error?.message?.includes('already registered') || error?.message?.includes('already exists')) {
+      // Match stable AuthFlowCode — not English substrings (audit L1).
+      if (error?.code === AuthFlowCode.ALREADY_REGISTERED) {
         await alert('Account exists', 'An account with this number already exists. Redirecting to sign in...');
         router.replace('/(auth)/signin');
       } else {

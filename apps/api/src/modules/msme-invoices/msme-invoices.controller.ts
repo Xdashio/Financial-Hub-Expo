@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { MsmeInvoicesService } from './msme-invoices.service';
+import { parsePagination } from '../../common/pagination';
 
 @ApiTags('MSME Invoices')
 @Controller('msme/invoices')
@@ -25,12 +26,15 @@ export class MsmeInvoicesController {
     @Query('limit') limit?: string,
   ) {
     const overdueOnly = overdue === 'true';
+    // M2: sanitise here so a garbage ?page=/&limit= never reaches the service
+    // as NaN (the old `Number(page)` echoed NaN back in the response page).
+    const { page: pg, limit: lim } = parsePagination(page, limit);
     return this.invoices.getInvoicesForUser(req.user.id, {
       status,
       overdueOnly,
       search,
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
+      page: page !== undefined || limit !== undefined ? pg : undefined,
+      limit: page !== undefined || limit !== undefined ? lim : undefined,
     } as any);
   }
 

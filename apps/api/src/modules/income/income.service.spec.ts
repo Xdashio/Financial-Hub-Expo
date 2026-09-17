@@ -883,4 +883,70 @@ describe('IncomeService allocateSurplus segment-aware (Phase 2)', () => {
     expect(pocketIds).toEqual(expect.arrayContaining(['pocket-msme-savings', 'pocket-msme-stock']));
     expect(pocketIds).not.toEqual(expect.arrayContaining(['pocket-ind-savings', 'pocket-ind-food']));
   });
+
+  it('serializes concurrent surplus allocations (028) — loser gets a clean 400', async () => {
+    const repository = makeRepository({
+      getIncomeEventById: jest.fn().mockResolvedValue({
+        id: 'evt-1',
+        user_id: 'user-1',
+        unallocated_surplus: 5000,
+        surplus_allocation_status: 'pending',
+        segment: 'msme',
+      } as any),
+      getActivePlanByUserId: jest.fn().mockResolvedValue(MSME_PLAN as any),
+      getTopLevelPocketsByPlanId: jest.fn().mockResolvedValue(MSME_POCKETS_ONE_SAVINGS.map(p => ({ ...p }))),
+      allocatePendingSurplusAtomic: jest
+        .fn()
+        .mockResolvedValueOnce({ new_pocket: null })
+        .mockResolvedValueOnce(null),
+    } as any);
+    const service = new IncomeService(repository, makeRunway(), makePush());
+
+    const [winner, loser] = await Promise.allSettled([
+      service.allocateSurplus('evt-1', { target: 'savings', segment: 'msme' }, 'user-1'),
+      service.allocateSurplus('evt-1', { target: 'savings', segment: 'msme' }, 'user-1'),
+    ]);
+
+    expect(winner.status).toBe('fulfilled');
+    expect(loser.status).toBe('rejected');
+    if (loser.status === 'rejected') {
+      expect(loser.reason).toBeInstanceOf(BadRequestException);
+    }
+  });
+});
+
+describe('IncomeService.createManualIncome concurrent write (032)', () => {
+  it('serializes a null RPC result into a clean 400 for the concurrent loser', async () => {
+    const repository = makeRepository({
+      createManualIncomeAtomic: jest
+        .fn()
+        .mockResolvedValueOnce({
+          id: 'inc-1',
+          user_id: 'user-1',
+          amount: 4000,
+          source: 'client_payment',
+          label: 'Freelance gig',
+          date: '2026-08-09',
+          run_allocation: false,
+          segment: 'individual',
+          unallocated_surplus: null,
+          surplus_allocation_status: null,
+          created_at: '2026-08-09T00:00:00.000Z',
+        })
+        .mockResolvedValueOnce(null),
+    });
+    const service = new IncomeService(repository, makeRunway(), makePush());
+    const dto = { ...BASE_DTO, run_allocation: false };
+
+    const [winner, loser] = await Promise.allSettled([
+      service.createManualIncome(dto, 'user-1'),
+      service.createManualIncome(dto, 'user-1'),
+    ]);
+
+    expect(winner.status).toBe('fulfilled');
+    expect(loser.status).toBe('rejected');
+    if (loser.status === 'rejected') {
+      expect(loser.reason).toBeInstanceOf(BadRequestException);
+    }
+  });
 });

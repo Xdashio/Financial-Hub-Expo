@@ -10,6 +10,8 @@ import { Pocket, PocketUpdate, PocketInsert, Transaction, MerchantClassification
 import { getAllowedCategoriesForPocket, getBlockedCategoriesForPocket, isEssentialPocket } from '../../common/pocket-rules';
 import { v4 as uuidv4 } from 'uuid';
 import { toCamelCaseResponse, toCamelCaseResponseArray } from '../../common/case-transform';
+import { assertMoneyAmount } from '../../common/money-limits';
+import { parsePagination } from '../../common/pagination';
 
 // A pocket's lock may be extended at most once per lock term — from when it
 // was locked (pocket.created_at, since pockets are locked at creation) up
@@ -325,11 +327,16 @@ export class PocketsService {
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
-    const { name, category, dailyCap } = result.data;
+    const { name, category, dailyCap, savingsTargetAmount, savingsTargetDate } = result.data;
     const updates: PocketUpdate = {};
     if (name !== undefined) updates.name = name;
     if (category !== undefined) updates.category = category;
     if (dailyCap !== undefined) updates.daily_cap = dailyCap;
+    // M7: user-set savings goal — null clears it. The service writes it
+    // straight through; range/finite are enforced by the schema above and
+    // the DB CHECK in 039_savings_goal.sql.
+    if (savingsTargetAmount !== undefined) updates.savings_target_amount = savingsTargetAmount;
+    if (savingsTargetDate !== undefined) updates.savings_target_date = savingsTargetDate;
     if (Object.keys(updates).length === 0) {
       throw new BadRequestException('No updatable fields provided');
     }
@@ -596,7 +603,8 @@ export class PocketsService {
     pocketId: string,
     userId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    filters?: { search?: string; type?: 'spend' | 'allocation' | 'reallocation' },
   ): Promise<{ transactions: Transaction[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
     const pocket = await this.repository.getPocketById(pocketId);
     if (!pocket) {
@@ -604,7 +612,9 @@ export class PocketsService {
     }
     await this.assertOwnership(pocket, userId);
 
-    const result = await this.repository.getTransactionsByPocketIdPaginated(pocketId, page, limit);
+    // M2: second line of defence behind the controller's parsePagination.
+    ({ page, limit } = parsePagination(page, limit));
+    const result = await this.repository.getTransactionsByPocketIdPaginated(pocketId, page, limit, filters);
     return {
       transactions: result.transactions,
       pagination: {
@@ -848,13 +858,20 @@ export class PocketsService {
 
     const daysRemaining = Math.ceil((lockUntil.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     
-    // Server-side goal-reached verification (SEC-04): Verify against current ledger balance
+    // Server-side goal-reached verification (SEC-04 + M7): the waiver only
+    // applies against a real, user-set savings_target_amount (039) covered
+    // by the current ledger balance. The old check compared against
+    // monthly_allocation — the funding rate, not a goal — so any pocket
+    // holding one month's allocation could unlock for free. A null target
+    // (no goal set) can never satisfy this, no matter the balance: there is
+    // no fake target to reach.
     const summary = typeof this.repository.getPocketSummary === 'function'
       ? await this.repository.getPocketSummary(pocketId)
       : { available: 0 };
-    const hasTarget = pocket.monthly_allocation != null && pocket.monthly_allocation > 0;
+    const target = Number(pocket.savings_target_amount);
+    const hasTarget = Number.isFinite(target) && target > 0;
     const isGoalReached = Boolean(
-      body.goal_reached && hasTarget && summary.available >= pocket.monthly_allocation,
+      body.goal_reached && hasTarget && summary.available >= target,
     );
     const disciplineCost = isGoalReached ? 0 : Math.ceil(daysRemaining * 0.5); // 0.5 points per day
 
@@ -1023,8 +1040,11 @@ export class PocketsService {
     }
 
     const additionalDays = body.additional_days;
-    if (additionalDays <= 0) {
-      throw new BadRequestException('Additional days must be positive');
+    // M1: the old `<= 0` check let NaN/Infinity through (comparisons are
+    // false for NaN) and had no upper bound — a 1e12-day extension would
+    // overflow lock_until and farm bonus math. Bound it to a sane range.
+    if (!Number.isInteger(additionalDays) || additionalDays < 1 || additionalDays > 3650) {
+      throw new BadRequestException('Additional days must be an integer between 1 and 3650');
     }
 
     // Reject rather than silently zero-bonus, so the response is honest
@@ -1215,6 +1235,8 @@ export class PocketsService {
    * Manually close today's daily allocation (for testing/debugging).
    */
   async closeDailyAllocation(userId: string, actualSpend?: number): Promise<any> {
+    // M1: inline body — bound it before it reaches the atomic close.
+    if (actualSpend !== undefined) assertMoneyAmount(actualSpend, 'actualSpend');
     const plan = await this.repository.getActivePlanByUserId(userId);
     if (!plan) {
       throw new NotFoundException('No active plan found');

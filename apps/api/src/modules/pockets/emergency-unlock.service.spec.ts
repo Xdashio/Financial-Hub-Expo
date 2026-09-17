@@ -16,6 +16,8 @@ const SAVINGS_POCKET: Pocket = {
   daily_cap: null,
   parent_pocket_id: null,
   split_percentage: null,
+  savings_target_amount: null,
+  savings_target_date: null,
   repayment_schedule: null,
   loan_provider: null,
   loan_purpose: null,
@@ -36,6 +38,8 @@ const FOOD_POCKET: Pocket = {
   daily_cap: null,
   parent_pocket_id: null,
   split_percentage: null,
+  savings_target_amount: null,
+  savings_target_date: null,
   repayment_schedule: null,
   loan_provider: null,
   loan_purpose: null,
@@ -56,6 +60,8 @@ const TRANSPORT_POCKET: Pocket = {
   daily_cap: null,
   parent_pocket_id: null,
   split_percentage: null,
+  savings_target_amount: null,
+  savings_target_date: null,
   repayment_schedule: null,
   loan_provider: null,
   loan_purpose: null,
@@ -139,6 +145,7 @@ describe('EmergencyUnlockService (runway-impact model)', () => {
       getEmergencyUnlockThisMonth: jest.fn(),
       getFixedExpensesByUserId: jest.fn(),
       executeEmergencyUnlockAtomic: jest.fn().mockResolvedValue({
+        ok: true as const,
         id: 'unlock-1',
         created_at: '2026-08-15T00:00:00.000Z',
       }),
@@ -376,6 +383,38 @@ describe('EmergencyUnlockService (runway-impact model)', () => {
       expect(createCall.runwayDaysBefore).toBeDefined();
       expect(createCall.runwayDaysAfter).toBeDefined();
       expect(createCall.runwayReductionDays).toBeDefined();
+    });
+
+    it('serializes concurrent same-month unlocks (031) — loser surfaces monthly_limit_reached', async () => {
+      repository.executeEmergencyUnlockAtomic
+        .mockResolvedValueOnce({ ok: true, id: 'unlock-1', created_at: '2026-08-15T00:00:00.000Z' })
+        .mockResolvedValueOnce({ ok: false, reason: 'monthly_limit' });
+
+      const [winner, loser] = await Promise.all([
+        service.executeUnlock('user-1', 'plan-1', { amount: 1000, confirm_impact: true }),
+        service.executeUnlock('user-1', 'plan-1', { amount: 1000, confirm_impact: true }),
+      ]);
+
+      expect(winner.applied).toBe(true);
+      expect(loser.applied).toBe(false);
+      expect(loser.error).toBe('monthly_limit_reached');
+      expect(repository.executeEmergencyUnlockAtomic).toHaveBeenCalledTimes(2);
+    });
+
+    it('maps under-lock insufficient savings (042) to savings_insufficient, not monthly_limit', async () => {
+      repository.executeEmergencyUnlockAtomic.mockResolvedValue({
+        ok: false,
+        reason: 'insufficient',
+      });
+
+      const result = await service.executeUnlock('user-1', 'plan-1', {
+        amount: 1000,
+        confirm_impact: true,
+      });
+
+      expect(result.applied).toBe(false);
+      expect(result.error).toBe('savings_insufficient');
+      expect(repository.executeEmergencyUnlockAtomic).toHaveBeenCalled();
     });
   });
 });

@@ -2,6 +2,8 @@ import { Controller, Get, Post, Param, Request, Query, Body } from '@nestjs/comm
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PlanningCycleService } from './planning-cycle.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { assertMoneyAmount } from '../../common/money-limits';
+import { parseBoundedInt } from '../../common/pagination';
 
 @ApiTags('Planning Cycle')
 @Controller('planning-cycle')
@@ -48,7 +50,7 @@ export class PlanningCycleController {
       throw new Error('No active plan found');
     }
 
-    const monthsNum = months ? parseInt(months, 10) : 6;
+    const monthsNum = parseBoundedInt(months, 6, 1, 24);
     return this.repository.getPlanningCycleEventsByUserId(req.user.id, monthsNum);
   }
 
@@ -118,6 +120,9 @@ export class PlanningCycleController {
     if (!expense || expense.user_id !== req.user.id) {
       throw new Error('Fixed expense not found');
     }
+
+    // M1: same bound as the behavioral-recommendations twin of this endpoint.
+    assertMoneyAmount(body.newAllocation, 'newAllocation');
 
     await this.repository.updateFixedExpense(expenseId, {
       amount: body.newAllocation,

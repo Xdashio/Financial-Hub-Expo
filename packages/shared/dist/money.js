@@ -20,12 +20,14 @@
  *   fromCents(total);                       // 2166 (exact, no float error)
  */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.MAX_MONEY_AMOUNT = void 0;
 exports.toCents = toCents;
 exports.fromCents = fromCents;
 exports.sumMoney = sumMoney;
 exports.netMoney = netMoney;
 exports.formatWholeKsh = formatWholeKsh;
 exports.round2 = round2;
+exports.isFiniteMoney = isFiniteMoney;
 /** Convert a decimal shilling amount (from the DB or user input) to integer cents. */
 function toCents(amount) {
     // Round at the boundary, once — this is the only place float error can
@@ -64,4 +66,16 @@ function formatWholeKsh(amount) {
 /** Round to 2 decimal places (cents) using exact integer arithmetic. */
 function round2(amount) {
     return fromCents(toCents(amount));
+}
+/**
+ * Absolute ceiling for any single monetary amount accepted from a client
+ * (M1). 100,000,000 KSh in integer-cents-safe range: well below
+ * Number.MAX_SAFE_INTEGER even in cents (10^10), consistent with the
+ * integer-cents math above, and far above any legitimate single income,
+ * spend, allocation, invoice, or contract value in this product.
+ */
+exports.MAX_MONEY_AMOUNT = 100_000_000;
+/** True for finite numbers only — rejects NaN/Infinity alongside the ceiling. */
+function isFiniteMoney(amount) {
+    return typeof amount === 'number' && Number.isFinite(amount);
 }

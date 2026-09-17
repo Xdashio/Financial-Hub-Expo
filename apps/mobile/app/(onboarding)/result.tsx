@@ -6,7 +6,7 @@ import { radius, spacing, typography, shadow, touchTarget } from '@/theme';
 import { useOnboardingStore } from '@/services/onboarding-store';
 import { useAuthStore } from '@/services/auth';
 import { supabase } from '@/config/supabase.config';
-import { API_BASE_URL } from '@/config/api';
+import { API_BASE_URL, getDevTunnelHeaders } from '@/config/api';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { Button, ScreenContainer, SafeScrollView, SectionTitle, BrandHeader, PocketGlyph, PocketLoader } from '@/components/ui';
 import { CategoryIcon } from '@/components/icons';
@@ -446,7 +446,8 @@ export default function ResultScreen() {
         // NOTE: this is a one-off verification fetch — for all other API
         // calls use the shared api.ts client which reads the same env var.
         const res = await fetch(`${API_BASE_URL}/pockets`, {
-          headers: { Authorization: `Bearer ${session.access_token}`, 'ngrok-skip-browser-warning': 'true' },
+          // M8: dev-tunnel bypass only — absent in production builds.
+          headers: { Authorization: `Bearer ${session.access_token}`, ...getDevTunnelHeaders() },
         });
         
         if (res.ok) {

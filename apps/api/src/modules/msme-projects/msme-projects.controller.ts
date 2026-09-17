@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Put, Patch, Param, Body, Request, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { ProjectsService, ProjectSummary, ProjectCompleteResult, SpendingControls } from './projects.service';
+import { parsePagination } from '../../common/pagination';
 
 @ApiTags('MSME Projects')
 @Controller('msme/projects')
@@ -14,7 +15,14 @@ export class MsmeProjectsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, description: 'Array (no pagination) or {data,total,page,totalPages} when page/limit set' })
   async getAll(@Request() req: any, @Query('page') page?: string, @Query('limit') limit?: string): Promise<any> {
-    return this.projectsService.getProjectsForUser(req.user.id, page ? Number(page) : undefined, limit ? Number(limit) : undefined);
+    // M2: the old `Number(page)` passed NaN straight into the service when
+    // ?page= garbage was supplied; sanitise with fallbacks instead.
+    const { page: pg, limit: lim } = parsePagination(page, limit);
+    return this.projectsService.getProjectsForUser(
+      req.user.id,
+      page !== undefined || limit !== undefined ? pg : undefined,
+      page !== undefined || limit !== undefined ? lim : undefined,
+    );
   }
 
   @Post()
@@ -169,7 +177,8 @@ export class MsmeProjectsController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.projectsService.getProjectTransactions(id, req.user.id, page ?? 1, limit ?? 20);
+    const { page: pg, limit: lim } = parsePagination(page, limit);
+    return this.projectsService.getProjectTransactions(id, req.user.id, pg, lim);
   }
 
   @Get(':id/excess-prompts')

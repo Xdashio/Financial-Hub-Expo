@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { BadRequestException, HttpException, HttpStatus, NotFoundException, ConflictException } from '@nestjs/common';
 import { OnboardingService } from './onboarding.service';
 import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { OnboardingInput, MsmeOnboardingInput } from '@financial-hub/shared';
@@ -16,6 +16,34 @@ function makeRepository(overrides: Partial<jest.Mocked<SupabaseRepository>> = {}
     deleteFixedExpensesByUserId: jest.fn().mockResolvedValue(undefined),
     createTransactions: jest.fn().mockResolvedValue([]),
     createBehaviorEvent: jest.fn().mockResolvedValue({ id: 'event-1' }),
+    // Mirrors migration 036 atomic_commit_onboarding: returns the persisted
+    // plan id and the pockets exactly as the RPC returns them.
+    commitOnboardingAtomic: jest.fn().mockImplementation(async (input) => ({
+      plan_id: input.plan.id,
+      pockets: (input.pockets ?? []).map((p: any, i: number) => ({
+        id: p.id ?? `pocket-${i}`,
+        name: p.name,
+        kind: p.kind,
+        category: p.category ?? null,
+        monthly_allocation: p.monthly_allocation ?? 0,
+        daily_cap: p.daily_cap ?? null,
+      })),
+    })),
+    // Mirrors migration 043 atomic_retake_plan.
+    retakePlanAtomic: jest.fn().mockImplementation(async (input) => ({
+      ok: true as const,
+      result: {
+        plan_id: input.plan.id,
+        pockets: (input.pockets ?? []).map((p: any, i: number) => ({
+          id: p.id ?? `pocket-${i}`,
+          name: p.name,
+          kind: p.kind,
+          category: p.category ?? null,
+          monthly_allocation: p.monthly_allocation ?? 0,
+          daily_cap: p.daily_cap ?? null,
+        })),
+      },
+    })),
     getActivePlanByUserId: jest.fn().mockResolvedValue(null),
     getPocketsByPlanId: jest.fn().mockResolvedValue([]),
     getPocketSummary: jest.fn().mockResolvedValue({ available: 0, allocated: 0, spent: 0, transactionCount: 0, reallocationCount: 0 }),
@@ -173,31 +201,42 @@ describe('OnboardingService.commit', () => {
 
   it('rejects invalid input without touching the repository', async () => {
     await expect(service.commit({ incomeAmount: -1 }, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
-    expect(repository.deactivateUserPlans).not.toHaveBeenCalled();
-    expect(repository.createPlan).not.toHaveBeenCalled();
+    expect(repository.commitOnboardingAtomic).not.toHaveBeenCalled();
   });
 
-  it('deactivates existing plans before creating the new one', async () => {
+  it('persists plan + pockets through the atomic RPC (deactivation is inside the transaction)', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'individual');
-    expect(repository.deactivateUserPlansBySegment.mock.invocationCallOrder[0]).toBeLessThan(
-      repository.createPlan.mock.invocationCallOrder[0]
+    expect(repository.commitOnboardingAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        segment: 'individual',
+        plan: expect.objectContaining({
+          status: 'active',
+          money_personality: 'saver',
+          type: 'structured',
+        }),
+      })
     );
+    // The deactivate happens inside atomic_commit_onboarding, not as a
+    // separate repository call that could leave a plan-less window.
+    expect(repository.deactivateUserPlansBySegment).not.toHaveBeenCalled();
+    expect(repository.createPlan).not.toHaveBeenCalled();
+    expect(repository.createPockets).not.toHaveBeenCalled();
   });
 
   it('maps a "mix" income pattern to "salaried" when persisting the plan', async () => {
     await service.commit({ ...SALARIED_TRACKER_INPUT, incomePattern: 'mix' }, 'user-1');
 
-    expect(repository.createPlan).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'user-1', income_pattern: 'salaried', status: 'active' })
-    );
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].plan.income_pattern).toBe('salaried');
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0])
+      .toEqual(expect.objectContaining({ userId: 'user-1', segment: 'individual' }));
   });
 
   it('creates a Fixed Expenses pocket, a locked Savings pocket, and evenly-split spendable pockets for a structured plan', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    const pockets = repository.createPockets.mock.calls[0][0];
+    const pockets = repository.commitOnboardingAtomic.mock.calls[0][0].pockets;
     const kinds = pockets.map((p: any) => p.kind);
     expect(kinds).toEqual(['fixed', 'savings', 'spendable', 'spendable', 'spendable']);
 
@@ -224,7 +263,7 @@ describe('OnboardingService.commit', () => {
   it('sets a daily_cap on spendable pockets for a daily-budget plan', async () => {
     await service.commit(FREELANCER_WEEK3_INPUT, 'user-1');
 
-    const pockets = repository.createPockets.mock.calls[0][0];
+    const pockets = repository.commitOnboardingAtomic.mock.calls[0][0].pockets;
     const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
     expect(spendablePockets.every((p: any) => typeof p.daily_cap === 'number' && p.daily_cap > 0)).toBe(true);
   });
@@ -235,7 +274,7 @@ describe('OnboardingService.commit', () => {
       'user-1',
     );
 
-    const pockets = repository.createPockets.mock.calls[0][0];
+    const pockets = repository.commitOnboardingAtomic.mock.calls[0][0].pockets;
     const spendablePockets = pockets.filter((p: any) => p.kind === 'spendable');
     const assignment = service.assign(SALARIED_TRACKER_INPUT);
     const food = spendablePockets.find((p: any) => p.category === 'food');
@@ -249,7 +288,7 @@ describe('OnboardingService.commit', () => {
         'user-1',
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(repository.createPlan).not.toHaveBeenCalled();
+    expect(repository.commitOnboardingAtomic).not.toHaveBeenCalled();
   });
 
   it('creates one locked fixed pocket per submitted fixed expense (itemized, not lumped)', async () => {
@@ -264,7 +303,7 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    const pockets = repository.createPockets.mock.calls[0][0];
+    const pockets = repository.commitOnboardingAtomic.mock.calls[0][0].pockets;
     const fixed = pockets.filter((p: any) => p.kind === 'fixed');
     expect(fixed).toHaveLength(2);
     expect(fixed.every((p: any) => p.is_time_locked && p.lock_until)).toBe(true);
@@ -274,7 +313,7 @@ describe('OnboardingService.commit', () => {
   it('adds a Family spendable pocket when hasDependents is set', async () => {
     await service.commit({ ...SALARIED_TRACKER_INPUT, hasDependents: true }, 'user-1');
 
-    const pockets = repository.createPockets.mock.calls[0][0];
+    const pockets = repository.commitOnboardingAtomic.mock.calls[0][0].pockets;
     const categories = pockets
       .filter((p: any) => p.kind === 'spendable')
       .map((p: any) => p.category)
@@ -282,7 +321,7 @@ describe('OnboardingService.commit', () => {
     expect(categories).toEqual(['family', 'food', 'leisure', 'transport']);
   });
 
-  it('creates one fixed expense row per submitted fixed expense', async () => {
+  it('passes the submitted fixed expenses to the RPC for insertion', async () => {
     const input: OnboardingInput = {
       ...SALARIED_TRACKER_INPUT,
       fixedExpenses: [
@@ -293,19 +332,22 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    expect(repository.createFixedExpense).toHaveBeenCalledTimes(2);
-    expect(repository.createFixedExpense).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'user-1', name: 'Rent', amount: 10000, due_day: 1, category: 'utilities' })
-    );
-    expect(repository.createFixedExpense).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'user-1', name: 'Internet', amount: 2000, due_day: 5, category: 'transport' })
-    );
+    const call = repository.commitOnboardingAtomic.mock.calls[0][0];
+    expect(call.replaceFixedExpenses).toBe(true);
+    expect(call.fixedExpenses).toEqual([
+      { name: 'Rent', amount: 10000, due_day: 1, category: 'utilities' },
+      { name: 'Internet', amount: 2000, due_day: 5, category: 'transport' },
+    ]);
+    expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 
   it('creates no fixed expense rows when none were submitted', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].replaceFixedExpenses).toBe(false);
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].fixedExpenses).toEqual([]);
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
+    expect(repository.deleteFixedExpensesByUserId).not.toHaveBeenCalled();
   });
 
   // Regression test for the duplication bug: retake-checkin.tsx prefills
@@ -313,7 +355,9 @@ describe('OnboardingService.commit', () => {
   // that full list on save. Without clearing first, every retake
   // re-inserted the same rows on top of what was already there (visibly,
   // "Electricity" appearing 5x after a few retakes). commit() must give
-  // full-replace semantics whenever fixedExpenses is provided at all.
+  // full-replace semantics whenever fixedExpenses is provided at all — the
+  // RPC deletes the segment's rows then inserts the submitted set in one
+  // transaction.
   it('clears existing fixed expenses before inserting the submitted set (full replace, not append)', async () => {
     const input: OnboardingInput = {
       ...SALARIED_TRACKER_INPUT,
@@ -322,11 +366,11 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1', 'individual');
-    // Delete must happen before the new rows are inserted, not after.
-    const deleteOrder = (repository.deleteFixedExpensesByUserId as jest.Mock).mock.invocationCallOrder[0];
-    const createOrder = (repository.createFixedExpense as jest.Mock).mock.invocationCallOrder[0];
-    expect(deleteOrder).toBeLessThan(createOrder);
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].replaceFixedExpenses).toBe(true);
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].fixedExpenses).toEqual([
+      { name: 'Rent', amount: 10000, due_day: 1, category: 'utilities' },
+    ]);
+    expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 
   it('clears existing fixed expenses when an explicit empty array is submitted', async () => {
@@ -334,13 +378,15 @@ describe('OnboardingService.commit', () => {
 
     await service.commit(input, 'user-1');
 
-    expect(repository.deleteFixedExpensesByUserId).toHaveBeenCalledWith('user-1', 'individual');
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].replaceFixedExpenses).toBe(true);
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].fixedExpenses).toEqual([]);
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 
   it('leaves existing fixed expenses untouched when the field is omitted entirely', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].replaceFixedExpenses).toBe(false);
     expect(repository.deleteFixedExpensesByUserId).not.toHaveBeenCalled();
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
@@ -356,22 +402,23 @@ describe('OnboardingService.commit', () => {
     expect(repository.createTransactions).not.toHaveBeenCalled();
   });
 
-  it('logs a plan_created behavior event', async () => {
+  it('logs a plan_created behavior event inside the RPC transaction', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 
-    expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: 'user-1',
-        type: 'plan_created',
-        payload: expect.objectContaining({ planType: 'structured', incomePattern: 'salaried' }),
-      })
+    const call = repository.commitOnboardingAtomic.mock.calls[0][0];
+    expect(call.behaviorType).toBe('plan_created');
+    expect(call.behaviorPayload).toEqual(
+      expect.objectContaining({ planType: 'structured', incomePattern: 'salaried' })
     );
+    // The event is written by the RPC, not as a separate service call.
+    expect(repository.createBehaviorEvent).not.toHaveBeenCalled();
   });
 
-  it('throws when plan creation fails, without creating pockets', async () => {
-    repository.createPlan.mockResolvedValue(null);
+  it('maps an RPC rejection (race loser / failed persist) to a clean conflict', async () => {
+    repository.commitOnboardingAtomic.mockResolvedValue(null);
 
-    await expect(service.commit(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toThrow('Failed to create plan');
+    await expect(service.commit(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.createPlan).not.toHaveBeenCalled();
     expect(repository.createPockets).not.toHaveBeenCalled();
   });
 
@@ -391,6 +438,25 @@ describe('OnboardingService.commit', () => {
         })
       );
     }
+  });
+
+  it('serializes concurrent commits — the loser is rejected with a clean conflict and no partial plan is written', async () => {
+    repository.commitOnboardingAtomic
+      .mockResolvedValueOnce({ plan_id: 'plan-1', pockets: [] })
+      .mockResolvedValueOnce(null);
+
+    const [winner, loser] = await Promise.allSettled([
+      service.commit(SALARIED_TRACKER_INPUT, 'user-1'),
+      service.commit(SALARIED_TRACKER_INPUT, 'user-1'),
+    ]);
+
+    expect(winner.status).toBe('fulfilled');
+    expect(loser.status).toBe('rejected');
+    if (loser.status === 'rejected') {
+      expect(loser.reason).toBeInstanceOf(ConflictException);
+    }
+    expect(repository.createPlan).not.toHaveBeenCalled();
+    expect(repository.createPockets).not.toHaveBeenCalled();
   });
 });
 
@@ -433,7 +499,7 @@ describe('OnboardingService.retake', () => {
       expect(error).toBeInstanceOf(HttpException);
       expect((error as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
     }
-    expect(repository.createPlan).not.toHaveBeenCalled();
+    expect(repository.retakePlanAtomic).not.toHaveBeenCalled();
   });
 
   it('rejects when there is no active plan', async () => {
@@ -442,7 +508,7 @@ describe('OnboardingService.retake', () => {
     await expect(service.retake(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('migrates balances onto the new pockets and conserves total money', async () => {
+  it('migrates balances onto the new pockets and conserves total money via atomic_retake_plan (043)', async () => {
     const result = await service.retake(SALARIED_TRACKER_INPUT, 'user-1');
 
     expect(result.redistribution.totalMoved).toBeCloseTo(1600);
@@ -450,7 +516,19 @@ describe('OnboardingService.retake', () => {
     expect(result.redistribution.newPlanType).toBe('structured');
     expect(result.redistribution.movements.length).toBeGreaterThan(0);
 
-    const ledger = repository.createTransactions.mock.calls[0][0];
+    expect(repository.retakePlanAtomic).toHaveBeenCalledTimes(1);
+    const call = repository.retakePlanAtomic.mock.calls[0][0];
+    expect(call.previousPlanId).toBe('plan-old');
+    expect(call.segment).toBe('individual');
+    expect(call.behaviorPayload).toEqual(
+      expect.objectContaining({
+        previousPlanId: 'plan-old',
+        totalMoved: expect.any(Number),
+      }),
+    );
+    expect(call.behaviorPayload.totalMoved).toBeCloseTo(1600);
+
+    const ledger = call.ledger;
     const credited = ledger
       .filter((t: any) => t.type === 'reallocation_in')
       .reduce((s: number, t: any) => s + t.amount, 0);
@@ -460,17 +538,61 @@ describe('OnboardingService.retake', () => {
     expect(credited).toBeCloseTo(1600);
     expect(debited).toBeCloseTo(1600);
 
-    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'individual');
-    expect(repository.createBehaviorEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ user_id: 'user-1', type: 'plan_retaken' }),
-    );
+    // Persist path is the RPC — no sequential deactivate/create/ledger calls.
+    expect(repository.deactivateUserPlansBySegment).not.toHaveBeenCalled();
+    expect(repository.createPlan).not.toHaveBeenCalled();
+    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(repository.createBehaviorEvent).not.toHaveBeenCalled();
   });
 
-  it('re-activates the previous plan if creating the new one fails', async () => {
-    repository.createPlan.mockResolvedValue(null);
+  it('maps an RPC monthly-limit rejection to 429 (concurrent retake loser)', async () => {
+    repository.retakePlanAtomic.mockResolvedValue({ ok: false, reason: 'monthly_limit' });
 
-    await expect(service.retake(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toThrow('Failed to create plan');
-    expect(repository.updatePlan).toHaveBeenCalledWith('plan-old', { status: 'active' });
+    try {
+      await service.retake(SALARIED_TRACKER_INPUT, 'user-1');
+      fail('expected HttpException');
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpException);
+      expect((error as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    }
+  });
+
+  it('maps an under-lock insufficient source balance to ConflictException', async () => {
+    repository.retakePlanAtomic.mockResolvedValue({ ok: false, reason: 'insufficient' });
+
+    await expect(service.retake(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('maps a generic RPC conflict to ConflictException (no stale reactivate path)', async () => {
+    repository.retakePlanAtomic.mockResolvedValue({ ok: false, reason: 'conflict' });
+
+    await expect(service.retake(SALARIED_TRACKER_INPUT, 'user-1')).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.updatePlan).not.toHaveBeenCalled();
+  });
+
+  it('serializes concurrent retakes — exactly one winner, loser gets 429', async () => {
+    repository.retakePlanAtomic
+      .mockResolvedValueOnce({
+        ok: true,
+        result: {
+          plan_id: 'plan-new',
+          pockets: [{ id: 'p1', name: 'Savings', kind: 'savings', category: null, monthly_allocation: 0, daily_cap: null }],
+        },
+      })
+      .mockResolvedValueOnce({ ok: false, reason: 'monthly_limit' });
+
+    const [winner, loser] = await Promise.allSettled([
+      service.retake(SALARIED_TRACKER_INPUT, 'user-1'),
+      service.retake(SALARIED_TRACKER_INPUT, 'user-1'),
+    ]);
+
+    expect(winner.status).toBe('fulfilled');
+    expect(loser.status).toBe('rejected');
+    if (loser.status === 'rejected') {
+      expect(loser.reason).toBeInstanceOf(HttpException);
+      expect((loser.reason as HttpException).getStatus()).toBe(HttpStatus.TOO_MANY_REQUESTS);
+    }
+    expect(repository.retakePlanAtomic).toHaveBeenCalledTimes(2);
   });
 
   it('still creates a redistribution summary with zero total when pockets are empty', async () => {
@@ -486,7 +608,7 @@ describe('OnboardingService.retake', () => {
 
     expect(result.redistribution.totalMoved).toBe(0);
     expect(result.redistribution.movements).toEqual([]);
-    expect(repository.createTransactions).not.toHaveBeenCalled();
+    expect(repository.retakePlanAtomic.mock.calls[0][0].ledger).toEqual([]);
   });
 
   it('getRetakeEligibility reports allowed when no prior retake exists', async () => {
@@ -557,21 +679,26 @@ describe('OnboardingService.commitMsme', () => {
     service = new OnboardingService(repository);
   });
 
-  it('creates the plan with a *segment-scoped* deactivation (leaves the individual plan untouched)', async () => {
+  it('persists the MSME plan through the atomic RPC (segment-scoped, leaves the individual plan untouched)', async () => {
     await service.commitMsme(MSME_INPUT, 'user-1');
 
-    expect(repository.deactivateUserPlansBySegment).toHaveBeenCalledWith('user-1', 'msme');
-    expect(repository.deactivateUserPlans).not.toHaveBeenCalled();
-    expect(repository.createPlan).toHaveBeenCalledWith(
+    const call = repository.commitOnboardingAtomic.mock.calls[0][0];
+    expect(call.segment).toBe('msme');
+    expect(call.userId).toBe('user-1');
+    expect(call.plan).toEqual(
       expect.objectContaining({
-        user_id: 'user-1',
-        segment: 'msme',
         type: 'structured',
         income_pattern: 'salaried',
         expected_income_amount: 100000,
         status: 'active',
+        money_personality: 'saver',
       })
     );
+    // Deactivation + persistence happen inside atomic_commit_onboarding, so
+    // no separate segment-scoped deactivate call is made from the service.
+    expect(repository.deactivateUserPlansBySegment).not.toHaveBeenCalled();
+    expect(repository.deactivateUserPlans).not.toHaveBeenCalled();
+    expect(repository.createPlan).not.toHaveBeenCalled();
   });
 
   it('builds the MSME pocket set: fixed expenses (itemized) + locked Savings + spendable custom pockets', async () => {
@@ -588,7 +715,7 @@ describe('OnboardingService.commitMsme', () => {
 
     await service.commitMsme(input, 'user-1');
 
-    const pockets = repository.createPockets.mock.calls[0][0];
+    const pockets = repository.commitOnboardingAtomic.mock.calls[0][0].pockets;
     const kinds = pockets.map((p: any) => p.kind);
     expect(kinds).toEqual(['fixed', 'savings', 'spendable', 'spendable', 'spendable', 'spendable']);
 
@@ -620,7 +747,7 @@ describe('OnboardingService.commitMsme', () => {
 
     await service.commitMsme(input, 'user-1');
 
-    const pockets = repository.createPockets.mock.calls[0][0];
+    const pockets = repository.commitOnboardingAtomic.mock.calls[0][0].pockets;
     const fixed = pockets.filter((p: any) => p.kind === 'fixed');
     expect(fixed.map((p: any) => p.category).sort()).toEqual(['rent', 'salary']);
     expect(fixed.every((p: any) => p.is_time_locked === true)).toBe(true);
@@ -633,11 +760,18 @@ describe('OnboardingService.commitMsme', () => {
     };
 
     await expect(service.commitMsme(input, 'user-1')).rejects.toBeInstanceOf(BadRequestException);
-    expect(repository.createPlan).not.toHaveBeenCalled();
+    expect(repository.commitOnboardingAtomic).not.toHaveBeenCalled();
   });
 
   it('does not deactivate the individual plan when committing MSME (two concurrent active plans)', async () => {
     await service.commitMsme(MSME_INPUT, 'user-1');
     expect(repository.deactivateUserPlans).not.toHaveBeenCalled();
+    expect(repository.commitOnboardingAtomic.mock.calls[0][0].segment).toBe('msme');
+  });
+
+  it('maps an RPC rejection to a clean conflict', async () => {
+    repository.commitOnboardingAtomic.mockResolvedValue(null);
+
+    await expect(service.commitMsme(MSME_INPUT, 'user-1')).rejects.toBeInstanceOf(ConflictException);
   });
 });

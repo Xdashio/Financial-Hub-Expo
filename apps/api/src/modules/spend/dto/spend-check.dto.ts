@@ -1,4 +1,5 @@
-import { IsNumber, IsString, IsEnum, IsOptional, IsUUID, Min, MinLength, MaxLength } from 'class-validator';
+import { IsNumber, IsString, IsBoolean, IsEnum, IsOptional, IsUUID, Min, Max, MinLength, MaxLength } from 'class-validator';
+import { MAX_MONEY_AMOUNT } from '../../../common/money-limits';
 
 export class SpendCheckDto {
   @IsUUID()
@@ -6,6 +7,7 @@ export class SpendCheckDto {
 
   @IsNumber()
   @Min(0.01)
+  @Max(MAX_MONEY_AMOUNT)
   amount: number;
 
   @IsOptional()
@@ -36,6 +38,7 @@ export class SpendCheckDto {
    * blocked_category / pocket_time_locked stay hard blocks regardless.
    */
   @IsOptional()
+  @IsBoolean()
   override?: boolean;
 
   @IsOptional()
@@ -48,6 +51,7 @@ export class SpendCheckDto {
    * This triggers an immediate parent-to-child reallocation before the spend proceeds.
    */
   @IsOptional()
+  @IsBoolean()
   borrow_from_parent?: boolean;
 
   /**
@@ -59,5 +63,6 @@ export class SpendCheckDto {
    * applyDailyCapOverride.
    */
   @IsOptional()
+  @IsBoolean()
   override_daily_cap?: boolean;
 }

@@ -4,23 +4,27 @@ import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography, touchTarget, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { RunwayVisualization } from './RunwayVisualization';
-import { usePlanningCycleStatus, useCurrentPlanningCycle, useTriggerPlanningCycle, usePlanningCycleHistory } from '@/hooks/useFreelancer';
+import { usePlanningCycleStatus, useCurrentPlanningCycle, useTriggerPlanningCycle, usePlanningCycleHistory, useApplyPlanningCycleRecommendation } from '@/hooks/useFreelancer';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import { Button } from '@/components/ui/Button';
 import { PocketGlyph } from '@/components/ui/PocketGlyph';
 import { PocketLoader } from '@/components/ui/PocketLoader';
+import { useAlertModal } from '@/hooks/useAlertModal';
 import { AlertTriangle, Calendar } from 'lucide-react-native';
 
 export function PlanningCycleScreen() {
   const { colors } = useTheme();
   const styles = createStyles(colors);
+  const { alert, confirm, modal } = useAlertModal();
   const [refreshing, setRefreshing] = useState(false);
   const [showTriggerConfirm, setShowTriggerConfirm] = useState(false);
+  const [applyingExpenseId, setApplyingExpenseId] = useState<string | null>(null);
 
   const { data: status, isLoading: statusLoading, refetch: refetchStatus } = usePlanningCycleStatus();
   const { data: currentCycle, isLoading: cycleLoading, refetch: refetchCycle } = useCurrentPlanningCycle();
   const { data: history, isLoading: historyLoading } = usePlanningCycleHistory(6);
   const triggerMutation = useTriggerPlanningCycle();
+  const applyRecommendation = useApplyPlanningCycleRecommendation();
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -37,6 +41,32 @@ export function PlanningCycleScreen() {
     }
   };
 
+  const handleApplyRecommendation = async (rec: {
+    expenseId: string;
+    name: string;
+    recommendedAllocation: number;
+    currentAllocation: number;
+  }) => {
+    if (applyingExpenseId) return;
+    const ok = await confirm(
+      `Apply recommendation for ${rec.name}?`,
+      `Change allocation from ${formatMoney(rec.currentAllocation)} to ${formatMoney(rec.recommendedAllocation)}.`,
+    );
+    if (!ok) return;
+    setApplyingExpenseId(rec.expenseId);
+    try {
+      await applyRecommendation.mutateAsync({
+        expenseId: rec.expenseId,
+        newAllocation: rec.recommendedAllocation,
+      });
+      await refetchCycle();
+    } catch (error: any) {
+      await alert('Could not apply recommendation', error?.message ?? 'Please try again.');
+    } finally {
+      setApplyingExpenseId(null);
+    }
+  };
+
   const nextPlanningDate = status?.next_planning_date;
   const daysUntilNext = status?.days_until_next ?? 0;
   const lastCycleAt = status?.last_planning_cycle_at;
@@ -46,6 +76,7 @@ export function PlanningCycleScreen() {
   const recommendations = currentCycle?.recommendations ?? [];
 
   return (
+    <>
     <ScrollView
       refreshControl={
         <RefreshControl
@@ -196,13 +227,15 @@ export function PlanningCycleScreen() {
               </View>
               <View style={styles.recommendationsList}>
                 {recommendations.map((rec) => {
+                  const isApplying = applyingExpenseId === rec.expenseId;
                   return (
                     <Pressable
                       key={rec.expenseId}
-                      style={styles.recommendationCard}
-                      onPress={() => {
-                        // Could open a modal to accept/modify
-                      }}
+                      style={[styles.recommendationCard, isApplying && { opacity: 0.7 }]}
+                      disabled={!!applyingExpenseId}
+                      onPress={() => void handleApplyRecommendation(rec)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Apply recommendation for ${rec.name}`}
                     >
                       <View style={styles.recInfo}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs }}>
@@ -341,6 +374,8 @@ export function PlanningCycleScreen() {
         </View>
       </BottomSheetModal>
     </ScrollView>
+    {modal}
+    </>
   );
 }
 
@@ -463,11 +498,6 @@ function createStyles(colors: ColorPalette) {
   recInfo: {
     flex: 1,
     marginBottom: spacing.sm,
-  },
-  confidenceBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
   },
   recComparison: {
     flexDirection: 'row',

@@ -9,7 +9,7 @@
       "distribution": "internal",
       "environment": "development",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-f91bc.up.railway.app/api",
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000/api",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
@@ -20,7 +20,7 @@
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-f91bc.up.railway.app/api",
+        "EXPO_PUBLIC_API_URL": "https://api-staging-f91bc.up.railway.app/api",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "ARM64_ONLY_BUILD": "true"
       },
@@ -32,7 +32,7 @@
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-f91bc.up.railway.app/api",
+        "EXPO_PUBLIC_API_URL": "https://api-staging-f91bc.up.railway.app/api",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {

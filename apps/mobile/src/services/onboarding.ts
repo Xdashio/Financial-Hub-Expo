@@ -6,7 +6,7 @@ import {
   MsmeOnboardingInput,
 } from '@financial-hub/shared';
 import { supabase } from '@/config/supabase.config';
-import { API_BASE_URL } from '@/config/api';
+import { API_BASE_URL, getDevTunnelHeaders } from '@/config/api';
 
 async function fetchWithAuth<T>(endpoint: string, body: unknown, method: 'POST' | 'PATCH' = 'POST'): Promise<T> {
   // Try to get session, but don't fail if it's not available during onboarding
@@ -22,7 +22,8 @@ async function fetchWithAuth<T>(endpoint: string, body: unknown, method: 'POST' 
     method,
     headers: {
       'Content-Type': 'application/json',
-      'ngrok-skip-browser-warning': 'true',
+      // M8: dev-tunnel bypass only — absent in production builds.
+      ...getDevTunnelHeaders(),
       ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
     },
     body: JSON.stringify(body),

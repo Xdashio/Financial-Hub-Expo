@@ -5,6 +5,7 @@ export default function PocketsLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="detail" />
       <Stack.Screen name="log-spend" />
+      <Stack.Screen name="planning-cycle" />
     </Stack>
   );
 }

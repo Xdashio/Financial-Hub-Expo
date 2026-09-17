@@ -118,6 +118,10 @@ export interface Database {
           // pockets. `monthly_allocation` above is kept in sync as a
           // derived cache — see pockets.service.ts.
           split_percentage: number | null
+          // Real savings goal (039_savings_goal.sql). Null = no goal set —
+          // the client must not fabricate one from monthly_allocation.
+          savings_target_amount: number | null
+          savings_target_date: string | null
           // Loan-specific fields (audit_team.md item 9)
           repayment_schedule: Json | null
           loan_provider: string | null
@@ -138,6 +142,8 @@ export interface Database {
           daily_cap?: number | null
           parent_pocket_id?: string | null
           split_percentage?: number | null
+          savings_target_amount?: number | null
+          savings_target_date?: string | null
           repayment_schedule?: Json | null
           loan_provider?: string | null
           loan_purpose?: string | null
@@ -157,6 +163,8 @@ export interface Database {
           daily_cap?: number | null
           parent_pocket_id?: string | null
           split_percentage?: number | null
+          savings_target_amount?: number | null
+          savings_target_date?: string | null
           repayment_schedule?: Json | null
           loan_provider?: string | null
           loan_purpose?: string | null
@@ -451,6 +459,630 @@ export interface Database {
           delta?: number
           period?: string
           calculated_at?: string
+        }
+        Relationships: []
+      }
+      daily_allocations: {
+        Row: {
+          id: string
+          plan_id: string
+          user_id: string
+          allocation_date: string
+          planned_amount: number
+          actual_spend: number
+          returned_amount: number
+          overspend_amount: number
+          runway_days_at_open: number | null
+          runway_days_at_close: number | null
+          status: 'open' | 'closed'
+          created_at: string
+          closed_at: string | null
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          user_id: string
+          allocation_date: string
+          planned_amount: number
+          actual_spend?: number
+          returned_amount?: number
+          overspend_amount?: number
+          runway_days_at_open?: number | null
+          runway_days_at_close?: number | null
+          status?: 'open' | 'closed'
+          created_at?: string
+          closed_at?: string | null
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          user_id?: string
+          allocation_date?: string
+          planned_amount?: number
+          actual_spend?: number
+          returned_amount?: number
+          overspend_amount?: number
+          runway_days_at_open?: number | null
+          runway_days_at_close?: number | null
+          status?: 'open' | 'closed'
+          created_at?: string
+          closed_at?: string | null
+        }
+        Relationships: []
+      }
+      planning_cycle_events: {
+        Row: {
+          id: string
+          plan_id: string
+          user_id: string
+          cycle_month: string
+          reserve_balance_at_start: number
+          total_fixed_obligations: number
+          discretionary_reserve: number
+          daily_budget: number
+          runway_days: number
+          allocation_snapshot: Json | null
+          recommendations_snapshot: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          user_id: string
+          cycle_month: string
+          reserve_balance_at_start?: number
+          total_fixed_obligations?: number
+          discretionary_reserve?: number
+          daily_budget?: number
+          runway_days?: number
+          allocation_snapshot?: Json | null
+          recommendations_snapshot?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          user_id?: string
+          cycle_month?: string
+          reserve_balance_at_start?: number
+          total_fixed_obligations?: number
+          discretionary_reserve?: number
+          daily_budget?: number
+          runway_days?: number
+          allocation_snapshot?: Json | null
+          recommendations_snapshot?: Json | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          id: string
+          user_id: string
+          token: string
+          platform: 'ios' | 'android' | 'web'
+          device_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          token: string
+          platform: 'ios' | 'android' | 'web'
+          device_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          token?: string
+          platform?: 'ios' | 'android' | 'web'
+          device_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_deliveries: {
+        Row: {
+          id: string
+          user_id: string
+          kind: string
+          dedupe_key: string
+          title: string | null
+          body: string | null
+          data: Json
+          sent_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          kind: string
+          dedupe_key: string
+          title?: string | null
+          body?: string | null
+          data?: Json
+          sent_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          kind?: string
+          dedupe_key?: string
+          title?: string | null
+          body?: string | null
+          data?: Json
+          sent_at?: string
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          reallocation_confirms: boolean
+          cooling_off_reminders: boolean
+          savings_milestones: boolean
+          monthly_insights: boolean
+          tips_nudges: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          reallocation_confirms?: boolean
+          cooling_off_reminders?: boolean
+          savings_milestones?: boolean
+          monthly_insights?: boolean
+          tips_nudges?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          reallocation_confirms?: boolean
+          cooling_off_reminders?: boolean
+          savings_milestones?: boolean
+          monthly_insights?: boolean
+          tips_nudges?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      merchant_reports: {
+        Row: {
+          id: string
+          user_id: string
+          recipient_key: string
+          report_type: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee'
+          description: string | null
+          suggested_category: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
+          status: 'pending' | 'reviewed' | 'resolved'
+          created_at: string
+          reviewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          recipient_key: string
+          report_type: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee'
+          description?: string | null
+          suggested_category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
+          status?: 'pending' | 'reviewed' | 'resolved'
+          created_at?: string
+          reviewed_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          recipient_key?: string
+          report_type?: 'wrong_category' | 'not_gambling' | 'wrong_amount' | 'unknown_payee'
+          description?: string | null
+          suggested_category?: 'grocery' | 'landlord_rent' | 'utility' | 'transport' | 'healthcare' | 'education' | 'entertainment' | 'gambling_betting' | 'personal_care' | 'other' | 'unclassified' | null
+          status?: 'pending' | 'reviewed' | 'resolved'
+          created_at?: string
+          reviewed_at?: string | null
+        }
+        Relationships: []
+      }
+      idempotency_records: {
+        Row: {
+          id: string
+          user_id: string
+          scope: string
+          idempotency_key: string
+          resource_id: string | null
+          response: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          scope: string
+          idempotency_key: string
+          resource_id?: string | null
+          response?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          scope?: string
+          idempotency_key?: string
+          resource_id?: string | null
+          response?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      rollover_locks: {
+        Row: {
+          user_id: string
+          acquired_at: string
+        }
+        Insert: {
+          user_id: string
+          acquired_at?: string
+        }
+        Update: {
+          user_id?: string
+          acquired_at?: string
+        }
+        Relationships: []
+      }
+      msme_projects: {
+        Row: {
+          id: string
+          user_id: string
+          plan_id: string
+          name: string
+          kind: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other'
+          contract_value: number
+          status: 'draft' | 'active' | 'completed' | 'cancelled'
+          is_active_cascade: boolean
+          spending_controls: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean }
+          completion_resolved_at: string | null
+          completion_resolved_to: 'savings' | 'keep' | null
+          created_at: string
+          updated_at: string
+          completed_at: string | null
+          cancelled_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan_id: string
+          name: string
+          kind: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other'
+          contract_value: number
+          status?: 'draft' | 'active' | 'completed' | 'cancelled'
+          is_active_cascade?: boolean
+          spending_controls?: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean }
+          completion_resolved_at?: string | null
+          completion_resolved_to?: 'savings' | 'keep' | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+          cancelled_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan_id?: string
+          name?: string
+          kind?: 'catering' | 'wedding' | 'trip' | 'tour' | 'contract' | 'construction' | 'agri' | 'other'
+          contract_value?: number
+          status?: 'draft' | 'active' | 'completed' | 'cancelled'
+          is_active_cascade?: boolean
+          spending_controls?: { lockWantsUntilPrioritiesAndNeedsFunded: boolean; warnOnLowPrioritySpend: boolean }
+          completion_resolved_at?: string | null
+          completion_resolved_to?: 'savings' | 'keep' | null
+          created_at?: string
+          updated_at?: string
+          completed_at?: string | null
+          cancelled_at?: string | null
+        }
+        Relationships: []
+      }
+      msme_project_tiers: {
+        Row: {
+          id: string
+          project_id: string
+          tier: 'priorities' | 'needs' | 'wants'
+          sort_order: number
+          target_amount: number
+          allocated_amount: number
+          spent_amount: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          tier: 'priorities' | 'needs' | 'wants'
+          sort_order: number
+          target_amount: number
+          allocated_amount?: number
+          spent_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          tier?: 'priorities' | 'needs' | 'wants'
+          sort_order?: number
+          target_amount?: number
+          allocated_amount?: number
+          spent_amount?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      msme_project_income_events: {
+        Row: {
+          id: string
+          project_id: string
+          user_id: string
+          amount: number
+          source: string
+          label: string | null
+          date: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          user_id: string
+          amount: number
+          source: string
+          label?: string | null
+          date: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          user_id?: string
+          amount?: number
+          source?: string
+          label?: string | null
+          date?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      msme_project_allocations: {
+        Row: {
+          id: string
+          project_id: string
+          tier_id: string
+          income_event_id: string
+          amount: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          tier_id: string
+          income_event_id: string
+          amount: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          tier_id?: string
+          income_event_id?: string
+          amount?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      msme_project_spends: {
+        Row: {
+          id: string
+          tier_id: string
+          project_id: string
+          amount: number
+          merchant: string | null
+          category: string | null
+          note: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tier_id: string
+          project_id: string
+          amount: number
+          merchant?: string | null
+          category?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tier_id?: string
+          project_id?: string
+          amount?: number
+          merchant?: string | null
+          category?: string | null
+          note?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      msme_project_excess_prompts: {
+        Row: {
+          id: string
+          project_id: string
+          income_event_id: string
+          excess_amount: number
+          chosen_target: 'needs' | 'wants' | 'savings' | 'keep' | null
+          status: 'pending' | 'resolved' | 'dismissed'
+          created_at: string
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          income_event_id: string
+          excess_amount: number
+          chosen_target?: 'needs' | 'wants' | 'savings' | 'keep' | null
+          status?: 'pending' | 'resolved' | 'dismissed'
+          created_at?: string
+          resolved_at?: string | null
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          income_event_id?: string
+          excess_amount?: number
+          chosen_target?: 'needs' | 'wants' | 'savings' | 'keep' | null
+          status?: 'pending' | 'resolved' | 'dismissed'
+          created_at?: string
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
+      msme_invoices: {
+        Row: {
+          id: string
+          user_id: string
+          plan_id: string
+          customer_name: string
+          customer_pin: string | null
+          amount: number
+          due_date: string
+          status: 'draft' | 'sent' | 'paid' | 'void'
+          description: string | null
+          etims_status: 'pending' | 'submitted' | 'accepted' | null
+          paid_at: string | null
+          voided_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan_id: string
+          customer_name: string
+          customer_pin?: string | null
+          amount: number
+          due_date: string
+          status?: 'draft' | 'sent' | 'paid' | 'void'
+          description?: string | null
+          etims_status?: 'pending' | 'submitted' | 'accepted' | null
+          paid_at?: string | null
+          voided_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan_id?: string
+          customer_name?: string
+          customer_pin?: string | null
+          amount?: number
+          due_date?: string
+          status?: 'draft' | 'sent' | 'paid' | 'void'
+          description?: string | null
+          etims_status?: 'pending' | 'submitted' | 'accepted' | null
+          paid_at?: string | null
+          voided_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      msme_stock_items: {
+        Row: {
+          id: string
+          user_id: string
+          plan_id: string
+          name: string
+          sku: string | null
+          qty_on_hand: number
+          unit_cost: number
+          unit_price: number
+          low_stock_threshold: number
+          location: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          plan_id: string
+          name: string
+          sku?: string | null
+          qty_on_hand?: number
+          unit_cost?: number
+          unit_price?: number
+          low_stock_threshold?: number
+          location?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          plan_id?: string
+          name?: string
+          sku?: string | null
+          qty_on_hand?: number
+          unit_cost?: number
+          unit_price?: number
+          low_stock_threshold?: number
+          location?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      msme_stock_movements: {
+        Row: {
+          id: string
+          item_id: string
+          user_id: string
+          type: 'in' | 'out' | 'adjust'
+          qty: number
+          unit_cost: number | null
+          total_cost: number
+          note: string | null
+          pocket_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          item_id: string
+          user_id: string
+          type: 'in' | 'out' | 'adjust'
+          qty: number
+          unit_cost?: number | null
+          total_cost: number
+          note?: string | null
+          pocket_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          item_id?: string
+          user_id?: string
+          type?: 'in' | 'out' | 'adjust'
+          qty?: number
+          unit_cost?: number | null
+          total_cost?: number
+          note?: string | null
+          pocket_id?: string | null
+          created_at?: string
         }
         Relationships: []
       }

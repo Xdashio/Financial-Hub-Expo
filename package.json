@@ -6,15 +6,34 @@
     "dev": "concurrently \"pnpm --filter api dev\" \"pnpm --filter mobile dev\"",
     "dev:mobile": "pnpm --filter mobile dev",
     "dev:api": "pnpm --filter api dev",
-    "dev:marketing": "pnpm --dir marketing dev",
     "build": "pnpm --filter shared build && pnpm --filter mobile build && pnpm --filter api build",
     "lint": "pnpm --filter mobile lint && pnpm --filter api lint && pnpm --filter shared lint",
     "typecheck": "pnpm --filter mobile typecheck && pnpm --filter api typecheck && pnpm --filter shared typecheck",
     "test": "SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter mobile test && SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter api test && pnpm --filter shared test",
+    "test:mobile": "pnpm --filter mobile test",
+    "test:api:cov": "SUPABASE_URL=http://localhost:54321 SUPABASE_SERVICE_ROLE_KEY=test-key pnpm --filter api test:cov",
     "clean": "pnpm --filter mobile clean && pnpm --filter api clean && pnpm --filter shared clean"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "multer": "^2.3.0",
+      "lodash": "^4.18.1",
+      "qs": "^6.16.0",
+      "body-parser": "^1.20.6",
+      "js-yaml@<4": "^3.15.2",
+      "js-yaml@>=4": "^4.3.2",
+      "@xmldom/xmldom@0.8": "^0.8.15",
+      "@xmldom/xmldom@0.9": "^0.9.12",
+      "@expo/image-utils>semver": "^7.5.2",
+      "ajv>fast-uri": "^3.1.8",
+      "nanoid@<4": "^3.3.19",
+      "serialize-javascript": "^7.1.1",
+      "svgo@^2": "^2.8.4",
+      "colord": "^2.9.4"
+    }
   },
   "packageManager": "pnpm@9.0.0"
 }

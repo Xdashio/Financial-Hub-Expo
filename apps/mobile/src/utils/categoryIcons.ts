@@ -1,6 +1,12 @@
 /**
  * Centralized category icon management using Lucide icons with brand colors.
- * Provides a single source of truth for all category icon mappings across the app.
+ * Multi-domain map covering:
+ * - PocketCategory (DB pockets_category_check — 22 values)
+ * - MerchantCategory (merchant classification CHECK — includes unclassified)
+ * - Savings-goal UI labels (emergency/goal/investment/debt — not in pockets CHECK)
+ *
+ * Every PocketCategorySchema value MUST have an entry here (guarded by
+ * categoryIcons.spec.ts). Extra keys beyond the pocket CHECK are intentional.
  */
 
 import {
@@ -30,6 +36,7 @@ import {
   Award,
   CreditCard,
   PiggyBank,
+  CircleHelp,
 } from 'lucide-react-native';
 import { getCategoryColor } from './categoryColors';
 import type { LucideIcon } from 'lucide-react-native';
@@ -38,7 +45,7 @@ export type CategoryKey =
   | 'food' | 'transport' | 'leisure' | 'personal' | 'utilities' 
   | 'healthcare' | 'education' | 'housing' | 'family' | 'other'
   | 'grocery' | 'landlord_rent' | 'utility' | 'entertainment' 
-  | 'personal_care' | 'gambling_betting'
+  | 'personal_care' | 'gambling_betting' | 'unclassified'
   | 'emergency' | 'goal' | 'investment' | 'debt'
   // MSME business categories (ADR-001 §5.2)
   | 'stock' | 'supplier' | 'licence' | 'tax' | 'salary' | 'rent'
@@ -48,7 +55,7 @@ export type CategoryKey =
  * Icon mapping for all category types (Pocket, Spendable, Merchant, and Savings categories)
  */
 const CATEGORY_ICONS: Record<CategoryKey, LucideIcon> = {
-  // Main Pocket Categories
+  // Main Pocket Categories (pockets_category_check)
   food: ShoppingCart,
   transport: Bus,
   leisure: Film,
@@ -58,18 +65,19 @@ const CATEGORY_ICONS: Record<CategoryKey, LucideIcon> = {
   education: GraduationCap,
   housing: Home,
   family: Users,
-  other: CreditCard, // Credit card icon for subscriptions
+  other: CreditCard,
 
-  // Merchant Categories (aligned with similar themes)
+  // Merchant Categories (merchant_classifications / reports CHECK)
   grocery: ShoppingCart,
   landlord_rent: Home,
   utility: Zap,
   entertainment: Film,
   personal_care: Scissors,
-  gambling_betting: Package, // Blocked category
+  gambling_betting: Package,
+  unclassified: CircleHelp,
 
   // MSME Business Categories (ADR-001 §5.2)
-  stock: Package, // Stock & Inventory
+  stock: Package,
   supplier: Truck,
   licence: FileText,
   tax: Landmark,
@@ -82,8 +90,8 @@ const CATEGORY_ICONS: Record<CategoryKey, LucideIcon> = {
   marketing: Megaphone,
   equipment: Cog,
 
-  // Savings Categories
-  emergency: PiggyBank, // Mapped to PiggyBank, but CategoryIcon uses custom SavingsIcon SVG
+  // Savings goal UI labels (not pocket.category CHECK values)
+  emergency: PiggyBank,
   goal: Calendar,
   investment: TrendingUp,
   debt: Award,
@@ -125,3 +133,6 @@ export function getCategoryIconWithColor(category: CategoryKey, colors: any) {
 export function hasCategoryIcon(category: string): category is CategoryKey {
   return category in CATEGORY_ICONS;
 }
+
+/** Exported for contract-audit tests — every pocket CHECK value must appear here. */
+export const CATEGORY_ICON_KEYS = Object.keys(CATEGORY_ICONS) as CategoryKey[];

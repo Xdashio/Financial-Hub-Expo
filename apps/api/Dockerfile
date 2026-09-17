@@ -37,6 +37,13 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/shared ./packages/shared
 COPY --from=build /app/apps/api ./apps/api
 
+# M13: never run the API as root. The node:22-bookworm-slim image ships a
+# `node` user (uid 1001); it only needs read access to the copied code, and
+# the API writes nothing to disk at runtime (no file uploads/state live on
+# the container fs), so no chown is required. If a future code path needs a
+# writable dir, add `RUN mkdir -p <dir> && chown node:node <dir>` above this.
+USER node
+
 WORKDIR /app/apps/api
 EXPOSE 3000
 

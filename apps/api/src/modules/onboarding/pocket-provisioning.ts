@@ -7,6 +7,7 @@ import type {
   PocketKind,
   SpendableCategory,
 } from '@financial-hub/shared';
+import { MAX_MONEY_AMOUNT } from '@financial-hub/shared';
 import type { PlanAssignment } from './rules-engine';
 import { DEFAULT_SAVINGS_LOCK_DAYS } from './rules-engine';
 
@@ -85,6 +86,23 @@ export interface PocketInsertInput {
   lock_until: string | null;
   monthly_allocation: number;
   daily_cap: number | null;
+  // M7: real savings goal carried from onboarding's captured savingsGoal
+  // (goalAmount the user actually stated). Optional so every other
+  // constructor below keeps compiling unchanged; absent/null = no goal.
+  savings_target_amount?: number | null;
+  savings_target_date?: string | null;
+}
+
+/**
+ * Normalise a user-stated goal amount into a persistable savings target
+ * (M7). Returns null when there is no usable goal — the pocket is then
+ * created goalless and the client shows "set a target" instead of a
+ * fabricated monthly_allocation multiple.
+ */
+export function toSavingsTargetAmount(goalAmount: unknown): number | null {
+  if (typeof goalAmount !== 'number' || !Number.isFinite(goalAmount)) return null;
+  if (goalAmount <= 0 || goalAmount > MAX_MONEY_AMOUNT) return null;
+  return goalAmount;
 }
 
 /**
@@ -108,7 +126,7 @@ export function buildPocketInputs(
   const pockets: PocketInsertInput[] = [];
 
   pockets.push(...buildFixedPockets(planId, input));
-  pockets.push(buildSavingsPocket(planId, assignment.savingsTarget, assignment.savingsLockDays));
+  pockets.push(buildSavingsPocket(planId, assignment.savingsTarget, assignment.savingsLockDays, toSavingsTargetAmount(input.savingsGoal?.goalAmount)));
   pockets.push(...buildSpendablePockets(planId, assignment, input));
 
   return pockets;
@@ -134,7 +152,7 @@ export function buildMsmePocketInputs(
   const pockets: PocketInsertInput[] = [];
 
   pockets.push(...buildFixedPockets(planId, input));
-  pockets.push(buildSavingsPocket(planId, assignment.savingsTarget, assignment.savingsLockDays));
+  pockets.push(buildSavingsPocket(planId, assignment.savingsTarget, assignment.savingsLockDays, toSavingsTargetAmount(input.savingsGoal?.goalAmount)));
 
   const custom = input.customPockets ?? [];
   if (custom.length === 0) {
@@ -258,6 +276,9 @@ export function buildSavingsPocket(
   planId: string,
   savingsTarget: number,
   lockDays: number = DEFAULT_SAVINGS_LOCK_DAYS,
+  // M7: the user-stated goal amount (onboarding savingsGoal.goalAmount), if
+  // any. Stored as the pocket's real goal; null leaves the pocket goalless.
+  savingsTargetAmount: number | null = null,
 ): PocketInsertInput {
   const lockUntil = new Date();
   lockUntil.setDate(lockUntil.getDate() + lockDays);
@@ -271,6 +292,8 @@ export function buildSavingsPocket(
     lock_until: lockUntil.toISOString(),
     monthly_allocation: savingsTarget,
     daily_cap: null,
+    savings_target_amount: savingsTargetAmount,
+    savings_target_date: null,
   };
 }
 

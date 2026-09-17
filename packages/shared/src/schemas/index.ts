@@ -1,4 +1,12 @@
 import { z } from 'zod';
+import { MAX_MONEY_AMOUNT } from '../money';
+
+// M1: every unbounded monetary (and money-derived) number below carries
+// `.finite().max(MAX_MONEY_AMOUNT)` so a single client value can never be
+// NaN/Infinity or exceed the 100,000,000 KSh ceiling. Pure counts/percents
+// with their own `.int()`/`.max()` bounds are already finite-safe and were
+// left untouched, except where the mechanical `.positive()`/`.nonnegative()`
+// pass also (harmlessly) tightened them — the tighter bound always wins.
 
 // ============================================================================
 // Core Domain Enums - Pack 1 Specification
@@ -299,14 +307,14 @@ export const SavingsGoalInputSchema = z.object({
   // new PII category beyond what the app already handles (open question 5
   // in ONBOARDING_AND_SCORING_REDESIGN.md).
   goalLabel: z.string().min(1).max(60).optional(),
-  goalAmount: z.number().positive().optional(),
+  goalAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT).optional(),
   goalTimeframe: SavingsGoalTimeframeSchema,
 });
 export type SavingsGoalInput = z.infer<typeof SavingsGoalInputSchema>;
 
 export const FixedExpenseInputSchema = z.object({
   name: z.string().min(1).max(100),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   dueDay: z.number().int().min(1).max(31),
   category: PocketCategorySchema,
   frequency: z.enum(['monthly', 'weekly', 'daily']).optional(),
@@ -316,8 +324,8 @@ export type FixedExpenseInput = z.infer<typeof FixedExpenseInputSchema>;
 export const OnboardingInputSchema = z.object({
   incomePattern: IncomePatternSchema,
   spendingHabit: SpendingHabitSchema,
-  incomeAmount: z.number().positive(),
-  fixedTotal: z.number().nonnegative(),
+  incomeAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  fixedTotal: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   sourceCount: z.number().int().positive(),
   fixedExpenses: z.array(FixedExpenseInputSchema).optional(),
   // Required (validated in validateOnboardingInput, not here, so the error
@@ -375,9 +383,9 @@ export const MsmeOnboardingInputSchema = z.object({
   segment: z.literal('msme'),
   businessName: z.string().min(1).max(100),
   // maps to plans.expected_income_amount (see commitMsme)
-  monthlyRevenue: z.number().positive(),
+  monthlyRevenue: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   // sum of recurring business obligations (rent, salaries, licences, taxes…)
-  fixedTotal: z.number().nonnegative(),
+  fixedTotal: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   fixedExpenses: z.array(FixedExpenseInputSchema).optional(),
   hasEmployees: z.boolean().optional(),
   businessStage: BusinessStageSchema.optional(),
@@ -406,17 +414,17 @@ export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
 export const TierSubPocketInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().min(1).max(100),
-  targetAmount: z.number().positive(),
+  targetAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
 });
 export type TierSubPocketInput = z.infer<typeof TierSubPocketInputSchema>;
 
 export const TierSubPocketSummarySchema = z.object({
   id: z.string(),
   name: z.string().min(1).max(100),
-  targetAmount: z.number().positive(),
-  allocatedAmount: z.number().nonnegative(),
-  spentAmount: z.number().nonnegative(),
-  remainingCash: z.number().nonnegative(),
+  targetAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  allocatedAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  spentAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  remainingCash: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   fundingPercent: z.number().min(0).max(100),
 });
 export type TierSubPocketSummary = z.infer<typeof TierSubPocketSummarySchema>;
@@ -424,11 +432,11 @@ export type TierSubPocketSummary = z.infer<typeof TierSubPocketSummarySchema>;
 export const ProjectCreateInputSchema = z.object({
   name: z.string().min(1).max(100),
   kind: ProjectKindSchema,
-  contractValue: z.number().positive(),
+  contractValue: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   tiers: z.object({
-    priorities: z.number().nonnegative(), // target amounts
-    needs: z.number().nonnegative(),
-    wants: z.number().nonnegative(),
+    priorities: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT), // target amounts
+    needs: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+    wants: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   }).refine(v => v.priorities + v.needs + v.wants > 0, { message: 'At least one tier target required' }),
   subPockets: z.object({
     priorities: z.array(TierSubPocketInputSchema).optional(),
@@ -441,7 +449,7 @@ export const ProjectCreateInputSchema = z.object({
 export type ProjectCreateInput = z.infer<typeof ProjectCreateInputSchema>;
 
 export const ProjectIncomeInputSchema = z.object({
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   source: z.string().min(1).max(100), // Deposit / Progress / Final
   label: z.string().max(200).optional(),
   date: z.string().date(),
@@ -452,10 +460,10 @@ export const TierSummarySchema = z.object({
   id: z.string().uuid(),
   tier: FundingTierSchema,
   sortOrder: z.number().int().min(1).max(3),
-  targetAmount: z.number().positive(),
-  allocatedAmount: z.number().nonnegative(),
-  spentAmount: z.number().nonnegative(),
-  remainingCash: z.number().nonnegative(), // allocated - spent
+  targetAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  allocatedAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  spentAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  remainingCash: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT), // allocated - spent
   fundingStatus: FundingStatusSchema,
   fundingPercent: z.number().min(0).max(100),
   subPockets: z.array(TierSubPocketSummarySchema).optional(),
@@ -472,7 +480,7 @@ export const ProjectSummarySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   kind: ProjectKindSchema,
-  contractValue: z.number(),
+  contractValue: z.number().finite(),
   status: ProjectStatusSchema,
   isActiveCascade: z.boolean(),
   // Phase 5 spending controls (§20) — defaults mirror DB DEFAULT.
@@ -481,10 +489,10 @@ export const ProjectSummarySchema = z.object({
   completionResolvedTo: z.enum(['savings', 'keep']).nullable().optional(),
   tiers: z.array(TierSummarySchema).length(3),
   nextIncomeGoesTo: FundingTierSchema.nullable(), // null if all funded
-  totalAllocated: z.number(),
-  totalSpent: z.number(),
-  totalRemaining: z.number(),
-  excessPending: z.number().nullable(),
+  totalAllocated: z.number().finite(),
+  totalSpent: z.number().finite(),
+  totalRemaining: z.number().finite(),
+  excessPending: z.number().finite().nullable(),
 });
 export type ProjectSummary = z.infer<typeof ProjectSummarySchema>;
 
@@ -498,7 +506,7 @@ export const MsmeProjectSchema = z.object({
   planId: z.string().uuid(),
   name: z.string().min(1).max(100),
   kind: ProjectKindSchema,
-  contractValue: z.number().positive(),
+  contractValue: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   status: ProjectStatusSchema,
   isActiveCascade: z.boolean(),
   spendingControls: SpendingControlsSchema.optional(),
@@ -516,9 +524,9 @@ export const MsmeProjectTierSchema = z.object({
   projectId: z.string().uuid(),
   tier: FundingTierSchema,
   sortOrder: z.number().int().min(1).max(3),
-  targetAmount: z.number().positive(),
-  allocatedAmount: z.number().nonnegative(),
-  spentAmount: z.number().nonnegative(),
+  targetAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  allocatedAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  spentAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -528,7 +536,7 @@ export const MsmeProjectIncomeEventSchema = z.object({
   id: z.string().uuid(),
   projectId: z.string().uuid(),
   userId: z.string().uuid(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   source: z.string().min(1).max(100),
   label: z.string().max(200).nullable().optional(),
   date: z.string().date(),
@@ -541,7 +549,7 @@ export const MsmeProjectAllocationSchema = z.object({
   projectId: z.string().uuid(),
   tierId: z.string().uuid(),
   incomeEventId: z.string().uuid(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   createdAt: z.string().datetime(),
 });
 export type MsmeProjectAllocation = z.infer<typeof MsmeProjectAllocationSchema>;
@@ -550,7 +558,7 @@ export const MsmeProjectSpendSchema = z.object({
   id: z.string().uuid(),
   tierId: z.string().uuid(),
   projectId: z.string().uuid(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   merchant: z.string().nullable().optional(),
   category: z.string().nullable().optional(),
   note: z.string().max(300).nullable().optional(),
@@ -568,7 +576,7 @@ export const MsmeProjectExcessPromptSchema = z.object({
   id: z.string().uuid(),
   projectId: z.string().uuid(),
   incomeEventId: z.string().uuid(),
-  excessAmount: z.number().positive(),
+  excessAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   chosenTarget: ExcessPromptTargetSchema.nullable().optional(),
   status: ExcessPromptStatusSchema,
   createdAt: z.string().datetime(),
@@ -590,11 +598,11 @@ export const ProjectCompleteResultSchema = z.object({
   project: ProjectSummarySchema,
   remainingPerTier: z.array(z.object({
     tier: FundingTierSchema,
-    remainingCash: z.number().nonnegative(),
-    targetAmount: z.number(),
-    allocatedAmount: z.number(),
+    remainingCash: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+    targetAmount: z.number().finite(),
+    allocatedAmount: z.number().finite(),
   })),
-  totalRemaining: z.number().nonnegative(),
+  totalRemaining: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   suggestion: z.string(),
   requiresResolution: z.boolean(),
 });
@@ -609,7 +617,7 @@ export type ProjectCompletionResolveInput = z.infer<typeof ProjectCompletionReso
 export const ProjectSpendInputSchema = z.object({
   tierId: z.string().uuid(),
   subPocketId: z.string().optional(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   merchant: z.string().min(1).max(100).optional(),
   category: z.string().max(100).optional(),
   note: z.string().max(300).optional(),
@@ -638,7 +646,7 @@ export type KraPin = z.infer<typeof KraPinSchema>;
 export const InvoiceCreateInputSchema = z.object({
   customerName: z.string().min(1).max(100),
   customerPin: KraPinSchema.optional().nullable(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'dueDate must be YYYY-MM-DD' }),
   description: z.string().max(200).optional().nullable(),
 });
@@ -648,7 +656,7 @@ export type InvoiceCreateInput = z.infer<typeof InvoiceCreateInputSchema>;
 export const InvoiceUpdateInputSchema = z.object({
   customerName: z.string().min(1).max(100).optional(),
   customerPin: KraPinSchema.optional().nullable(),
-  amount: z.number().positive().optional(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT).optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   description: z.string().max(200).optional().nullable(),
   status: InvoiceStatusSchema.optional(),
@@ -662,7 +670,7 @@ export const InvoiceSchema = z.object({
   planId: z.string().uuid(),
   customerName: z.string().min(1).max(100),
   customerPin: KraPinSchema.nullable().optional(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   status: InvoiceStatusSchema,
   description: z.string().max(200).nullable().optional(),
@@ -687,9 +695,9 @@ export const MsmeInvoiceStatsSchema = z.object({
   paid: z.number().int().nonnegative(),
   voidCount: z.number().int().nonnegative(),
   overdue: z.number().int().nonnegative(),
-  outstanding: z.number().nonnegative(),
-  overdueAmount: z.number().nonnegative(),
-  paidAmount: z.number().nonnegative(),
+  outstanding: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  overdueAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  paidAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   collectionRate: z.number().min(0).max(100),
 });
 export type MsmeInvoiceStats = z.infer<typeof MsmeInvoiceStatsSchema>;
@@ -699,9 +707,9 @@ export const MsmeProjectStatsSchema = z.object({
   active: z.number().int().nonnegative(),
   draft: z.number().int().nonnegative(),
   completed: z.number().int().nonnegative(),
-  totalContractValue: z.number().nonnegative(),
-  totalAllocated: z.number().nonnegative(),
-  totalSpent: z.number().nonnegative(),
+  totalContractValue: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  totalAllocated: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  totalSpent: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   fundingPercent: z.number().min(0).max(100),
 });
 export type MsmeProjectStats = z.infer<typeof MsmeProjectStatsSchema>;
@@ -716,7 +724,7 @@ export type MsmeAlert = z.infer<typeof MsmeAlertSchema>;
 export const MsmeOperationalInsightsSchema = z.object({
   invoices: MsmeInvoiceStatsSchema,
   projects: MsmeProjectStatsSchema,
-  fundingVelocityDays: z.number().nonnegative().nullable(),
+  fundingVelocityDays: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).nullable(),
   alerts: z.array(MsmeAlertSchema),
 });
 export type MsmeOperationalInsights = z.infer<typeof MsmeOperationalInsightsSchema>;
@@ -728,10 +736,10 @@ export type MsmeOperationalInsights = z.infer<typeof MsmeOperationalInsightsSche
 export const StockItemCreateInputSchema = z.object({
   name: z.string().min(1).max(100),
   sku: z.string().min(1).max(30).optional().nullable(),
-  qtyOnHand: z.number().nonnegative().optional(),
-  unitCost: z.number().nonnegative(),
-  unitPrice: z.number().nonnegative(),
-  lowStockThreshold: z.number().nonnegative().optional(),
+  qtyOnHand: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
+  unitCost: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  unitPrice: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  lowStockThreshold: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
   location: z.string().max(100).optional().nullable(),
 });
 export type StockItemCreateInput = z.infer<typeof StockItemCreateInputSchema>;
@@ -739,9 +747,9 @@ export type StockItemCreateInput = z.infer<typeof StockItemCreateInputSchema>;
 export const StockItemUpdateInputSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   sku: z.string().min(1).max(30).optional().nullable(),
-  unitCost: z.number().nonnegative().optional(),
-  unitPrice: z.number().nonnegative().optional(),
-  lowStockThreshold: z.number().nonnegative().optional(),
+  unitCost: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
+  unitPrice: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
+  lowStockThreshold: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
   location: z.string().max(100).optional().nullable(),
 });
 export type StockItemUpdateInput = z.infer<typeof StockItemUpdateInputSchema>;
@@ -751,8 +759,8 @@ export type StockMovementType = z.infer<typeof StockMovementTypeSchema>;
 
 export const StockMovementCreateInputSchema = z.object({
   type: StockMovementTypeSchema,
-  qty: z.number().refine((n) => n !== 0, { message: 'Quantity cannot be zero' }),
-  unitCost: z.number().nonnegative().optional().nullable(),
+  qty: z.number().finite().refine((n) => n !== 0, { message: 'Quantity cannot be zero' }),
+  unitCost: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional().nullable(),
   note: z.string().max(200).optional().nullable(),
   pocketId: z.string().uuid().optional().nullable(),
 }).refine((data) => {
@@ -769,10 +777,10 @@ export const StockItemSchema = z.object({
   planId: z.string().uuid(),
   name: z.string().min(1).max(100),
   sku: z.string().max(30).nullable().optional(),
-  qtyOnHand: z.number().nonnegative(),
-  unitCost: z.number().nonnegative(),
-  unitPrice: z.number().nonnegative(),
-  lowStockThreshold: z.number().nonnegative(),
+  qtyOnHand: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  unitCost: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  unitPrice: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  lowStockThreshold: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   location: z.string().max(100).nullable().optional(),
   isLowStock: z.boolean().optional(),
   createdAt: z.string().datetime(),
@@ -785,9 +793,9 @@ export const StockMovementSchema = z.object({
   itemId: z.string().uuid(),
   userId: z.string().uuid(),
   type: StockMovementTypeSchema,
-  qty: z.number().positive(),
-  unitCost: z.number().nonnegative().nullable().optional(),
-  totalCost: z.number().nonnegative(),
+  qty: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  unitCost: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).nullable().optional(),
+  totalCost: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   note: z.string().max(200).nullable().optional(),
   pocketId: z.string().uuid().nullable().optional(),
   createdAt: z.string().datetime(),
@@ -798,15 +806,15 @@ export const PlanAssignReasonSchema = z.object({
   rule: z.string(),
   reason: z.string(),
   // Numeric context for "why this plan" templates (§2.6).
-  needsRatio: z.number().nonnegative().optional(),
+  needsRatio: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
   needsBand: NeedsBandSchema.optional(),
   // Populated only on the 'savings_goal_capacity_shortfall' reason (§4.2):
   // the literal derived rate needed to hit the goal on time would exceed
   // the sane-share cap, so these carry the numbers the client renders as
   // "would take ~N months longer" / "would need ~X% of your spendable
   // income" instead of silently forcing or silently ignoring the goal.
-  goalMonthsNeeded: z.number().nonnegative().optional(),
-  goalRequiredSharePercent: z.number().nonnegative().optional(),
+  goalMonthsNeeded: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
+  goalRequiredSharePercent: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
 });
 export type PlanAssignReason = z.infer<typeof PlanAssignReasonSchema>;
 
@@ -825,10 +833,10 @@ export const OnboardingAssignResultSchema = z.object({
   // persona. Undefined for pure 'salaried' and for 'freelancer'.
   hasSideIncome: z.boolean().optional(),
   reasons: z.array(PlanAssignReasonSchema),
-  remainingAfterFixed: z.number(),
-  savingsTarget: z.number(),
-  spendableAmount: z.number(),
-  needsRatio: z.number().nonnegative(),
+  remainingAfterFixed: z.number().finite(),
+  savingsTarget: z.number().finite(),
+  spendableAmount: z.number().finite(),
+  needsRatio: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   needsBand: NeedsBandSchema,
 });
 export type OnboardingAssignResult = z.infer<typeof OnboardingAssignResultSchema>;
@@ -836,9 +844,9 @@ export type OnboardingAssignResult = z.infer<typeof OnboardingAssignResultSchema
 export const CategoryAllocationPreviewSchema = z.object({
   category: SpendableCategorySchema,
   name: z.string(),
-  amount: z.number().nonnegative(),
-  percentage: z.number().nonnegative(),
-  dailyCap: z.number().nonnegative().optional(),
+  amount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  percentage: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  dailyCap: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
 });
 export type CategoryAllocationPreview = z.infer<typeof CategoryAllocationPreviewSchema>;
 
@@ -862,8 +870,8 @@ export const OnboardingCommitResultSchema = z.object({
     name: z.string(),
     kind: PocketKindSchema, // Includes 'loan' for compatibility, though onboarding doesn't create loans
     category: PocketCategorySchema.optional(),
-    monthlyAllocation: z.number().nonnegative(),
-    dailyCap: z.number().nonnegative().optional(),
+    monthlyAllocation: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+    dailyCap: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
   })),
 });
 export type OnboardingCommitResult = z.infer<typeof OnboardingCommitResultSchema>;
@@ -880,13 +888,13 @@ export type RedistributionReason = z.infer<typeof RedistributionReasonSchema>;
 export const RedistributionMovementSchema = z.object({
   fromPocketName: z.string(),
   toPocketName: z.string(),
-  amount: z.number().nonnegative(),
+  amount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   reason: RedistributionReasonSchema,
 });
 export type RedistributionMovement = z.infer<typeof RedistributionMovementSchema>;
 
 export const PlanRedistributionSchema = z.object({
-  totalMoved: z.number().nonnegative(),
+  totalMoved: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   movements: z.array(RedistributionMovementSchema),
   previousPlanType: PlanTypeSchema,
   newPlanType: PlanTypeSchema,
@@ -918,16 +926,16 @@ export const RunwaySummarySchema = z.object({
   // freelancer + daily plans. Callers should not render a runway UI when
   // this is false.
   applicable: z.boolean(),
-  runwayDays: z.number().nonnegative().optional(),
-  expectedIntervalDays: z.number().positive().optional(),
-  daysSinceLastIncome: z.number().nonnegative().optional(),
+  runwayDays: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
+  expectedIntervalDays: z.number().positive().finite().max(MAX_MONEY_AMOUNT).optional(),
+  daysSinceLastIncome: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
   // 'estimate' = derived from the onboarding band, no income history yet.
   // 'historical' = derived from actual income_events gaps (>= 2 events).
   confidence: z.enum(['estimate', 'historical']).optional(),
   // Reserve-based runway fields
-  discretionaryReserve: z.number().nonnegative().optional(),
-  fixedObligations: z.number().nonnegative().optional(),
-  dailyBudget: z.number().nonnegative().optional(),
+  discretionaryReserve: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
+  fixedObligations: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
+  dailyBudget: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(),
 });
 export type RunwaySummary = z.infer<typeof RunwaySummarySchema>;
 
@@ -972,8 +980,8 @@ export const PocketSchema = z.object({
   category: PocketCategorySchema.optional(), // for spendable: 'food' | 'transport' | 'leisure' | …
   isTimeLocked: z.boolean().default(false),
   lockUntil: z.string().datetime().optional(),
-  monthlyAllocation: z.number().nonnegative(),
-  dailyCap: z.number().nonnegative().optional(), // for daily plans
+  monthlyAllocation: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  dailyCap: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).optional(), // for daily plans
   // Sub-pockets (audit_team.md item 10): null/absent for a top-level
   // pocket, set for a sub-pocket nested one level under a parent pocket.
   // See docs on POST /pockets/:id/sub-pockets — depth is capped at one
@@ -984,7 +992,12 @@ export const PocketSchema = z.object({
   // Undefined/null for top-level pockets. `monthlyAllocation` above is
   // kept in sync as a derived cache whenever the parent's allocation
   // changes — see pockets.service.ts recomputeSubPocketAllocations.
-  splitPercentage: z.number().positive().max(100).nullable().optional(),
+  splitPercentage: z.number().positive().finite().max(100).nullable().optional(),
+  // Real savings goal (M7 / 039_savings_goal.sql). Null/absent = no goal set
+  // — clients must render the "set a target" empty state, never fabricate
+  // one from monthlyAllocation.
+  savingsTargetAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT).nullable().optional(),
+  savingsTargetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'savingsTargetDate must be YYYY-MM-DD' }).nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
@@ -993,11 +1006,16 @@ export type Pocket = z.infer<typeof PocketSchema>;
 // Fields a user is allowed to change on their own pocket. Balances
 // (monthlyAllocation), plan ownership (planId) and the savings time-lock are
 // derived by the allocation engine / plan provisioning, never client-supplied.
+// savingsTargetAmount/savingsTargetDate are the user-set savings goal (M7) —
+// nullable so the client can clear a goal; `.strict()` still rejects
+// anything else, so monthlyAllocation stays unwritable here.
 export const PocketUpdateInputSchema = z
   .object({
     name: z.string().min(1).max(100),
     category: PocketCategorySchema,
-    dailyCap: z.number().nonnegative(),
+    dailyCap: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+    savingsTargetAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT).nullable(),
+    savingsTargetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'savingsTargetDate must be YYYY-MM-DD' }).nullable(),
   })
   .partial()
   .strict();
@@ -1019,7 +1037,7 @@ export type PocketUpdateInput = z.infer<typeof PocketUpdateInputSchema>;
 export const SubPocketCreateInputSchema = z.object({
   name: z.string().min(1).max(100),
   category: PocketCategorySchema.optional(),
-  splitPercentage: z.number().positive().max(100),
+  splitPercentage: z.number().positive().finite().max(100),
 });
 export type SubPocketCreateInput = z.infer<typeof SubPocketCreateInputSchema>;
 
@@ -1039,7 +1057,7 @@ export const SubPocketRebalanceInputSchema = z.object({
     .array(
       z.object({
         pocketId: z.string().uuid(),
-        splitPercentage: z.number().positive().max(100),
+        splitPercentage: z.number().positive().finite().max(100),
       }),
     )
     .min(1),
@@ -1061,27 +1079,27 @@ export const EmergencyUnlockEligibilityReasonSchema = z.enum([
 export type EmergencyUnlockEligibilityReason = z.infer<typeof EmergencyUnlockEligibilityReasonSchema>;
 
 export const RunwayImpactOptionSchema = z.object({
-  emergency_amount: z.number().positive(),
-  runway_days_before: z.number().nonnegative(),
-  runway_days_after: z.number().nonnegative(),
-  runway_reduction_days: z.number().nonnegative(),
+  emergency_amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  runway_days_before: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  runway_days_after: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  runway_reduction_days: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
 });
 export type RunwayImpactOption = z.infer<typeof RunwayImpactOptionSchema>;
 
 export const SpendingAnalysisSchema = z.object({
-  least_daily_spend: z.number().nonnegative(),
-  most_daily_spend: z.number().nonnegative(),
-  average_daily_spend: z.number().nonnegative(),
+  least_daily_spend: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  most_daily_spend: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  average_daily_spend: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
   days_of_history: z.number().int().nonnegative(),
 });
 export type SpendingAnalysis = z.infer<typeof SpendingAnalysisSchema>;
 
 export const DiscretionaryRunwaySchema = z.object({
-  total_reserve: z.number().nonnegative(),
-  fixed_obligations: z.number().nonnegative(),
-  discretionary_reserve: z.number().nonnegative(),
-  daily_budget: z.number().nonnegative(),
-  runway_days: z.number().nonnegative(),
+  total_reserve: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  fixed_obligations: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  discretionary_reserve: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  daily_budget: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  runway_days: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
 });
 export type DiscretionaryRunway = z.infer<typeof DiscretionaryRunwaySchema>;
 
@@ -1099,7 +1117,7 @@ export const EmergencyUnlockEligibilityResponseSchema = z.object({
 export type EmergencyUnlockEligibilityResponse = z.infer<typeof EmergencyUnlockEligibilityResponseSchema>;
 
 export const EmergencyUnlockRequestSchema = z.object({
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   confirm_impact: z.boolean(),
 });
 export type EmergencyUnlockRequest = z.infer<typeof EmergencyUnlockRequestSchema>;
@@ -1107,8 +1125,8 @@ export type EmergencyUnlockRequest = z.infer<typeof EmergencyUnlockRequestSchema
 export const EmergencyUnlockAllocationSchema = z.object({
   pocket_id: z.string().uuid(),
   pocket_name: z.string(),
-  amount: z.number().positive(),
-  percentage: z.number().nonnegative(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  percentage: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
 });
 export type EmergencyUnlockAllocation = z.infer<typeof EmergencyUnlockAllocationSchema>;
 
@@ -1116,10 +1134,10 @@ export const EmergencyUnlockResponseSchema = z.object({
   applied: z.boolean(),
   unlock: z.object({
     id: z.string().uuid(),
-    amount: z.number().positive(),
-    runway_days_before: z.number().nonnegative(),
-    runway_days_after: z.number().nonnegative(),
-    runway_reduction_days: z.number().nonnegative(),
+    amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+    runway_days_before: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+    runway_days_after: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+    runway_reduction_days: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
     allocations: z.array(EmergencyUnlockAllocationSchema),
   }).optional(),
   error: z.string().optional(),
@@ -1136,8 +1154,8 @@ export const RepaymentCadenceSchema = z.enum(['weekly', 'biweekly', 'monthly']);
 export type RepaymentCadence = z.infer<typeof RepaymentCadenceSchema>;
 
 export const RepaymentScheduleSchema = z.object({
-  totalAmount: z.number().positive(),
-  repaymentAmount: z.number().positive(),
+  totalAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  repaymentAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   cadence: RepaymentCadenceSchema,
   startDate: z.string(), // ISO date string
   endDate: z.string(), // ISO date string
@@ -1149,8 +1167,8 @@ export type RepaymentSchedule = z.infer<typeof RepaymentScheduleSchema>;
 
 export const LoanCreateInputSchema = z.object({
   name: z.string().min(1).max(100),
-  totalAmount: z.number().positive(),
-  repaymentAmount: z.number().positive(),
+  totalAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
+  repaymentAmount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   cadence: RepaymentCadenceSchema,
   startDate: z.string(), // ISO date string
   endDate: z.string(), // ISO date string
@@ -1188,7 +1206,7 @@ export const FixedExpenseSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(), // per user
   name: z.string().min(1).max(100),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   dueDay: z.number().int().min(1).max(31),
   category: PocketCategorySchema,
   createdAt: z.string().datetime(),
@@ -1199,7 +1217,7 @@ export type FixedExpense = z.infer<typeof FixedExpenseSchema>;
 export const IncomeEventSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   source: z.string().min(1).max(100),
   label: z.string().max(200),
   date: z.string().date(),
@@ -1211,7 +1229,7 @@ export type IncomeEvent = z.infer<typeof IncomeEventSchema>;
 export const TransactionSchema = z.object({
   id: z.string().uuid(),
   pocketId: z.string().uuid(),
-  amount: z.number(), // signed (positive for credit, negative for debit)
+  amount: z.number().finite(), // signed (positive for credit, negative for debit)
   type: TransactionTypeSchema, // 'allocation' | 'spend' | 'reallocation_in' | 'reallocation_out' | 'rollover'
   merchant: z.string().optional(), // nullable
   category: MerchantCategorySchema.optional(),
@@ -1242,12 +1260,12 @@ export const DailyAllocationSchema = z.object({
   planId: z.string().uuid(),
   userId: z.string().uuid(),
   allocationDate: z.string().date(),
-  plannedAmount: z.number().nonnegative(),
-  actualSpend: z.number().nonnegative(),
-  returnedAmount: z.number().nonnegative(),
-  overspendAmount: z.number().nonnegative(),
-  runwayDaysAtOpen: z.number().nonnegative().nullable().optional(),
-  runwayDaysAtClose: z.number().nonnegative().nullable().optional(),
+  plannedAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  actualSpend: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  returnedAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  overspendAmount: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT),
+  runwayDaysAtOpen: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).nullable().optional(),
+  runwayDaysAtClose: z.number().nonnegative().finite().max(MAX_MONEY_AMOUNT).nullable().optional(),
   status: z.enum(['open', 'closed']),
   createdAt: z.string().datetime(),
   closedAt: z.string().datetime().nullable().optional(),
@@ -1258,11 +1276,11 @@ export const ReallocationSchema = z.object({
   id: z.string().uuid(),
   fromPocketId: z.string().uuid(),
   toPocketId: z.string().uuid(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   reason: ReallocationReasonSchema, // chip selection
   status: ReallocationStatusSchema, // 'pending' | 'cooling_off' | 'completed' | 'skipped'
   coolingOffEndsAt: z.string().datetime().optional(),
-  disciplineCost: z.number().default(0),
+  disciplineCost: z.number().finite().max(MAX_MONEY_AMOUNT).default(0),
   createdAt: z.string().datetime(),
   completedAt: z.string().datetime().optional(),
 });
@@ -1271,7 +1289,7 @@ export type Reallocation = z.infer<typeof ReallocationSchema>;
 export const ReallocationInputSchema = z.object({
   fromPocketId: z.string().uuid(),
   toPocketId: z.string().uuid(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite().max(MAX_MONEY_AMOUNT),
   reason: ReallocationReasonSchema,
 });
 export type ReallocationInput = z.infer<typeof ReallocationInputSchema>;
@@ -1301,7 +1319,7 @@ export type BehaviorEvent = z.infer<typeof BehaviorEventSchema>;
 export const DisciplineScoreSchema = z.object({
   userId: z.string().uuid(),
   score: z.number().min(0).max(100),
-  delta: z.number(),
+  delta: z.number().finite(),
   period: z.string(), // e.g. '2024-01', 'week-3'
   calculatedAt: z.string().datetime(),
 });

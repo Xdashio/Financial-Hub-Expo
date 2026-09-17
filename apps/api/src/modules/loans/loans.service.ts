@@ -7,6 +7,7 @@ import {
 } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { DisciplineScoreService } from '../discipline-score/discipline-score.service';
+import { assertMoneyAmount } from '../../common/money-limits';
 import { Pocket, PocketInsert } from '../../database/database.types';
 
 /**
@@ -278,9 +279,9 @@ export class LoansService {
    * - Triggers behavioral events based on timing
    */
   async fundRepayment(loanId: string, userId: string, amount: number): Promise<any> {
-    if (amount <= 0) {
-      throw new BadRequestException('Repayment amount must be positive');
-    }
+    // M1: the old `amount <= 0` check let NaN through (comparisons are
+    // false) and had no ceiling — assert finite + bounded instead.
+    assertMoneyAmount(amount, 'amount', { min: 0.01 });
 
     const loan = await this.repository.getPocketById(loanId);
     if (!loan) {

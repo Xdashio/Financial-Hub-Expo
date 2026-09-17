@@ -1,4 +1,5 @@
-import { IsString, IsBoolean, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsBoolean, IsEnum, IsNumber, IsOptional, IsUUID, Min, Max } from 'class-validator';
+import { MAX_MONEY_AMOUNT } from '../../../common/money-limits';
 
 export class ClassifyDto {
   @IsString()
@@ -18,6 +19,9 @@ export class ClassifyDto {
   transaction_id?: string;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0.01)
+  @Max(MAX_MONEY_AMOUNT)
   amount?: number;
 
   @IsOptional()

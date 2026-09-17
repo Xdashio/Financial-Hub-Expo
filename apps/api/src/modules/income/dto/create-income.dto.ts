@@ -1,8 +1,10 @@
-import { IsNumber, IsString, IsBoolean, IsEnum, IsOptional, IsDateString, IsObject, Min, MaxLength, MinLength } from 'class-validator';
+import { IsNumber, IsString, IsBoolean, IsEnum, IsOptional, IsDateString, IsObject, Min, Max, MaxLength, MinLength } from 'class-validator';
+import { MAX_MONEY_AMOUNT } from '../../../common/money-limits';
 
 export class CreateIncomeDto {
   @IsNumber()
   @Min(0.01)
+  @Max(MAX_MONEY_AMOUNT)
   amount: number;
 
   @IsEnum(['client_payment', 'cash', 'other'])

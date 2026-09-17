@@ -113,6 +113,25 @@ describe('MsmeInvoicesService', () => {
       await expect(service.payInvoice(mockInvoice.id, userId)).rejects.toThrow('already paid');
     });
 
+    it('serializes concurrent pays (027) — the loser gets a clean 400 and no double income', async () => {
+      repo.getMsmeInvoiceById.mockResolvedValue({ ...mockInvoice, status: 'sent' } as any);
+      repo.claimMsmeInvoicePayment
+        .mockResolvedValueOnce({ ...mockInvoice, status: 'paid', paid_at: new Date().toISOString() } as any)
+        .mockResolvedValueOnce(null);
+
+      const [winner, loser] = await Promise.allSettled([
+        service.payInvoice(mockInvoice.id, userId),
+        service.payInvoice(mockInvoice.id, userId),
+      ]);
+
+      expect(winner.status).toBe('fulfilled');
+      expect(loser.status).toBe('rejected');
+      if (loser.status === 'rejected') {
+        expect(String(loser.reason)).toMatch(/already paid|cannot be paid/i);
+      }
+      expect(repo.claimMsmeInvoicePayment).toHaveBeenCalledTimes(2);
+    });
+
     it('forbids access for other user', async () => {
       repo.getMsmeInvoiceById.mockResolvedValue({ ...mockInvoice, user_id: 'other' } as any);
       await expect(service.getInvoiceById(mockInvoice.id, userId)).rejects.toThrow('Access denied');

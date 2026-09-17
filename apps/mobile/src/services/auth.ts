@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { supabase } from '@/config/supabase.config';
-import { API_BASE_URL } from '@/config/api';
+import { API_BASE_URL, getDevTunnelHeaders } from '@/config/api';
 
 // Base URL for API calls — see src/config/api.ts (EXPO_PUBLIC_API_URL).
 
@@ -46,6 +46,30 @@ export interface User {
   createdAt: string;
   email?: string;
   featureFlags?: Record<string, boolean> | null;
+}
+
+/** Stable app-level auth flow codes — UI matches these, not English substrings (audit L1). */
+export const AuthFlowCode = {
+  NO_ACCOUNT: 'AUTH_NO_ACCOUNT',
+  ALREADY_REGISTERED: 'AUTH_ALREADY_REGISTERED',
+} as const;
+
+export type AuthFlowCode = (typeof AuthFlowCode)[keyof typeof AuthFlowCode];
+
+export class AuthFlowError extends Error {
+  readonly code: AuthFlowCode;
+  constructor(code: AuthFlowCode, message: string) {
+    super(message);
+    this.name = 'AuthFlowError';
+    this.code = code;
+  }
+}
+
+function isSignupDisabledError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  // Prefer Supabase AuthError.code; fall back to legacy message for older GoTrue.
+  if (error.code === 'signup_disabled') return true;
+  return typeof error.message === 'string' && /signups not allowed/i.test(error.message);
 }
 
 export interface AuthState {
@@ -138,7 +162,8 @@ export const useAuthStore = create<AuthState>()(
               const resPlans = await fetch(`${API_BASE_URL}/profile/plans`, {
                 headers: {
                   Authorization: `Bearer ${session.access_token}`,
-                  'ngrok-skip-browser-warning': 'true',
+                  // M8: dev-tunnel bypass only — absent in production builds.
+                  ...getDevTunnelHeaders(),
                 },
               });
               if (resPlans.ok) {
@@ -157,7 +182,8 @@ export const useAuthStore = create<AuthState>()(
                 const res = await fetch(`${API_BASE_URL}/profile/plan`, {
                   headers: {
                     Authorization: `Bearer ${session.access_token}`,
-                    'ngrok-skip-browser-warning': 'true',
+                    // M8: dev-tunnel bypass only — absent in production builds.
+                    ...getDevTunnelHeaders(),
                   },
                 });
                 if (res.ok) {
@@ -220,10 +246,14 @@ export const useAuthStore = create<AuthState>()(
           },
         });
         if (error) {
-          // Supabase's exact error text when shouldCreateUser: false hits an
-          // unregistered phone number is "Signups not allowed for otp".
-          if (!allowSignup && /signups not allowed/i.test(error.message)) {
-            throw new Error('No account found for this number. Please create an account first.');
+          // shouldCreateUser: false + unknown phone → signup_disabled (or
+          // legacy "Signups not allowed for otp"). Map to a stable app code
+          // so the sign-in screen does not substring-match English text (L1).
+          if (!allowSignup && isSignupDisabledError(error)) {
+            throw new AuthFlowError(
+              AuthFlowCode.NO_ACCOUNT,
+              'No account found for this number. Please create an account first.',
+            );
           }
           throw error;
         }
@@ -240,10 +270,10 @@ export const useAuthStore = create<AuthState>()(
       //
       // Fix: probe first with shouldCreateUser: false (same call sign-in
       // uses). If that succeeds, the number is already registered — refuse
-      // to continue the signup flow and surface the same "already exists"
-      // error the UI already knows how to handle (redirect to sign in). Only
-      // if the probe fails with "signups not allowed" (i.e. no account
-      // exists yet) do we go ahead and actually create the account.
+      // to continue the signup flow and throw AUTH_ALREADY_REGISTERED so the
+      // UI can redirect to sign in by code (L1). Only if the probe fails
+      // with signup_disabled (i.e. no account exists yet) do we go ahead
+      // and actually create the account.
       sendSignupOtp: async (phone: string, fullName: string) => {
         const { error: probeError } = await supabase.auth.signInWithOtp({
           phone,
@@ -254,10 +284,13 @@ export const useAuthStore = create<AuthState>()(
           // Succeeded => an account already exists for this number (an OTP
           // was just sent to it, same as a normal sign-in). Don't create a
           // second identity for it — send the user to sign in instead.
-          throw new Error('An account with this number already exists. Please sign in instead.');
+          throw new AuthFlowError(
+            AuthFlowCode.ALREADY_REGISTERED,
+            'An account with this number already exists. Please sign in instead.',
+          );
         }
 
-        if (!/signups not allowed/i.test(probeError.message)) {
+        if (!isSignupDisabledError(probeError)) {
           // Some other failure (rate limit, invalid number, network, etc.)
           // — surface it as-is rather than masking it as "no account".
           throw probeError;
@@ -455,21 +488,10 @@ export const useAuthStore = create<AuthState>()(
           // Heal the local cache if it was missing/stale/for a different user.
           await storeUser(user);
           set({ user, isAuthenticated: true, session });
-          
-          // Check for existing plan so returning users route correctly on cold start
+
+          // checkHasPlan already retries internally on inconclusive network;
+          // do not add a second no-op wait here (audit dead-code cleanup).
           await get().checkHasPlan();
-          
-          // If plan check was inconclusive, retry once with longer delay
-          // to prevent existing users from being sent to onboarding due to network issues
-          const hasPlan = get().hasPlan;
-          const isCheckingPlan = get().isCheckingPlan;
-          if (!hasPlan && !isCheckingPlan) {
-            // hasPlan is explicitly false (user has no plan) - this is correct for new users
-            // No recovery needed - user genuinely needs onboarding
-          } else if (isCheckingPlan) {
-            // Still checking - wait for completion
-            await new Promise<void>((resolve) => setTimeout(resolve, 1000));
-          }
         } else {
           // No live session — don't trust a leftover local cache to grant
           // access with no real credentials behind it.

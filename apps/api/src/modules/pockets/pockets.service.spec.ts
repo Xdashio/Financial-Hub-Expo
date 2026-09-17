@@ -4,8 +4,9 @@ import type { SupabaseRepository } from '../../database/supabase.repository';
 import type { DisciplineScoreService } from '../discipline-score/discipline-score.service';
 import type { RunwayService } from '../runway/runway.service';
 import type { DailyAllocationService } from '../daily-allocation/daily-allocation.service';
+import type { Pocket } from '../../database/database.types';
 
-const POCKET = {
+const POCKET: Pocket = {
   id: 'pocket-1',
   plan_id: 'plan-1',
   name: 'Spendable',
@@ -15,6 +16,14 @@ const POCKET = {
   lock_until: null,
   monthly_allocation: 1000,
   daily_cap: null,
+  parent_pocket_id: null,
+  split_percentage: null,
+  savings_target_amount: null,
+  savings_target_date: null,
+  repayment_schedule: null,
+  loan_provider: null,
+  loan_purpose: null,
+  due_day: null,
   created_at: '2026-01-01T00:00:00.000Z',
   updated_at: '2026-01-01T00:00:00.000Z',
 };
@@ -46,6 +55,36 @@ describe('PocketsService.updateForUser', () => {
   it('applies whitelisted fields', async () => {
     await service.updateForUser('pocket-1', 'user-1', { name: 'Rainy day', dailyCap: 250 });
     expect(repository.updatePocket).toHaveBeenCalledWith('pocket-1', { name: 'Rainy day', daily_cap: 250 });
+  });
+
+  it('persists the user-set savings goal and clears it with null (M7)', async () => {
+    await service.updateForUser('pocket-1', 'user-1', { savingsTargetAmount: 120000, savingsTargetDate: '2026-12-31' });
+    expect(repository.updatePocket).toHaveBeenCalledWith('pocket-1', {
+      savings_target_amount: 120000,
+      savings_target_date: '2026-12-31',
+    });
+
+    await service.updateForUser('pocket-1', 'user-1', { savingsTargetAmount: null, savingsTargetDate: null });
+    expect(repository.updatePocket).toHaveBeenCalledWith('pocket-1', {
+      savings_target_amount: null,
+      savings_target_date: null,
+    });
+  });
+
+  it('rejects an out-of-range or non-finite savings goal (M7)', async () => {
+    const payloads = [
+      { savingsTargetAmount: 0 },
+      { savingsTargetAmount: -5 },
+      { savingsTargetAmount: 100_000_001 },
+      { savingsTargetAmount: Number.NaN },
+      { savingsTargetDate: '31-12-2026' },
+    ];
+    for (const payload of payloads) {
+      await expect(service.updateForUser('pocket-1', 'user-1', payload)).rejects.toBeInstanceOf(
+        BadRequestException,
+      );
+    }
+    expect(repository.updatePocket).not.toHaveBeenCalled();
   });
 
   it('rejects balance, ownership and time-lock fields', async () => {
@@ -82,7 +121,7 @@ describe('PocketsService discipline-score unification', () => {
   let repository: jest.Mocked<
     Pick<
       SupabaseRepository,
-      'getPocketById' | 'getPlanById' | 'updatePocket' | 'createBehaviorEvent' | 'createTransaction' | 'getTransactionsByPocketId' | 'getBehaviorEventsByTypesSince'
+      'getPocketById' | 'getPlanById' | 'updatePocket' | 'createBehaviorEvent' | 'createTransaction' | 'getTransactionsByPocketId' | 'getBehaviorEventsByTypesSince' | 'getPocketSummary'
     >
   >;
   let disciplineScore: jest.Mocked<DisciplineScoreService>;
@@ -99,6 +138,7 @@ describe('PocketsService discipline-score unification', () => {
       createTransaction: jest.fn().mockResolvedValue({ id: 'txn-1' }),
       getTransactionsByPocketId: jest.fn().mockResolvedValue([]),
       getBehaviorEventsByTypesSince: jest.fn().mockResolvedValue([]),
+      getPocketSummary: jest.fn().mockResolvedValue({ available: 0 }),
     } as any;
     disciplineScore = {
       getCurrentScore: jest.fn().mockResolvedValue(100),
@@ -121,6 +161,49 @@ describe('PocketsService discipline-score unification', () => {
     expect(result.discipline_cost.new_score).toBe(95);
   });
 
+  describe('unlockPocket goal_reached waiver (M7)', () => {
+    const LOCKED_WITH_GOAL = {
+      ...LOCKED_POCKET,
+      // A real, user-set goal (039) — not the fabricated monthly_allocation.
+      savings_target_amount: 5000,
+    };
+
+    beforeEach(() => {
+      repository.getPocketById.mockResolvedValue(LOCKED_WITH_GOAL);
+    });
+
+    it('waives the cost only when the ledger balance covers the real target', async () => {
+      repository.getPocketSummary.mockResolvedValue({ available: 6000 } as any);
+      await service.unlockPocket('pocket-1', 'user-1', { biometric_confirmed: true, goal_reached: true });
+      expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
+    });
+
+    it('still charges when the balance is short of the target', async () => {
+      repository.getPocketSummary.mockResolvedValue({ available: 4000 } as any);
+      await service.unlockPocket('pocket-1', 'user-1', { biometric_confirmed: true, goal_reached: true });
+      expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', expect.any(Number));
+      const [, delta] = disciplineScore.applyDelta.mock.calls[0];
+      expect(delta).toBeLessThan(0);
+    });
+
+    it('never waives against the fabricated monthly_allocation when no goal is set (M7)', async () => {
+      // No savings_target_amount, but monthly_allocation (5000) is fully
+      // covered by the balance — the old check would have unlocked free.
+      repository.getPocketById.mockResolvedValue(LOCKED_POCKET);
+      repository.getPocketSummary.mockResolvedValue({ available: 9000 } as any);
+      await service.unlockPocket('pocket-1', 'user-1', { biometric_confirmed: true, goal_reached: true });
+      expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', expect.any(Number));
+      const [, delta] = disciplineScore.applyDelta.mock.calls[0];
+      expect(delta).toBeLessThan(0);
+    });
+
+    it('ignores goal_reached when the client does not claim it', async () => {
+      repository.getPocketSummary.mockResolvedValue({ available: 6000 } as any);
+      await service.unlockPocket('pocket-1', 'user-1', { biometric_confirmed: true });
+      expect(disciplineScore.applyDelta).toHaveBeenCalledWith('user-1', expect.any(Number));
+    });
+  });
+
   it('extendLock no longer grants a discipline bonus (points removed, extension still applies)', async () => {
     const result = await service.extendLock('pocket-1', 'user-1', { additional_days: 10, reason: 'staying disciplined' });
 
@@ -133,6 +216,18 @@ describe('PocketsService discipline-score unification', () => {
     expect(result.discipline_bonus.previous_score).toBe(100);
     expect(result.discipline_bonus.new_score).toBe(100);
     expect(result.extension.days_added).toBe(10);
+  });
+
+  it('extendLock rejects NaN / non-integer additional_days with 400 (audit L7)', async () => {
+    await expect(
+      service.extendLock('pocket-1', 'user-1', { additional_days: Number.NaN as any })
+    ).rejects.toThrow(/integer between 1 and 3650/i);
+
+    await expect(
+      service.extendLock('pocket-1', 'user-1', { additional_days: 1.5 as any })
+    ).rejects.toThrow(/integer between 1 and 3650/i);
+
+    expect(repository.updatePocket).not.toHaveBeenCalled();
   });
 
   it('extendLock rejects a pocket that has already been extended once this lock term', async () => {
@@ -404,6 +499,35 @@ describe('PocketsService sub-pockets (audit_team.md item 10)', () => {
         ],
         false,
       );
+    });
+
+    it('serializes concurrent rebalances (030) — the loser gets a clean 400 under the family lock', async () => {
+      const siblings = [
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440002', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 30, monthly_allocation: 300 },
+        { ...POCKET, id: '550e8400-e29b-41d4-a716-446655440003', parent_pocket_id: '550e8400-e29b-41d4-a716-446655440000', split_percentage: 20, monthly_allocation: 200 },
+      ];
+      repository.getSubPocketsByParentId.mockResolvedValue(siblings as any);
+      repository.rebalanceSubPocketsAtomic
+        .mockResolvedValueOnce({ applied: true, partial: false, fundedAmount: 200, shortfall: 0 })
+        .mockResolvedValueOnce(null);
+
+      const input = {
+        splits: [
+          { pocketId: '550e8400-e29b-41d4-a716-446655440002', splitPercentage: 50 },
+          { pocketId: '550e8400-e29b-41d4-a716-446655440003', splitPercentage: 20 },
+        ],
+      };
+
+      const [winner, loser] = await Promise.allSettled([
+        service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', input),
+        service.rebalanceSubPockets('550e8400-e29b-41d4-a716-446655440000', 'user-1', input),
+      ]);
+
+      expect(winner.status).toBe('fulfilled');
+      expect(loser.status).toBe('rejected');
+      if (loser.status === 'rejected') {
+        expect(loser.reason).toBeInstanceOf(BadRequestException);
+      }
     });
   });
 });

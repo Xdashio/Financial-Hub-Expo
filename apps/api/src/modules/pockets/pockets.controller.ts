@@ -4,6 +4,7 @@ import { PocketsService } from './pockets.service';
 import { EmergencyUnlockService } from './emergency-unlock.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { RunwaySummary } from '@financial-hub/shared';
+import { parsePagination } from '../../common/pagination';
 
 @ApiTags('Pockets')
 @Controller('pockets')
@@ -128,15 +129,23 @@ export class PocketsController {
   @ApiResponse({ status: 403, description: 'You do not have access to this pocket' })
   @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number for pagination' })
   @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of transactions per page' })
+  @ApiQuery({ name: 'search', required: false, type: String, description: 'Filter by merchant or category (server-side, all pages)' })
+  @ApiQuery({ name: 'type', required: false, enum: ['spend', 'allocation', 'reallocation'], description: 'Filter by transaction type group' })
   getTransactions(
     @Param('id') id: string,
     @Query('page') page: string,
     @Query('limit') limit: string,
+    @Query('search') search: string,
+    @Query('type') type: string,
     @Request() req: any
   ) {
-    const pageNum = page ? parseInt(page, 10) : 1;
-    const limitNum = limit ? parseInt(limit, 10) : 20;
-    return this.pocketsService.getTransactionsForUser(id, req.user.id, pageNum, limitNum);
+    const { page: pageNum, limit: limitNum } = parsePagination(page, limit);
+    const typeFilter =
+      type === 'spend' || type === 'allocation' || type === 'reallocation' ? type : undefined;
+    return this.pocketsService.getTransactionsForUser(id, req.user.id, pageNum, limitNum, {
+      search: typeof search === 'string' ? search : undefined,
+      type: typeFilter,
+    });
   }
 
   @Get(':id/summary')

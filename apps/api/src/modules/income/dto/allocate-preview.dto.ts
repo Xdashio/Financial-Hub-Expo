@@ -1,8 +1,10 @@
-import { IsNumber, IsEnum, IsOptional, Min } from 'class-validator';
+import { IsNumber, IsEnum, IsOptional, Min, Max } from 'class-validator';
+import { MAX_MONEY_AMOUNT } from '../../../common/money-limits';
 
 export class AllocatePreviewDto {
   @IsNumber()
   @Min(0.01)
+  @Max(MAX_MONEY_AMOUNT)
   amount: number;
 
   @IsEnum(['client_payment', 'cash', 'other'])

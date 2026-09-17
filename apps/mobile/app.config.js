@@ -11,6 +11,25 @@
 // never actually applied.
 const arm64Only = process.env.ARM64_ONLY_BUILD === "true";
 
+// M9: one build profile → one backend. The matrix lives in eas.json's
+// per-profile `env.EXPO_PUBLIC_API_URL` (mirrored here so `expo start` and
+// local builds without EAS env resolve the same backend). Precedence at
+// runtime is: EXPO_PUBLIC_API_URL (EAS profile env / .env.local) → profile
+// default below → localhost fallback. Non-secret URLs (local/staging/prod
+// hosts) live in the repo; real secrets (Sentry DSN, Supabase keys) must
+// come from the EAS dashboard environment or .env.local, never eas.json.
+const API_URL_BY_PROFILE = {
+  development: "http://localhost:3000/api",
+  preview: "https://api-staging-f91bc.up.railway.app/api",
+  "preview-universal": "https://api-staging-f91bc.up.railway.app/api",
+  production: "https://api-production-f91bc.up.railway.app/api",
+};
+const easProfile = process.env.EAS_BUILD_PROFILE;
+const resolvedApiUrl =
+  process.env.EXPO_PUBLIC_API_URL ||
+  API_URL_BY_PROFILE[easProfile] ||
+  "http://localhost:3000/api";
+
 module.exports = {
   expo: {
     name: "Financial Hub",
@@ -114,6 +133,12 @@ module.exports = {
       eas: {
         projectId: "4e053d97-d6cb-4662-8fe5-faa1767e47cc",
       },
+      // M9: the backend this build targets, resolved with the same
+      // precedence as src/config/api.ts. Lets a Settings/debug screen show
+      // "Development → localhost" vs "Preview → staging" vs "Production"
+      // without reverse-engineering the bundle.
+      apiUrl: resolvedApiUrl,
+      easBuildProfile: easProfile || "local",
       sentryDsn: "",
       router: {
         unstable_useServerMiddleware: false,

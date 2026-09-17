@@ -719,5 +719,29 @@ describe('SpendService.commitSpend', () => {
       ).rejects.toThrow(/could not be committed/);
       expect(repository.atomicCommitSpend).toHaveBeenCalled();
     });
+
+    it('serializes concurrent parent-borrow commits (025/034) — loser gets ConflictException, no double debit', async () => {
+      (repository.atomicCommitSpend as jest.Mock)
+        .mockResolvedValueOnce({ transaction_id: 'txn-winner' })
+        .mockResolvedValueOnce(null);
+
+      const [winner, loser] = await Promise.allSettled([
+        service.commitSpend(
+          { pocket_id: 'child-1', amount: 300, borrow_from_parent: true },
+          'user-1',
+        ),
+        service.commitSpend(
+          { pocket_id: 'child-1', amount: 300, borrow_from_parent: true },
+          'user-1',
+        ),
+      ]);
+
+      expect(winner.status).toBe('fulfilled');
+      expect(loser.status).toBe('rejected');
+      if (loser.status === 'rejected') {
+        expect(String(loser.reason)).toMatch(/could not be committed/);
+      }
+      expect(repository.atomicCommitSpend).toHaveBeenCalledTimes(2);
+    });
   });
 });

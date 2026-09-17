@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
 import { StockItemCreateInputSchema, StockItemUpdateInputSchema, StockMovementCreateInputSchema } from '@financial-hub/shared';
 import { SupabaseRepository } from '../../database/supabase.repository';
+import { parsePagination } from '../../common/pagination';
 import { MsmeStockItem, MsmeStockItemInsert } from '../../database/database.types';
 
 function round2(n: number): number { return Math.round(n * 100) / 100; }
@@ -75,13 +76,13 @@ export class MsmeStockService {
 
   async getItemsForUser(userId: string, query: { search?: string; lowStockOnly?: boolean; page?: number; limit?: number }) {
     const plan = await this.repo.getActivePlanByUserId(userId, 'msme');
+    // M2: same sanitising rationale as msme-invoices.service.
+    const { page, limit } = parsePagination(query.page, query.limit);
     if (!plan) {
-      if (query.page != null || query.limit != null) return { data: [], total: 0, page: query.page ?? 1, totalPages: 0 } as any;
+      if (query.page != null || query.limit != null) return { data: [], total: 0, page, totalPages: 0 } as any;
       return [];
     }
     if (query.page != null || query.limit != null) {
-      const page = Math.max(1, Number(query.page) || 1);
-      const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
       let rows = await this.repo.getMsmeStockItemsByUserId(userId);
       if (query.search) {
         const q = query.search.toLowerCase();

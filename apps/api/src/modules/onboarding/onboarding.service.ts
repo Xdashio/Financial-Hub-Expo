@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, HttpException, HttpStatus, NotFoundException, ConflictException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import {
   OnboardingInputSchema,
@@ -14,7 +14,7 @@ import {
   PlanType,
 } from '@financial-hub/shared';
 import { assignPlan, assignMsmePlan, validateOnboardingInput, validateMsmeOnboardingInput } from './rules-engine';
-import { SupabaseRepository } from '../../database/supabase.repository';
+import { SupabaseRepository, OnboardingCommitRpcResult } from '../../database/supabase.repository';
 import {
   nextRetakeAvailableOn,
   planBalanceRedistribution,
@@ -115,64 +115,43 @@ export class OnboardingService {
     const assignment = assignPlan(input);
     const planId = uuidv4();
 
-    // Segment-scoped: never deactivates the other segment's active plan (ADR-001 D1)
-    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'individual');
-
     // Map income pattern: 'mix' -> 'salaried' for database
     const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
-
-    // Create the new plan — explicit segment so DB default is not relied upon
-    const plan = await this.supabaseRepo.createPlan({
-      id: planId,
-      user_id: userId,
-      segment: 'individual',
-      type: assignment.planType,
-      income_pattern: dbIncomePattern,
-      income_interval_days: assignment.incomeIntervalDays ?? null,
-      expected_income_amount: input.incomeAmount ?? null,
-      status: 'active',
-      money_personality: input.moneyPersonality ?? 'saver',
-    });
-
-    if (!plan) {
-      throw new Error('Failed to create plan');
-    }
-
-    // Create pockets from persona-shaped / itemized-fixed provisioner.
-    // monthly_allocation is a planning ceiling only — no allocation
-    // transactions are written here: real money only enters the ledger when
-    // the user logs an income event.
     const pocketInputs = buildPocketInputs(planId, assignment, input);
-    const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
 
-    // Full-replace semantics apply only when fixedExpenses is actually part
-    // of this submission (including an explicit empty array, to let a
-    // retake clear everything). If the field is omitted entirely, this is
-    // a partial update that never touched fixed expenses, so leave
-    // whatever the user already has untouched — otherwise every onboarding
-    // commit that doesn't resubmit fixed expenses silently wipes them.
-    if (input.fixedExpenses !== undefined) {
-      // Delete existing fixed expenses for this segment only — keeps the
-      // other segment's bills intact (016_msme_phase2_segment_isolation).
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'individual');
-
-      for (const expense of input.fixedExpenses) {
-        await this.supabaseRepo.createFixedExpense({
-          user_id: userId,
-          name: expense.name,
-          amount: expense.amount,
-          due_day: expense.dueDay,
-          category: expense.category,
-          segment: 'individual',
-        });
-      }
-    }
-
-    // Create behavior event for plan creation
-    await this.supabaseRepo.createBehaviorEvent({
-      user_id: userId,
-      type: 'plan_created',
-      payload: {
+    // Everything below — deactivating the prior same-segment plan, creating
+    // the new plan, inserting pockets, the full-replace fixed-expense swap,
+    // and the plan_created behavior event — commits in one transaction
+    // (atomic_commit_onboarding, migration 036). monthly_allocation is a
+    // planning ceiling only: no allocation transactions are written here,
+    // real money only enters the ledger when the user logs an income event.
+    const result = await this.supabaseRepo.commitOnboardingAtomic({
+      userId,
+      segment: 'individual',
+      plan: {
+        id: planId,
+        type: assignment.planType,
+        income_pattern: dbIncomePattern,
+        income_interval_days: assignment.incomeIntervalDays ?? null,
+        expected_income_amount: input.incomeAmount ?? null,
+        status: 'active',
+        money_personality: input.moneyPersonality ?? 'saver',
+      },
+      pockets: pocketInputs as unknown as Array<Record<string, unknown>>,
+      // Full-replace semantics apply only when fixedExpenses is actually part
+      // of this submission (including an explicit empty array, to let a
+      // retake clear everything). If the field is omitted entirely, this is
+      // a partial update that never touched fixed expenses.
+      replaceFixedExpenses: input.fixedExpenses !== undefined,
+      fixedExpenses:
+        input.fixedExpenses?.map((e) => ({
+          name: e.name,
+          amount: e.amount,
+          due_day: e.dueDay,
+          category: e.category ?? null,
+        })) ?? [],
+      behaviorType: 'plan_created',
+      behaviorPayload: {
         planId,
         planType: assignment.planType,
         incomePattern: assignment.incomePattern,
@@ -180,18 +159,11 @@ export class OnboardingService {
         hasSideIncome: assignment.hasSideIncome,
       },
     });
+    if (!result) {
+      throw new ConflictException('Onboarding commit conflict');
+    }
 
-    return {
-      planId,
-      pockets: createdPockets.map(p => ({
-        id: p.id,
-        name: p.name,
-        kind: p.kind,
-        category: p.category || undefined,
-        monthlyAllocation: p.monthly_allocation,
-        dailyCap: p.daily_cap || undefined,
-      })),
-    };
+    return toCommitResult(result);
   }
 
   /**
@@ -205,47 +177,34 @@ export class OnboardingService {
     const assignment = assignMsmePlan(input);
     const planId = uuidv4();
 
-    // Segment-scoped: never deactivates the individual segment's plan.
-    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'msme');
-
-    const plan = await this.supabaseRepo.createPlan({
-      id: planId,
-      user_id: userId,
-      segment: 'msme',
-      type: 'structured',
-      // MSME always resolves to a monthly/structured rhythm — never 'mix',
-      // and never stored as 'freelancer' (no daily-cap runway math applies).
-      income_pattern: 'salaried',
-      expected_income_amount: input.monthlyRevenue,
-      status: 'active',
-      money_personality: 'saver',
-    });
-
-    if (!plan) {
-      throw new Error('Failed to create plan');
-    }
-
     const pocketInputs = buildMsmePocketInputs(planId, assignment, input);
-    const createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
 
-    if (input.fixedExpenses !== undefined) {
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'msme');
-      for (const expense of input.fixedExpenses) {
-        await this.supabaseRepo.createFixedExpense({
-          user_id: userId,
-          name: expense.name,
-          amount: expense.amount,
-          due_day: expense.dueDay,
-          category: expense.category,
-          segment: 'msme',
-        });
-      }
-    }
-
-    await this.supabaseRepo.createBehaviorEvent({
-      user_id: userId,
-      type: 'plan_created',
-      payload: {
+    // Same single-transaction persist as commit(), segment-scoped so an
+    // existing active *individual* plan stays live (ADR-001 D1).
+    const result = await this.supabaseRepo.commitOnboardingAtomic({
+      userId,
+      segment: 'msme',
+      plan: {
+        id: planId,
+        type: 'structured',
+        // MSME always resolves to a monthly/structured rhythm — never 'mix',
+        // and never stored as 'freelancer' (no daily-cap runway math applies).
+        income_pattern: 'salaried',
+        expected_income_amount: input.monthlyRevenue,
+        status: 'active',
+        money_personality: 'saver',
+      },
+      pockets: pocketInputs as unknown as Array<Record<string, unknown>>,
+      replaceFixedExpenses: input.fixedExpenses !== undefined,
+      fixedExpenses:
+        input.fixedExpenses?.map((e) => ({
+          name: e.name,
+          amount: e.amount,
+          due_day: e.dueDay,
+          category: e.category ?? null,
+        })) ?? [],
+      behaviorType: 'plan_created',
+      behaviorPayload: {
         planId,
         segment: 'msme',
         planType: assignment.planType,
@@ -253,18 +212,11 @@ export class OnboardingService {
         incomePattern: assignment.incomePattern,
       },
     });
+    if (!result) {
+      throw new ConflictException('Onboarding commit conflict');
+    }
 
-    return {
-      planId,
-      pockets: createdPockets.map(p => ({
-        id: p.id,
-        name: p.name,
-        kind: p.kind,
-        category: p.category || undefined,
-        monthlyAllocation: p.monthly_allocation,
-        dailyCap: p.daily_cap || undefined,
-      })),
-    };
+    return toCommitResult(result);
   }
 
   /**
@@ -306,79 +258,53 @@ export class OnboardingService {
     const assignment = assignPlan(input);
     const planId = uuidv4();
     const dbIncomePattern = assignment.incomePattern === 'mix' ? 'salaried' : assignment.incomePattern;
+    const pocketInputs = buildPocketInputs(planId, assignment, input);
 
-    // Schema enforces one active plan per segment (partial unique index), so we
-    // must deactivate the old plan before inserting the new one. Snapshot of
-    // balances already happened above; ledger rows stay on old pocket ids and
-    // are moved via reallocation_* txs after the new pockets exist. If the
-    // create/migrate path fails, re-activate the previous plan so the user is
-    // not left without an active plan. Segment-scoped so MSME is untouched.
-    await this.supabaseRepo.deactivateUserPlansBySegment(userId, 'individual');
+    const targets: RedistributionTarget[] = pocketInputs.map((p) => ({
+      id: p.id,
+      name: p.name,
+      kind: p.kind as PocketKind,
+      category: p.category ?? null,
+      monthlyAllocation: p.monthly_allocation,
+    }));
 
-    let createdPockets;
-    let movementPlans;
-    try {
-      const plan = await this.supabaseRepo.createPlan({
+    const movementPlans = planBalanceRedistribution(sources, targets);
+    const ledgerRows = movementPlans.flatMap((m) => [
+      { pocket_id: m.fromPocketId, amount: -m.amount, type: 'reallocation_out' as const },
+      { pocket_id: m.toPocketId, amount: m.amount, type: 'reallocation_in' as const },
+    ]);
+
+    const totalMoved = round2(movementPlans.reduce((sum, m) => sum + m.amount, 0));
+    const nextAvailable = nextRetakeAvailableOn();
+
+    // Snapshot + redistribution planning stay in TS; the RPC (043) claims the
+    // monthly retake, deactivates the prior plan, inserts plan/pockets, writes
+    // ledger rows after a locked balance recheck, replaces fixed expenses, and
+    // records plan_retaken in one transaction.
+    const committed = await this.supabaseRepo.retakePlanAtomic({
+      userId,
+      segment: 'individual',
+      previousPlanId: previousPlan.id,
+      plan: {
         id: planId,
-        user_id: userId,
-        segment: 'individual',
         type: assignment.planType,
         income_pattern: dbIncomePattern,
         income_interval_days: assignment.incomeIntervalDays ?? null,
         expected_income_amount: input.incomeAmount ?? null,
         status: 'active',
         money_personality: input.moneyPersonality ?? 'saver',
-      });
-
-      if (!plan) {
-        throw new Error('Failed to create plan');
-      }
-
-      const pocketInputs = buildPocketInputs(planId, assignment, input);
-      createdPockets = await this.supabaseRepo.createPockets(pocketInputs);
-
-      const targets: RedistributionTarget[] = createdPockets.map((p) => ({
-        id: p.id,
-        name: p.name,
-        kind: p.kind as PocketKind,
-        category: p.category,
-        monthlyAllocation: p.monthly_allocation,
-      }));
-
-      movementPlans = planBalanceRedistribution(sources, targets);
-      if (movementPlans.length > 0) {
-        const ledgerRows = movementPlans.flatMap((m) => [
-          { pocket_id: m.fromPocketId, amount: -m.amount, type: 'reallocation_out' as const },
-          { pocket_id: m.toPocketId, amount: m.amount, type: 'reallocation_in' as const },
-        ]);
-        await this.supabaseRepo.createTransactions(ledgerRows);
-      }
-    } catch (error) {
-      await this.supabaseRepo.updatePlan(previousPlan.id, { status: 'active' });
-      throw error;
-    }
-
-    if (input.fixedExpenses !== undefined) {
-      await this.supabaseRepo.deleteFixedExpensesByUserId(userId, 'individual');
-      for (const expense of input.fixedExpenses) {
-        await this.supabaseRepo.createFixedExpense({
-          user_id: userId,
-          name: expense.name,
-          amount: expense.amount,
-          due_day: expense.dueDay,
-          category: expense.category,
-          segment: 'individual',
-        });
-      }
-    }
-
-    const totalMoved = round2(movementPlans.reduce((sum, m) => sum + m.amount, 0));
-    const nextAvailable = nextRetakeAvailableOn();
-
-    await this.supabaseRepo.createBehaviorEvent({
-      user_id: userId,
-      type: 'plan_retaken',
-      payload: {
+      },
+      pockets: pocketInputs as unknown as Array<Record<string, unknown>>,
+      ledger: ledgerRows,
+      replaceFixedExpenses: input.fixedExpenses !== undefined,
+      fixedExpenses:
+        input.fixedExpenses?.map((e) => ({
+          name: e.name,
+          amount: e.amount,
+          due_day: e.dueDay,
+          category: e.category ?? null,
+        })) ?? [],
+      behaviorPayload: {
         previousPlanId: previousPlan.id,
         planId,
         planType: assignment.planType,
@@ -390,16 +316,29 @@ export class OnboardingService {
       },
     });
 
+    if (!committed.ok) {
+      if (committed.reason === 'monthly_limit') {
+        throw new HttpException(
+          'You can only retake the behavior check-in once per month.',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      if (committed.reason === 'no_active_plan') {
+        throw new NotFoundException('No active plan to retake. Complete onboarding first.');
+      }
+      if (committed.reason === 'insufficient') {
+        throw new ConflictException(
+          'Balances changed during retake. Please try again.',
+        );
+      }
+      throw new ConflictException('Plan retake conflict');
+    }
+
+    const createdPockets = committed.result.pockets;
+
     return {
-      planId,
-      pockets: createdPockets.map((p) => ({
-        id: p.id,
-        name: p.name,
-        kind: p.kind,
-        category: p.category || undefined,
-        monthlyAllocation: p.monthly_allocation,
-        dailyCap: p.daily_cap || undefined,
-      })),
+      planId: committed.result.plan_id,
+      pockets: toCommitResult(committed.result).pockets,
       redistribution: {
         totalMoved,
         movements: movementPlans.map((m) => ({
@@ -474,4 +413,19 @@ export class OnboardingService {
 
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+function toCommitResult(result: OnboardingCommitRpcResult): OnboardingCommitResult {
+  type Pocket = OnboardingCommitResult['pockets'][number];
+  return {
+    planId: result.plan_id,
+    pockets: (result.pockets ?? []).map((p) => ({
+      id: p.id,
+      name: p.name,
+      kind: p.kind as Pocket['kind'],
+      category: (p.category || undefined) as Pocket['category'],
+      monthlyAllocation: p.monthly_allocation,
+      dailyCap: p.daily_cap || undefined,
+    })),
+  };
 }

@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ReportCreateDto } from './dto/report-create.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { MerchantReportInsert } from '../../database/database.types';
+import { parsePagination } from '../../common/pagination';
 
 @Injectable()
 export class MerchantReportService {
@@ -65,7 +66,8 @@ export class MerchantReportService {
       reports = reports.filter(r => r.status === status);
     }
 
-    // Pagination
+    // Pagination (M2: sanitised — see merchant.service for rationale)
+    ({ page, limit } = parsePagination(page, limit));
     const from = (page - 1) * limit;
     const to = from + limit;
     const paginatedReports = reports.slice(from, to);

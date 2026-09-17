@@ -14,7 +14,7 @@ import { loansApi, emergencyUnlockApi } from '@/services/api';
 import { ScreenContainer, LoadingState, ErrorState, PocketGlyph, ActionsSheet } from '@/components/ui';
 import { CategoryIcon } from '@/components/icons';
 import { NudgesSheet } from '@/components/home/NudgesSheet';
-import { EmergencyUnlockSheet } from '@/components/home/EmergencyUnlockSheet';
+import { EmergencyUnlockRunwayImpactSheet } from '@/components/pockets';
 import { useAlertModal } from '@/hooks/useAlertModal';
 import { deriveNudges } from '@/services/nudges';
 import { formatMoney } from '@/utils/money';
@@ -224,10 +224,29 @@ export default function HomeScreen() {
   const isDaily = planType === 'daily';
   // Personality cardOrder (from discipline-score API): savers/avoiders lead
   // with discipline → surface Savings earlier; spenders keep spendable first.
-  const prioritizeSavings = cardOrder[0] === 'discipline_score';
+  // Unknown/empty lead insight → explicit DEFAULT (spender layout), not a
+  // silent fall-through (audit L8).
+  const leadInsight = cardOrder[0];
+  const prioritizeSavings = leadInsight === 'discipline_score';
   const pocketSectionOrder = (prioritizeSavings
     ? (['savings', 'spendable', 'fixed'] as const)
-    : (['spendable', 'fixed', 'savings'] as const));
+    : (['spendable', 'fixed', 'savings'] as const)); // DEFAULT: spender layout
+
+  // Home quick-actions: reallocation-lead personalities put Move first;
+  // everything else (spender, unknown, empty) uses the labeled default order
+  // so Move is never silently dropped (audit L8).
+  const DEFAULT_HOME_ACTIONS = [
+    { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const, color: colors.clay },
+    { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const, color: colors.emerald },
+    { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const, color: colors.plum },
+  ] as const;
+  const MOVE_FIRST_HOME_ACTIONS = [
+    { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const, color: colors.plum },
+    { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const, color: colors.clay },
+    { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const, color: colors.emerald },
+  ] as const;
+  const homeActions =
+    leadInsight === 'reallocation_frequency' ? MOVE_FIRST_HOME_ACTIONS : DEFAULT_HOME_ACTIONS;
 
   const renderPocketCard = (pocket: typeof pockets[number]) => {
     const pocketColor = getPocketColor(pocket.kind, pocket.category);
@@ -410,18 +429,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={{ marginTop: spacing.lg, flexDirection: 'row', gap: spacing.sm }}>
-          {(cardOrder[0] === 'reallocation_frequency'
-            ? [
-                { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const, color: colors.plum },
-                { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const, color: colors.clay },
-                { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const, color: colors.emerald },
-              ]
-            : [
-                { id: 'spend', label: 'Log spend', icon: ShoppingCart, route: '/(pockets)/log-spend' as const, color: colors.clay },
-                { id: 'income', label: 'Add income', icon: Plus, route: '/(income)/entry' as const, color: colors.emerald },
-                { id: 'move', label: 'Move', icon: ArrowLeftRight, route: '/(modals)/realloc-pick' as const, color: colors.plum },
-              ]
-          ).map((action) => {
+          {homeActions.map((action) => {
             const Icon = action.icon;
             return (
               <Pressable
@@ -685,7 +693,7 @@ export default function HomeScreen() {
       </View>
 
       <NudgesSheet visible={nudgesVisible} onClose={() => setNudgesVisible(false)} nudges={nudges} />
-      <EmergencyUnlockSheet
+      <EmergencyUnlockRunwayImpactSheet
         visible={emergencyUnlockVisible}
         onClose={() => setEmergencyUnlockVisible(false)}
         onUnlock={handleEmergencyUnlock}

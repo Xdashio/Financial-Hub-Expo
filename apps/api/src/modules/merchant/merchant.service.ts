@@ -3,6 +3,7 @@ import { ClassifyDto } from './dto/classify.dto';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { MerchantClassification, Pocket, Transaction } from '../../database/database.types';
 import { getBlockedCategoriesForPocket } from '../../common/pocket-rules';
+import { parsePagination } from '../../common/pagination';
 
 @Injectable()
 export class MerchantService {
@@ -68,6 +69,9 @@ export class MerchantService {
       totalPages: number;
     };
   }> {
+    // M2: the old slice math trusted the controller; sanitise here too so a
+    // direct service call with ?limit=1e9 can never page unbounded memory.
+    ({ page, limit } = parsePagination(page, limit, 50));
     let classifications = await this.repository.getMerchantClassificationsByUserId(userId);
 
     if (search) {

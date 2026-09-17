@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, ScrollView, RefreshControl, StyleSheet, Text, Pressable } from 'react-native';
-import { Redirect } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useTheme } from '@/theme/ThemeContext';
 import { spacing, radius, typography, type ColorPalette } from '@/theme';
 import { formatMoney } from '@/utils/money';
 import { RunwayVisualization } from '@/components/pockets/RunwayVisualization';
 import { DailyAllocationToday } from '@/components/pockets/DailyAllocationToday';
-import { EmergencyUnlockRunwayImpactSheet } from '@/components/pockets/EmergencyUnlockRunwayImpactSheet';
+import { EmergencyUnlockRunwayImpactSheet } from '@/components/pockets';
 import { 
   useFreelancerDashboard, 
   useExecuteEmergencyUnlock,
@@ -23,6 +23,7 @@ import { AlertTriangle, Zap, Target, Shield } from 'lucide-react-native';
 
 export function FreelancerDashboard() {
   const { colors } = useTheme();
+  const router = useRouter();
   const styles = createStyles(colors);
   const [refreshing, setRefreshing] = useState(false);
   const [showEmergencyUnlock, setShowEmergencyUnlock] = useState(false);
@@ -192,7 +193,15 @@ export function FreelancerDashboard() {
             </Text>
           </Pressable>
           
-          <Pressable style={styles.quickActionCard}>
+          {/* M6: previously a dead button (no onPress) — now routes to the
+              Planning Cycle screen. Same QA bar as a new screen: registered
+              in (pockets)/_layout, back-navigates to this dashboard. */}
+          <Pressable
+            style={styles.quickActionCard}
+            onPress={() => router.push('/(pockets)/planning-cycle')}
+            accessibilityRole="button"
+            accessibilityLabel="Open Planning Cycle"
+          >
             <View style={styles.quickActionIcon}>
               <Target size={24} color={colors.gold} strokeWidth={2} />
             </View>
@@ -204,7 +213,14 @@ export function FreelancerDashboard() {
             </Text>
           </Pressable>
           
-          <Pressable style={styles.quickActionCard}>
+          {/* M6: previously a dead button — routes to the Insights tab,
+              the home of behavioral history, streaks and discipline. */}
+          <Pressable
+            style={styles.quickActionCard}
+            onPress={() => router.push('/(tabs)/insights')}
+            accessibilityRole="button"
+            accessibilityLabel="Open Behavioral Insights"
+          >
             <View style={styles.quickActionIcon}>
               <Shield size={24} color={colors.emeraldDeep} strokeWidth={2} />
             </View>
@@ -232,8 +248,16 @@ export function FreelancerDashboard() {
               const recText = rec.currentAllocation !== rec.recommendedAllocation
                 ? `${rec.currentAllocation > rec.recommendedAllocation ? 'Reduce' : 'Increase'} from ${formatMoney(rec.currentAllocation)} to ${formatMoney(rec.recommendedAllocation)}`
                 : 'Allocation is optimal';
+              // M6: recommendation preview previously did nothing on tap —
+              // it now routes to Insights like the quick-action card above.
               return (
-                <Pressable key={rec.expenseId} style={styles.recPreviewCard}>
+                <Pressable
+                  key={rec.expenseId}
+                  style={styles.recPreviewCard}
+                  onPress={() => router.push('/(tabs)/insights')}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open recommendation for ${rec.name}`}
+                >
                   <View style={styles.recPreviewContent}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginBottom: 2 }}>
                       <Text style={[typography.caption, { color: colors.ink, fontWeight: '600' }]}>{rec.name}</Text>

@@ -179,6 +179,30 @@ describe('LoansService', () => {
       expect(repository.createBehaviorEvent).not.toHaveBeenCalled();
       expect(disciplineScore.applyDelta).not.toHaveBeenCalled();
     });
+
+    it('serializes concurrent final payments (029) — only the winner advances the schedule', async () => {
+      repository.fundLoanRepaymentAtomic
+        .mockResolvedValueOnce({
+          payments_made: 1,
+          total_payments: 3,
+          completed: false,
+          previous_next_due_date: '2026-02-05',
+          schedule: { ...LOAN_POCKET.repayment_schedule, paymentsMade: 1, nextDueDate: '2026-03-05' },
+        })
+        .mockResolvedValueOnce(null);
+
+      const [winner, loser] = await Promise.allSettled([
+        service.fundRepayment('loan-1', 'user-1', 1000),
+        service.fundRepayment('loan-1', 'user-1', 1000),
+      ]);
+
+      expect(winner.status).toBe('fulfilled');
+      expect(loser.status).toBe('rejected');
+      if (loser.status === 'rejected') {
+        expect(String(loser.reason)).toMatch(/already been fully repaid/);
+      }
+      expect(repository.fundLoanRepaymentAtomic).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('getLoansForUser (sub-pocket leak regression guard)', () => {

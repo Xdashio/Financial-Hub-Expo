@@ -7,6 +7,7 @@ import type { StreakSummary } from '../rollover/streak';
 import { NudgesService } from '../nudges/nudges.service';
 import type { NudgeItem } from '../nudges/nudge.calculator';
 import { insightPriorityOrderFor, type InsightKind } from '../../common/personality-modifiers';
+import { parsePagination } from '../../common/pagination';
 import type { MsmeProject, MsmeProjectTier, MsmeProjectIncomeEvent, MsmeProjectSpend } from '../../database/database.types';
 
 export interface DisciplineScoreResult {
@@ -221,6 +222,8 @@ export class InsightsService {
 
   /** Paginated behavior events for the Insights "recent activity" list. */
   async getBehaviorEventsPaginated(userId: string, page = 1, limit = 20): Promise<PaginatedBehaviorEvents> {
+    // M2: sanitise before the repo `.range()` call — NaN here used to crash it.
+    ({ page, limit } = parsePagination(page, limit));
     const result = await this.supabaseRepo.getBehaviorEventsByUserIdPaginated(userId, page, limit);
     return {
       events: result.events,

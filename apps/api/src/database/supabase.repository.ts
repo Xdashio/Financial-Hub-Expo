@@ -28,8 +28,22 @@ import {
   MsmeStockMovement, MsmeStockMovementInsert,
 } from '../database/database.types';
 import { sumMoney, netMoney } from '@financial-hub/shared';
+import { parsePagination } from '../common/pagination';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Shape returned by the atomic_onboarding_commit RPC (migration 036). */
+export interface OnboardingCommitRpcResult {
+  plan_id: string;
+  pockets: Array<{
+    id: string;
+    name: string;
+    kind: string;
+    category: string | null;
+    monthly_allocation: number;
+    daily_cap: number | null;
+  }>;
+}
 
 // PostgREST `or()` takes a raw filter string, so any interpolated value must
 // be proven safe before it goes in — a value containing `,` or `)` would
@@ -197,6 +211,105 @@ export class SupabaseRepository {
     if (error) throw error;
   }
 
+  /**
+   * Atomic onboarding persist (H1, migration 036): deactivates the prior
+   * same-segment active plan, inserts the new plan + pockets, optionally
+   * replaces fixed expenses, and records the plan_created behavior event in
+   * one transaction. Concurrent commits for the same user serialize on the
+   * users row lock; a race loser on one_active_plan_per_segment_per_user
+   * raises a clean business error that this method maps to null.
+   */
+  async commitOnboardingAtomic(input: {
+    userId: string;
+    segment: 'individual' | 'msme';
+    plan: Record<string, unknown>;
+    pockets: Array<Record<string, unknown>>;
+    replaceFixedExpenses: boolean;
+    fixedExpenses: Array<Record<string, unknown>>;
+    behaviorType: string | null;
+    behaviorPayload: Record<string, unknown> | null;
+  }): Promise<OnboardingCommitRpcResult | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_commit_onboarding', {
+      p_user_id: input.userId,
+      p_segment: input.segment,
+      p_plan: input.plan,
+      p_pockets: input.pockets,
+      p_replace_fixed_expenses: input.replaceFixedExpenses,
+      p_fixed_expenses: input.fixedExpenses,
+      p_behavior_type: input.behaviorType,
+      p_behavior_payload: input.behaviorPayload,
+    });
+    if (error) {
+      if (this.isExpectedRpcRejection(error, [
+        'Onboarding commit conflict',
+        'User not found',
+        'Plan and pockets are required',
+        'Invalid segment',
+      ])) {
+        return null;
+      }
+      throw error;
+    }
+    return data;
+  }
+
+  /**
+   * Atomic plan retake (H1 residual, migration 043): claims the UTC-month
+   * retake under the users row lock, deactivates the prior plan, inserts the
+   * new plan + pockets, writes planned redistribution ledger rows after a
+   * locked ledger recheck on source pockets, optionally replaces fixed
+   * expenses, and records plan_retaken — all in one transaction.
+   */
+  async retakePlanAtomic(input: {
+    userId: string;
+    segment: 'individual' | 'msme';
+    previousPlanId: string;
+    plan: Record<string, unknown>;
+    pockets: Array<Record<string, unknown>>;
+    ledger: Array<{ pocket_id: string; amount: number; type: 'reallocation_out' | 'reallocation_in' }>;
+    replaceFixedExpenses: boolean;
+    fixedExpenses: Array<Record<string, unknown>>;
+    behaviorPayload: Record<string, unknown>;
+  }): Promise<
+    | { ok: true; result: OnboardingCommitRpcResult }
+    | { ok: false; reason: 'monthly_limit' | 'conflict' | 'insufficient' | 'no_active_plan' }
+  > {
+    const { data, error } = await (this.supabase as any).rpc('atomic_retake_plan', {
+      p_user_id: input.userId,
+      p_segment: input.segment,
+      p_previous_plan_id: input.previousPlanId,
+      p_plan: input.plan,
+      p_pockets: input.pockets,
+      p_ledger: input.ledger,
+      p_replace_fixed_expenses: input.replaceFixedExpenses,
+      p_fixed_expenses: input.fixedExpenses,
+      p_behavior_payload: input.behaviorPayload,
+    });
+    if (error) {
+      if (this.isExpectedRpcRejection(error, ['Retake already used this month'])) {
+        return { ok: false, reason: 'monthly_limit' };
+      }
+      if (this.isExpectedRpcRejection(error, ['No active plan to retake', 'User not found'])) {
+        return { ok: false, reason: 'no_active_plan' };
+      }
+      if (this.isExpectedRpcRejection(error, ['Insufficient source balance'])) {
+        return { ok: false, reason: 'insufficient' };
+      }
+      if (this.isExpectedRpcRejection(error, [
+        'Retake commit conflict',
+        'Plan and pockets are required',
+        'Invalid segment',
+        'Previous plan is required',
+        'Source pocket does not belong to previous plan',
+        'Invalid retake ledger type',
+      ])) {
+        return { ok: false, reason: 'conflict' };
+      }
+      throw error;
+    }
+    return { ok: true, result: data as OnboardingCommitRpcResult };
+  }
+
   /** Deactivate every active plan for the user except `exceptPlanId`. */
   async deactivateUserPlansExcept(userId: string, exceptPlanId: string): Promise<void> {
     const { error } = await this.supabase
@@ -361,6 +474,13 @@ export class SupabaseRepository {
     const codeOk = err?.code === '42703' || err?.code === 'PGRST204';
     const msg = typeof err?.message === 'string' ? err.message : '';
     return codeOk && /segment/i.test(msg);
+  }
+
+  /** Expected business rejections from atomic RPCs. Callers map null to 4xx. */
+  private isExpectedRpcRejection(error: unknown, needles: string[]): boolean {
+    const err = error as { message?: unknown; details?: unknown };
+    const msg = String(err?.message ?? err?.details ?? '');
+    return needles.some((needle) => msg.includes(needle));
   }
 
   /** Drop the segment key from an insert payload (016 pre-migration retry). */
@@ -783,6 +903,11 @@ export class SupabaseRepository {
    * concurrent same-month unlock (surfaces to the service as a clean
    * "monthly limit reached" response instead of a 500).
    */
+  /**
+   * Atomic emergency unlock (031 + 042). Distinguishes monthly unique-index
+   * conflicts from an under-lock Insufficient savings balance raise so the
+   * service can surface the correct user-facing error without leaking SQL.
+   */
   async executeEmergencyUnlockAtomic(params: {
     id: string;
     userId: string;
@@ -796,7 +921,10 @@ export class SupabaseRepository {
     runwayDaysAfter: number;
     runwayReductionDays: number;
     savingsPocketId: string;
-  }): Promise<{ id: string; created_at: string } | null> {
+  }): Promise<
+    | { ok: true; id: string; created_at: string }
+    | { ok: false; reason: 'monthly_limit' | 'insufficient' }
+  > {
     const { data, error } = await (this.supabase as any).rpc(
       'atomic_execute_emergency_unlock',
       {
@@ -816,11 +944,16 @@ export class SupabaseRepository {
     );
     if (error) {
       const msg = String(error.message ?? error.details ?? '');
-      if (msg.includes('duplicate key') || msg.includes('one_per_month'))
-        return null;
+      if (msg.includes('duplicate key') || msg.includes('one_per_month')) {
+        return { ok: false, reason: 'monthly_limit' };
+      }
+      if (msg.includes('Insufficient savings balance')) {
+        return { ok: false, reason: 'insufficient' };
+      }
       throw error;
     }
-    return data as { id: string; created_at: string };
+    const row = data as { id: string; created_at: string };
+    return { ok: true, id: row.id, created_at: row.created_at };
   }
 
   async getEmergencyUnlockByUserId(userId: string): Promise<EmergencyUnlockRow[]> {
@@ -856,21 +989,42 @@ export class SupabaseRepository {
   async getTransactionsByPocketIdPaginated(
     pocketId: string,
     page: number = 1,
-    limit: number = 20
+    limit: number = 20,
+    filters?: { search?: string; type?: 'spend' | 'allocation' | 'reallocation' },
   ): Promise<{ transactions: Transaction[]; total: number; totalPages: number }> {
+    // M2: last line of defence — a NaN/huge limit must never reach `.range()`.
+    ({ page, limit } = parsePagination(page, limit));
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    const { data, error, count } = await this.supabase
+    let query = this.supabase
       .from('transactions')
       .select('*', { count: 'exact' })
-      .eq('pocket_id', pocketId)
+      .eq('pocket_id', pocketId);
+
+    if (filters?.type === 'spend') {
+      query = query.eq('type', 'spend');
+    } else if (filters?.type === 'allocation') {
+      query = query.eq('type', 'allocation');
+    } else if (filters?.type === 'reallocation') {
+      query = query.in('type', ['reallocation_in', 'reallocation_out']);
+    }
+
+    const search = filters?.search?.trim();
+    if (search) {
+      // Match existing invoice/stock search style; strip commas so they
+      // can't break PostgREST's `.or()` filter grammar.
+      const s = `%${search.replace(/,/g, '')}%`;
+      query = query.or(`merchant.ilike.${s},category.ilike.${s}`);
+    }
+
+    const { data, error, count } = await query
       .order('created_at', { ascending: false })
       .range(from, to);
 
     if (error) throw error;
     const total = count || 0;
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limit) || 0;
 
     return {
       transactions: data || [],
@@ -1023,6 +1177,63 @@ export class SupabaseRepository {
       .eq('id', id)
       .single();
     if (error && error.code !== 'PGRST116') throw error;
+    return data;
+  }
+
+  /**
+   * Opens a daily allocation exactly once (H1, migration 037). The plan row
+   * is locked, a same-day row is returned unchanged, and only a fresh
+   * open row is inserted — concurrent midnight-cron sweeps cannot open the
+   * same day twice. Rejections (plan missing / access denied / bad amount)
+   * surface as null.
+   */
+  async createDailyAllocationAtomic(input: {
+    planId: string;
+    userId: string;
+    allocationDate: string;
+    plannedAmount: number;
+  }): Promise<Record<string, unknown> | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_create_daily_allocation', {
+      p_plan_id: input.planId,
+      p_user_id: input.userId,
+      p_allocation_date: input.allocationDate,
+      p_planned_amount: input.plannedAmount,
+    });
+    if (error) {
+      if (this.isExpectedRpcRejection(error, [
+        'Plan not found',
+        'Access denied',
+        'Planned amount cannot be negative',
+      ])) {
+        return null;
+      }
+      throw error;
+    }
+    return data;
+  }
+
+  /**
+   * Closes a daily allocation exactly once (H1, migration 037). The row is
+   * locked for update; an already-closed row is returned unchanged, so the
+   * end-of-day sweep is idempotent. Rejections surface as null.
+   */
+  async closeDailyAllocationAtomic(
+    allocationId: string,
+    actualSpend: number,
+  ): Promise<Record<string, unknown> | null> {
+    const { data, error } = await (this.supabase as any).rpc('atomic_close_daily_allocation', {
+      p_allocation_id: allocationId,
+      p_actual_spend: actualSpend,
+    });
+    if (error) {
+      if (this.isExpectedRpcRejection(error, [
+        'Daily allocation not found',
+        'Actual spend cannot be negative',
+      ])) {
+        return null;
+      }
+      throw error;
+    }
     return data;
   }
 
@@ -1308,16 +1519,33 @@ export class SupabaseRepository {
     return data;
   }
 
-  /** Completes a requested reallocation exactly once with atomic ledger writes. */
+  /** Completes a requested reallocation exactly once with atomic ledger + side-effect writes. */
   async claimReallocationCompletion(
     id: string,
-    updates: Pick<ReallocationUpdate, 'completed_at' | 'discipline_cost'>,
+    updates: {
+      discipline_cost: number;
+      userId: string;
+      fromPocketName: string;
+      toPocketName: string;
+    },
   ): Promise<Reallocation | null> {
     const { data, error } = await (this.supabase as any).rpc('atomic_complete_reallocation', {
       p_reallocation_id: id,
       p_discipline_cost: updates.discipline_cost ?? 0,
+      p_user_id: updates.userId,
+      p_from_pocket_name: updates.fromPocketName,
+      p_to_pocket_name: updates.toPocketName,
     });
-    if (error) throw error;
+    if (error) {
+      if (this.isExpectedRpcRejection(error, [
+        'Reallocation has already been resolved',
+        'Reallocation not found',
+        'Insufficient balance in the source pocket',
+      ])) {
+        return null;
+      }
+      throw error;
+    }
     return data;
   }
 
@@ -1422,6 +1650,8 @@ export class SupabaseRepository {
     page: number = 1,
     limit: number = 20
   ): Promise<{ events: BehaviorEvent[]; total: number; totalPages: number }> {
+    // M2: same guard as the transactions paginator above.
+    ({ page, limit } = parsePagination(page, limit));
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
@@ -2134,7 +2364,15 @@ export class SupabaseRepository {
       p_date: input.date,
       p_allocations: input.allocations,
     });
-    if (error) throw error;
+    if (error) {
+      if (this.isExpectedRpcRejection(error, [
+        'Invoice already paid or cannot be paid',
+        'Invoice not found',
+      ])) {
+        return null;
+      }
+      throw error;
+    }
     return data;
   }
 
@@ -2227,6 +2465,9 @@ export class SupabaseRepository {
     limit = 20,
     filters?: { status?: string; overdueOnly?: boolean; search?: string },
   ): Promise<{ data: MsmeInvoice[]; total: number; totalPages: number }> {
+    // M2: the old `Math.max(1, page)` passed NaN straight into `.range()`
+    // (Math.max(1, NaN) is NaN) — sanitise with fallbacks instead.
+    ({ page, limit } = parsePagination(page, limit));
     let query = (this.supabase as any)
       .from('msme_invoices')
       .select('*', { count: 'exact' })
@@ -2257,6 +2498,8 @@ export class SupabaseRepository {
     limit = 20,
     filters?: { search?: string; lowStockOnly?: boolean },
   ): Promise<{ data: MsmeStockItem[]; total: number; totalPages: number }> {
+    // M2: same guard as the invoices paginator above.
+    ({ page, limit } = parsePagination(page, limit));
     let query = (this.supabase as any)
       .from('msme_stock_items')
       .select('*', { count: 'exact' })
