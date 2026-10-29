@@ -1,4 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+  ConflictException,
+  Logger,
+} from '@nestjs/common';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { User, Plan, FixedExpense, Pocket, PocketInsert } from '../../database/database.types';
 import {
@@ -45,14 +52,22 @@ export class ProfileService {
 
   async createFixedExpense(userId: string, input: unknown, segment: 'individual' | 'msme' = 'individual'): Promise<FixedExpense> {
     const parsed = this.parseFixedExpenseInput(input);
-    const created = await this.supabaseRepo.createFixedExpense({
-      user_id: userId,
-      name: parsed.name,
-      amount: parsed.amount,
-      due_day: parsed.dueDay,
-      category: parsed.category,
-      segment,
-    });
+    await this.assertFixedExpenseNameAvailable(userId, segment, parsed.name);
+    const created = await this.supabaseRepo
+      .createFixedExpense({
+        user_id: userId,
+        name: parsed.name,
+        amount: parsed.amount,
+        due_day: parsed.dueDay,
+        category: parsed.category,
+        segment,
+      })
+      .catch((error) => {
+        // The service check above closes the normal path; the unique index
+        // (migration 044) closes the race between two concurrent submits.
+        this.throwIfDuplicateFixedExpense(error, parsed.name);
+        throw error;
+      });
     if (!created) {
       throw new BadRequestException('Failed to create fixed expense');
     }
@@ -66,12 +81,19 @@ export class ProfileService {
   async updateFixedExpense(userId: string, id: string, input: unknown): Promise<FixedExpense> {
     const existing = await this.getOwnedFixedExpense(id, userId);
     const parsed = this.parseFixedExpenseInput(input, existing);
-    const updated = await this.supabaseRepo.updateFixedExpense(id, {
-      name: parsed.name,
-      amount: parsed.amount,
-      due_day: parsed.dueDay,
-      category: parsed.category,
-    });
+    const segment = ((existing as { segment?: 'individual' | 'msme' }).segment ?? 'individual');
+    await this.assertFixedExpenseNameAvailable(userId, segment, parsed.name, existing.id);
+    const updated = await this.supabaseRepo
+      .updateFixedExpense(id, {
+        name: parsed.name,
+        amount: parsed.amount,
+        due_day: parsed.dueDay,
+        category: parsed.category,
+      })
+      .catch((error) => {
+        this.throwIfDuplicateFixedExpense(error, parsed.name);
+        throw error;
+      });
     if (!updated) {
       throw new NotFoundException('Fixed expense not found');
     }
@@ -79,7 +101,7 @@ export class ProfileService {
       userId,
       existing,
       parsed,
-      (existing as any).segment ?? 'individual',
+      segment,
     );
     return updated;
   }
@@ -307,7 +329,7 @@ const percentages = newPercentages as Record<string, number>;
     const candidate = existing
       ? { name: existing.name, amount: existing.amount, dueDay: existing.due_day, category: existing.category, ...(body as object) }
       : body;
-    const result = FixedExpenseInputSchema.safeParse(candidate);
+    const result = FixedExpenseInputSchema.safeParse(this.trimFixedExpenseName(candidate));
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
@@ -327,6 +349,51 @@ const percentages = newPercentages as Record<string, number>;
       return { ...rest, dueDay };
     }
     return input;
+  }
+
+  private trimFixedExpenseName(candidate: unknown): unknown {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) {
+      return candidate;
+    }
+    const raw = candidate as Record<string, unknown>;
+    if (typeof raw.name !== 'string') return candidate;
+    return { ...raw, name: raw.name.trim() };
+  }
+
+  private fixedExpenseNameKey(name: string): string {
+    return name.trim().toLowerCase();
+  }
+
+  /**
+   * A user can only have one bill with a given name in a segment. Without
+   * this, two taps on "Add expense" (or a retried request) inserted two
+   * identical rows, and the screen rendered both. Migration 044 backs this
+   * with a unique index so concurrent requests cannot slip past the check.
+   */
+  private async assertFixedExpenseNameAvailable(
+    userId: string,
+    segment: 'individual' | 'msme',
+    name: string,
+    excludeId?: string,
+  ): Promise<void> {
+    const rows = await this.supabaseRepo.getFixedExpensesByUserId(userId, segment);
+    const key = this.fixedExpenseNameKey(name);
+    const duplicate = (rows ?? []).some(
+      (row) => row.id !== excludeId && this.fixedExpenseNameKey(row.name) === key,
+    );
+    if (duplicate) {
+      throw new ConflictException(`A fixed expense named "${name.trim()}" already exists`);
+    }
+  }
+
+  private throwIfDuplicateFixedExpense(error: unknown, name: string): void {
+    if (this.isDuplicateFixedExpenseError(error)) {
+      throw new ConflictException(`A fixed expense named "${name.trim()}" already exists`);
+    }
+  }
+
+  private isDuplicateFixedExpenseError(error: unknown): boolean {
+    return !!error && typeof error === 'object' && (error as { code?: unknown }).code === '23505';
   }
 
   /**
@@ -576,7 +643,10 @@ const percentages = newPercentages as Record<string, number>;
     failed: Array<{ index: number; error: string }>;
     total_monthly: number;
   }> {
-    const result = FixedExpenseInputSchema.array().safeParse(input);
+    const normalizedInput = Array.isArray(input)
+      ? input.map((item) => this.trimFixedExpenseName(item))
+      : input;
+    const result = FixedExpenseInputSchema.array().safeParse(normalizedInput);
     if (!result.success) {
       throw new BadRequestException(result.error.issues.map((i: { message: string }) => i.message).join('; '));
     }
@@ -585,7 +655,22 @@ const percentages = newPercentages as Record<string, number>;
     const created: FixedExpense[] = [];
     const failed: Array<{ index: number; error: string }> = [];
 
+    // Skip names that already exist for this user/segment, and names repeated
+    // inside the same request. Retrying a bulk import used to append a second
+    // copy of every row.
+    const existingRows = await this.supabaseRepo.getFixedExpensesByUserId(userId, segment);
+    const seenNames = new Set((existingRows ?? []).map((row) => this.fixedExpenseNameKey(row.name)));
+
     for (let i = 0; i < expenses.length; i++) {
+      const nameKey = this.fixedExpenseNameKey(expenses[i].name);
+      if (seenNames.has(nameKey)) {
+        failed.push({
+          index: i,
+          error: `A fixed expense named "${expenses[i].name}" already exists`,
+        });
+        continue;
+      }
+      seenNames.add(nameKey);
       try {
         const createdExpense = await this.supabaseRepo.createFixedExpense({
           user_id: userId,
@@ -601,7 +686,14 @@ const percentages = newPercentages as Record<string, number>;
           failed.push({ index: i, error: 'Failed to create expense' });
         }
       } catch (error) {
-        failed.push({ index: i, error: (error as Error).message });
+        if (this.isDuplicateFixedExpenseError(error)) {
+          failed.push({
+            index: i,
+            error: `A fixed expense named "${expenses[i].name}" already exists`,
+          });
+        } else {
+          failed.push({ index: i, error: (error as Error).message });
+        }
       }
     }
 

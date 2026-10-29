@@ -36,6 +36,9 @@ export default function FixedExpenseFormScreen() {
   const [expense, setExpense] = useState<FixedExpense | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(mode === 'edit');
+  // State updates are async, so two fast taps could both pass an
+  // `isSubmitting` check before the first re-render. A ref closes that race.
+  const submitLockRef = React.useRef(false);
   
   // Form state - single object to prevent re-renders
   const [formData, setFormData] = useState({
@@ -135,15 +138,15 @@ export default function FixedExpenseFormScreen() {
     }
     
     if (!isValid) return;
-    
-    if (isSubmitting) return;
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
 
     try {
       setIsSubmitting(true);
       
       if (mode === 'edit' && expense) {
         await updateExpense(expense.id, {
-          name: formData.name,
+          name: trimmedName,
           amount: parseFloat(formData.amount),
           due_day: parseInt(formData.dueDay),
           category: formData.category,
@@ -152,7 +155,7 @@ export default function FixedExpenseFormScreen() {
         alert('Success', 'Fixed expense updated successfully.');
       } else {
         await addExpense({
-          name: formData.name,
+          name: trimmedName,
           amount: parseFloat(formData.amount),
           due_day: parseInt(formData.dueDay),
           category: formData.category,
@@ -163,8 +166,12 @@ export default function FixedExpenseFormScreen() {
       
       safeGoBack(router, '/(profile)/fixed-expenses');
     } catch (error) {
-      alert('Error', 'Failed to save expense. Please try again.');
+      const message = error instanceof Error && error.message
+        ? error.message
+        : 'Failed to save expense. Please try again.';
+      alert('Error', message);
     } finally {
+      submitLockRef.current = false;
       setIsSubmitting(false);
     }
   };

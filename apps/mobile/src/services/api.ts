@@ -486,8 +486,8 @@ export const rolloverApi = {
 };
 
 export const profileApi = {
-  getFixedExpenses: (segment?: 'individual' | 'msme') =>
-    api.get<any[]>(segment ? `/profile/fixed-expenses?segment=${segment}` : '/profile/fixed-expenses'),
+  getFixedExpenses: (segment: 'individual' | 'msme' = 'individual') =>
+    api.get<any[]>(`/profile/fixed-expenses?segment=${segment}`),
   getPlan: (segment?: 'individual' | 'msme') =>
     api.get<any>(segment ? `/profile/plan?segment=${segment}` : '/profile/plan'),
   getPlans: () => api.get<any[]>('/profile/plans'),

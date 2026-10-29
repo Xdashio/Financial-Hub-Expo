@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
@@ -71,11 +71,9 @@ export default function FixedExpensesScreen() {
     return IconComponent;
   };
 
-  useEffect(() => {
-    fetchExpenses();
-  }, [fetchExpenses]);
-
-  // Refresh data when screen comes into focus (after modal closes)
+  // Refresh data when screen comes into focus (after modal closes). The
+  // focus effect already runs on mount, so a separate useEffect here fired a
+  // second parallel request on every visit.
   useFocusEffect(
     React.useCallback(() => {
       fetchExpenses();

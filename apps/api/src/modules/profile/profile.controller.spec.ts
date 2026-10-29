@@ -58,8 +58,24 @@ describe('ProfileController', () => {
 
     const result = await controller.getFixedExpenses(req, undefined);
 
-    expect(profileService.getFixedExpenses).toHaveBeenCalledWith('user-123', undefined);
+    expect(profileService.getFixedExpenses).toHaveBeenCalledWith('user-123', 'individual');
     expect(result).toEqual([]);
+  });
+
+  it('defaults fixed expenses to the individual segment so MSME bills do not leak in', async () => {
+    const req = { user: { id: 'user-123' } };
+
+    await controller.getFixedExpenses(req);
+
+    expect(profileService.getFixedExpenses).toHaveBeenCalledWith('user-123', 'individual');
+  });
+
+  it('passes an explicit msme segment through', async () => {
+    const req = { user: { id: 'user-123' } };
+
+    await controller.getFixedExpenses(req, 'msme');
+
+    expect(profileService.getFixedExpenses).toHaveBeenCalledWith('user-123', 'msme');
   });
 
   it('creates a fixed expense for the authenticated user', async () => {

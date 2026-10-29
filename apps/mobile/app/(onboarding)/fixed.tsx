@@ -35,6 +35,10 @@ function getIconComponent(name: string, category: string) {
   return getExpenseIcon(name, category);
 }
 
+function fixedExpenseNameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
 export default function FixedScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -109,7 +113,8 @@ export default function FixedScreen() {
       alert('Error', 'Please enter a valid amount');
       return;
     }
-    if (!formData.name.trim()) {
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
       alert('Error', 'Please enter a name');
       return;
     }
@@ -118,17 +123,26 @@ export default function FixedScreen() {
       alert('Error', 'Please enter a valid due day (1-31)');
       return;
     }
+    const isDuplicate = fixedExpenses.some(
+      (e: FixedExpenseItem) =>
+        e.id !== editingId &&
+        fixedExpenseNameKey(e.name) === fixedExpenseNameKey(trimmedName),
+    );
+    if (isDuplicate) {
+      alert('Error', 'A fixed expense with this name already exists');
+      return;
+    }
     
     if (editingId) {
       // Update existing
       const updated = fixedExpenses.map((e: FixedExpenseItem) => 
-        e.id === editingId ? { ...e, name: formData.name, amount, dueDay } : e
+        e.id === editingId ? { ...e, name: trimmedName, amount, dueDay } : e
       );
       setFixedExpenses(updated);
     } else {
       // Add new
       addFixedExpense({
-        name: formData.name,
+        name: trimmedName,
         amount,
         dueDay,
         category: formData.category,

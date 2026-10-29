@@ -31,6 +31,35 @@ import {
   validateCategoryPercentages,
 } from './pocket-provisioning';
 
+type FixedExpenseSubmission = NonNullable<OnboardingInput['fixedExpenses']>[number];
+
+/**
+ * The onboarding RPC replaces the segment's whole fixed-expense list. A
+ * duplicate name in the payload would hit the unique index (migration 044)
+ * and abort the entire commit, so collapse case-insensitive duplicates here
+ * (last edit wins) and trim names before they reach the database.
+ */
+function normalizeFixedExpenseSubmission(
+  expenses: FixedExpenseSubmission[] | undefined,
+): Array<{ name: string; amount: number; due_day: number; category: string | null }> {
+  if (!expenses) return [];
+  const byName = new Map<
+    string,
+    { name: string; amount: number; due_day: number; category: string | null }
+  >();
+  for (const expense of expenses) {
+    const name = expense.name.trim();
+    if (!name) continue;
+    byName.set(name.toLowerCase(), {
+      name,
+      amount: expense.amount,
+      due_day: expense.dueDay,
+      category: expense.category ?? null,
+    });
+  }
+  return Array.from(byName.values());
+}
+
 @Injectable()
 export class OnboardingService {
   constructor(private readonly supabaseRepo: SupabaseRepository) {}
@@ -143,13 +172,7 @@ export class OnboardingService {
       // retake clear everything). If the field is omitted entirely, this is
       // a partial update that never touched fixed expenses.
       replaceFixedExpenses: input.fixedExpenses !== undefined,
-      fixedExpenses:
-        input.fixedExpenses?.map((e) => ({
-          name: e.name,
-          amount: e.amount,
-          due_day: e.dueDay,
-          category: e.category ?? null,
-        })) ?? [],
+      fixedExpenses: normalizeFixedExpenseSubmission(input.fixedExpenses),
       behaviorType: 'plan_created',
       behaviorPayload: {
         planId,
@@ -196,13 +219,7 @@ export class OnboardingService {
       },
       pockets: pocketInputs as unknown as Array<Record<string, unknown>>,
       replaceFixedExpenses: input.fixedExpenses !== undefined,
-      fixedExpenses:
-        input.fixedExpenses?.map((e) => ({
-          name: e.name,
-          amount: e.amount,
-          due_day: e.dueDay,
-          category: e.category ?? null,
-        })) ?? [],
+      fixedExpenses: normalizeFixedExpenseSubmission(input.fixedExpenses),
       behaviorType: 'plan_created',
       behaviorPayload: {
         planId,
@@ -297,13 +314,7 @@ export class OnboardingService {
       pockets: pocketInputs as unknown as Array<Record<string, unknown>>,
       ledger: ledgerRows,
       replaceFixedExpenses: input.fixedExpenses !== undefined,
-      fixedExpenses:
-        input.fixedExpenses?.map((e) => ({
-          name: e.name,
-          amount: e.amount,
-          due_day: e.dueDay,
-          category: e.category ?? null,
-        })) ?? [],
+      fixedExpenses: normalizeFixedExpenseSubmission(input.fixedExpenses),
       behaviorPayload: {
         previousPlanId: previousPlan.id,
         planId,

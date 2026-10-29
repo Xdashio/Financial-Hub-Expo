@@ -57,11 +57,23 @@ function generateId(): string {
 
 /** Assembles the MSME onboarding payload (ADR-001 §6.2) from the store's
  *  shared fixedExpenses list plus the business-specific input/pockets. */
+function normalizeFixedExpensesForSubmit(expenses: FixedExpenseItem[]): FixedExpenseItem[] {
+  const byName = new Map<string, FixedExpenseItem>();
+  for (const expense of expenses) {
+    const name = expense.name.trim();
+    if (!name) continue;
+    // Last edit wins, matching the API's case-insensitive dedupe.
+    byName.set(name.toLowerCase(), { ...expense, name });
+  }
+  return Array.from(byName.values());
+}
+
 function buildMsmeInput(
   msmeInput: Partial<MsmeOnboardingInput>,
   fixedExpenses: FixedExpenseItem[],
   msmeCustomPockets: MsmeCustomPocketItem[],
 ): MsmeOnboardingInput {
+  const normalizedFixedExpenses = normalizeFixedExpensesForSubmit(fixedExpenses);
   return {
     segment: 'msme',
     businessName: (msmeInput.businessName ?? '').trim(),
@@ -69,10 +81,16 @@ function buildMsmeInput(
     hasEmployees: msmeInput.hasEmployees ?? false,
     businessStage: msmeInput.businessStage,
     savingsGoal: msmeInput.savingsGoal,
-    fixedTotal: fixedExpenses.reduce((sum, e) => sum + e.amount, 0),
-    fixedExpenses: fixedExpenses.length > 0
-      ? fixedExpenses.map((e) => ({ name: e.name, amount: e.amount, dueDay: e.dueDay, category: e.category as any }))
-      : undefined,
+    fixedTotal: normalizedFixedExpenses.reduce((sum, e) => sum + e.amount, 0),
+    // Always send the array, including an empty one: the API treats a missing
+    // field as "leave existing rows alone", which is how repeated onboarding
+    // runs accumulated duplicate bills.
+    fixedExpenses: normalizedFixedExpenses.map((e) => ({
+      name: e.name,
+      amount: e.amount,
+      dueDay: e.dueDay,
+      category: e.category as any,
+    })),
     customPockets: msmeCustomPockets.map((p) => ({
       name: p.name,
       category: p.category,
@@ -312,12 +330,12 @@ export const useOnboardingStore = create<OnboardingState>()(
           const { input, fixedExpenses } = get();
           const fullInput = {
             ...(input as OnboardingInput),
-            fixedExpenses: fixedExpenses.length > 0 ? fixedExpenses.map((expense) => ({
+            fixedExpenses: normalizeFixedExpensesForSubmit(fixedExpenses).map((expense) => ({
               name: expense.name,
               amount: expense.amount,
               dueDay: expense.dueDay,
               category: expense.category as any,
-            })) : undefined,
+            })),
             ...(percentages ? { categoryPercentages: percentages } : {}),
           };
 
@@ -343,15 +361,18 @@ export const useOnboardingStore = create<OnboardingState>()(
           const { input, fixedExpenses, isRetake } = get();
           const fullInput = input as OnboardingInput;
           
-          // Include fixedExpenses in the commit data
+          // Include fixedExpenses in the commit data. Always send the array,
+          // even when empty: the API only clears old rows when the field is
+          // present, so omitting it left every previous batch in place and
+          // the next onboarding run added another copy.
           const commitData = {
             ...fullInput,
-            fixedExpenses: fixedExpenses.length > 0 ? fixedExpenses.map(expense => ({
+            fixedExpenses: normalizeFixedExpensesForSubmit(fixedExpenses).map(expense => ({
               name: expense.name,
               amount: expense.amount,
               dueDay: expense.dueDay,
               category: expense.category as any, // Cast to satisfy type system
-            })) : undefined,
+            })),
           };
           
           // A retake re-runs the same rules engine against fresh answers

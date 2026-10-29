@@ -341,6 +341,26 @@ describe('OnboardingService.commit', () => {
     expect(repository.createFixedExpense).not.toHaveBeenCalled();
   });
 
+  it('dedupes fixed expenses case-insensitively and trims names before the RPC', async () => {
+    const input: OnboardingInput = {
+      ...SALARIED_TRACKER_INPUT,
+      fixedExpenses: [
+        { name: 'Rent', amount: 10000, dueDay: 1, category: 'utilities' },
+        { name: ' water ', amount: 800, dueDay: 20, category: 'utilities' },
+        { name: 'WATER', amount: 900, dueDay: 21, category: 'utilities' },
+      ],
+    };
+
+    await service.commit(input, 'user-1');
+
+    const call = repository.commitOnboardingAtomic.mock.calls[0][0];
+    expect(call.replaceFixedExpenses).toBe(true);
+    expect(call.fixedExpenses).toEqual([
+      { name: 'Rent', amount: 10000, due_day: 1, category: 'utilities' },
+      { name: 'WATER', amount: 900, due_day: 21, category: 'utilities' },
+    ]);
+  });
+
   it('creates no fixed expense rows when none were submitted', async () => {
     await service.commit(SALARIED_TRACKER_INPUT, 'user-1');
 

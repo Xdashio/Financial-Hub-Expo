@@ -1,6 +1,6 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import { ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { SupabaseRepository } from '../../database/supabase.repository';
 import { OnboardingService } from '../onboarding/onboarding.service';
@@ -17,7 +17,7 @@ describe('ProfileService', () => {
     supabaseRepo = {
       getUserById: jest.fn(),
       getActivePlanByUserId: jest.fn(),
-      getFixedExpensesByUserId: jest.fn(),
+      getFixedExpensesByUserId: jest.fn().mockResolvedValue([]),
       getFixedExpenseById: jest.fn(),
       createFixedExpense: jest.fn(),
       updateFixedExpense: jest.fn(),
@@ -104,6 +104,129 @@ describe('ProfileService', () => {
       service.createFixedExpense('user-123', { name: '', amount: -5, dueDay: 40, category: 'utilities' })
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(supabaseRepo.createFixedExpense).not.toHaveBeenCalled();
+  });
+
+  it('createFixedExpense rejects a duplicate name regardless of case and whitespace', async () => {
+    supabaseRepo.getFixedExpensesByUserId.mockResolvedValue([
+      {
+        id: 'fe-existing',
+        user_id: 'user-123',
+        name: 'Electricity',
+        amount: 2200,
+        due_day: 15,
+        category: 'utilities',
+        segment: 'individual',
+      } as any,
+    ]);
+
+    await expect(
+      service.createFixedExpense('user-123', {
+        name: '  electricity  ',
+        amount: 2200,
+        dueDay: 15,
+        category: 'utilities',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(supabaseRepo.getFixedExpensesByUserId).toHaveBeenCalledWith('user-123', 'individual');
+    expect(supabaseRepo.createFixedExpense).not.toHaveBeenCalled();
+  });
+
+  it('createFixedExpense trims the name before saving', async () => {
+    supabaseRepo.createFixedExpense.mockResolvedValue({ id: 'fe-1' } as any);
+
+    await service.createFixedExpense('user-123', {
+      name: '  Wifi  ',
+      amount: 2500,
+      dueDay: 10,
+      category: 'utilities',
+    });
+
+    expect(supabaseRepo.createFixedExpense).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Wifi' }),
+    );
+  });
+
+  it('createFixedExpense turns a unique-index race into a 409', async () => {
+    supabaseRepo.createFixedExpense.mockRejectedValue({ code: '23505' });
+
+    await expect(
+      service.createFixedExpense('user-123', {
+        name: 'Water',
+        amount: 800,
+        dueDay: 20,
+        category: 'utilities',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('updateFixedExpense rejects renaming to an existing name', async () => {
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'Rent',
+      amount: 15000,
+      due_day: 1,
+      category: 'housing',
+      segment: 'individual',
+    } as any);
+    supabaseRepo.getFixedExpensesByUserId.mockResolvedValue([
+      { id: 'fe-1', user_id: 'user-123', name: 'Rent', segment: 'individual' } as any,
+      { id: 'fe-2', user_id: 'user-123', name: 'Water', segment: 'individual' } as any,
+    ]);
+
+    await expect(
+      service.updateFixedExpense('user-123', 'fe-1', { name: ' water ' }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(supabaseRepo.updateFixedExpense).not.toHaveBeenCalled();
+  });
+
+  it('updateFixedExpense allows keeping its own name', async () => {
+    supabaseRepo.getFixedExpenseById.mockResolvedValue({
+      id: 'fe-1',
+      user_id: 'user-123',
+      name: 'Rent',
+      amount: 15000,
+      due_day: 1,
+      category: 'housing',
+      segment: 'individual',
+    } as any);
+    supabaseRepo.getFixedExpensesByUserId.mockResolvedValue([
+      { id: 'fe-1', user_id: 'user-123', name: 'Rent', segment: 'individual' } as any,
+    ]);
+    supabaseRepo.updateFixedExpense.mockResolvedValue({ id: 'fe-1' } as any);
+
+    await expect(
+      service.updateFixedExpense('user-123', 'fe-1', { name: 'Rent', amount: 16000 }),
+    ).resolves.toEqual({ id: 'fe-1' });
+  });
+
+  it('bulkCreateFixedExpenses skips existing and repeated names', async () => {
+    supabaseRepo.getFixedExpensesByUserId.mockResolvedValue([
+      { id: 'fe-water', user_id: 'user-123', name: 'Water', segment: 'individual' } as any,
+    ]);
+    supabaseRepo.createFixedExpense.mockImplementation(async (row: any) => ({
+      id: `fe-${row.name}`,
+      ...row,
+    }));
+
+    const result = await service.bulkCreateFixedExpenses('user-123', [
+      { name: 'Water', amount: 800, dueDay: 20, category: 'utilities' },
+      { name: 'Electricity', amount: 2200, dueDay: 15, category: 'utilities' },
+      { name: ' electricity ', amount: 2200, dueDay: 15, category: 'utilities' },
+    ]);
+
+    expect(result.created).toHaveLength(1);
+    expect(result.created[0].name).toBe('Electricity');
+    expect(result.failed.map((f) => f.index)).toEqual([0, 2]);
+    expect(result.total_monthly).toBe(2200);
+  });
+
+  it('getFixedExpenses passes an explicit segment filter through', async () => {
+    await service.getFixedExpenses('user-123', 'msme');
+
+    expect(supabaseRepo.getFixedExpensesByUserId).toHaveBeenCalledWith('user-123', 'msme');
   });
 
   it('updateFixedExpense rejects when the expense belongs to another user', async () => {

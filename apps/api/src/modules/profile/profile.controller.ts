@@ -82,7 +82,10 @@ export class ProfileController {
   @ApiOperation({ summary: "Get the current user's fixed expenses (segment-filtered)" })
   @ApiResponse({ status: 200, description: 'List of fixed expenses' })
   getFixedExpenses(@Request() req: any, @Query('segment') segment?: 'individual' | 'msme') {
-    return this.profileService.getFixedExpenses(req.user.id, segment);
+    // Default to the individual list: without a segment filter this returned
+    // both segments, so MSME bills leaked into the personal Fixed Expenses
+    // screen (and inflated its total).
+    return this.profileService.getFixedExpenses(req.user.id, segment ?? 'individual');
   }
 
   @Post('fixed-expenses')

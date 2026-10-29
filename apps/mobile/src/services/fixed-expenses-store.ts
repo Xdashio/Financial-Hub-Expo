@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, pocketsApi } from '@/services/api';
+import { api, pocketsApi, profileApi } from '@/services/api';
 import { useHomeStore } from '@/services/home-store';
 import { useDataSync } from '@/services/data-sync';
 
@@ -40,6 +40,39 @@ function toApiBody(expense: Partial<FixedExpense> & { name?: string; amount?: nu
   delete body.user_id;
   delete body.created_at;
   return body;
+}
+
+function fixedExpenseNameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function createdAtValue(expense: FixedExpense): number {
+  const parsed = Date.parse(expense.created_at ?? '');
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isNewerFixedExpense(candidate: FixedExpense, current: FixedExpense): boolean {
+  const candidateTime = createdAtValue(candidate);
+  const currentTime = createdAtValue(current);
+  if (candidateTime !== currentTime) return candidateTime > currentTime;
+  return candidate.id > current.id;
+}
+
+/**
+ * Legacy rows can still contain several copies of the same bill until
+ * migration 044 is applied. Show one row per name, keeping the newest copy,
+ * so the list and its total stay correct in the meantime.
+ */
+function dedupeFixedExpenses(expenses: FixedExpense[]): FixedExpense[] {
+  const byName = new Map<string, FixedExpense>();
+  for (const expense of expenses) {
+    const key = fixedExpenseNameKey(expense.name);
+    const current = byName.get(key);
+    if (!current || isNewerFixedExpense(expense, current)) {
+      byName.set(key, expense);
+    }
+  }
+  return Array.from(byName.values());
 }
 
 function matchFixedPocket(
@@ -118,8 +151,13 @@ export const useFixedExpensesStore = create<FixedExpensesState>((set, get) => ({
   fetchExpenses: async () => {
     try {
       set({ isLoading: true, error: null });
-      const data = await api.get<any[]>('/profile/fixed-expenses');
-      set({ expenses: data, isLoading: false });
+      // Always scope to the individual segment: an unfiltered request also
+      // returned MSME bills, which inflated this screen's list and total.
+      const data = await profileApi.getFixedExpenses('individual');
+      set({
+        expenses: dedupeFixedExpenses(Array.isArray(data) ? data : []),
+        isLoading: false,
+      });
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to load expenses',
@@ -130,28 +168,48 @@ export const useFixedExpensesStore = create<FixedExpensesState>((set, get) => ({
 
   addExpense: async (expenseData) => {
     const { expenses: previousExpenses } = get();
+    const trimmedName = expenseData.name.trim();
+    if (!trimmedName) {
+      throw new Error('Name is required');
+    }
+    if (
+      previousExpenses.some(
+        (e) => fixedExpenseNameKey(e.name) === fixedExpenseNameKey(trimmedName),
+      )
+    ) {
+      throw new Error('A fixed expense with this name already exists');
+    }
+    const nextExpense = { ...expenseData, name: trimmedName };
     
     try {
       const optimisticExpense: FixedExpense = {
-        ...expenseData,
+        ...nextExpense,
         id: `temp-${Date.now()}`,
         user_id: 'current',
         created_at: new Date().toISOString(),
       };
       set({ expenses: [...previousExpenses, optimisticExpense] });
 
-      const created = await api.post<any>('/profile/fixed-expenses', toApiBody(expenseData));
+      const created = await api.post<any>('/profile/fixed-expenses', toApiBody(nextExpense));
       
-      set({
-        expenses: get().expenses.map(e => (e.id === optimisticExpense.id ? created : e)),
+      set((state) => {
+        const hasOptimisticRow = state.expenses.some((e) => e.id === optimisticExpense.id);
+        if (hasOptimisticRow) {
+          return {
+            expenses: state.expenses.map((e) => (e.id === optimisticExpense.id ? created : e)),
+          };
+        }
+        // A focus refresh can replace the optimistic row before the POST
+        // resolves. Append the persisted row instead of silently losing it.
+        return { expenses: dedupeFixedExpenses([...state.expenses, created]) };
       });
 
       await syncHomepagePocket({
-        previousName: expenseData.name,
-        previousCategory: expenseData.category,
-        nextName: expenseData.name,
-        nextCategory: expenseData.category,
-        nextAmount: expenseData.amount,
+        previousName: nextExpense.name,
+        previousCategory: nextExpense.category,
+        nextName: nextExpense.name,
+        nextCategory: nextExpense.category,
+        nextAmount: nextExpense.amount,
       });
     } catch (error) {
       set({ expenses: previousExpenses });
@@ -163,21 +221,35 @@ export const useFixedExpensesStore = create<FixedExpensesState>((set, get) => ({
     const { expenses } = get();
     const previousExpenses = [...expenses];
     const existing = expenses.find((e) => e.id === id);
+    const trimmedName = updates.name?.trim();
+
+    if (updates.name !== undefined && !trimmedName) {
+      throw new Error('Name is required');
+    }
+    if (
+      trimmedName &&
+      expenses.some(
+        (e) => e.id !== id && fixedExpenseNameKey(e.name) === fixedExpenseNameKey(trimmedName),
+      )
+    ) {
+      throw new Error('A fixed expense with this name already exists');
+    }
+    const nextUpdates = trimmedName ? { ...updates, name: trimmedName } : updates;
 
     try {
       set({ 
-        expenses: expenses.map(e => e.id === id ? { ...e, ...updates } : e)
+        expenses: expenses.map(e => e.id === id ? { ...e, ...nextUpdates } : e)
       });
 
-      await api.put<any>(`/profile/fixed-expenses/${id}`, toApiBody(updates));
+      await api.put<any>(`/profile/fixed-expenses/${id}`, toApiBody(nextUpdates));
       
-      const data = await api.get<any[]>('/profile/fixed-expenses');
-      set({ expenses: data });
+      const data = await profileApi.getFixedExpenses('individual');
+      set({ expenses: dedupeFixedExpenses(Array.isArray(data) ? data : []) });
 
       if (existing) {
-        const nextName = updates.name ?? existing.name;
-        const nextCategory = updates.category ?? existing.category;
-        const nextAmount = updates.amount ?? existing.amount;
+        const nextName = nextUpdates.name ?? existing.name;
+        const nextCategory = nextUpdates.category ?? existing.category;
+        const nextAmount = nextUpdates.amount ?? existing.amount;
         await syncHomepagePocket({
           previousName: existing.name,
           previousCategory: existing.category,
