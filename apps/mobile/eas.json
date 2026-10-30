@@ -10,6 +10,8 @@
       "environment": "development",
       "env": {
         "EXPO_PUBLIC_API_URL": "http://localhost:3000/api",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fnepvrapnzbaqyuoayue.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuZXB2cmFwbnpiYXF5dW9heXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc1MDQsImV4cCI6MjEwMTY4MzUwNH0.pKruTZ6kmYmVEVTjnOEz7SPY4jKhIlJuRO1LOwQm0PE",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
@@ -20,7 +22,9 @@
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-staging-f91bc.up.railway.app/api",
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000/api",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fnepvrapnzbaqyuoayue.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuZXB2cmFwbnpiYXF5dW9heXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc1MDQsImV4cCI6MjEwMTY4MzUwNH0.pKruTZ6kmYmVEVTjnOEz7SPY4jKhIlJuRO1LOwQm0PE",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "ARM64_ONLY_BUILD": "true"
       },
@@ -32,7 +36,9 @@
       "distribution": "internal",
       "environment": "preview",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-staging-f91bc.up.railway.app/api",
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000/api",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fnepvrapnzbaqyuoayue.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuZXB2cmFwbnpiYXF5dW9heXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc1MDQsImV4cCI6MjEwMTY4MzUwNH0.pKruTZ6kmYmVEVTjnOEz7SPY4jKhIlJuRO1LOwQm0PE",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "android": {
@@ -42,7 +48,9 @@
     "production": {
       "environment": "production",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://api-production-f91bc.up.railway.app/api",
+        "EXPO_PUBLIC_API_URL": "https://fnepvrapnzbaqyuoayue.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fnepvrapnzbaqyuoayue.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZuZXB2cmFwbnpiYXF5dW9heXVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYxMDc1MDQsImV4cCI6MjEwMTY4MzUwNH0.pKruTZ6kmYmVEVTjnOEz7SPY4jKhIlJuRO1LOwQm0PE",
         "SENTRY_ORG": "singason",
         "SENTRY_PROJECT": "financial_hub"
       },

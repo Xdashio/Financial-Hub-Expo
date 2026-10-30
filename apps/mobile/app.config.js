@@ -55,6 +55,7 @@ module.exports = {
       predictiveBackGestureEnabled: false,
       package: "com.financialhub.mobile",
       enableProguardInReleaseBuilds: true,
+      usesCleartextTraffic: true,
     },
     web: {
       bundler: "metro",
